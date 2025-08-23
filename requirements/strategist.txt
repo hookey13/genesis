@@ -1,0 +1,7 @@
+# Strategist tier dependencies ($10k+)
+# Includes hunter requirements plus advanced analytics
+
+-r hunter.txt
+
+# Additional dependencies for Strategist tier
+# (To be added as tier features are implemented)

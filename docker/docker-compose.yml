@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  genesis:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: genesis-dev
+    environment:
+      - DEPLOYMENT_ENV=development
+      - DEBUG=true
+      - BINANCE_TESTNET=true
+    env_file:
+      - ../.env
+    volumes:
+      # Mount source code for development hot-reload
+      - ../genesis:/app/genesis:ro
+      - ../config:/app/config:ro
+      - ../tests:/app/tests:ro
+      - ../scripts:/app/scripts:ro
+      
+      # Persistent data volumes
+      - genesis-data:/app/.genesis/data
+      - genesis-logs:/app/.genesis/logs
+      - genesis-state:/app/.genesis/state
+    networks:
+      - genesis-network
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    command: python -m genesis
+
+  # Optional: Redis for future Hunter+ tier
+  # Uncomment when needed
+  # redis:
+  #   image: redis:7.2.4-alpine
+  #   container_name: genesis-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   networks:
+  #     - genesis-network
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+
+  # Optional: PostgreSQL for future $2k+ tier
+  # Uncomment when needed
+  # postgres:
+  #   image: postgres:16.1-alpine
+  #   container_name: genesis-postgres
+  #   environment:
+  #     POSTGRES_DB: genesis
+  #     POSTGRES_USER: genesis
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-genesis_dev_password}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - genesis-network
+  #   restart: unless-stopped
+
+volumes:
+  genesis-data:
+    driver: local
+  genesis-logs:
+    driver: local
+  genesis-state:
+    driver: local
+  # redis-data:
+  #   driver: local
+  # postgres-data:
+  #   driver: local
+
+networks:
+  genesis-network:
+    driver: bridge

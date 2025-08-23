@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  genesis:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: genesis-prod
+    environment:
+      - DEPLOYMENT_ENV=production
+      - DEBUG=false
+      - BINANCE_TESTNET=false
+    env_file:
+      - ../.env.production
+    volumes:
+      # Production uses only data volumes, no source code mounting
+      - genesis-data:/app/.genesis/data
+      - genesis-logs:/app/.genesis/logs
+      - genesis-state:/app/.genesis/state
+      - genesis-backups:/app/.genesis/backups
+    networks:
+      - genesis-network
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    # Use supervisor for process management
+    command: supervisord -c /etc/supervisor/conf.d/genesis.conf
+    
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  # Redis for Hunter+ tier (production)
+  redis:
+    image: redis:7.2.4-alpine
+    container_name: genesis-redis-prod
+    volumes:
+      - redis-data:/data
+    networks:
+      - genesis-network
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # PostgreSQL for production (when migrating from SQLite)
+  postgres:
+    image: postgres:16.1-alpine
+    container_name: genesis-postgres-prod
+    environment:
+      POSTGRES_DB: genesis
+      POSTGRES_USER: genesis
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - genesis-network
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  genesis-data:
+    driver: local
+  genesis-logs:
+    driver: local
+  genesis-state:
+    driver: local
+  genesis-backups:
+    driver: local
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+networks:
+  genesis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

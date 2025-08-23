@@ -1,0 +1,7 @@
+# Hunter tier dependencies ($2k-$10k)
+# Includes base requirements plus slicing libraries
+
+-r base.txt
+
+# Additional dependencies for Hunter tier
+# (To be added as tier features are implemented)

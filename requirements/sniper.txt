@@ -1,0 +1,4 @@
+# Sniper tier dependencies ($500-$2k)
+# Includes only base requirements
+
+-r base.txt

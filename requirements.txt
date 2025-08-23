@@ -1,0 +1,4 @@
+# Main requirements file
+# This references the base requirements for MVP/Sniper tier
+
+-r requirements/sniper.txt
