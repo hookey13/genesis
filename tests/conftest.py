@@ -29,15 +29,15 @@ def test_env():
         "DATABASE_URL": "sqlite:///test.db",
         "LOG_LEVEL": "DEBUG",
     }
-    
+
     # Save original environment
     original_env = os.environ.copy()
-    
+
     # Set test environment
     os.environ.update(test_env_vars)
-    
+
     yield test_env_vars
-    
+
     # Restore original environment
     os.environ.clear()
     os.environ.update(original_env)
@@ -46,18 +46,18 @@ def test_env():
 @pytest.fixture
 def mock_settings():
     """Mock settings object for testing."""
-    from config.settings import Settings, ExchangeSettings, TradingSettings
-    
+    from config.settings import ExchangeSettings, Settings, TradingSettings
+
     settings = MagicMock(spec=Settings)
     settings.exchange = MagicMock(spec=ExchangeSettings)
     settings.exchange.binance_api_key = "test_key"
     settings.exchange.binance_api_secret = "test_secret"
     settings.exchange.binance_testnet = True
-    
+
     settings.trading = MagicMock(spec=TradingSettings)
     settings.trading.trading_tier = "sniper"
     settings.trading.max_position_size_usdt = 100.0
-    
+
     return settings
 
 
@@ -81,10 +81,10 @@ def temp_project_structure(tmp_path):
         ".genesis/data",
         ".genesis/logs",
     ]
-    
+
     for dir_path in dirs:
         (tmp_path / dir_path).mkdir(parents=True, exist_ok=True)
-    
+
     # Create __init__.py files
     init_files = [
         "genesis/__init__.py",
@@ -95,10 +95,10 @@ def temp_project_structure(tmp_path):
         "config/__init__.py",
         "tests/__init__.py",
     ]
-    
+
     for init_file in init_files:
         (tmp_path / init_file).touch()
-    
+
     return tmp_path
 
 
@@ -123,8 +123,7 @@ def clean_imports():
     yield
     # Remove our modules from sys.modules
     modules_to_remove = [
-        key for key in sys.modules.keys() 
-        if key.startswith(("genesis", "config"))
+        key for key in sys.modules.keys() if key.startswith(("genesis", "config"))
     ]
     for module in modules_to_remove:
         del sys.modules[module]
