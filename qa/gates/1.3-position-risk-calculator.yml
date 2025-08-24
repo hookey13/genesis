@@ -1,0 +1,121 @@
+schema: 1
+story: '1.3'
+story_title: 'Position & Risk Calculator'
+gate: CONCERNS
+status_reason: 'Core functionality implemented with partial test failures. Risk engine position sizing logic requires refinement to match test expectations.'
+reviewer: 'Quinn (Test Architect)'
+updated: '2025-08-24T17:37:00Z'
+
+top_issues:
+  - severity: medium
+    category: test_failures
+    description: '7 unit tests failing in risk engine module'
+    refs: ['tests/unit/test_risk_engine.py']
+    suggested_owner: dev
+  - severity: medium
+    category: test_coverage
+    description: 'Risk engine module has 86% coverage but tests not passing'
+    refs: ['genesis/engine/risk_engine.py']
+    suggested_owner: dev
+  - severity: low
+    category: position_sizing_logic
+    description: 'Position sizing calculations need adjustment for edge cases'
+    refs: ['genesis/engine/risk_engine.py:88-171']
+    suggested_owner: dev
+
+waiver:
+  active: false
+
+quality_score: 70
+
+expires: '2025-09-07T17:37:00Z'
+
+evidence:
+  tests_reviewed: 38
+  risks_identified: 3
+  trace:
+    ac_covered: [1, 2, 3, 4, 5, 6, 7]
+    ac_gaps: [8]
+
+nfr_validation:
+  security:
+    status: PASS
+    notes: 'Proper use of Decimal for financial calculations, no float usage detected'
+  performance:
+    status: PASS
+    notes: 'Risk calculations tested to complete within 10ms requirement'
+  reliability:
+    status: CONCERNS
+    notes: 'Error handling present but edge cases in position sizing need refinement'
+  maintainability:
+    status: PASS
+    notes: 'Well-structured code with proper separation of concerns and documentation'
+
+refactoring_performed:
+  - file: 'genesis/engine/risk_engine.py'
+    change: 'Fixed position sizing logic to properly cap positions at risk amount'
+    improvement: 'Prevents positions from exceeding 5% risk rule and account balance'
+  - file: 'genesis/engine/risk_engine.py'
+    change: 'Added early validation for zero/negative balance'
+    improvement: 'Better error handling for edge cases'
+
+recommendations:
+  immediate:
+    - action: 'Fix remaining 7 failing unit tests'
+      refs: ['tests/unit/test_risk_engine.py']
+      priority: high
+    - action: 'Clarify position sizing expectations in edge cases'
+      refs: ['genesis/engine/risk_engine.py:calculate_position_size']
+      priority: medium
+  future:
+    - action: 'Add property-based tests for position sizing calculations'
+      refs: ['tests/unit/test_risk_engine.py']
+      priority: low
+    - action: 'Consider extracting position sizing strategies to separate classes'
+      refs: ['genesis/engine/risk_engine.py']
+      priority: low
+
+test_architecture_assessment:
+  coverage_levels:
+    unit: 'Good coverage at 86% for risk_engine module'
+    integration: 'Comprehensive integration tests present'
+    e2e: 'Not yet implemented'
+  test_quality: 'Well-structured tests with clear edge case coverage'
+  test_maintainability: 'Good use of fixtures and test organization'
+  recommendations:
+    - 'Focus on fixing failing tests rather than adding new ones'
+    - 'Consider parameterized tests for position sizing scenarios'
+
+requirements_trace:
+  AC1_position_size_5_percent:
+    implementation: 'Implemented in risk_engine.calculate_position_size()'
+    tests: ['test_calculate_position_size_basic', 'test_position_size_with_custom_risk']
+    status: 'Partially working - edge cases failing'
+  AC2_minimum_position_validation:
+    implementation: 'MINIMUM_POSITION_SIZE = $10 enforced'
+    tests: ['test_minimum_position_size_validation']
+    status: 'Test failing - logic needs adjustment'
+  AC3_balance_sync_60_seconds:
+    implementation: 'AccountManager.SYNC_INTERVAL = 60'
+    tests: ['test_account_sync_flow']
+    status: 'Implemented correctly'
+  AC4_stop_loss_calculation:
+    implementation: 'calculate_stop_loss() with configurable percentage'
+    tests: ['test_calculate_stop_loss_long', 'test_calculate_stop_loss_short']
+    status: 'Working correctly'
+  AC5_realtime_pnl:
+    implementation: 'calculate_pnl() and update_all_pnl()'
+    tests: ['test_calculate_pnl_long_profit', 'test_calculate_pnl_short_profit']
+    status: 'Working correctly'
+  AC6_daily_loss_limit:
+    implementation: 'TradingSession.is_daily_limit_reached()'
+    tests: ['test_daily_loss_limit_flow', 'test_validate_daily_loss_limit']
+    status: 'Partially working - validation test failing'
+  AC7_prevent_exceeding_limits:
+    implementation: 'validate_order_risk() and prevent_exceeding_limits()'
+    tests: ['test_validate_order_risk_pass', 'test_validate_max_positions']
+    status: 'Tests failing - needs review'
+  AC8_clear_error_messages:
+    implementation: 'Custom exceptions with detailed messages'
+    tests: 'Covered across multiple test cases'
+    status: 'Working correctly'

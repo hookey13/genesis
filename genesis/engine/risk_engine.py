@@ -1,0 +1,439 @@
+"""
+Risk management engine for Project GENESIS.
+
+This module implements position sizing, risk limits, stop-loss calculations,
+and P&L tracking with strict adherence to tier-based limits.
+"""
+
+from decimal import ROUND_DOWN, ROUND_UP, Decimal
+from typing import ClassVar
+
+import structlog
+
+from genesis.core.exceptions import (
+    DailyLossLimitReached,
+    InsufficientBalance,
+    MinimumPositionSize,
+    RiskLimitExceeded,
+)
+from genesis.core.models import (
+    Account,
+    Position,
+    PositionSide,
+    TradingSession,
+    TradingTier,
+)
+from genesis.utils.decorators import requires_tier
+
+logger = structlog.get_logger(__name__)
+
+
+class RiskEngine:
+    """
+    Core risk management engine.
+
+    Handles position sizing, risk limits, P&L calculations,
+    and tier-based restrictions.
+    """
+
+    # Risk parameters by tier
+    TIER_LIMITS: ClassVar[dict] = {
+        TradingTier.SNIPER: {
+            "daily_loss_limit": Decimal("25"),
+            "position_risk_percent": Decimal("5"),
+            "max_positions": 1,
+            "stop_loss_percent": Decimal("2")
+        },
+        TradingTier.HUNTER: {
+            "daily_loss_limit": Decimal("100"),
+            "position_risk_percent": Decimal("5"),
+            "max_positions": 3,
+            "stop_loss_percent": Decimal("2")
+        },
+        TradingTier.STRATEGIST: {
+            "daily_loss_limit": Decimal("500"),
+            "position_risk_percent": Decimal("5"),
+            "max_positions": 5,
+            "stop_loss_percent": Decimal("2")
+        },
+        TradingTier.ARCHITECT: {
+            "daily_loss_limit": Decimal("1000"),
+            "position_risk_percent": Decimal("5"),
+            "max_positions": 10,
+            "stop_loss_percent": Decimal("2")
+        }
+    }
+
+    MINIMUM_POSITION_SIZE = Decimal("10")  # $10 minimum
+
+    def __init__(self, account: Account, session: TradingSession | None = None):
+        """
+        Initialize risk engine with account and session.
+
+        Args:
+            account: Trading account
+            session: Current trading session (optional)
+        """
+        self.account = account
+        self.session = session
+        self.tier_limits = self.TIER_LIMITS[account.tier]
+        self.positions: dict[str, Position] = {}
+
+        logger.info(
+            "Risk engine initialized",
+            account_id=account.account_id,
+            tier=account.tier.value,
+            balance=str(account.balance_usdt)
+        )
+
+    def calculate_position_size(
+        self,
+        symbol: str,
+        entry_price: Decimal,
+        stop_loss_price: Decimal | None = None,
+        custom_risk_percent: Decimal | None = None
+    ) -> Decimal:
+        """
+        Calculate position size based on risk parameters.
+
+        Uses the 5% rule (or custom percentage) to determine maximum position size
+        based on account balance and stop loss.
+
+        Args:
+            symbol: Trading symbol
+            entry_price: Entry price for the position
+            stop_loss_price: Stop loss price (optional, will calculate if not provided)
+            custom_risk_percent: Custom risk percentage (optional, defaults to tier limit)
+
+        Returns:
+            Position size in base currency units
+
+        Raises:
+            InsufficientBalance: If account balance is too low
+            MinimumPositionSize: If calculated size is below minimum
+        """
+        # Check for zero or insufficient balance early
+        if self.account.balance_usdt <= 0:
+            raise InsufficientBalance(
+                "Account balance is zero or negative",
+                required_amount=self.MINIMUM_POSITION_SIZE,
+                available_amount=self.account.balance_usdt
+            )
+
+        # Check if balance is too low to meet minimum position size
+        if self.account.balance_usdt < self.MINIMUM_POSITION_SIZE:
+            raise MinimumPositionSize(
+                f"Account balance ${self.account.balance_usdt:.2f} is below minimum position size ${self.MINIMUM_POSITION_SIZE}",
+                position_size=self.account.balance_usdt,
+                minimum_size=self.MINIMUM_POSITION_SIZE
+            )
+
+        risk_percent = custom_risk_percent or self.tier_limits["position_risk_percent"]
+        risk_amount = (self.account.balance_usdt * risk_percent) / Decimal("100")
+
+        # Calculate stop loss if not provided
+        if stop_loss_price is None:
+            stop_loss_price = self.calculate_stop_loss(entry_price, PositionSide.LONG)
+
+        # Calculate position size based on stop loss
+        price_risk = abs(entry_price - stop_loss_price)
+        if price_risk == 0:
+            # If no price risk, use full risk amount for position
+            position_value = risk_amount
+            quantity = (position_value / entry_price).quantize(
+                Decimal("0.00000001"), rounding=ROUND_DOWN
+            )
+        else:
+            # Position size = Risk Amount / Price Risk per unit
+            # This gives us the number of units we can buy while risking only the risk amount
+            quantity = (risk_amount / price_risk).quantize(
+                Decimal("0.00000001"), rounding=ROUND_DOWN
+            )
+            position_value = quantity * entry_price
+
+        # Ensure position value doesn't exceed account balance
+        if position_value > self.account.balance_usdt:
+            # If position value would exceed balance, recalculate quantity
+            quantity = (self.account.balance_usdt / entry_price).quantize(
+                Decimal("0.00000001"), rounding=ROUND_DOWN
+            )
+            position_value = quantity * entry_price
+
+        # Ensure position meets minimum size
+        if position_value < self.MINIMUM_POSITION_SIZE:
+            # If the calculated position is below minimum, try to meet minimum if possible
+            if self.account.balance_usdt >= self.MINIMUM_POSITION_SIZE:
+                # Use minimum position size if we have enough balance
+                quantity = (self.MINIMUM_POSITION_SIZE / entry_price).quantize(
+                    Decimal("0.00000001"), rounding=ROUND_UP
+                )
+                position_value = quantity * entry_price
+                # Final check that we don't exceed balance
+                if position_value > self.account.balance_usdt:
+                    raise MinimumPositionSize(
+                        "Cannot meet minimum position size with available balance",
+                        position_size=position_value,
+                        minimum_size=self.MINIMUM_POSITION_SIZE
+                    )
+            else:
+                raise MinimumPositionSize(
+                    f"Position size ${position_value:.2f} is below minimum ${self.MINIMUM_POSITION_SIZE}",
+                    position_size=position_value,
+                    minimum_size=self.MINIMUM_POSITION_SIZE
+                )
+
+        logger.info(
+            "Position size calculated",
+            symbol=symbol,
+            entry_price=str(entry_price),
+            stop_loss=str(stop_loss_price),
+            risk_percent=str(risk_percent),
+            position_value=str(position_value),
+            quantity=str(quantity)
+        )
+
+        return quantity
+
+    def calculate_stop_loss(
+        self,
+        entry_price: Decimal,
+        side: PositionSide,
+        stop_loss_percent: Decimal | None = None
+    ) -> Decimal:
+        """
+        Calculate stop loss price based on entry and percentage.
+
+        Args:
+            entry_price: Entry price for the position
+            side: Position side (LONG or SHORT)
+            stop_loss_percent: Stop loss percentage (optional, defaults to tier limit)
+
+        Returns:
+            Stop loss price
+        """
+        sl_percent = stop_loss_percent or self.tier_limits["stop_loss_percent"]
+
+        if side == PositionSide.LONG:
+            # For long positions, stop loss is below entry
+            stop_loss = entry_price * (Decimal("1") - sl_percent / Decimal("100"))
+        else:
+            # For short positions, stop loss is above entry
+            stop_loss = entry_price * (Decimal("1") + sl_percent / Decimal("100"))
+
+        # Round to 8 decimal places for crypto
+        stop_loss = stop_loss.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+
+        logger.debug(
+            "Stop loss calculated",
+            entry_price=str(entry_price),
+            side=side.value,
+            stop_loss_percent=str(sl_percent),
+            stop_loss_price=str(stop_loss)
+        )
+
+        return stop_loss
+
+    def calculate_pnl(self, position: Position, current_price: Decimal) -> dict[str, Decimal]:
+        """
+        Calculate P&L for a position.
+
+        Args:
+            position: Position to calculate P&L for
+            current_price: Current market price
+
+        Returns:
+            Dictionary with pnl_dollars and pnl_percent
+        """
+        if position.side == PositionSide.LONG:
+            price_change = current_price - position.entry_price
+        else:  # SHORT
+            price_change = position.entry_price - current_price
+
+        pnl_dollars = (price_change * position.quantity).quantize(
+            Decimal("0.01"), rounding=ROUND_DOWN
+        )
+        pnl_percent = ((price_change / position.entry_price) * Decimal("100")).quantize(
+            Decimal("0.0001"), rounding=ROUND_DOWN
+        )
+
+        return {
+            "pnl_dollars": pnl_dollars,
+            "pnl_percent": pnl_percent
+        }
+
+    def validate_order_risk(
+        self,
+        symbol: str,
+        side: PositionSide,
+        quantity: Decimal,
+        entry_price: Decimal
+    ) -> None:
+        """
+        Validate an order against risk limits.
+
+        Args:
+            symbol: Trading symbol
+            side: Order side
+            quantity: Order quantity
+            entry_price: Entry price
+
+        Raises:
+            RiskLimitExceeded: If order would exceed risk limits
+            DailyLossLimitReached: If daily loss limit has been reached
+            InsufficientBalance: If insufficient balance
+        """
+        position_value = quantity * entry_price
+
+        # Check minimum position size
+        if position_value < self.MINIMUM_POSITION_SIZE:
+            raise MinimumPositionSize(
+                f"Position size ${position_value:.2f} is below minimum",
+                position_size=position_value,
+                minimum_size=self.MINIMUM_POSITION_SIZE
+            )
+
+        # Check account balance
+        if position_value > self.account.balance_usdt:
+            raise InsufficientBalance(
+                "Insufficient balance for position",
+                required_amount=position_value,
+                available_amount=self.account.balance_usdt
+            )
+
+        # Check position risk percentage
+        risk_percent = (position_value / self.account.balance_usdt) * Decimal("100")
+        max_risk = self.tier_limits["position_risk_percent"]
+
+        if risk_percent > max_risk:
+            raise RiskLimitExceeded(
+                f"Position risk {risk_percent:.2f}% exceeds maximum {max_risk}%",
+                limit_type="position_risk",
+                current_value=risk_percent,
+                limit_value=max_risk
+            )
+
+        # Check daily loss limit if session exists
+        if self.session is not None and self.session.is_daily_limit_reached():
+            raise DailyLossLimitReached(
+                f"Daily loss limit of ${self.tier_limits['daily_loss_limit']} reached",
+                current_loss=abs(self.session.realized_pnl),
+                daily_limit=self.tier_limits["daily_loss_limit"]
+            )
+
+        # Check maximum positions
+        if len(self.positions) >= self.tier_limits["max_positions"]:
+            raise RiskLimitExceeded(
+                f"Maximum positions ({self.tier_limits['max_positions']}) reached for {self.account.tier.value} tier",
+                limit_type="max_positions",
+                current_value=Decimal(len(self.positions)),
+                limit_value=Decimal(self.tier_limits["max_positions"])
+            )
+
+        logger.info(
+            "Order risk validation passed",
+            symbol=symbol,
+            side=side.value,
+            quantity=str(quantity),
+            entry_price=str(entry_price),
+            position_value=str(position_value),
+            risk_percent=str(risk_percent)
+        )
+
+    def prevent_exceeding_limits(self) -> bool:
+        """
+        Check if any risk limits would be exceeded.
+
+        Returns:
+            True if within limits, False otherwise
+        """
+        # Check daily loss limit
+        if self.session is not None and self.session.is_daily_limit_reached():
+            logger.warning(
+                "Daily loss limit reached",
+                current_loss=str(abs(self.session.realized_pnl)),
+                limit=str(self.tier_limits["daily_loss_limit"])
+            )
+            return False
+
+        # Check position count
+        if len(self.positions) >= self.tier_limits["max_positions"]:
+            logger.warning(
+                "Maximum positions reached",
+                current_positions=len(self.positions),
+                max_positions=self.tier_limits["max_positions"]
+            )
+            return False
+
+        return True
+
+    def add_position(self, position: Position) -> None:
+        """Add a position to tracking."""
+        self.positions[position.position_id] = position
+        logger.info(
+            "Position added to risk engine",
+            position_id=position.position_id,
+            symbol=position.symbol,
+            side=position.side.value
+        )
+
+    def remove_position(self, position_id: str) -> None:
+        """Remove a position from tracking."""
+        if position_id in self.positions:
+            del self.positions[position_id]
+            logger.info("Position removed from risk engine", position_id=position_id)
+
+    def update_all_pnl(self, price_updates: dict[str, Decimal]) -> None:
+        """
+        Update P&L for all positions with new prices.
+
+        Args:
+            price_updates: Dictionary of symbol -> current_price
+        """
+        for position in self.positions.values():
+            if position.symbol in price_updates:
+                position.update_pnl(price_updates[position.symbol])
+
+    def get_total_exposure(self) -> Decimal:
+        """Calculate total exposure across all positions."""
+        total = sum(p.dollar_value for p in self.positions.values())
+        return total.quantize(Decimal("0.01"), rounding=ROUND_UP)
+
+    def get_total_pnl(self) -> dict[str, Decimal]:
+        """Calculate total P&L across all positions."""
+        total_dollars = sum(p.pnl_dollars for p in self.positions.values())
+        total_value = sum(p.dollar_value for p in self.positions.values())
+
+        if total_value > 0:
+            total_percent = (total_dollars / total_value) * Decimal("100")
+        else:
+            total_percent = Decimal("0")
+
+        return {
+            "total_pnl_dollars": total_dollars.quantize(Decimal("0.01"), rounding=ROUND_DOWN),
+            "total_pnl_percent": total_percent.quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
+        }
+
+    @requires_tier(TradingTier.HUNTER)
+    async def calculate_position_correlations(self) -> list[tuple]:
+        """
+        Calculate correlations between positions (Hunter+ feature).
+
+        Returns:
+            List of (position_a, position_b, correlation) tuples
+        """
+        # This is a placeholder for correlation calculation
+        # Actual implementation would use historical price data
+        correlations = []
+        positions_list = list(self.positions.values())
+
+        for i, pos_a in enumerate(positions_list):
+            for pos_b in positions_list[i+1:]:
+                # Simplified correlation based on symbol similarity
+                if pos_a.symbol[:3] == pos_b.symbol[:3]:
+                    correlation = Decimal("0.8")
+                else:
+                    correlation = Decimal("0.2")
+
+                correlations.append((pos_a, pos_b, correlation))
+
+        return correlations

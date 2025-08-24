@@ -13,7 +13,6 @@ from typing import Dict, Optional
 
 import structlog
 
-from config.settings import get_settings
 
 
 logger = structlog.get_logger(__name__)
@@ -83,7 +82,6 @@ class RateLimiter:
             window_seconds: Time window in seconds (default: 60)
             threshold_percent: Warning threshold as percentage (default: 80%)
         """
-        self.settings = get_settings()
         self.max_weight = max_weight
         self.window_seconds = window_seconds
         self.threshold_percent = threshold_percent

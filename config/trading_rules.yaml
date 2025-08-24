@@ -1,0 +1,108 @@
+# Trading Rules Configuration for Project GENESIS
+# 
+# This file defines tier-based risk limits and trading rules.
+# All monetary values are in USDT.
+
+# Tier-based risk limits
+tiers:
+  SNIPER:
+    # Capital range: $500 - $2,000
+    daily_loss_limit: 25.00
+    position_risk_percent: 5.0
+    max_positions: 1
+    stop_loss_percent: 2.0
+    minimum_balance: 500.00
+    maximum_balance: 2000.00
+    allowed_strategies:
+      - simple_arb
+      - spread_capture
+    features:
+      - market_orders
+      - basic_risk_management
+      - single_pair_trading
+    
+  HUNTER:
+    # Capital range: $2,000 - $10,000
+    daily_loss_limit: 100.00
+    position_risk_percent: 5.0
+    max_positions: 3
+    stop_loss_percent: 2.0
+    minimum_balance: 2000.00
+    maximum_balance: 10000.00
+    allowed_strategies:
+      - simple_arb
+      - spread_capture
+      - multi_pair
+      - mean_reversion
+    features:
+      - market_orders
+      - limit_orders
+      - advanced_risk_management
+      - multi_pair_trading
+      - position_correlation
+    
+  STRATEGIST:
+    # Capital range: $10,000 - $50,000
+    daily_loss_limit: 500.00
+    position_risk_percent: 5.0
+    max_positions: 5
+    stop_loss_percent: 2.0
+    minimum_balance: 10000.00
+    maximum_balance: 50000.00
+    allowed_strategies:
+      - simple_arb
+      - spread_capture
+      - multi_pair
+      - mean_reversion
+      - statistical_arb
+      - market_making
+    features:
+      - market_orders
+      - limit_orders
+      - stop_limit_orders
+      - advanced_risk_management
+      - multi_pair_trading
+      - position_correlation
+      - vwap_execution
+      - iceberg_orders
+    
+  ARCHITECT:
+    # Capital range: $50,000+
+    daily_loss_limit: 1000.00
+    position_risk_percent: 5.0
+    max_positions: 10
+    stop_loss_percent: 2.0
+    minimum_balance: 50000.00
+    maximum_balance: null  # No upper limit
+    allowed_strategies:
+      - all  # All strategies available
+    features:
+      - all  # All features available
+
+# Global risk parameters
+global:
+  minimum_position_size: 10.00  # $10 minimum position
+  maximum_leverage: 1.0  # No leverage in MVP
+  correlation_alert_threshold: 0.7  # Alert when correlation > 0.7
+  max_daily_trades: 100  # Maximum trades per day
+  emergency_stop_loss: 10.0  # Emergency stop at 10% portfolio loss
+  
+# Position sizing rules
+position_sizing:
+  method: fixed_risk  # Options: fixed_risk, kelly_criterion, fixed_amount
+  risk_per_trade: 5.0  # Percentage of account to risk per trade
+  scale_with_confidence: false  # Scale position size with signal confidence
+  
+# Risk validation rules
+risk_validation:
+  check_balance: true
+  check_daily_limit: true
+  check_position_count: true
+  check_correlation: true
+  check_minimum_size: true
+  
+# Session management
+session:
+  reset_time: "00:00"  # UTC midnight
+  auto_close_on_limit: true  # Auto-close positions when daily limit hit
+  warning_threshold: 80.0  # Warn at 80% of daily loss limit

@@ -142,6 +142,54 @@ class TradingSettings(BaseSettings):
     }
 
 
+class RiskSettings(BaseSettings):
+    """Risk management configuration."""
+    
+    position_risk_percent: Decimal = Field(
+        Decimal("5.0"), env="POSITION_RISK_PERCENT", gt=0, le=100
+    )
+    minimum_position_size: Decimal = Field(
+        Decimal("10.0"), env="MINIMUM_POSITION_SIZE", gt=0
+    )
+    account_sync_interval: int = Field(
+        60, env="ACCOUNT_SYNC_INTERVAL", gt=0
+    )
+    daily_loss_limit_sniper: Decimal = Field(
+        Decimal("25.0"), env="DAILY_LOSS_LIMIT_SNIPER", gt=0
+    )
+    daily_loss_limit_hunter: Decimal = Field(
+        Decimal("100.0"), env="DAILY_LOSS_LIMIT_HUNTER", gt=0
+    )
+    daily_loss_limit_strategist: Decimal = Field(
+        Decimal("500.0"), env="DAILY_LOSS_LIMIT_STRATEGIST", gt=0
+    )
+    correlation_alert_threshold: Decimal = Field(
+        Decimal("0.7"), env="CORRELATION_ALERT_THRESHOLD", ge=0, le=1
+    )
+    max_positions_sniper: int = Field(1, env="MAX_POSITIONS_SNIPER", gt=0)
+    max_positions_hunter: int = Field(3, env="MAX_POSITIONS_HUNTER", gt=0)
+    max_positions_strategist: int = Field(5, env="MAX_POSITIONS_STRATEGIST", gt=0)
+    
+    @field_validator(
+        "position_risk_percent",
+        "minimum_position_size",
+        "daily_loss_limit_sniper",
+        "daily_loss_limit_hunter",
+        "daily_loss_limit_strategist",
+        "correlation_alert_threshold"
+    )
+    @classmethod
+    def ensure_decimal(cls, v):
+        """Ensure values are Decimal type."""
+        return Decimal(str(v))
+    
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": False,
+        "extra": "ignore",
+    }
+
+
 class DatabaseSettings(BaseSettings):
     """Database configuration."""
 
@@ -392,6 +440,7 @@ class Settings:
         """Initialize all settings sections from environment."""
         self.exchange = ExchangeSettings()
         self.trading = TradingSettings()
+        self.risk = RiskSettings()
         self.database = DatabaseSettings()
         self.logging = LoggingSettings()
         self.tilt = TiltDetectionSettings()

@@ -7,7 +7,8 @@ import pytest
 from decimal import Decimal
 from unittest.mock import patch, AsyncMock
 
-from genesis.exchange.gateway import BinanceGateway, OrderRequest
+from genesis.exchange.gateway import BinanceGateway
+from genesis.exchange.models import OrderRequest
 from genesis.exchange.websocket_manager import WebSocketManager
 from genesis.exchange.circuit_breaker import CircuitBreakerManager
 from genesis.exchange.time_sync import TimeSync
@@ -55,24 +56,57 @@ class TestBinanceIntegration:
         with patch("genesis.exchange.websocket_manager.get_settings", return_value=mock_settings):
             manager = WebSocketManager()
             
-            # Mock WebSocket connection
+            # Mock WebSocket connection with controlled behavior
             with patch("genesis.exchange.websocket_manager.websockets.connect") as mock_connect:
                 mock_ws = AsyncMock()
-                mock_ws.recv = AsyncMock(side_effect=[
+                
+                # Create a controlled message sequence
+                message_sequence = [
                     '{"stream": "btcusdt@trade", "data": {"price": "50000"}}',
-                    asyncio.CancelledError()  # Simulate disconnect
-                ])
+                    '{"stream": "btcusdt@depth20@100ms", "data": {"bids": [], "asks": []}}',
+                    asyncio.CancelledError()  # Simulate disconnect after a few messages
+                ]
+                mock_ws.recv = AsyncMock(side_effect=message_sequence)
+                mock_ws.send = AsyncMock()
+                mock_ws.close = AsyncMock()
+                mock_ws.ping = AsyncMock()
+                mock_ws.pong = AsyncMock()
+                
+                # Properly mock the websocket connection 
                 mock_connect.return_value = mock_ws
                 
-                await manager.start()
-                
-                # Give it time to connect
-                await asyncio.sleep(0.1)
-                
-                # Check that at least one connection was established
-                assert len(manager.connections) > 0
-                
-                await manager.stop()
+                # Patch asyncio.sleep to speed up the test
+                with patch("asyncio.sleep") as mock_sleep:
+                    mock_sleep.return_value = None  # Make sleep instant
+                    
+                    try:
+                        # Use asyncio.wait_for to add timeout to prevent hanging
+                        await asyncio.wait_for(manager.start(), timeout=3.0)
+                        
+                        # Give it time to process messages
+                        await asyncio.sleep(0.01)  # Real sleep to let tasks run
+                        
+                        # Check that connections were established
+                        assert len(manager.connections) > 0
+                        
+                        # Verify that the manager is running
+                        stats = manager.get_statistics()
+                        assert stats["running"] is True
+                        
+                    except asyncio.TimeoutError:
+                        # If timeout occurs, it means connections are hanging - this is the bug we're fixing
+                        pytest.fail("WebSocketManager.start() timed out - connections are hanging")
+                    finally:
+                        # Ensure cleanup happens even if test times out
+                        try:
+                            await asyncio.wait_for(manager.stop(), timeout=2.0)
+                        except asyncio.TimeoutError:
+                            # Force cleanup of any remaining tasks
+                            for conn in manager.connections.values():
+                                conn.state = "closed"
+                                for task in [conn.heartbeat_task, conn.message_handler_task]:
+                                    if task and not task.done():
+                                        task.cancel()
     
     @pytest.mark.asyncio
     async def test_circuit_breaker_integration(self, mock_settings):
@@ -202,25 +236,59 @@ class TestBinanceIntegration:
             # Mock WebSocket connections
             with patch("genesis.exchange.websocket_manager.websockets.connect") as mock_connect:
                 mock_ws = AsyncMock()
-                mock_ws.recv = AsyncMock(return_value='{"stream": "test", "data": {}}')
+                
+                # Create a message sequence that doesn't immediately fail
+                message_sequence = [
+                    '{"stream": "btcusdt@trade", "data": {"price": "50000"}}',
+                    '{"stream": "ethusdt@ticker", "data": {"price": "3000"}}',
+                    asyncio.CancelledError()  # Eventually disconnect
+                ]
+                mock_ws.recv = AsyncMock(side_effect=message_sequence)
                 mock_ws.send = AsyncMock()
                 mock_ws.close = AsyncMock()
+                mock_ws.ping = AsyncMock()
+                mock_ws.pong = AsyncMock()
                 mock_connect.return_value = mock_ws
                 
-                await manager.start()
-                
-                # Check connection states
-                states = manager.get_connection_states()
-                
-                # Should have multiple connections
-                assert len(states) > 0
-                
-                # Get statistics
-                stats = manager.get_statistics()
-                assert stats["running"] is True
-                assert "connections" in stats
-                
-                await manager.stop()
+                # Patch asyncio.sleep to speed up the test
+                with patch("asyncio.sleep") as mock_sleep:
+                    mock_sleep.return_value = None  # Make sleep instant
+                    
+                    try:
+                        # Use asyncio.wait_for to add timeout to prevent hanging
+                        await asyncio.wait_for(manager.start(), timeout=3.0)
+                        
+                        # Give it time to establish connections
+                        await asyncio.sleep(0.01)  # Real sleep to let tasks run
+                        
+                        # Check connection states
+                        states = manager.get_connection_states()
+                        
+                        # Should have multiple connections (execution, monitoring, backup)
+                        assert len(states) >= 1
+                        
+                        # Get statistics
+                        stats = manager.get_statistics()
+                        assert stats["running"] is True
+                        assert "connections" in stats
+                        
+                        # Verify connections are in expected states
+                        for conn_name, state in states.items():
+                            assert state in ["connected", "connecting", "disconnected", "reconnecting"]
+                        
+                    except asyncio.TimeoutError:
+                        pytest.fail("WebSocketManager.start() timed out - connections are hanging")
+                    finally:
+                        # Ensure cleanup happens even if test times out
+                        try:
+                            await asyncio.wait_for(manager.stop(), timeout=2.0)
+                        except asyncio.TimeoutError:
+                            # Force cleanup of any remaining tasks
+                            for conn in manager.connections.values():
+                                conn.state = "closed"
+                                for task in [conn.heartbeat_task, conn.message_handler_task]:
+                                    if task and not task.done():
+                                        task.cancel()
     
     @pytest.mark.asyncio
     async def test_mock_mode_functionality(self, mock_settings):

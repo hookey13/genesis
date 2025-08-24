@@ -14,12 +14,13 @@ from typing import Any, Dict, List, Optional
 
 import structlog
 
-from genesis.exchange.gateway import (
+from genesis.exchange.models import (
     AccountBalance,
     MarketTicker,
     OrderBook,
     OrderRequest,
-    OrderResponse
+    OrderResponse,
+    KlineData
 )
 
 
@@ -106,7 +107,7 @@ class MockExchange:
             result[asset] = AccountBalance(
                 asset=asset,
                 free=balance,
-                used=Decimal("0"),
+                locked=Decimal("0"),
                 total=balance
             )
         
@@ -147,9 +148,10 @@ class MockExchange:
                 filled_quantity = Decimal("0")
         
         # Create order response
+        from datetime import datetime
         response = OrderResponse(
             order_id=order_id,
-            exchange_order_id=exchange_order_id,
+            client_order_id=request.client_order_id,
             symbol=request.symbol,
             side=request.side,
             type=request.type,
@@ -157,8 +159,8 @@ class MockExchange:
             price=request.price or self.market_prices.get(request.symbol, Decimal("50000")),
             quantity=request.quantity,
             filled_quantity=filled_quantity,
-            timestamp=int(time.time() * 1000),
-            client_order_id=request.client_order_id
+            created_at=datetime.now(),
+            updated_at=None
         )
         
         # Store order
@@ -242,9 +244,10 @@ class MockExchange:
             return self.orders[order_id]
         
         # Return a default filled order if not found
+        from datetime import datetime
         return OrderResponse(
             order_id=order_id,
-            exchange_order_id=f"EX_{order_id}",
+            client_order_id=None,
             symbol=symbol,
             side="buy",
             type="limit",
@@ -252,7 +255,8 @@ class MockExchange:
             price=self.market_prices.get(symbol, Decimal("50000")),
             quantity=Decimal("0.001"),
             filled_quantity=Decimal("0.001"),
-            timestamp=int(time.time() * 1000)
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
     
     async def fetch_order_book(self, symbol: str, limit: int = 20) -> OrderBook:
@@ -290,11 +294,12 @@ class MockExchange:
             ask_quantity = Decimal(str(random.uniform(0.1, 5.0)))
             asks.append((ask_price, ask_quantity))
         
+        from datetime import datetime
         return OrderBook(
             symbol=symbol,
-            bids=bids,
-            asks=asks,
-            timestamp=int(time.time() * 1000)
+            bids=[[price, qty] for price, qty in bids],
+            asks=[[price, qty] for price, qty in asks],
+            timestamp=datetime.now()
         )
     
     async def fetch_klines(
@@ -367,11 +372,14 @@ class MockExchange:
         
         return MarketTicker(
             symbol=symbol,
-            bid=base_price * Decimal("0.9999"),
-            ask=base_price * Decimal("1.0001"),
-            last=base_price,
-            volume=Decimal(str(random.uniform(1000, 10000))),
-            timestamp=int(time.time() * 1000)
+            last_price=base_price,
+            bid_price=base_price * Decimal("0.9999"),
+            ask_price=base_price * Decimal("1.0001"),
+            volume_24h=Decimal(str(random.uniform(1000, 10000))),
+            quote_volume_24h=base_price * Decimal(str(random.uniform(1000, 10000))),
+            price_change_percent=Decimal(str(random.uniform(-5, 5))),
+            high_24h=base_price * Decimal("1.05"),
+            low_24h=base_price * Decimal("0.95")
         )
     
     async def fetch_time(self) -> int:

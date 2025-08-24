@@ -10,7 +10,8 @@ from genesis.exchange.circuit_breaker import (
     CircuitBreaker,
     CircuitBreakerManager,
     CircuitOpenError,
-    CircuitState
+    CircuitState,
+    FailureRecord
 )
 
 
@@ -75,11 +76,15 @@ class TestCircuitBreaker:
         assert circuit_breaker.failed_calls == 3
         
         # Next call should be rejected
-        with pytest.raises(CircuitOpenError) as exc_info:
+        try:
             await circuit_breaker.call(failing_func)
-        
-        assert "Circuit breaker test is OPEN" in str(exc_info.value)
-        assert circuit_breaker.rejected_calls == 1
+            assert False, "Expected CircuitOpenError to be raised"
+        except Exception as e:
+            # Handle case where clean_imports fixture causes exception class mismatch
+            if type(e).__name__ == 'CircuitOpenError' and 'Circuit breaker test is OPEN' in str(e):
+                assert circuit_breaker.rejected_calls == 1
+            else:
+                raise AssertionError(f"Expected CircuitOpenError but got {type(e).__name__}: {e}")
     
     @pytest.mark.asyncio
     async def test_half_open_state(self, circuit_breaker):
@@ -142,8 +147,8 @@ class TestCircuitBreaker:
         current_time = time.time()
         
         # Add old failure (outside window)
-        old_failure = circuit_breaker.failures.append(
-            circuit_breaker.FailureRecord(
+        circuit_breaker.failures.append(
+            FailureRecord(
                 timestamp=current_time - 20,  # Outside 10s window
                 error="Old error"
             )
@@ -151,7 +156,7 @@ class TestCircuitBreaker:
         
         # Add recent failure
         circuit_breaker.failures.append(
-            circuit_breaker.FailureRecord(
+            FailureRecord(
                 timestamp=current_time - 5,  # Inside window
                 error="Recent error"
             )
@@ -167,7 +172,7 @@ class TestCircuitBreaker:
         # Set circuit to open state
         circuit_breaker.state = CircuitState.OPEN
         circuit_breaker.failures = [
-            circuit_breaker.FailureRecord(timestamp=time.time(), error="Error")
+            FailureRecord(timestamp=time.time(), error="Error")
         ]
         circuit_breaker.consecutive_successes = 1
         circuit_breaker.current_backoff = 4.0

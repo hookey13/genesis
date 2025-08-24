@@ -193,9 +193,11 @@ class WebSocketConnection:
                 for subscription in self.subscriptions:
                     if subscription.stream in stream_name:
                         try:
-                            await asyncio.create_task(
-                                asyncio.coroutine(subscription.callback)(data)
-                            )
+                            # Handle both sync and async callbacks
+                            if asyncio.iscoroutinefunction(subscription.callback):
+                                await subscription.callback(data)
+                            else:
+                                subscription.callback(data)
                         except Exception as e:
                             logger.error(
                                 f"Callback error for stream {subscription.stream}",
@@ -411,7 +413,11 @@ class WebSocketManager:
         
         for callback in callbacks:
             try:
-                await asyncio.create_task(asyncio.coroutine(callback)(data))
+                # Handle both sync and async callbacks
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(data)
+                else:
+                    callback(data)
             except Exception as e:
                 logger.error(f"Trade callback error", error=str(e))
     
@@ -422,7 +428,11 @@ class WebSocketManager:
         
         for callback in callbacks:
             try:
-                await asyncio.create_task(asyncio.coroutine(callback)(data))
+                # Handle both sync and async callbacks
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(data)
+                else:
+                    callback(data)
             except Exception as e:
                 logger.error(f"Depth callback error", error=str(e))
     
@@ -433,7 +443,11 @@ class WebSocketManager:
         
         for callback in callbacks:
             try:
-                await asyncio.create_task(asyncio.coroutine(callback)(data))
+                # Handle both sync and async callbacks
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(data)
+                else:
+                    callback(data)
             except Exception as e:
                 logger.error(f"Kline callback error", error=str(e))
     
@@ -444,7 +458,11 @@ class WebSocketManager:
         
         for callback in callbacks:
             try:
-                await asyncio.create_task(asyncio.coroutine(callback)(data))
+                # Handle both sync and async callbacks
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(data)
+                else:
+                    callback(data)
             except Exception as e:
                 logger.error(f"Ticker callback error", error=str(e))
     

@@ -9,117 +9,27 @@ and request/response validation.
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 import ccxt.async_support as ccxt
-from pydantic import BaseModel, Field, field_validator
 import structlog
 
 from config.settings import get_settings
 from genesis.exchange.rate_limiter import RateLimiter
-from genesis.exchange.mock_exchange import MockExchange
+from genesis.exchange.models import (
+    OrderRequest,
+    OrderResponse,
+    AccountBalance,
+    MarketTicker,
+    OrderBook,
+    KlineData
+)
+
+if TYPE_CHECKING:
+    from genesis.exchange.mock_exchange import MockExchange
 
 
 logger = structlog.get_logger(__name__)
-
-
-class OrderRequest(BaseModel):
-    """Validated order placement request."""
-    
-    symbol: str = Field(..., description="Trading pair (e.g., BTC/USDT)")
-    side: str = Field(..., pattern="^(buy|sell)$")
-    type: str = Field(..., pattern="^(market|limit|stop_limit)$")
-    quantity: Decimal = Field(..., gt=0)
-    price: Optional[Decimal] = Field(None, gt=0)
-    stop_price: Optional[Decimal] = Field(None, gt=0)
-    client_order_id: Optional[str] = Field(None, min_length=1, max_length=36)
-    
-    @field_validator("quantity", "price", "stop_price", mode="before")
-    @classmethod
-    def ensure_decimal(cls, v):
-        """Convert to Decimal for precision."""
-        if v is not None:
-            return Decimal(str(v))
-        return v
-    
-    @field_validator("price")
-    @classmethod
-    def validate_price_for_limit(cls, v, info):
-        """Ensure price is provided for limit orders."""
-        if info.data.get("type") == "limit" and v is None:
-            raise ValueError("Price required for limit orders")
-        return v
-
-
-class OrderResponse(BaseModel):
-    """Validated order response from exchange."""
-    
-    order_id: str
-    exchange_order_id: str
-    symbol: str
-    side: str
-    type: str
-    status: str
-    price: Optional[Decimal]
-    quantity: Decimal
-    filled_quantity: Decimal = Decimal("0")
-    timestamp: int
-    client_order_id: Optional[str] = None
-    
-    @field_validator("quantity", "filled_quantity", "price", mode="before")
-    @classmethod
-    def ensure_decimal(cls, v):
-        """Convert to Decimal for precision."""
-        if v is not None:
-            return Decimal(str(v))
-        return v
-
-
-class AccountBalance(BaseModel):
-    """Account balance information."""
-    
-    asset: str
-    free: Decimal
-    used: Decimal
-    total: Decimal
-    
-    @field_validator("free", "used", "total", mode="before")
-    @classmethod
-    def ensure_decimal(cls, v):
-        """Convert to Decimal for precision."""
-        return Decimal(str(v))
-
-
-class MarketTicker(BaseModel):
-    """Market ticker data."""
-    
-    symbol: str
-    bid: Decimal
-    ask: Decimal
-    last: Decimal
-    volume: Decimal
-    timestamp: int
-    
-    @field_validator("bid", "ask", "last", "volume", mode="before")
-    @classmethod
-    def ensure_decimal(cls, v):
-        """Convert to Decimal for precision."""
-        return Decimal(str(v))
-
-
-class OrderBook(BaseModel):
-    """Order book data."""
-    
-    symbol: str
-    bids: List[tuple[Decimal, Decimal]]  # [(price, quantity), ...]
-    asks: List[tuple[Decimal, Decimal]]
-    timestamp: int
-    
-    @field_validator("bids", "asks", mode="before")
-    @classmethod
-    def convert_to_decimal(cls, v):
-        """Convert price/quantity to Decimal."""
-        return [(Decimal(str(price)), Decimal(str(qty))) for price, qty in v]
 
 
 class BinanceGateway:
@@ -140,7 +50,7 @@ class BinanceGateway:
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.development.use_mock_exchange
         self.exchange: Optional[ccxt.Exchange] = None
-        self.mock_exchange: Optional[MockExchange] = None
+        self.mock_exchange: Optional['MockExchange'] = None
         self.rate_limiter = RateLimiter()
         self._initialized = False
         
@@ -158,6 +68,8 @@ class BinanceGateway:
         try:
             if self.mock_mode:
                 logger.info("Initializing in mock mode")
+                # Import here to avoid circular import
+                from genesis.exchange.mock_exchange import MockExchange
                 self.mock_exchange = MockExchange()
                 self._initialized = True
                 return
@@ -234,7 +146,7 @@ class BinanceGateway:
                     result[asset] = AccountBalance(
                         asset=asset,
                         free=info["free"],
-                        used=info["locked"],
+                        locked=info["locked"],
                         total=Decimal(info["free"]) + Decimal(info["locked"])
                     )
             
@@ -276,9 +188,10 @@ class BinanceGateway:
             if self.mock_mode:
                 # Return mock order response
                 import time
+                from datetime import datetime
                 return OrderResponse(
                     order_id="mock_order_001",
-                    exchange_order_id="MOCK001",
+                    client_order_id=request.client_order_id,
                     symbol=request.symbol,
                     side=request.side,
                     type=request.type,
@@ -286,8 +199,8 @@ class BinanceGateway:
                     price=request.price,
                     quantity=request.quantity,
                     filled_quantity=Decimal("0"),
-                    timestamp=int(time.time() * 1000),
-                    client_order_id=request.client_order_id
+                    created_at=datetime.now(),
+                    updated_at=None
                 )
             
             # Apply rate limiting
@@ -304,9 +217,10 @@ class BinanceGateway:
             )
             
             # Convert to response model
+            from datetime import datetime
             response = OrderResponse(
                 order_id=order["id"],
-                exchange_order_id=order["info"]["orderId"],
+                client_order_id=order.get("clientOrderId"),
                 symbol=order["symbol"],
                 side=order["side"],
                 type=order["type"],
@@ -314,8 +228,8 @@ class BinanceGateway:
                 price=order["price"],
                 quantity=order["amount"],
                 filled_quantity=order["filled"],
-                timestamp=order["timestamp"],
-                client_order_id=order.get("clientOrderId")
+                created_at=datetime.fromtimestamp(order["timestamp"] / 1000),
+                updated_at=None
             )
             
             logger.info(
@@ -361,6 +275,50 @@ class BinanceGateway:
             logger.error("Failed to cancel order", order_id=order_id, error=str(e))
             raise
     
+    async def get_open_orders(self, symbol: Optional[str] = None) -> List[OrderResponse]:
+        """
+        Get all open orders.
+        
+        Args:
+            symbol: Optional symbol to filter orders
+            
+        Returns:
+            List of open orders
+        """
+        await self.initialize()
+        
+        try:
+            if self.mock_mode:
+                return []
+            
+            # Apply rate limiting
+            await self.rate_limiter.check_and_wait("GET", "/api/v3/openOrders")
+            
+            orders = await self.exchange.fetch_open_orders(symbol)
+            
+            from datetime import datetime
+            result = []
+            for order in orders:
+                result.append(OrderResponse(
+                    order_id=order["id"],
+                    client_order_id=order.get("clientOrderId"),
+                    symbol=order["symbol"],
+                    side=order["side"],
+                    type=order["type"],
+                    status=order["status"],
+                    price=order["price"],
+                    quantity=order["amount"],
+                    filled_quantity=order["filled"],
+                    created_at=datetime.fromtimestamp(order["timestamp"] / 1000),
+                    updated_at=datetime.fromtimestamp(order["lastUpdateTimestamp"] / 1000) if order.get("lastUpdateTimestamp") else None
+                ))
+            
+            return result
+            
+        except Exception as e:
+            logger.error("Failed to get open orders", symbol=symbol, error=str(e))
+            raise
+    
     async def get_order_status(self, order_id: str, symbol: str) -> OrderResponse:
         """
         Get the status of an existing order.
@@ -376,10 +334,10 @@ class BinanceGateway:
         
         try:
             if self.mock_mode:
-                import time
+                from datetime import datetime
                 return OrderResponse(
                     order_id=order_id,
-                    exchange_order_id=order_id,
+                    client_order_id=None,
                     symbol=symbol,
                     side="buy",
                     type="limit",
@@ -387,7 +345,8 @@ class BinanceGateway:
                     price=Decimal("50000"),
                     quantity=Decimal("0.001"),
                     filled_quantity=Decimal("0.001"),
-                    timestamp=int(time.time() * 1000)
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
                 )
             
             # Apply rate limiting
@@ -395,9 +354,10 @@ class BinanceGateway:
             
             order = await self.exchange.fetch_order(order_id, symbol)
             
+            from datetime import datetime
             return OrderResponse(
                 order_id=order["id"],
-                exchange_order_id=order["info"]["orderId"],
+                client_order_id=order.get("clientOrderId"),
                 symbol=order["symbol"],
                 side=order["side"],
                 type=order["type"],
@@ -405,8 +365,8 @@ class BinanceGateway:
                 price=order["price"],
                 quantity=order["amount"],
                 filled_quantity=order["filled"],
-                timestamp=order["timestamp"],
-                client_order_id=order.get("clientOrderId")
+                created_at=datetime.fromtimestamp(order["timestamp"] / 1000),
+                updated_at=datetime.fromtimestamp(order["lastUpdateTimestamp"] / 1000) if order.get("lastUpdateTimestamp") else None
             )
             
         except Exception as e:
@@ -428,12 +388,12 @@ class BinanceGateway:
         
         try:
             if self.mock_mode:
-                import time
+                from datetime import datetime
                 return OrderBook(
                     symbol=symbol,
-                    bids=[(Decimal("50000"), Decimal("1.5")), (Decimal("49999"), Decimal("2.0"))],
-                    asks=[(Decimal("50001"), Decimal("1.2")), (Decimal("50002"), Decimal("1.8"))],
-                    timestamp=int(time.time() * 1000)
+                    bids=[[Decimal("50000"), Decimal("1.5")], [Decimal("49999"), Decimal("2.0")]],
+                    asks=[[Decimal("50001"), Decimal("1.2")], [Decimal("50002"), Decimal("1.8")]],
+                    timestamp=datetime.now()
                 )
             
             # Apply rate limiting
@@ -441,11 +401,12 @@ class BinanceGateway:
             
             orderbook = await self.exchange.fetch_order_book(symbol, limit)
             
+            from datetime import datetime
             return OrderBook(
                 symbol=symbol,
                 bids=orderbook["bids"][:limit],
                 asks=orderbook["asks"][:limit],
-                timestamp=orderbook["timestamp"]
+                timestamp=datetime.fromtimestamp(orderbook["timestamp"] / 1000)
             )
             
         except Exception as e:
@@ -522,14 +483,16 @@ class BinanceGateway:
         
         try:
             if self.mock_mode:
-                import time
                 return MarketTicker(
                     symbol=symbol,
-                    bid=Decimal("50000"),
-                    ask=Decimal("50001"),
-                    last=Decimal("50000.5"),
-                    volume=Decimal("1500"),
-                    timestamp=int(time.time() * 1000)
+                    last_price=Decimal("50000.5"),
+                    bid_price=Decimal("50000"),
+                    ask_price=Decimal("50001"),
+                    volume_24h=Decimal("1500"),
+                    quote_volume_24h=Decimal("75000750"),
+                    price_change_percent=Decimal("2.5"),
+                    high_24h=Decimal("51000"),
+                    low_24h=Decimal("49000")
                 )
             
             # Apply rate limiting
@@ -539,11 +502,14 @@ class BinanceGateway:
             
             return MarketTicker(
                 symbol=ticker["symbol"],
-                bid=ticker["bid"],
-                ask=ticker["ask"],
-                last=ticker["last"],
-                volume=ticker["baseVolume"],
-                timestamp=ticker["timestamp"]
+                last_price=ticker["last"],
+                bid_price=ticker["bid"],
+                ask_price=ticker["ask"],
+                volume_24h=ticker["baseVolume"],
+                quote_volume_24h=ticker["quoteVolume"],
+                price_change_percent=ticker["percentage"],
+                high_24h=ticker["high"],
+                low_24h=ticker["low"]
             )
             
         except Exception as e:

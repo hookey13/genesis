@@ -18,13 +18,13 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def test_env():
     """Set up test environment variables."""
     test_env_vars = {
         "BINANCE_API_KEY": "test_api_key",
         "BINANCE_API_SECRET": "test_api_secret",
-        "API_SECRET_KEY": "test_secret_key_for_testing",
+        "API_SECRET_KEY": "dGVzdF9zZWNyZXRfa2V5X2Zvcl90ZXN0aW5nX3B1cnBvc2VzX29ubHk=",  # Base64 encoded test key
         "BINANCE_TESTNET": "true",
         "DEPLOYMENT_ENV": "development",
         "DEBUG": "true",
@@ -58,22 +58,25 @@ def event_loop():
 @pytest.fixture
 def mock_settings():
     """Mock settings object for testing."""
-    from config.settings import Settings
-
-    settings = MagicMock(spec=Settings)
+    settings = MagicMock()
     
     # Mock exchange settings
-    settings.exchange.binance_api_key.get_secret_value.return_value = "test_api_key"
-    settings.exchange.binance_api_secret.get_secret_value.return_value = "test_api_secret"
+    settings.exchange = MagicMock()
+    settings.exchange.binance_api_key = MagicMock()
+    settings.exchange.binance_api_key.get_secret_value = MagicMock(return_value="test_api_key")
+    settings.exchange.binance_api_secret = MagicMock()
+    settings.exchange.binance_api_secret.get_secret_value = MagicMock(return_value="test_api_secret")
     settings.exchange.binance_testnet = True
     settings.exchange.exchange_rate_limit = 1200
     
     # Mock trading settings
+    settings.trading = MagicMock()
     settings.trading.trading_pairs = ["BTC/USDT", "ETH/USDT"]
     settings.trading.trading_tier = "sniper"
     settings.trading.max_position_size_usdt = Decimal("100.0")
     
     # Mock development settings
+    settings.development = MagicMock()
     settings.development.use_mock_exchange = True
 
     return settings
@@ -130,14 +133,14 @@ async def gateway(mock_settings):
         await gateway.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def rate_limiter():
     """Create a RateLimiter instance."""
     from genesis.exchange.rate_limiter import RateLimiter
     return RateLimiter(max_weight=1200, window_seconds=60)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def circuit_breaker():
     """Create a CircuitBreaker instance."""
     from genesis.exchange.circuit_breaker import CircuitBreaker
@@ -145,7 +148,7 @@ def circuit_breaker():
         name="test",
         failure_threshold=3,
         failure_window_seconds=10,
-        recovery_timeout_seconds=5
+        recovery_timeout_seconds=60  # Long timeout to prevent automatic transitions during tests
     )
 
 

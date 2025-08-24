@@ -6,7 +6,7 @@ import asyncio
 import time
 import pytest
 
-from genesis.exchange.rate_limiter import RateLimiter
+from genesis.exchange.rate_limiter import RateLimiter, WeightWindow
 
 
 class TestRateLimiter:
@@ -83,7 +83,7 @@ class TestRateLimiter:
         current_time = time.time()
         
         # Add old weight (outside window)
-        old_weight = rate_limiter.WeightWindow(
+        old_weight = WeightWindow(
             timestamp=current_time - 70,  # 70 seconds ago (outside 60s window)
             weight=10
         )
@@ -91,7 +91,7 @@ class TestRateLimiter:
         rate_limiter.current_weight = 10
         
         # Add recent weight
-        recent_weight = rate_limiter.WeightWindow(
+        recent_weight = WeightWindow(
             timestamp=current_time - 30,  # 30 seconds ago (inside window)
             weight=5
         )
