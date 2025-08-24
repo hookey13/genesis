@@ -2,12 +2,16 @@
 Pytest configuration and fixtures for Project GENESIS tests.
 """
 
+import asyncio
+import json
 import os
 import sys
+from decimal import Decimal
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import pytest_asyncio
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -44,21 +48,180 @@ def test_env():
 
 
 @pytest.fixture
+def event_loop():
+    """Create an event loop for async tests."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture
 def mock_settings():
     """Mock settings object for testing."""
-    from config.settings import ExchangeSettings, Settings, TradingSettings
+    from config.settings import Settings
 
     settings = MagicMock(spec=Settings)
-    settings.exchange = MagicMock(spec=ExchangeSettings)
-    settings.exchange.binance_api_key = "test_key"
-    settings.exchange.binance_api_secret = "test_secret"
+    
+    # Mock exchange settings
+    settings.exchange.binance_api_key.get_secret_value.return_value = "test_api_key"
+    settings.exchange.binance_api_secret.get_secret_value.return_value = "test_api_secret"
     settings.exchange.binance_testnet = True
-
-    settings.trading = MagicMock(spec=TradingSettings)
+    settings.exchange.exchange_rate_limit = 1200
+    
+    # Mock trading settings
+    settings.trading.trading_pairs = ["BTC/USDT", "ETH/USDT"]
     settings.trading.trading_tier = "sniper"
-    settings.trading.max_position_size_usdt = 100.0
+    settings.trading.max_position_size_usdt = Decimal("100.0")
+    
+    # Mock development settings
+    settings.development.use_mock_exchange = True
 
     return settings
+
+
+@pytest.fixture
+def market_data():
+    """Load market data fixtures."""
+    fixture_path = Path(__file__).parent / "fixtures" / "market_data.json"
+    with open(fixture_path, "r") as f:
+        data = json.load(f)
+    
+    # Convert numeric values to Decimal
+    def convert_to_decimal(obj):
+        if isinstance(obj, dict):
+            return {k: convert_to_decimal(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_to_decimal(item) for item in obj]
+        elif isinstance(obj, (int, float)):
+            return Decimal(str(obj))
+        return obj
+    
+    return convert_to_decimal(data)
+
+
+@pytest_asyncio.fixture
+async def mock_exchange():
+    """Create a mock exchange instance."""
+    from genesis.exchange.mock_exchange import MockExchange
+    
+    exchange = MockExchange(
+        initial_balance={
+            "USDT": Decimal("10000"),
+            "BTC": Decimal("0.5"),
+            "ETH": Decimal("5.0")
+        }
+    )
+    exchange.market_prices = {
+        "BTC/USDT": Decimal("50000"),
+        "ETH/USDT": Decimal("3000")
+    }
+    return exchange
+
+
+@pytest_asyncio.fixture
+async def gateway(mock_settings):
+    """Create a BinanceGateway instance."""
+    from genesis.exchange.gateway import BinanceGateway
+    
+    with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
+        gateway = BinanceGateway(mock_mode=True)
+        await gateway.initialize()
+        yield gateway
+        await gateway.close()
+
+
+@pytest.fixture
+def rate_limiter():
+    """Create a RateLimiter instance."""
+    from genesis.exchange.rate_limiter import RateLimiter
+    return RateLimiter(max_weight=1200, window_seconds=60)
+
+
+@pytest.fixture
+def circuit_breaker():
+    """Create a CircuitBreaker instance."""
+    from genesis.exchange.circuit_breaker import CircuitBreaker
+    return CircuitBreaker(
+        name="test",
+        failure_threshold=3,
+        failure_window_seconds=10,
+        recovery_timeout_seconds=5
+    )
+
+
+@pytest.fixture
+def health_monitor():
+    """Create a HealthMonitor instance."""
+    from genesis.exchange.health_monitor import HealthMonitor
+    return HealthMonitor(
+        check_interval_seconds=5,
+        window_size=10,
+        degraded_threshold=0.95,
+        unhealthy_threshold=0.80
+    )
+
+
+@pytest.fixture
+def mock_ccxt_exchange():
+    """Create a mock ccxt exchange."""
+    mock = AsyncMock()
+    
+    # Mock common methods
+    mock.load_markets = AsyncMock(return_value=True)
+    mock.fetch_balance = AsyncMock(return_value={
+        "info": {
+            "balances": {
+                "USDT": {"free": "10000", "locked": "0"},
+                "BTC": {"free": "0.5", "locked": "0"}
+            }
+        }
+    })
+    mock.create_order = AsyncMock(return_value={
+        "id": "12345",
+        "info": {"orderId": "BINANCE_12345"},
+        "symbol": "BTC/USDT",
+        "side": "buy",
+        "type": "limit",
+        "status": "open",
+        "price": 50000,
+        "amount": 0.001,
+        "filled": 0,
+        "timestamp": 1700000000000
+    })
+    mock.cancel_order = AsyncMock(return_value={"status": "canceled"})
+    mock.fetch_order = AsyncMock(return_value={
+        "id": "12345",
+        "info": {"orderId": "BINANCE_12345"},
+        "symbol": "BTC/USDT",
+        "side": "buy",
+        "type": "limit",
+        "status": "filled",
+        "price": 50000,
+        "amount": 0.001,
+        "filled": 0.001,
+        "timestamp": 1700000000000
+    })
+    mock.fetch_order_book = AsyncMock(return_value={
+        "bids": [[50000, 1.5], [49999, 2.0]],
+        "asks": [[50001, 1.2], [50002, 1.8]],
+        "timestamp": 1700000000000
+    })
+    mock.fetch_ohlcv = AsyncMock(return_value=[
+        [1700000000000, 50000, 50100, 49900, 50050, 100],
+        [1699999940000, 49950, 50050, 49850, 50000, 95]
+    ])
+    mock.fetch_ticker = AsyncMock(return_value={
+        "symbol": "BTC/USDT",
+        "bid": 50000,
+        "ask": 50001,
+        "last": 50000.5,
+        "baseVolume": 1500,
+        "timestamp": 1700000000000
+    })
+    mock.fetch_time = AsyncMock(return_value=1700000000000)
+    mock.close = AsyncMock(return_value=None)
+    
+    return mock
 
 
 @pytest.fixture

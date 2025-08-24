@@ -1,0 +1,113 @@
+{
+  "ticker": {
+    "BTC/USDT": {
+      "symbol": "BTC/USDT",
+      "bid": 50000,
+      "ask": 50001,
+      "last": 50000.5,
+      "volume": 1500.25,
+      "timestamp": 1700000000000
+    },
+    "ETH/USDT": {
+      "symbol": "ETH/USDT",
+      "bid": 3000,
+      "ask": 3001,
+      "last": 3000.5,
+      "volume": 5000.75,
+      "timestamp": 1700000000000
+    }
+  },
+  "orderbook": {
+    "BTC/USDT": {
+      "bids": [
+        [50000, 1.5],
+        [49999, 2.0],
+        [49998, 1.8],
+        [49997, 2.5],
+        [49996, 3.0]
+      ],
+      "asks": [
+        [50001, 1.2],
+        [50002, 1.8],
+        [50003, 2.0],
+        [50004, 2.2],
+        [50005, 2.5]
+      ],
+      "timestamp": 1700000000000
+    }
+  },
+  "klines": {
+    "BTC/USDT": [
+      {
+        "timestamp": 1700000000000,
+        "open": 50000,
+        "high": 50100,
+        "low": 49900,
+        "close": 50050,
+        "volume": 100
+      },
+      {
+        "timestamp": 1699999940000,
+        "open": 49950,
+        "high": 50050,
+        "low": 49850,
+        "close": 50000,
+        "volume": 95
+      }
+    ]
+  },
+  "balance": {
+    "USDT": {
+      "free": "10000.00",
+      "locked": "0.00"
+    },
+    "BTC": {
+      "free": "0.5",
+      "locked": "0.0"
+    },
+    "ETH": {
+      "free": "5.0",
+      "locked": "0.0"
+    }
+  },
+  "orders": {
+    "success": {
+      "id": "12345",
+      "orderId": "BINANCE_12345",
+      "symbol": "BTC/USDT",
+      "side": "buy",
+      "type": "limit",
+      "status": "open",
+      "price": 49900,
+      "amount": 0.001,
+      "filled": 0,
+      "timestamp": 1700000000000
+    },
+    "filled": {
+      "id": "12346",
+      "orderId": "BINANCE_12346",
+      "symbol": "BTC/USDT",
+      "side": "buy",
+      "type": "market",
+      "status": "filled",
+      "price": 50000,
+      "amount": 0.001,
+      "filled": 0.001,
+      "timestamp": 1700000000000
+    }
+  },
+  "errors": {
+    "insufficient_balance": {
+      "code": -2010,
+      "msg": "Account has insufficient balance"
+    },
+    "rate_limit": {
+      "code": -1003,
+      "msg": "Too many requests"
+    },
+    "order_not_found": {
+      "code": -2013,
+      "msg": "Order does not exist"
+    }
+  }
+}
