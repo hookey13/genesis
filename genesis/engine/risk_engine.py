@@ -23,7 +23,11 @@ from genesis.core.models import (
     PositionSide,
     TradingSession,
     TradingTier,
+    Trade,
+    ConvictionLevel,
 )
+from genesis.analytics.kelly_sizing import KellyCalculator
+from genesis.analytics.strategy_metrics import StrategyPerformanceTracker
 from genesis.utils.decorators import requires_tier
 
 logger = structlog.get_logger(__name__)
@@ -76,24 +80,41 @@ class RiskEngine:
 
     MINIMUM_POSITION_SIZE = Decimal("10")  # $10 minimum
 
-    def __init__(self, account: Account, session: TradingSession | None = None):
+    def __init__(self, account: Account, session: TradingSession | None = None,
+                 use_kelly_sizing: bool = True):
         """
         Initialize risk engine with account and session.
 
         Args:
             account: Trading account
             session: Current trading session (optional)
+            use_kelly_sizing: Whether to use Kelly sizing (Hunter+ feature)
         """
         self.account = account
         self.session = session
         self.tier_limits = self.TIER_LIMITS[account.tier]
         self.positions: dict[str, Position] = {}
+        self.use_kelly_sizing = use_kelly_sizing and account.tier >= TradingTier.HUNTER
+        
+        # Initialize Kelly calculator and performance tracker if enabled
+        if self.use_kelly_sizing:
+            self.kelly_calculator = KellyCalculator(
+                default_fraction=Decimal("0.25"),
+                min_trades=20,
+                lookback_days=30,
+                max_kelly=Decimal("0.5")
+            )
+            self.performance_tracker = StrategyPerformanceTracker()
+        else:
+            self.kelly_calculator = None
+            self.performance_tracker = None
 
         logger.info(
             "Risk engine initialized",
             account_id=account.account_id,
             tier=account.tier.value,
-            balance=str(account.balance_usdt)
+            balance=str(account.balance_usdt),
+            kelly_sizing_enabled=self.use_kelly_sizing
         )
 
     def calculate_position_size(
@@ -101,19 +122,25 @@ class RiskEngine:
         symbol: str,
         entry_price: Decimal,
         stop_loss_price: Decimal | None = None,
-        custom_risk_percent: Decimal | None = None
+        custom_risk_percent: Decimal | None = None,
+        strategy_id: str | None = None,
+        conviction: ConvictionLevel = ConvictionLevel.MEDIUM,
+        use_volatility_adjustment: bool = True
     ) -> Decimal:
         """
         Calculate position size based on risk parameters.
 
-        Uses the 5% rule (or custom percentage) to determine maximum position size
-        based on account balance and stop loss.
+        Uses Kelly Criterion for Hunter+ tiers, or the 5% rule (or custom percentage)
+        for Sniper tier to determine maximum position size based on account balance and stop loss.
 
         Args:
             symbol: Trading symbol
             entry_price: Entry price for the position
             stop_loss_price: Stop loss price (optional, will calculate if not provided)
             custom_risk_percent: Custom risk percentage (optional, defaults to tier limit)
+            strategy_id: Strategy identifier for Kelly sizing (Hunter+ feature)
+            conviction: Conviction level for position sizing override (Strategist+ feature)
+            use_volatility_adjustment: Whether to adjust for volatility (Hunter+ feature)
 
         Returns:
             Position size in base currency units
@@ -138,6 +165,81 @@ class RiskEngine:
                 minimum_size=self.MINIMUM_POSITION_SIZE
             )
 
+        # Try Kelly sizing first if enabled and strategy provided
+        if self.use_kelly_sizing and strategy_id and self.kelly_calculator:
+            try:
+                # Get strategy performance metrics
+                edge_metrics = self.performance_tracker.calculate_strategy_edge(strategy_id)
+                
+                # Check if we have enough data for Kelly
+                if edge_metrics["sample_size"] >= self.kelly_calculator.min_trades:
+                    # Calculate Kelly fraction
+                    kelly_f = self.kelly_calculator.calculate_kelly_fraction(
+                        edge_metrics["win_rate"],
+                        edge_metrics["win_loss_ratio"]
+                    )
+                    
+                    # Get recent trades for performance adjustment
+                    recent_trades = self.performance_tracker.get_recent_trades(strategy_id)
+                    if recent_trades:
+                        kelly_f = self.kelly_calculator.adjust_kelly_for_performance(
+                            kelly_f, recent_trades
+                        )
+                    
+                    # Calculate base Kelly position size
+                    kelly_size = self.kelly_calculator.calculate_position_size(
+                        kelly_f, self.account.balance_usdt
+                    )
+                    
+                    # Apply conviction multiplier if Strategist tier
+                    if self.account.tier >= TradingTier.STRATEGIST:
+                        kelly_size = self.kelly_calculator.apply_conviction_multiplier(
+                            kelly_size, conviction
+                        )
+                    
+                    # Apply volatility adjustment if enabled
+                    if use_volatility_adjustment and recent_trades:
+                        returns = [float(t.pnl_percent) for t in recent_trades[-14:]]
+                        if len(returns) >= 14:
+                            vol_multiplier, _ = self.kelly_calculator.calculate_volatility_multiplier(returns)
+                            kelly_size = kelly_size * vol_multiplier
+                    
+                    # Enforce position boundaries
+                    kelly_size = self.kelly_calculator.enforce_position_boundaries(
+                        kelly_size, self.account.balance_usdt, self.account.tier
+                    )
+                    
+                    # Convert to quantity
+                    quantity = (kelly_size / entry_price).quantize(
+                        Decimal("0.00000001"), rounding=ROUND_DOWN
+                    )
+                    
+                    logger.info(
+                        "Kelly position size calculated",
+                        symbol=symbol,
+                        strategy_id=strategy_id,
+                        kelly_fraction=str(kelly_f),
+                        position_value=str(kelly_size),
+                        quantity=str(quantity),
+                        conviction=conviction.value
+                    )
+                    
+                    return quantity
+                else:
+                    logger.info(
+                        "Insufficient trade history for Kelly sizing",
+                        strategy_id=strategy_id,
+                        sample_size=edge_metrics["sample_size"],
+                        min_required=self.kelly_calculator.min_trades
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Kelly sizing failed, falling back to fixed percentage",
+                    error=str(e),
+                    strategy_id=strategy_id
+                )
+        
+        # Fall back to fixed percentage sizing
         risk_percent = custom_risk_percent or self.tier_limits["position_risk_percent"]
         risk_amount = (self.account.balance_usdt * risk_percent) / Decimal("100")
 
@@ -515,6 +617,23 @@ class RiskEngine:
 
         return correlations
 
+    def record_trade_result(self, strategy_id: str, trade: Trade) -> None:
+        """
+        Record a completed trade for Kelly sizing calculations.
+        
+        Args:
+            strategy_id: Strategy identifier
+            trade: Completed trade result
+        """
+        if self.performance_tracker:
+            self.performance_tracker.record_trade(strategy_id, trade)
+            logger.info(
+                "Trade recorded for Kelly sizing",
+                strategy_id=strategy_id,
+                trade_id=trade.trade_id,
+                pnl_dollars=str(trade.pnl_dollars)
+            )
+    
     def validate_portfolio_risk(self, positions: list[Position]) -> dict:
         """
         Validate portfolio-level risk for multi-pair trading.

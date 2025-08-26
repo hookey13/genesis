@@ -12,19 +12,14 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+# Import TradingTier from constants to avoid duplication
+from genesis.core.constants import TradingTier, ConvictionLevel
+
 
 class PositionSide(str, Enum):
     """Position direction."""
     LONG = "LONG"
     SHORT = "SHORT"
-
-
-class TradingTier(str, Enum):
-    """Trading tier levels with associated limits."""
-    SNIPER = "SNIPER"
-    HUNTER = "HUNTER"
-    STRATEGIST = "STRATEGIST"
-    ARCHITECT = "ARCHITECT"
 
 
 class Position(BaseModel):
@@ -205,6 +200,7 @@ class Order(BaseModel):
     quantity: Decimal
     filled_quantity: Decimal = Decimal("0")
     status: OrderStatus = OrderStatus.PENDING
+    conviction_level: ConvictionLevel = ConvictionLevel.MEDIUM
     slice_number: int | None = None
     total_slices: int | None = None
     latency_ms: int | None = None
@@ -217,6 +213,31 @@ class Order(BaseModel):
     execution_score: float | None = None
 
     @field_validator("price", "quantity", "filled_quantity", "slippage_percent", "maker_fee_paid", "taker_fee_paid", mode="before")
+    @classmethod
+    def ensure_decimal(cls, v):
+        """Convert to Decimal for precision."""
+        if v is not None:
+            return Decimal(str(v))
+        return v
+
+
+class Trade(BaseModel):
+    """Completed trade model for analytics."""
+    
+    trade_id: str = Field(default_factory=lambda: str(uuid4()))
+    order_id: str
+    position_id: str | None = None
+    strategy_id: str
+    symbol: str
+    side: OrderSide
+    entry_price: Decimal
+    exit_price: Decimal
+    quantity: Decimal
+    pnl_dollars: Decimal
+    pnl_percent: Decimal
+    timestamp: datetime = Field(default_factory=datetime.now)
+    
+    @field_validator("entry_price", "exit_price", "quantity", "pnl_dollars", "pnl_percent", mode="before")
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""

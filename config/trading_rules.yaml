@@ -99,6 +99,50 @@ position_sizing:
   method: fixed_risk  # Options: fixed_risk, kelly_criterion, fixed_amount
   risk_per_trade: 5.0  # Percentage of account to risk per trade
   scale_with_confidence: false  # Scale position size with signal confidence
+
+# Kelly Criterion Configuration (Hunter+ Feature)
+kelly_sizing:
+  enabled: true
+  enabled_from_tier: HUNTER  # Kelly sizing available from Hunter tier
+  default_fraction: 0.25  # Fractional Kelly multiplier (25% for safety)
+  min_trades_for_calculation: 20  # Minimum trades before using Kelly
+  lookback_window_days: 30  # Historical window for edge calculation
+  max_kelly_fraction: 0.5  # Maximum Kelly fraction cap
+  conviction_multipliers:
+    LOW: 0.5
+    MEDIUM: 1.0
+    HIGH: 1.5  # Strategist+ feature
+  position_boundaries:
+    SNIPER:
+      min_position_pct: 2.0  # 2% of balance minimum
+      max_position_pct: 5.0  # 5% of balance maximum
+    HUNTER:
+      min_position_pct: 1.0  # 1% of balance minimum
+      max_position_pct: 10.0  # 10% of balance maximum
+    STRATEGIST:
+      min_position_pct: 0.5  # 0.5% of balance minimum
+      max_position_pct: 15.0  # 15% of balance maximum
+    ARCHITECT:
+      min_position_pct: 0.5
+      max_position_pct: 20.0
+  volatility_adjustment:
+    enabled: true
+    lookback_periods: 14  # Number of periods for volatility calculation
+    max_volatility_reduction: 0.5  # Maximum 50% reduction in high volatility
+    volatility_regimes:
+      low_threshold: 0.15  # < 15% annualized volatility
+      high_threshold: 0.30  # > 30% annualized volatility
+  performance_adjustment:
+    enabled: true
+    window_size: 20  # Number of trades for recent performance
+    drawdown_threshold: 0.20  # 20% drawdown triggers Kelly reduction
+    winning_streak_bonus: 0.1  # 10% Kelly increase for winning streaks
+    winning_streak_minimum: 4  # Minimum wins in last 5 trades
+  monte_carlo:
+    enabled: true
+    iterations: 10000  # Number of simulation iterations
+    trades_per_iteration: 100  # Trades to simulate per iteration
+    risk_of_ruin_alert: 0.05  # Alert if risk of ruin > 5%
   
 # Risk validation rules
 risk_validation:
@@ -144,3 +188,25 @@ smart_routing:
   cache_settings:
     market_conditions_ttl_seconds: 5
     order_book_cache_size: 100
+
+# Correlation Monitoring Configuration
+correlation_monitoring:
+  enabled_from_tier: HUNTER  # Correlation monitoring available from Hunter tier
+  thresholds:
+    warning: 0.6  # Warning alert at 60% correlation
+    critical: 0.8  # Critical alert at 80% correlation
+  analysis:
+    historical_window_days: 30  # Default historical analysis window
+    cache_ttl_seconds: 5  # Correlation matrix cache TTL
+    min_positions_for_analysis: 2  # Minimum positions needed
+  alerting:
+    persist_to_database: true  # Save alerts to database
+    alert_cooldown_minutes: 15  # Minimum time between same alerts
+    max_alerts_per_day: 50  # Maximum correlation alerts per day
+  decorrelation:
+    suggestion_threshold: 0.7  # Suggest trades when correlation > 0.7
+    max_suggestions: 5  # Maximum suggestions to generate
+    min_position_size_percent: 10  # Minimum suggested reduction
+  stress_testing:
+    default_spike: 0.8  # Default correlation spike for stress tests
+    volatility_assumption: 0.2  # 20% volatility for stress calculations
