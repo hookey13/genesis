@@ -1,7 +1,6 @@
 """Integration layer connecting UI to Genesis core components."""
 
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
@@ -21,10 +20,10 @@ class UIIntegration:
 
     def __init__(
         self,
-        account_manager: Optional[AccountManager] = None,
-        risk_engine: Optional[RiskEngine] = None,
-        order_executor: Optional[MarketOrderExecutor] = None,
-        gateway: Optional[BinanceGateway] = None
+        account_manager: AccountManager | None = None,
+        risk_engine: RiskEngine | None = None,
+        order_executor: MarketOrderExecutor | None = None,
+        gateway: BinanceGateway | None = None
     ):
         """
         Initialize UI integration.
@@ -41,8 +40,8 @@ class UIIntegration:
         self.gateway = gateway
 
         # Widget references
-        self.pnl_widget: Optional[PnLWidget] = None
-        self.position_widget: Optional[PositionWidget] = None
+        self.pnl_widget: PnLWidget | None = None
+        self.position_widget: PositionWidget | None = None
 
     def connect_widgets(
         self,
@@ -169,7 +168,7 @@ class UIIntegration:
             logger.error("Buy command failed", error=str(e))
             return {
                 "success": False,
-                "message": f"Buy failed: {str(e)}"
+                "message": f"Buy failed: {e!s}"
             }
 
     async def execute_sell_command(self, amount_usdt: Decimal) -> dict:
@@ -219,7 +218,7 @@ class UIIntegration:
             logger.error("Sell command failed", error=str(e))
             return {
                 "success": False,
-                "message": f"Sell failed: {str(e)}"
+                "message": f"Sell failed: {e!s}"
             }
 
     async def cancel_all_orders(self) -> dict:
@@ -248,7 +247,7 @@ class UIIntegration:
             logger.error("Cancel all orders failed", error=str(e))
             return {
                 "success": False,
-                "message": f"Cancel failed: {str(e)}"
+                "message": f"Cancel failed: {e!s}"
             }
 
     def get_connection_status(self) -> str:

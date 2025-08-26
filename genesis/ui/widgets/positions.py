@@ -1,7 +1,6 @@
 """Position display widget for Genesis trading terminal."""
 
 from decimal import Decimal
-from typing import Optional
 
 from textual.reactive import reactive
 from textual.widgets import Static
@@ -18,7 +17,7 @@ class PositionWidget(Static):
     entry_price = reactive(Decimal("0.00"))
     current_price = reactive(Decimal("0.00"))
     unrealized_pnl = reactive(Decimal("0.00"))
-    stop_loss: Optional[Decimal] = reactive(None)
+    stop_loss: Decimal | None = reactive(None)
 
     # Display mode
     show_details = reactive(False)
@@ -138,7 +137,7 @@ Status: Active[/dim]"""
 
     def set_mock_position(self, symbol: str, side: str, qty: Decimal,
                          entry: Decimal, current: Decimal,
-                         stop_loss: Optional[Decimal] = None) -> None:
+                         stop_loss: Decimal | None = None) -> None:
         """Set mock position data for testing."""
         self.has_position = True
         self.symbol = symbol

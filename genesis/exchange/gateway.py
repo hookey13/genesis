@@ -6,24 +6,21 @@ the ccxt library, with built-in connection pooling, credential management,
 and request/response validation.
 """
 
-import asyncio
-import logging
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import ccxt.async_support as ccxt
 import structlog
 
 from config.settings import get_settings
-from genesis.exchange.rate_limiter import RateLimiter
 from genesis.exchange.models import (
-    OrderRequest,
-    OrderResponse,
     AccountBalance,
     MarketTicker,
     OrderBook,
-    KlineData
+    OrderRequest,
+    OrderResponse,
 )
+from genesis.exchange.rate_limiter import RateLimiter
 
 if TYPE_CHECKING:
     from genesis.exchange.mock_exchange import MockExchange
@@ -39,7 +36,7 @@ class BinanceGateway:
     Provides a unified interface for all exchange operations with built-in
     validation, error handling, and connection management.
     """
-    
+
     def __init__(self, mock_mode: bool = False):
         """
         Initialize the Binance gateway.
@@ -49,22 +46,22 @@ class BinanceGateway:
         """
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.development.use_mock_exchange
-        self.exchange: Optional[ccxt.Exchange] = None
-        self.mock_exchange: Optional['MockExchange'] = None
+        self.exchange: ccxt.Exchange | None = None
+        self.mock_exchange: MockExchange | None = None
         self.rate_limiter = RateLimiter()
         self._initialized = False
-        
+
         logger.info(
             "Initializing BinanceGateway",
             mock_mode=self.mock_mode,
             testnet=self.settings.exchange.binance_testnet
         )
-    
+
     async def initialize(self) -> None:
         """Initialize the exchange connection."""
         if self._initialized:
             return
-        
+
         try:
             if self.mock_mode:
                 logger.info("Initializing in mock mode")
@@ -73,7 +70,7 @@ class BinanceGateway:
                 self.mock_exchange = MockExchange()
                 self._initialized = True
                 return
-            
+
             # Configure exchange
             config = {
                 "apiKey": self.settings.exchange.binance_api_key.get_secret_value(),
@@ -88,7 +85,7 @@ class BinanceGateway:
                 "timeout": 30000,  # 30 seconds total timeout
                 "session": True,  # Enable connection pooling
             }
-            
+
             # Use testnet if configured
             if self.settings.exchange.binance_testnet:
                 config["hostname"] = "testnet.binance.vision"
@@ -98,31 +95,31 @@ class BinanceGateway:
                         "private": "https://testnet.binance.vision/api",
                     }
                 }
-            
+
             # Create exchange instance
             self.exchange = ccxt.binance(config)
-            
+
             # Load markets
             await self.exchange.load_markets()
-            
+
             self._initialized = True
             logger.info(
                 "BinanceGateway initialized successfully",
                 markets_loaded=len(self.exchange.markets)
             )
-            
+
         except Exception as e:
             logger.error("Failed to initialize BinanceGateway", error=str(e))
             raise
-    
+
     async def close(self) -> None:
         """Close the exchange connection."""
         if self.exchange:
             await self.exchange.close()
             self._initialized = False
             logger.info("BinanceGateway closed")
-    
-    async def get_account_balance(self) -> Dict[str, AccountBalance]:
+
+    async def get_account_balance(self) -> dict[str, AccountBalance]:
         """
         Fetch account balance information.
         
@@ -130,16 +127,16 @@ class BinanceGateway:
             Dictionary mapping asset symbols to balance information
         """
         await self.initialize()
-        
+
         try:
             if self.mock_mode and self.mock_exchange:
                 return await self.mock_exchange.fetch_balance()
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("GET", "/api/v3/account")
-            
+
             balance = await self.exchange.fetch_balance()
-            
+
             result = {}
             for asset, info in balance["info"]["balances"].items():
                 if info["free"] != "0" or info["locked"] != "0":
@@ -149,14 +146,14 @@ class BinanceGateway:
                         locked=info["locked"],
                         total=Decimal(info["free"]) + Decimal(info["locked"])
                     )
-            
+
             logger.info("Fetched account balance", assets=list(result.keys()))
             return result
-            
+
         except Exception as e:
             logger.error("Failed to fetch account balance", error=str(e))
             raise
-    
+
     async def place_order(self, request: OrderRequest) -> OrderResponse:
         """
         Place an order on the exchange.
@@ -168,15 +165,28 @@ class BinanceGateway:
             Order response with exchange details
         """
         await self.initialize()
-        
+
         try:
             params = {}
             if request.client_order_id:
                 params["clientOrderId"] = request.client_order_id
-            
+
             if request.stop_price:
                 params["stopPrice"] = float(request.stop_price)
-            
+
+            # Handle advanced order types
+            order_type = request.type
+            if request.type in ["FOK", "IOC"]:
+                # FOK and IOC are handled via timeInForce parameter
+                params["timeInForce"] = request.type
+                order_type = "LIMIT"  # Both require limit orders
+            elif request.type == "POST_ONLY":
+                # Binance uses LIMIT_MAKER for post-only orders
+                order_type = "LIMIT_MAKER"
+            elif request.type == "LIMIT_MAKER":
+                # Direct LIMIT_MAKER order type
+                order_type = "LIMIT_MAKER"
+
             logger.info(
                 "Placing order",
                 symbol=request.symbol,
@@ -184,10 +194,9 @@ class BinanceGateway:
                 type=request.type,
                 quantity=str(request.quantity)
             )
-            
+
             if self.mock_mode:
                 # Return mock order response
-                import time
                 from datetime import datetime
                 return OrderResponse(
                     order_id="mock_order_001",
@@ -202,20 +211,20 @@ class BinanceGateway:
                     created_at=datetime.now(),
                     updated_at=None
                 )
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("POST", "/api/v3/order")
-            
+
             # Place the order
             order = await self.exchange.create_order(
                 symbol=request.symbol,
-                type=request.type,
+                type=order_type,  # Use the mapped order type
                 side=request.side,
                 amount=float(request.quantity),
                 price=float(request.price) if request.price else None,
                 params=params
             )
-            
+
             # Convert to response model
             from datetime import datetime
             response = OrderResponse(
@@ -231,19 +240,19 @@ class BinanceGateway:
                 created_at=datetime.fromtimestamp(order["timestamp"] / 1000),
                 updated_at=None
             )
-            
+
             logger.info(
                 "Order placed successfully",
                 order_id=response.order_id,
                 status=response.status
             )
-            
+
             return response
-            
+
         except Exception as e:
             logger.error("Failed to place order", error=str(e))
             raise
-    
+
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """
         Cancel an existing order.
@@ -256,26 +265,26 @@ class BinanceGateway:
             True if cancellation successful
         """
         await self.initialize()
-        
+
         try:
             logger.info("Cancelling order", order_id=order_id, symbol=symbol)
-            
+
             if self.mock_mode:
                 return True
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("DELETE", "/api/v3/order")
-            
+
             result = await self.exchange.cancel_order(order_id, symbol)
-            
+
             logger.info("Order cancelled successfully", order_id=order_id)
             return result["status"] == "canceled"
-            
+
         except Exception as e:
             logger.error("Failed to cancel order", order_id=order_id, error=str(e))
             raise
-    
-    async def get_open_orders(self, symbol: Optional[str] = None) -> List[OrderResponse]:
+
+    async def get_open_orders(self, symbol: str | None = None) -> list[OrderResponse]:
         """
         Get all open orders.
         
@@ -286,16 +295,16 @@ class BinanceGateway:
             List of open orders
         """
         await self.initialize()
-        
+
         try:
             if self.mock_mode:
                 return []
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("GET", "/api/v3/openOrders")
-            
+
             orders = await self.exchange.fetch_open_orders(symbol)
-            
+
             from datetime import datetime
             result = []
             for order in orders:
@@ -312,13 +321,13 @@ class BinanceGateway:
                     created_at=datetime.fromtimestamp(order["timestamp"] / 1000),
                     updated_at=datetime.fromtimestamp(order["lastUpdateTimestamp"] / 1000) if order.get("lastUpdateTimestamp") else None
                 ))
-            
+
             return result
-            
+
         except Exception as e:
             logger.error("Failed to get open orders", symbol=symbol, error=str(e))
             raise
-    
+
     async def get_order_status(self, order_id: str, symbol: str) -> OrderResponse:
         """
         Get the status of an existing order.
@@ -331,7 +340,7 @@ class BinanceGateway:
             Order response with current status
         """
         await self.initialize()
-        
+
         try:
             if self.mock_mode:
                 from datetime import datetime
@@ -348,12 +357,12 @@ class BinanceGateway:
                     created_at=datetime.now(),
                     updated_at=datetime.now()
                 )
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("GET", "/api/v3/order")
-            
+
             order = await self.exchange.fetch_order(order_id, symbol)
-            
+
             from datetime import datetime
             return OrderResponse(
                 order_id=order["id"],
@@ -368,11 +377,11 @@ class BinanceGateway:
                 created_at=datetime.fromtimestamp(order["timestamp"] / 1000),
                 updated_at=datetime.fromtimestamp(order["lastUpdateTimestamp"] / 1000) if order.get("lastUpdateTimestamp") else None
             )
-            
+
         except Exception as e:
             logger.error("Failed to get order status", order_id=order_id, error=str(e))
             raise
-    
+
     async def get_order_book(self, symbol: str, limit: int = 20) -> OrderBook:
         """
         Fetch the order book for a symbol.
@@ -385,7 +394,7 @@ class BinanceGateway:
             Order book data
         """
         await self.initialize()
-        
+
         try:
             if self.mock_mode:
                 from datetime import datetime
@@ -395,12 +404,12 @@ class BinanceGateway:
                     asks=[[Decimal("50001"), Decimal("1.2")], [Decimal("50002"), Decimal("1.8")]],
                     timestamp=datetime.now()
                 )
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("GET", "/api/v3/depth", {"limit": limit})
-            
+
             orderbook = await self.exchange.fetch_order_book(symbol, limit)
-            
+
             from datetime import datetime
             return OrderBook(
                 symbol=symbol,
@@ -408,17 +417,17 @@ class BinanceGateway:
                 asks=orderbook["asks"][:limit],
                 timestamp=datetime.fromtimestamp(orderbook["timestamp"] / 1000)
             )
-            
+
         except Exception as e:
             logger.error("Failed to fetch order book", symbol=symbol, error=str(e))
             raise
-    
+
     async def get_klines(
         self,
         symbol: str,
         interval: str = "1m",
         limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Fetch historical kline/candlestick data.
         
@@ -431,7 +440,7 @@ class BinanceGateway:
             List of kline data
         """
         await self.initialize()
-        
+
         try:
             if self.mock_mode:
                 import time
@@ -447,12 +456,12 @@ class BinanceGateway:
                     }
                     for i in range(limit)
                 ]
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("GET", "/api/v3/klines")
-            
+
             klines = await self.exchange.fetch_ohlcv(symbol, interval, limit=limit)
-            
+
             return [
                 {
                     "timestamp": k[0],
@@ -464,11 +473,11 @@ class BinanceGateway:
                 }
                 for k in klines
             ]
-            
+
         except Exception as e:
             logger.error("Failed to fetch klines", symbol=symbol, error=str(e))
             raise
-    
+
     async def get_ticker(self, symbol: str) -> MarketTicker:
         """
         Fetch 24hr ticker statistics.
@@ -480,7 +489,7 @@ class BinanceGateway:
             Market ticker data
         """
         await self.initialize()
-        
+
         try:
             if self.mock_mode:
                 return MarketTicker(
@@ -494,12 +503,12 @@ class BinanceGateway:
                     high_24h=Decimal("51000"),
                     low_24h=Decimal("49000")
                 )
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("GET", "/api/v3/ticker/24hr", {"symbol": symbol})
-            
+
             ticker = await self.exchange.fetch_ticker(symbol)
-            
+
             return MarketTicker(
                 symbol=ticker["symbol"],
                 last_price=ticker["last"],
@@ -511,11 +520,11 @@ class BinanceGateway:
                 high_24h=ticker["high"],
                 low_24h=ticker["low"]
             )
-            
+
         except Exception as e:
             logger.error("Failed to fetch ticker", symbol=symbol, error=str(e))
             raise
-    
+
     async def get_server_time(self) -> int:
         """
         Get the current server time.
@@ -524,18 +533,97 @@ class BinanceGateway:
             Server timestamp in milliseconds
         """
         await self.initialize()
-        
+
         try:
             if self.mock_mode:
                 import time
                 return int(time.time() * 1000)
-            
+
             # Apply rate limiting
             await self.rate_limiter.check_and_wait("GET", "/api/v3/time")
-            
+
             # Use ccxt's built-in method
             return await self.exchange.fetch_time()
-            
+
         except Exception as e:
             logger.error("Failed to fetch server time", error=str(e))
             raise
+
+    async def place_post_only_order(self, request: OrderRequest, max_retries: int = 3) -> OrderResponse:
+        """
+        Place a post-only order with retry logic.
+        
+        Post-only orders are rejected if they would immediately match.
+        This method retries with adjusted prices to ensure maker execution.
+        
+        Args:
+            request: Order request (must be a limit order)
+            max_retries: Maximum number of retry attempts
+            
+        Returns:
+            Order response with exchange details
+        """
+        await self.initialize()
+
+        if request.type not in ["LIMIT", "POST_ONLY", "LIMIT_MAKER"]:
+            raise ValueError("Post-only orders must be limit orders")
+
+        original_price = request.price
+        retry_count = 0
+
+        while retry_count < max_retries:
+            try:
+                # Set order type to post-only
+                request.type = "POST_ONLY"
+
+                # Try to place the order
+                response = await self.place_order(request)
+
+                logger.info(
+                    "Post-only order placed successfully",
+                    order_id=response.order_id,
+                    retry_count=retry_count
+                )
+                return response
+
+            except Exception as e:
+                error_msg = str(e).lower()
+
+                # Check if order was rejected for crossing the spread
+                if "would match" in error_msg or "post only" in error_msg:
+                    retry_count += 1
+
+                    if retry_count >= max_retries:
+                        logger.warning(
+                            "Post-only order failed after max retries",
+                            symbol=request.symbol,
+                            original_price=str(original_price),
+                            retries=retry_count
+                        )
+                        raise
+
+                    # Adjust price to avoid crossing spread
+                    # For buy orders, decrease price slightly
+                    # For sell orders, increase price slightly
+                    adjustment = Decimal("0.0001")  # 0.01% adjustment
+
+                    if request.side.upper() == "BUY":
+                        request.price = request.price * (Decimal("1") - adjustment)
+                    else:
+                        request.price = request.price * (Decimal("1") + adjustment)
+
+                    logger.info(
+                        "Retrying post-only order with adjusted price",
+                        symbol=request.symbol,
+                        side=request.side,
+                        new_price=str(request.price),
+                        retry=retry_count
+                    )
+
+                    # Small delay before retry
+                    import asyncio
+                    await asyncio.sleep(0.5)
+
+                else:
+                    # Different error, re-raise
+                    raise

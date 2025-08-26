@@ -170,6 +170,10 @@ class OrderType(str, Enum):
     MARKET = "MARKET"
     LIMIT = "LIMIT"
     STOP_LOSS = "STOP_LOSS"
+    FOK = "FOK"  # Fill or Kill
+    IOC = "IOC"  # Immediate or Cancel
+    POST_ONLY = "POST_ONLY"  # Maker-only order
+    LIMIT_MAKER = "LIMIT_MAKER"  # Binance-specific post-only
 
 
 class OrderSide(str, Enum):
@@ -189,7 +193,7 @@ class OrderStatus(str, Enum):
 
 class Order(BaseModel):
     """Order domain model."""
-    
+
     order_id: str = Field(default_factory=lambda: str(uuid4()))
     position_id: str | None = None
     client_order_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -207,8 +211,12 @@ class Order(BaseModel):
     slippage_percent: Decimal | None = None
     created_at: datetime = Field(default_factory=datetime.now)
     executed_at: datetime | None = None
-    
-    @field_validator("price", "quantity", "filled_quantity", "slippage_percent", mode="before")
+    routing_method: str | None = None
+    maker_fee_paid: Decimal | None = None
+    taker_fee_paid: Decimal | None = None
+    execution_score: float | None = None
+
+    @field_validator("price", "quantity", "filled_quantity", "slippage_percent", "maker_fee_paid", "taker_fee_paid", mode="before")
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""

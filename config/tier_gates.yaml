@@ -1,0 +1,142 @@
+# Tier progression gates and feature unlock configuration
+# This file defines the requirements for tier progression and features unlocked at each tier
+
+tiers:
+  SNIPER:
+    min_balance: 0
+    required_win_rate: 0.0
+    min_trades: 0
+    behavioral_baseline_days: 0
+    features_unlocked:
+      - basic_trading
+      - stop_loss
+      - position_sizing
+    max_position_size: 100
+    max_daily_loss: 50
+    
+  HUNTER:
+    min_balance: 2000
+    required_win_rate: 0.45
+    min_trades: 100
+    behavioral_baseline_days: 7
+    features_unlocked:
+      - iceberg_orders
+      - multi_pair_trading
+      - advanced_analytics
+      - spread_trading
+      - smart_order_routing
+      - post_only_orders
+      - fok_ioc_orders
+      - basic_execution_tracking
+    max_position_size: 500
+    max_daily_loss: 200
+    grace_period_hours: 48
+    
+  STRATEGIST:
+    min_balance: 10000
+    required_win_rate: 0.55
+    min_trades: 500
+    multi_pair_success_rate: 0.60
+    behavioral_baseline_days: 14
+    features_unlocked:
+      - twap_execution
+      - statistical_arbitrage
+      - portfolio_optimization
+      - market_making
+      - custom_strategies
+      - advanced_smart_routing
+      - execution_quality_reports
+      - fee_optimization_algorithms
+    max_position_size: 2000
+    max_daily_loss: 1000
+    grace_period_hours: 72
+    
+  ARCHITECT:
+    min_balance: 50000
+    required_win_rate: 0.65
+    min_trades: 2000
+    multi_pair_success_rate: 0.70
+    strategy_diversity_score: 0.80
+    behavioral_baseline_days: 30
+    features_unlocked:
+      - algorithmic_trading
+      - high_frequency_trading
+      - cross_exchange_arbitrage
+      - options_trading
+      - full_api_access
+      - custom_risk_models
+    max_position_size: 10000
+    max_daily_loss: 5000
+    grace_period_hours: 96
+
+# Demotion triggers - monitored continuously
+demotion_triggers:
+  balance_below_minimum:
+    check_interval_minutes: 60
+    grace_period_minutes: 60
+    
+  consecutive_stop_losses:
+    threshold: 3
+    time_window_hours: 24
+    
+  tilt_score_critical:
+    threshold: 80
+    during_active_trading: true
+    
+  risk_violations:
+    strikes_allowed: 3
+    time_window_hours: 24
+    
+  valley_of_death:
+    monitor_duration_hours: 48
+    sensitivity_multiplier: 1.5
+    metrics:
+      - rapid_loss_percentage: 0.15
+      - tilt_spike_threshold: 70
+      - overleveraging_ratio: 2.0
+
+# Feature tutorials - shown when features are unlocked
+feature_tutorials:
+  iceberg_orders:
+    title: "Iceberg Order Execution"
+    duration_minutes: 5
+    steps:
+      - "Understanding order slicing"
+      - "Setting slice parameters"
+      - "Monitoring execution progress"
+      - "Handling partial fills"
+      
+  multi_pair_trading:
+    title: "Multi-Pair Trading Management"
+    duration_minutes: 10
+    steps:
+      - "Portfolio view overview"
+      - "Correlation monitoring"
+      - "Capital allocation strategies"
+      - "Risk distribution"
+      
+  twap_execution:
+    title: "Time-Weighted Average Price"
+    duration_minutes: 8
+    steps:
+      - "TWAP strategy basics"
+      - "Setting time windows"
+      - "Participation rate limits"
+      - "Benchmark tracking"
+      
+  statistical_arbitrage:
+    title: "Statistical Arbitrage Trading"
+    duration_minutes: 15
+    steps:
+      - "Pair selection criteria"
+      - "Mean reversion signals"
+      - "Position sizing for pairs"
+      - "Risk management for stat arb"
+
+# Transition ceremony configuration
+transition_ceremony:
+  animation_duration_seconds: 5
+  celebration_message_template: "Congratulations! You've advanced to {tier} tier!"
+  checklist_required: true
+  tutorial_mandatory: false
+  acknowledgment_required: true

@@ -40,6 +40,9 @@ tiers:
       - advanced_risk_management
       - multi_pair_trading
       - position_correlation
+      - smart_order_routing
+      - fok_ioc_orders
+      - post_only_orders
     
   STRATEGIST:
     # Capital range: $10,000 - $50,000
@@ -65,6 +68,10 @@ tiers:
       - position_correlation
       - vwap_execution
       - iceberg_orders
+      - smart_order_routing
+      - fok_ioc_orders
+      - post_only_orders
+      - execution_quality_tracking
     
   ARCHITECT:
     # Capital range: $50,000+
@@ -106,3 +113,34 @@ session:
   reset_time: "00:00"  # UTC midnight
   auto_close_on_limit: true  # Auto-close positions when daily limit hit
   warning_threshold: 80.0  # Warn at 80% of daily loss limit
+
+# Smart Order Routing Configuration
+smart_routing:
+  enabled_from_tier: HUNTER  # Smart routing available from Hunter tier
+  spread_thresholds:
+    tight_bps: 5  # < 5 bps is tight spread
+    wide_bps: 20  # > 20 bps is wide spread
+    post_only_min_bps: 5  # Minimum spread for post-only orders
+  liquidity_levels:
+    deep_ratio: 100  # > 100x order size
+    normal_ratio: 10  # 10-100x order size
+    shallow_ratio: 2  # 2-10x order size
+  volatility_thresholds:
+    high_percent: 5.0  # > 5% daily volatility is high
+    low_percent: 1.0  # < 1% daily volatility is low
+  fee_optimization:
+    prefer_maker: true  # Prefer maker orders when possible
+    max_post_only_retries: 3  # Max retries for post-only orders
+    post_only_price_adjustment_bps: 1  # Adjust by 1 bp on retry
+  execution_quality:
+    tracking_enabled: true
+    min_score_alert: 70  # Alert if score < 70
+    report_frequency: "daily"  # Generate reports daily
+  order_type_selection:
+    high_urgency_always_market: true
+    low_urgency_prefer_post_only: true
+    use_fok_thin_liquidity: true
+    use_ioc_volatile_markets: true
+  cache_settings:
+    market_conditions_ttl_seconds: 5
+    order_book_cache_size: 100

@@ -1,17 +1,19 @@
 """Dashboard screen with three-panel layout for Genesis trading terminal."""
 
 import asyncio
-from typing import Optional
 
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
 from textual.widgets import Static
 
-from genesis.ui.widgets.pnl import PnLWidget
-from genesis.ui.widgets.positions import PositionWidget
+from genesis.engine.state_machine import TierStateMachine
 from genesis.ui.commands import CommandInput, CommandParser
 from genesis.ui.integration import UIIntegration
+from genesis.ui.widgets.iceberg_status import IcebergStatusWidget
+from genesis.ui.widgets.pnl import PnLWidget
+from genesis.ui.widgets.positions import PositionWidget
+from genesis.ui.widgets.tier_gate_progress import TierGateProgressWidget
 
 
 class DashboardScreen(Screen):
@@ -50,16 +52,19 @@ class DashboardScreen(Screen):
     }
     """
 
-    def __init__(self, integration: Optional[UIIntegration] = None, **kwargs):
+    def __init__(self, integration: UIIntegration | None = None, **kwargs):
         """Initialize the dashboard screen."""
         super().__init__(**kwargs)
-        self.pnl_widget: Optional[PnLWidget] = None
-        self.position_widget: Optional[PositionWidget] = None
-        self.command_input: Optional[CommandInput] = None
+        self.pnl_widget: PnLWidget | None = None
+        self.position_widget: PositionWidget | None = None
+        self.iceberg_widget: IcebergStatusWidget | None = None
+        self.tier_gate_widget: TierGateProgressWidget | None = None
+        self.command_input: CommandInput | None = None
         self.command_parser = CommandParser()
-        self.status_message: Optional[Static] = None
-        self.status_timer: Optional[asyncio.Task] = None
+        self.status_message: Static | None = None
+        self.status_timer: asyncio.Task | None = None
         self.integration = integration or UIIntegration()
+        self.state_machine = TierStateMachine()  # Initialize tier state machine
 
     def compose(self) -> ComposeResult:
         """Compose the dashboard layout."""
@@ -68,10 +73,20 @@ class DashboardScreen(Screen):
             self.pnl_widget = PnLWidget()
             yield self.pnl_widget
 
-        # Position Panel (Middle)
+        # Position Panel (Middle-Top)
         with Container(id="position-container"):
             self.position_widget = PositionWidget()
             yield self.position_widget
+
+        # Iceberg Status Panel (Middle-Bottom)
+        with Container(id="iceberg-container"):
+            self.iceberg_widget = IcebergStatusWidget()
+            yield self.iceberg_widget
+
+        # Tier Gate Progress Panel
+        with Container(id="tier-gate-container"):
+            self.tier_gate_widget = TierGateProgressWidget(self.state_machine)
+            yield self.tier_gate_widget
 
         # Command Panel (Bottom)
         with Container(id="command-container"):

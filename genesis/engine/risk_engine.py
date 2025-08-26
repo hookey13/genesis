@@ -5,6 +5,7 @@ This module implements position sizing, risk limits, stop-loss calculations,
 and P&L tracking with strict adherence to tier-based limits.
 """
 
+from dataclasses import dataclass
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from typing import ClassVar
 
@@ -26,6 +27,15 @@ from genesis.core.models import (
 from genesis.utils.decorators import requires_tier
 
 logger = structlog.get_logger(__name__)
+
+
+@dataclass
+class RiskDecision:
+    """Result of a risk check."""
+    approved: bool
+    reason: str | None = None
+    adjusted_quantity: Decimal | None = None
+    warnings: list[str] = None
 
 
 class RiskEngine:
@@ -261,12 +271,69 @@ class RiskEngine:
             "pnl_percent": pnl_percent
         }
 
+    async def check_risk_limits(self, order_params: dict) -> RiskDecision:
+        """
+        Check if an order meets risk requirements.
+        
+        Args:
+            order_params: Dictionary with symbol, side, quantity
+            
+        Returns:
+            RiskDecision with approval status and details
+        """
+        try:
+            symbol = order_params.get("symbol")
+            side = order_params.get("side")
+            quantity = order_params.get("quantity")
+
+            # Validate basic parameters
+            if not all([symbol, side, quantity]):
+                return RiskDecision(
+                    approved=False,
+                    reason="Missing required order parameters"
+                )
+
+            # Check daily loss limit
+            if self.session and self.session.total_pnl < -self.tier_limits["max_daily_loss"]:
+                return RiskDecision(
+                    approved=False,
+                    reason="Daily loss limit reached"
+                )
+
+            # Check position limit
+            position_value = quantity * Decimal("50000")  # Approximate value
+            if position_value > self.tier_limits["max_position_value"]:
+                return RiskDecision(
+                    approved=False,
+                    reason=f"Position size exceeds tier limit of ${self.tier_limits['max_position_value']}"
+                )
+
+            # Check balance
+            if self.account.balance_usdt < position_value * Decimal("0.01"):  # 1% margin
+                return RiskDecision(
+                    approved=False,
+                    reason="Insufficient balance for margin"
+                )
+
+            return RiskDecision(
+                approved=True,
+                adjusted_quantity=quantity
+            )
+
+        except Exception as e:
+            logger.error("Risk check failed", error=str(e))
+            return RiskDecision(
+                approved=False,
+                reason=f"Risk check error: {e}"
+            )
+
     def validate_order_risk(
         self,
         symbol: str,
         side: PositionSide,
         quantity: Decimal,
-        entry_price: Decimal
+        entry_price: Decimal,
+        is_iceberg: bool = False
     ) -> None:
         """
         Validate an order against risk limits.
@@ -276,6 +343,7 @@ class RiskEngine:
             side: Order side
             quantity: Order quantity
             entry_price: Entry price
+            is_iceberg: Whether this is an iceberg order
 
         Raises:
             RiskLimitExceeded: If order would exceed risk limits
@@ -283,6 +351,15 @@ class RiskEngine:
             InsufficientBalance: If insufficient balance
         """
         position_value = quantity * entry_price
+
+        # For iceberg orders, validate total order value
+        if is_iceberg:
+            logger.info(
+                "Validating iceberg order risk",
+                symbol=symbol,
+                total_value=str(position_value),
+                quantity=str(quantity)
+            )
 
         # Check minimum position size
         if position_value < self.MINIMUM_POSITION_SIZE:
@@ -437,3 +514,74 @@ class RiskEngine:
                 correlations.append((pos_a, pos_b, correlation))
 
         return correlations
+
+    def validate_portfolio_risk(self, positions: list[Position]) -> dict:
+        """
+        Validate portfolio-level risk for multi-pair trading.
+        
+        Args:
+            positions: List of positions to validate
+            
+        Returns:
+            RiskDecision dictionary with validation results
+        """
+        risk_decision = {
+            "approved": True,
+            "warnings": [],
+            "rejections": [],
+            "portfolio_exposure": Decimal("0"),
+            "correlation_risk": Decimal("0"),
+            "adjusted_limits": {}
+        }
+
+        # Calculate total exposure
+        total_exposure = sum(p.dollar_value for p in positions)
+        risk_decision["portfolio_exposure"] = total_exposure
+
+        # Check against tier limits
+        max_exposure = self.account.balance_usdt * Decimal("0.9")  # 90% max exposure
+        if total_exposure > max_exposure:
+            risk_decision["approved"] = False
+            risk_decision["rejections"].append(
+                f"Portfolio exposure ${total_exposure:.2f} exceeds limit ${max_exposure:.2f}"
+            )
+
+        # Check position count
+        if len(positions) > self.tier_limits["max_positions"]:
+            risk_decision["approved"] = False
+            risk_decision["rejections"].append(
+                f"Position count {len(positions)} exceeds tier limit {self.tier_limits['max_positions']}"
+            )
+
+        # Check for concentrated positions
+        for position in positions:
+            position_weight = position.dollar_value / total_exposure if total_exposure > 0 else Decimal("0")
+            if position_weight > Decimal("0.4"):  # 40% concentration warning
+                risk_decision["warnings"].append(
+                    f"High concentration in {position.symbol}: {position_weight:.1%}"
+                )
+
+        # Check daily P&L against limits
+        if self.session:
+            current_pnl = self.session.realized_pnl + self.session.unrealized_pnl
+            if abs(current_pnl) > self.tier_limits["daily_loss_limit"] * Decimal("0.8"):
+                risk_decision["warnings"].append(
+                    f"Approaching daily loss limit: ${abs(current_pnl):.2f} of ${self.tier_limits['daily_loss_limit']:.2f}"
+                )
+
+            if abs(current_pnl) >= self.tier_limits["daily_loss_limit"]:
+                risk_decision["approved"] = False
+                risk_decision["rejections"].append(
+                    f"Daily loss limit reached: ${abs(current_pnl):.2f}"
+                )
+
+        logger.info(
+            "Portfolio risk validated",
+            approved=risk_decision["approved"],
+            exposure=str(total_exposure),
+            position_count=len(positions),
+            warnings=len(risk_decision["warnings"]),
+            rejections=len(risk_decision["rejections"])
+        )
+
+        return risk_decision

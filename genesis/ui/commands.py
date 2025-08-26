@@ -3,7 +3,6 @@
 import re
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, Optional
 
 from textual.widgets import Input
 
@@ -13,8 +12,8 @@ class CommandResult:
     """Result of command parsing and execution."""
     success: bool
     message: str
-    command_type: Optional[str] = None
-    params: Optional[dict] = None
+    command_type: str | None = None
+    params: dict | None = None
 
 
 class CommandInput(Input):
@@ -33,7 +32,7 @@ class CommandInput(Input):
             placeholder="Enter command (e.g., b100u, s50u, cancel, status)",
             **kwargs
         )
-        self.command_history: List[str] = []
+        self.command_history: list[str] = []
         self.history_index = -1
 
         # Autocomplete suggestions
@@ -136,7 +135,7 @@ class CommandParser:
                 f"Unknown command: {cmd}. Type 'help' for available commands"
             )
 
-    async def _parse_buy(self, args: List[str]) -> CommandResult:
+    async def _parse_buy(self, args: list[str]) -> CommandResult:
         """Parse buy command."""
         if not args:
             return CommandResult(False, "Buy command requires amount (e.g., buy 100)")
@@ -147,7 +146,7 @@ class CommandParser:
         except Exception:
             return CommandResult(False, f"Invalid amount: {args[0]}")
 
-    async def _parse_sell(self, args: List[str]) -> CommandResult:
+    async def _parse_sell(self, args: list[str]) -> CommandResult:
         """Parse sell command."""
         if not args:
             return CommandResult(False, "Sell command requires amount (e.g., sell 50)")
@@ -158,7 +157,7 @@ class CommandParser:
         except Exception:
             return CommandResult(False, f"Invalid amount: {args[0]}")
 
-    async def _parse_cancel(self, args: List[str]) -> CommandResult:
+    async def _parse_cancel(self, args: list[str]) -> CommandResult:
         """Parse cancel command."""
         # TODO: Connect to OrderExecutor.cancel_all_orders()
         return CommandResult(
@@ -168,7 +167,7 @@ class CommandParser:
             {}
         )
 
-    async def _parse_status(self, args: List[str]) -> CommandResult:
+    async def _parse_status(self, args: list[str]) -> CommandResult:
         """Parse status command."""
         # TODO: Connect to system status
         return CommandResult(
@@ -178,7 +177,7 @@ class CommandParser:
             {}
         )
 
-    async def _parse_help(self, args: List[str]) -> CommandResult:
+    async def _parse_help(self, args: list[str]) -> CommandResult:
         """Parse help command."""
         help_text = """Available Commands:
         b100u - Buy $100 USDT worth

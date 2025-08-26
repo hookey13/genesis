@@ -89,9 +89,51 @@ class OrderExecutionError(ExchangeError):
 
 class SlippageAlert(ExchangeError):
     """Raised when slippage exceeds threshold."""
-    
+
     def __init__(self, message: str, slippage: Decimal, threshold: Decimal = Decimal("0.5")):
         super().__init__(message)
         self.code = "SLIPPAGE_ALERT"
         self.slippage = slippage
         self.threshold = threshold
+
+
+class InsufficientLiquidity(ExchangeError):
+    """Raised when market liquidity is insufficient for order execution."""
+
+    def __init__(self, message: str, required_liquidity: Decimal, available_liquidity: Decimal):
+        super().__init__(message)
+        self.code = "INSUFFICIENT_LIQUIDITY"
+        self.required_liquidity = required_liquidity
+        self.available_liquidity = available_liquidity
+
+
+class MarketDataError(ExchangeError):
+    """Raised when market data operations fail."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.code = "MARKET_DATA_ERROR"
+
+
+class DataError(GenesisException):
+    """Raised when data validation or processing fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="DATA_ERROR")
+
+
+class ValidationError(GenesisException):
+    """Raised when input validation fails."""
+
+    def __init__(self, message: str, field: str | None = None):
+        self.field = field
+        if field:
+            message = f"Validation error for {field}: {message}"
+        super().__init__(message, code="VALIDATION_ERROR")
+
+
+class StateError(GenesisException):
+    """Raised when an operation is attempted in an invalid state."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="STATE_ERROR")

@@ -7,18 +7,18 @@ retry logic for transient errors.
 
 import asyncio
 import functools
-from typing import Any, Callable, Dict, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 import structlog
-
 
 logger = structlog.get_logger(__name__)
 
 
 class ExchangeError(Exception):
     """Base exception for exchange-related errors."""
-    
-    def __init__(self, message: str, code: Optional[int] = None, retry_after: Optional[int] = None):
+
+    def __init__(self, message: str, code: int | None = None, retry_after: int | None = None):
         """
         Initialize exchange error.
         
@@ -94,7 +94,7 @@ class ErrorTranslator:
     Based on Binance API documentation:
     https://binance-docs.github.io/apidocs/spot/en/#error-codes
     """
-    
+
     # Binance error code mappings
     ERROR_CODES = {
         # 10xx - General Server or Network issues
@@ -111,7 +111,7 @@ class ErrorTranslator:
         -1010: (NetworkError, "Server is currently busy"),
         -1011: (NetworkError, "This IP cannot access this route"),
         -1012: (MaintenanceError, "System maintenance"),
-        
+
         # 11xx - Request issues
         -1100: (InvalidOrderError, "Illegal characters found in parameter"),
         -1101: (InvalidOrderError, "Too many parameters"),
@@ -133,7 +133,7 @@ class ErrorTranslator:
         -1125: (InvalidOrderError, "Invalid listenKey"),
         -1127: (InvalidOrderError, "Invalid quantity"),
         -1128: (InvalidOrderError, "Invalid price"),
-        
+
         # 20xx - Processing issues
         -2008: (InvalidOrderError, "Invalid API-key format"),
         -2009: (InvalidOrderError, "Margin account are not allowed to trade this trading pair"),
@@ -155,23 +155,23 @@ class ErrorTranslator:
         -2026: (InvalidOrderError, "This order type is not supported"),
         -2027: (InvalidOrderError, "Exceeded the maximum allowable position"),
         -2028: (InvalidOrderError, "Position is not sufficient"),
-        
+
         # Filters
         -9000: (InvalidOrderError, "Filter failure"),
-        
+
         # LOT_SIZE
         -1013: (MinOrderSizeError, "Order quantity below minimum"),
-        
+
         # MIN_NOTIONAL
         -1016: (MinOrderSizeError, "Order value below minimum"),
-        
+
         # MARKET_LOT_SIZE
         -1020: (InvalidOrderError, "Market order quantity precision invalid"),
-        
+
         # MAX_NUM_ORDERS
         -1021: (InvalidOrderError, "Maximum number of orders exceeded"),
     }
-    
+
     @classmethod
     def translate(cls, error: Exception) -> ExchangeError:
         """
@@ -186,7 +186,7 @@ class ErrorTranslator:
         # Extract error code from the exception
         error_str = str(error)
         error_code = None
-        
+
         # Try to extract Binance error code
         if "code=" in error_str:
             try:
@@ -194,15 +194,15 @@ class ErrorTranslator:
                 error_code = int(code_part.rstrip(",)"))
             except (IndexError, ValueError):
                 pass
-        
+
         # Look up error code in mapping
         if error_code and error_code in cls.ERROR_CODES:
             exception_class, message = cls.ERROR_CODES[error_code]
             return exception_class(message, code=error_code)
-        
+
         # Check for common error patterns in message
         error_lower = error_str.lower()
-        
+
         if "rate limit" in error_lower or "too many requests" in error_lower:
             return RateLimitError(error_str)
         elif "insufficient balance" in error_lower:
@@ -217,7 +217,7 @@ class ErrorTranslator:
             return MaintenanceError(error_str)
         elif "network" in error_lower or "connection" in error_lower:
             return NetworkError(error_str)
-        
+
         # Default to generic exchange error
         return ExchangeError(error_str)
 
@@ -238,7 +238,7 @@ def is_transient_error(error: Exception) -> bool:
         RateLimitError,
         MaintenanceError
     )
-    
+
     return isinstance(error, transient_types)
 
 
@@ -262,16 +262,16 @@ def retry_on_transient_error(
         async def wrapper(*args, **kwargs) -> Any:
             delay = initial_delay
             last_error = None
-            
+
             for attempt in range(max_retries + 1):
                 try:
                     return await func(*args, **kwargs)
-                    
+
                 except Exception as e:
                     # Translate the error
                     translated_error = ErrorTranslator.translate(e)
                     last_error = translated_error
-                    
+
                     # Check if we should retry
                     if attempt < max_retries and is_transient_error(translated_error):
                         # Use retry_after if provided
@@ -279,27 +279,27 @@ def retry_on_transient_error(
                             wait_time = translated_error.retry_after
                         else:
                             wait_time = min(delay, max_delay)
-                        
+
                         logger.warning(
                             f"Transient error on attempt {attempt + 1}/{max_retries + 1}, "
                             f"retrying in {wait_time}s",
                             error=str(translated_error),
                             function=func.__name__
                         )
-                        
+
                         await asyncio.sleep(wait_time)
-                        
+
                         # Exponential backoff
                         delay *= backoff_factor
                     else:
                         # Non-transient error or max retries reached
                         raise translated_error
-            
+
             # Should not reach here, but just in case
             if last_error:
                 raise last_error
             else:
                 raise ExchangeError("Unknown error after retries")
-        
+
         return wrapper
     return decorator
