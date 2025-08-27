@@ -1,0 +1,109 @@
+# Capital Allocation Configuration for Multi-Strategy Orchestration
+# This file defines rules and parameters for allocating capital across strategies
+
+allocation:
+  # Allocation method: equal_weight, risk_parity, performance_weighted, kelly_criterion, custom
+  method: performance_weighted
+  
+  # Rebalancing frequency: continuous, daily, weekly, monthly, threshold
+  rebalance_frequency: daily
+  
+  # Maximum number of concurrent strategies
+  max_strategies: 10
+  
+  # Minimum allocation per strategy (percentage)
+  min_allocation_percent: 5
+  
+  # Maximum allocation per strategy (percentage)
+  max_allocation_percent: 40
+  
+  # Reserve capital percentage (not allocated)
+  reserve_percent: 10
+  
+  # Rebalance threshold for drift-based rebalancing (percentage)
+  rebalance_threshold_percent: 5
+  
+  # Kelly criterion settings
+  use_kelly_sizing: false
+  kelly_fraction: 0.25  # Conservative Kelly (25% of full Kelly)
+
+# Strategy-specific limits (applied on top of global limits)
+strategy_limits:
+  arbitrage_strategies:
+    min_allocation: 10
+    max_allocation: 30
+    
+  mean_reversion_strategies:
+    min_allocation: 5
+    max_allocation: 25
+    
+  market_making_strategies:
+    min_allocation: 5
+    max_allocation: 20
+    
+  vwap_execution:
+    min_allocation: 10
+    max_allocation: 35
+
+# Performance-based allocation adjustments
+performance_adjustments:
+  # Increase allocation for high performers
+  high_performance_threshold: 0.7  # Performance score > 0.7
+  high_performance_boost: 10  # Increase allocation by 10%
+  
+  # Decrease allocation for low performers
+  low_performance_threshold: 0.3  # Performance score < 0.3
+  low_performance_reduction: 20  # Decrease allocation by 20%
+  
+  # Sharpe ratio consideration
+  min_sharpe_ratio: 0.5
+  sharpe_weight: 0.3  # 30% weight in performance score
+
+# Risk-based allocation constraints
+risk_constraints:
+  # Maximum correlation between strategies
+  max_correlation: 0.6
+  
+  # Reduce allocation when correlation spikes
+  correlation_spike_threshold: 0.8
+  correlation_spike_reduction: 50  # Reduce by 50% when correlation > 0.8
+  
+  # Volatility adjustments
+  high_volatility_threshold: 0.3  # Daily volatility > 30%
+  high_volatility_reduction: 25  # Reduce allocation by 25%
+
+# Market regime-specific allocation
+market_regimes:
+  BULL:
+    trend_following_boost: 20
+    mean_reversion_reduction: 10
+    
+  BEAR:
+    defensive_strategies_boost: 30
+    aggressive_strategies_reduction: 40
+    
+  CRAB:
+    mean_reversion_boost: 25
+    trend_following_reduction: 20
+    
+  CRASH:
+    all_strategies_reduction: 70  # Reduce all allocations by 70%
+    cash_reserve_increase: 50  # Increase cash reserve to 50%
+    
+  RECOVERY:
+    gradual_increase_rate: 10  # Increase allocations by 10% per period
+
+# Emergency controls
+emergency_controls:
+  # Daily loss limit trigger
+  daily_loss_percent: 5
+  daily_loss_action: halt_new_positions
+  
+  # Drawdown trigger
+  max_drawdown_percent: 15
+  drawdown_action: reduce_all_allocations
+  drawdown_reduction: 50
+  
+  # Correlation crisis (all correlations spike)
+  correlation_crisis_threshold: 0.9
+  correlation_crisis_action: emergency_deleveraging

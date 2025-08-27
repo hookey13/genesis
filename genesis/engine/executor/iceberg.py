@@ -76,9 +76,9 @@ class IcebergExecution:
     cumulative_slippage: Decimal = Decimal("0")
     max_slice_slippage: Decimal = Decimal("0")
     status: str = "PENDING"
-    abort_reason: str | None = None
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
+    abort_reason: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
 
 
 class IcebergOrderExecutor(OrderExecutor):
@@ -657,7 +657,7 @@ class IcebergOrderExecutor(OrderExecutor):
         """Cancel an order."""
         return await self.market_executor.cancel_order(order_id, symbol)
 
-    async def cancel_all_orders(self, symbol: str | None = None) -> int:
+    async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         """Cancel all orders."""
         return await self.market_executor.cancel_all_orders(symbol)
 

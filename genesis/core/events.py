@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Optional, Any
 from uuid import uuid4
 
 
@@ -66,6 +66,12 @@ class EventType(str, Enum):
     TILT_DEBT_REDUCED = "tilt_debt_reduced"  # Debt paid down
     RECOVERY_COMPLETED = "recovery_completed"  # Full recovery achieved
 
+    # Drawdown Recovery Events
+    DRAWDOWN_DETECTED = "drawdown_detected"  # Significant drawdown detected
+    DRAWDOWN_RECOVERY_INITIATED = "drawdown_recovery_initiated"  # Drawdown recovery started
+    FORCED_BREAK_INITIATED = "forced_break_initiated"  # Forced trading break started
+    FORCED_BREAK_CLEARED = "forced_break_cleared"  # Forced break cleared
+
     # Behavioral Baseline Events
     BASELINE_CALCULATION_STARTED = "baseline_calculation_started"
     BASELINE_CALCULATION_COMPLETE = "baseline_calculation_complete"
@@ -76,6 +82,23 @@ class EventType(str, Enum):
     MARKET_STATE_CHANGE = "market_state_change"
     GLOBAL_MARKET_STATE_CHANGE = "global_market_state_change"
     POSITION_SIZE_ADJUSTMENT = "position_size_adjustment"
+
+    # Strategy Events
+    STRATEGY_REGISTERED = "strategy_registered"
+    STRATEGY_UNREGISTERED = "strategy_unregistered"
+    STRATEGY_STARTED = "strategy_started"
+    STRATEGY_STOPPED = "strategy_stopped"
+    STRATEGY_PAUSED = "strategy_paused"
+    STRATEGY_RESUMED = "strategy_resumed"
+    STRATEGY_RECOVERED = "strategy_recovered"
+    STRATEGY_CONFLICT = "strategy_conflict"
+    STRATEGY_CAPITAL_ADJUSTED = "strategy_capital_adjusted"
+
+    # A/B Testing Events
+    AB_TEST_CREATED = "ab_test_created"
+    AB_TEST_STARTED = "ab_test_started"
+    AB_TEST_COMPLETED = "ab_test_completed"
+    AB_TEST_ABORTED = "ab_test_aborted"
 
     # System Events
     TIER_PROGRESSION = "tier_progression"
@@ -106,9 +129,19 @@ class Event:
     aggregate_id: str = ""  # ID of the entity this event relates to
     event_data: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
-    sequence_number: int | None = None
-    correlation_id: str | None = None  # For tracking related events
+    sequence_number: Optional[int] = None
+    correlation_id: Optional[str] = None  # For tracking related events
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def type(self) -> EventType:
+        """Alias for event_type for backward compatibility."""
+        return self.event_type
+
+    @property
+    def data(self) -> dict[str, Any]:
+        """Alias for event_data for backward compatibility."""
+        return self.event_data
 
     def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary."""

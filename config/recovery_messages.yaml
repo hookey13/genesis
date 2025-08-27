@@ -1,0 +1,143 @@
+# Recovery Messages Configuration
+# Psychological support messages for drawdown recovery protocol
+
+recovery_stage_messages:
+  stage_0:  # 25% position size
+    entry:
+      - "Recovery mode activated. Starting with smaller positions to rebuild confidence."
+      - "Taking it slow and steady. Small wins compound over time."
+      - "Focus on process, not P&L. Good decisions will lead to good outcomes."
+    milestone:
+      - "First step complete. You're making progress."
+      - "Patience is working. Keep following your system."
+    tips:
+      - "Tip: Review your best trades from the past week for confidence."
+      - "Tip: Take a 5-minute break every hour to maintain focus."
+      - "Tip: Document your thought process for each trade."
+  
+  stage_1:  # 50% position size
+    entry:
+      - "Good progress! Position size increased to 50%. Stay disciplined."
+      - "You're halfway back. Consistency is key."
+      - "Building momentum. Trust your improved process."
+    milestone:
+      - "50% recovered! Your discipline is paying off."
+      - "Halfway there. This is sustainable recovery."
+    tips:
+      - "Tip: Avoid checking P&L during trades. Focus on execution."
+      - "Tip: Stick to your highest win-rate setups only."
+      - "Tip: Remember: Recovery is a marathon, not a sprint."
+  
+  stage_2:  # 75% position size
+    entry:
+      - "Almost there! 75% position sizing restored."
+      - "Your consistency has earned increased confidence."
+      - "Final stretch. Maintain your discipline."
+    milestone:
+      - "75% recovered! Full recovery is within reach."
+      - "Outstanding progress. Keep doing what works."
+    tips:
+      - "Tip: Don't rush now. The finish line will come to you."
+      - "Tip: Review what worked during this recovery for future reference."
+      - "Tip: Stay humble. Markets reward discipline, not ego."
+  
+  stage_3:  # 100% position size
+    completion:
+      - "Full recovery complete! You've proven your resilience."
+      - "Congratulations! You recovered the right way - systematically."
+      - "Well done! You're stronger for having gone through this."
+    tips:
+      - "Tip: Document your recovery journey for future reference."
+      - "Tip: Consider keeping slightly reduced size for a few more days."
+      - "Tip: Remember these lessons when times are good."
+
+drawdown_messages:
+  detection:
+    - "Drawdown of {drawdown_pct:.1f}% detected. Recovery protocol initiated."
+    - "Account protection activated due to {drawdown_pct:.1f}% drawdown."
+  
+  encouragement:
+    light:  # 10-15% drawdown
+      - "Small setback, big comeback incoming. Stay focused."
+      - "This is manageable. Stick to your process."
+      - "Every successful trader has been here. You've got this."
+    
+    moderate:  # 15-20% drawdown  
+      - "Challenging, but recoverable. One trade at a time."
+      - "This is where discipline matters most. Trust your system."
+      - "Recovery starts with the next good decision."
+    
+    severe:  # 20%+ drawdown
+      - "Tough spot, but not insurmountable. Focus on quality over quantity."
+      - "Time to show your real strength. Small, consistent wins."
+      - "The best traders are defined by their recoveries."
+
+consecutive_loss_messages:
+  warning:
+    2_losses:
+      - "Two losses in a row. Consider taking a short break."
+      - "Back-to-back losses. Check your mental state."
+    
+    3_losses:
+      - "Three consecutive losses. Mandatory break initiated."
+      - "Time for a reset. 30-minute break required."
+      - "Forced break activated. Use this time to refocus."
+  
+  break_required:
+    - "Trading suspended for {duration} minutes. Journal entry required before resuming."
+    - "Break time: {duration} minutes. Reflect on recent trades."
+    - "Timeout initiated. Complete journal entry to resume trading."
+
+milestone_celebrations:
+  25_percent:
+    - "🎯 25% Milestone reached! Quarter of the way back."
+    - "📈 25% recovered! Solid start to your comeback."
+  
+  50_percent:
+    - "💪 50% Milestone reached! Halfway to full recovery."
+    - "🎯 Half your drawdown recovered! Keep going."
+  
+  75_percent:
+    - "🔥 75% Milestone reached! Almost there!"
+    - "💎 Three-quarters recovered! Final push ahead."
+  
+  100_percent:
+    - "🏆 Full recovery achieved! You did it the right way."
+    - "✨ 100% recovered! Stronger and wiser."
+
+educational_tips:
+  revenge_trading:
+    - "Remember: Revenge trading turns small losses into big ones."
+    - "The market doesn't know you lost. Trade the setup, not the emotion."
+    - "Trying to 'get even' quickly usually makes things worse."
+  
+  position_sizing:
+    - "Smaller positions = clearer thinking = better decisions."
+    - "Position size is a tool. Use it to manage both risk and psychology."
+    - "Consistent small wins > sporadic large wins."
+  
+  mental_state:
+    - "Your mental capital is as important as your financial capital."
+    - "If you're not in the right headspace, the market will find out."
+    - "Trading while tilted is like driving while impaired."
+  
+  process_focus:
+    - "Focus on making good decisions. Results will follow."
+    - "Grade yourself on execution, not outcomes."
+    - "Perfect execution with a loss > poor execution with a win."
+
+journal_prompts:
+  after_losses:
+    - "What market conditions led to these losses?"
+    - "Were the losses due to system failure or execution error?"
+    - "What would you do differently with the same information?"
+  
+  recovery_planning:
+    - "What's your specific plan for the next 3 trades?"
+    - "Which setups have your highest win rate recently?"
+    - "What will you do differently during this recovery?"
+  
+  mental_check:
+    - "Rate your current emotional state from 1-10."
+    - "What do you need right now to trade at your best?"
+    - "Are you trading to prove something, or following your system?"

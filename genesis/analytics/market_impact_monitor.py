@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Optional, Any
 from uuid import uuid4
 
 import structlog
@@ -37,23 +37,23 @@ class ImpactSeverity(str, Enum):
 class MarketImpactMetric:
     """Individual market impact measurement."""
     impact_id: str
-    execution_id: str | None
-    slice_id: str | None
+    execution_id: Optional[str]
+    slice_id: Optional[str]
     symbol: str
     side: OrderSide
     pre_price: Decimal
     post_price: Decimal
     price_impact_percent: Decimal
     volume_executed: Decimal
-    order_book_depth_usdt: Decimal | None
-    bid_ask_spread: Decimal | None
-    liquidity_consumed_percent: Decimal | None
-    market_depth_1pct: Decimal | None
-    market_depth_2pct: Decimal | None
-    cumulative_impact: Decimal | None
+    order_book_depth_usdt: Optional[Decimal]
+    bid_ask_spread: Optional[Decimal]
+    liquidity_consumed_percent: Optional[Decimal]
+    market_depth_1pct: Optional[Decimal]
+    market_depth_2pct: Optional[Decimal]
+    cumulative_impact: Optional[Decimal]
     severity: ImpactSeverity
     measured_at: datetime
-    notes: str | None = None
+    notes: Optional[str] = None
 
 
 @dataclass
@@ -82,8 +82,8 @@ class ImpactAnalysis:
 
     # Risk metrics
     severity_distribution: dict[ImpactSeverity, int]
-    recovery_time_seconds: float | None  # Time for price to recover
-    permanent_impact_percent: Decimal | None  # Impact after recovery period
+    recovery_time_seconds: Optional[float]  # Time for price to recover
+    permanent_impact_percent: Optional[Decimal]  # Impact after recovery period
 
     # Recommendations
     optimal_slice_size: Decimal
@@ -117,7 +117,7 @@ class MarketImpactMonitor:
     def __init__(
         self,
         gateway,
-        repository: Repository | None = None,
+        repository: Optional[Repository] = None,
         tier: TradingTier = TradingTier.HUNTER
     ):
         """
@@ -516,7 +516,7 @@ class MarketImpactMonitor:
         self,
         execution_id: str,
         symbol: str
-    ) -> float | None:
+    ) -> Optional[float]:
         """Monitor how long it takes for price to recover."""
         if execution_id not in self.pre_execution_prices:
             return None
@@ -552,7 +552,7 @@ class MarketImpactMonitor:
         self,
         execution_id: str,
         symbol: str
-    ) -> Decimal | None:
+    ) -> Optional[Decimal]:
         """Calculate permanent price impact after recovery period."""
         if execution_id not in self.pre_execution_prices:
             return None

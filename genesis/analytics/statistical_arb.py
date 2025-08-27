@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, getcontext
-from typing import Any
+from typing import Optional, Any
 
 import numpy as np
 import pandas as pd
@@ -405,7 +405,7 @@ class SpreadAnalyzer:
         pair2: str,
         cointegrated: bool,
         spread_stability: Decimal,
-    ) -> Signal | None:
+    ) -> Optional[Signal]:
         """
         Generate trading signal with confidence scoring.
 
@@ -569,7 +569,7 @@ class ThresholdMonitor:
 
     def check_threshold(
         self, pair1: str, pair2: str, zscore: Decimal
-    ) -> dict[str, Any] | None:
+    ) -> Optional[dict[str, Any]]:
         """
         Check if z-score breaches threshold.
 

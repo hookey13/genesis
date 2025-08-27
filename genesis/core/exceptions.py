@@ -6,12 +6,13 @@ for error handling and control flow.
 """
 
 from decimal import Decimal
+from typing import Optional
 
 
 class GenesisException(Exception):
     """Base exception for all GENESIS exceptions."""
 
-    def __init__(self, message: str, code: str | None = None):
+    def __init__(self, message: str, code: Optional[str] = None):
         super().__init__(message)
         self.code = code
 
@@ -65,7 +66,7 @@ class DailyLossLimitReached(GenesisException):
 class ConfigurationError(GenesisException):
     """Raised when configuration is invalid or missing."""
 
-    def __init__(self, message: str, config_key: str | None = None):
+    def __init__(self, message: str, config_key: Optional[str] = None):
         super().__init__(message, code="CONFIGURATION_ERROR")
         self.config_key = config_key
 
@@ -81,7 +82,7 @@ class ExchangeError(GenesisException):
 class OrderExecutionError(ExchangeError):
     """Raised when order execution fails."""
 
-    def __init__(self, message: str, order_id: str | None = None):
+    def __init__(self, message: str, order_id: Optional[str] = None):
         super().__init__(message)
         self.code = "ORDER_EXECUTION_ERROR"
         self.order_id = order_id
@@ -125,7 +126,7 @@ class DataError(GenesisException):
 class ValidationError(GenesisException):
     """Raised when input validation fails."""
 
-    def __init__(self, message: str, field: str | None = None):
+    def __init__(self, message: str, field: Optional[str] = None):
         self.field = field
         if field:
             message = f"Validation error for {field}: {message}"

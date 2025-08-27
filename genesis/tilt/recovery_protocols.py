@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any
+from typing import Optional, Any
 from uuid import uuid4
 
 import structlog
@@ -41,8 +41,11 @@ class RecoveryProtocol:
     loss_trades_count: int = 0
     total_profit: Decimal = Decimal("0")
     total_loss: Decimal = Decimal("0")
-    recovery_completed_at: datetime | None = None
+    recovery_completed_at: Optional[datetime] = None
     is_active: bool = True
+    is_drawdown_recovery: bool = False
+    drawdown_percentage: Decimal = Decimal("0")
+    recovery_milestones: list[Decimal] = field(default_factory=list)
 
 
 class RecoveryProtocolManager:
@@ -77,8 +80,8 @@ class RecoveryProtocolManager:
 
     def __init__(
         self,
-        repository: SQLiteRepository | None = None,
-        event_bus: EventBus | None = None,
+        repository: Optional[SQLiteRepository] = None,
+        event_bus: Optional[EventBus] = None,
     ):
         """Initialize recovery protocol manager.
 
@@ -91,6 +94,138 @@ class RecoveryProtocolManager:
 
         # Active recovery protocols cache
         self.active_protocols: dict[str, RecoveryProtocol] = {}
+
+    async def initiate_drawdown_recovery(
+        self,
+        account_id: str,
+        drawdown_pct: Decimal,
+    ) -> RecoveryProtocol:
+        """Initiate recovery protocol for drawdown breach.
+        
+        Args:
+            account_id: Account identifier
+            drawdown_pct: Current drawdown percentage
+            
+        Returns:
+            Created recovery protocol for drawdown
+        """
+        # Check if already has active protocol
+        if account_id in self.active_protocols:
+            existing = self.active_protocols[account_id]
+            if existing.is_active and existing.is_drawdown_recovery:
+                logger.warning(
+                    "Drawdown recovery already active",
+                    account_id=account_id,
+                    protocol_id=existing.protocol_id,
+                )
+                return existing
+
+        # Create new drawdown recovery protocol
+        protocol = RecoveryProtocol(
+            protocol_id=str(uuid4()),
+            profile_id=account_id,
+            initiated_at=datetime.now(UTC),
+            lockout_duration_minutes=0,
+            initial_debt_amount=Decimal("0"),
+            current_debt_amount=Decimal("0"),
+            recovery_stage=RecoveryStage.STAGE_1,  # Start at 50% for drawdown
+            is_active=True,
+            is_drawdown_recovery=True,
+            drawdown_percentage=drawdown_pct,
+            recovery_milestones=[],
+        )
+
+        # Store in cache
+        self.active_protocols[account_id] = protocol
+
+        # Persist to database
+        if self.repository:
+            await self._persist_protocol(protocol)
+
+        # Publish event
+        if self.event_bus:
+            await self.event_bus.publish(
+                EventType.DRAWDOWN_RECOVERY_INITIATED,
+                {
+                    "account_id": account_id,
+                    "protocol_id": protocol.protocol_id,
+                    "drawdown_pct": str(drawdown_pct),
+                    "recovery_stage": protocol.recovery_stage.name,
+                    "position_size_multiplier": str(
+                        self.STAGE_MULTIPLIERS[protocol.recovery_stage]
+                    ),
+                    "timestamp": protocol.initiated_at.isoformat(),
+                },
+            )
+
+        logger.info(
+            "Drawdown recovery protocol initiated",
+            account_id=account_id,
+            protocol_id=protocol.protocol_id,
+            drawdown_pct=float(drawdown_pct * 100),
+            initial_stage=protocol.recovery_stage.name,
+        )
+
+        return protocol
+
+    def update_recovery_progress(
+        self,
+        protocol_id: str,
+        trade_result: dict,
+    ) -> RecoveryStage:
+        """Update recovery progress based on trade results.
+        
+        Args:
+            protocol_id: Protocol identifier
+            trade_result: Trade result dictionary
+            
+        Returns:
+            Updated recovery stage
+        """
+        protocol = None
+        for p in self.active_protocols.values():
+            if p.protocol_id == protocol_id:
+                protocol = p
+                break
+
+        if not protocol:
+            logger.warning("Protocol not found", protocol_id=protocol_id)
+            return RecoveryStage.STAGE_0
+
+        # Update trade statistics
+        is_profitable = trade_result.get("profit_loss", Decimal("0")) > 0
+        if is_profitable:
+            protocol.profitable_trades_count += 1
+            protocol.total_profit += abs(trade_result["profit_loss"])
+        else:
+            protocol.loss_trades_count += 1
+            protocol.total_loss += abs(trade_result["profit_loss"])
+
+        # Check for milestone achievement (25%, 50%, 75% recovery)
+        if protocol.is_drawdown_recovery:
+            current_recovery = (protocol.total_profit - protocol.total_loss) / protocol.initial_debt_amount
+
+            if current_recovery >= Decimal("0.25") and Decimal("0.25") not in protocol.recovery_milestones:
+                protocol.recovery_milestones.append(Decimal("0.25"))
+                logger.info("Recovery milestone reached: 25%", protocol_id=protocol_id)
+
+            if current_recovery >= Decimal("0.50") and Decimal("0.50") not in protocol.recovery_milestones:
+                protocol.recovery_milestones.append(Decimal("0.50"))
+                protocol.recovery_stage = RecoveryStage.STAGE_2
+                logger.info("Recovery milestone reached: 50%", protocol_id=protocol_id)
+
+            if current_recovery >= Decimal("0.75") and Decimal("0.75") not in protocol.recovery_milestones:
+                protocol.recovery_milestones.append(Decimal("0.75"))
+                protocol.recovery_stage = RecoveryStage.STAGE_3
+                logger.info("Recovery milestone reached: 75%", protocol_id=protocol_id)
+
+            if current_recovery >= Decimal("1.00"):
+                protocol.recovery_stage = RecoveryStage.STAGE_3
+                protocol.is_active = False
+                protocol.recovery_completed_at = datetime.now(UTC)
+                logger.info("Drawdown recovery completed", protocol_id=protocol_id)
+
+        return protocol.recovery_stage
 
     async def initiate_recovery_protocol(
         self,
@@ -388,7 +523,7 @@ class RecoveryProtocolManager:
             ),
         )
 
-    def get_active_protocol(self, profile_id: str) -> RecoveryProtocol | None:
+    def get_active_protocol(self, profile_id: str) -> Optional[RecoveryProtocol]:
         """Get active recovery protocol for profile.
 
         Args:
@@ -617,6 +752,9 @@ class RecoveryProtocolManager:
                 else None
             ),
             "is_active": protocol.is_active,
+            "is_drawdown_recovery": protocol.is_drawdown_recovery,
+            "drawdown_percentage": str(protocol.drawdown_percentage),
+            "recovery_milestones": [str(m) for m in protocol.recovery_milestones],
         }
 
     def _protocol_from_dict(self, data: dict[str, Any]) -> RecoveryProtocol:
@@ -646,4 +784,7 @@ class RecoveryProtocolManager:
                 else None
             ),
             is_active=data.get("is_active", True),
+            is_drawdown_recovery=data.get("is_drawdown_recovery", False),
+            drawdown_percentage=Decimal(data.get("drawdown_percentage", "0")),
+            recovery_milestones=[Decimal(m) for m in data.get("recovery_milestones", [])],
         )

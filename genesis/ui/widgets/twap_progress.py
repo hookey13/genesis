@@ -20,6 +20,7 @@ from textual.containers import Container, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Static
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -65,7 +66,7 @@ class TwapProgressWidget(Widget):
     """
 
     # Reactive properties for live updates
-    execution_id: reactive[str | None] = reactive(None)
+    execution_id: reactive[Optional[str]] = reactive(None)
     symbol: reactive[str] = reactive("")
     side: reactive[str] = reactive("")
     total_quantity: reactive[Decimal] = reactive(Decimal("0"))
@@ -80,7 +81,7 @@ class TwapProgressWidget(Widget):
     implementation_shortfall: reactive[Decimal] = reactive(Decimal("0"))
     status: reactive[str] = reactive("INACTIVE")
     time_remaining_seconds: reactive[int] = reactive(0)
-    started_at: reactive[datetime | None] = reactive(None)
+    started_at: reactive[Optional[datetime]] = reactive(None)
 
     # Slice history
     slice_history: reactive[list[dict]] = reactive([])

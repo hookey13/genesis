@@ -13,6 +13,7 @@ import structlog
 
 from genesis.data.repository import Repository
 from genesis.engine.executor.base import OrderSide
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -59,7 +60,7 @@ class TwapReport:
     # Timing effectiveness
     timing_score: Decimal  # 0-100 score
     early_completion: bool
-    early_completion_benefit: Decimal | None  # Saved/lost from early completion
+    early_completion_benefit: Optional[Decimal]  # Saved/lost from early completion
 
     # Risk metrics
     execution_risk_score: Decimal  # 0-100, lower is better
@@ -461,7 +462,7 @@ class TwapAnalyzer:
         execution_data: dict,
         slice_history: list[dict],
         price_metrics: dict[str, Decimal]
-    ) -> dict[str, Decimal | None]:
+    ) -> dict[str, Optional[Decimal]]:
         """
         Calculate timing effectiveness metrics.
         

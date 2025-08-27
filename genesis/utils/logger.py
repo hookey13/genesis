@@ -25,7 +25,7 @@ import logging.handlers
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Optional, Any
 
 import structlog
 from structlog.processors import CallsiteParameter
@@ -95,7 +95,7 @@ def add_log_level(
 
 def setup_logging(
     log_level: str = "INFO",
-    log_dir: Path | None = None,
+    log_dir: Optional[Path] = None,
     enable_console: bool = True,
     enable_json: bool = True,
     max_bytes: int = 10485760,  # 10MB
@@ -348,8 +348,8 @@ def log_trade_event(
     pair: str,
     side: str,
     amount: float,
-    price: float | None = None,
-    order_id: str | None = None,
+    price: Optional[float] = None,
+    order_id: Optional[str] = None,
     **extra: Any,
 ) -> None:
     """

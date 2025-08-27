@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Optional, Any
 from uuid import uuid4
 
 import structlog
@@ -34,7 +34,7 @@ class DebtTransaction:
     transaction_type: TransactionType = TransactionType.DEBT_ADDED
     amount: Decimal = Decimal("0")
     balance_after: Decimal = Decimal("0")
-    reason: str | None = None
+    reason: Optional[str] = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
@@ -54,8 +54,8 @@ class TiltDebtCalculator:
 
     def __init__(
         self,
-        repository: SQLiteRepository | None = None,
-        event_bus: EventBus | None = None,
+        repository: Optional[SQLiteRepository] = None,
+        event_bus: Optional[EventBus] = None,
     ):
         """Initialize tilt debt calculator.
 
@@ -117,9 +117,9 @@ class TiltDebtCalculator:
         self,
         profile_id: str,
         debt_amount: Decimal,
-        tilt_level: TiltLevel | None = None,
-        reason: str | None = None,
-    ) -> DebtTransaction | None:
+        tilt_level: Optional[TiltLevel] = None,
+        reason: Optional[str] = None,
+    ) -> Optional[DebtTransaction]:
         """Add debt to a profile's ledger.
 
         Args:
@@ -191,7 +191,7 @@ class TiltDebtCalculator:
         self,
         profile_id: str,
         profit_amount: Decimal,
-        reason: str | None = None,
+        reason: Optional[str] = None,
     ) -> Decimal:
         """Reduce debt using trading profits.
 

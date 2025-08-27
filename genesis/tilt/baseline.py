@@ -12,6 +12,7 @@ from decimal import Decimal
 
 import numpy as np
 import structlog
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -30,9 +31,9 @@ class BehavioralMetric:
     metric_type: str  # click_speed|order_frequency|position_size_variance|cancel_rate
     value: Decimal
     timestamp: datetime
-    session_context: str | None = None  # tired|alert|stressed
-    time_of_day_bucket: int | None = None  # Hour (0-23)
-    profile_id: str | None = None
+    session_context: Optional[str] = None  # tired|alert|stressed
+    time_of_day_bucket: Optional[int] = None  # Hour (0-23)
+    profile_id: Optional[str] = None
 
 
 @dataclass
@@ -52,13 +53,13 @@ class BaselineProfile:
     """Represents a complete behavioral baseline profile."""
     profile_id: str
     learning_start_date: datetime
-    learning_end_date: datetime | None = None
+    learning_end_date: Optional[datetime] = None
     is_mature: bool = False
     metric_ranges: dict[str, MetricRange] = field(default_factory=dict)
     time_of_day_patterns: dict[int, dict[str, MetricRange]] = field(default_factory=dict)
     context: str = "normal"  # normal|tired|alert|stressed
     total_samples: int = 0
-    last_updated: datetime | None = None
+    last_updated: Optional[datetime] = None
 
 
 class BehavioralBaseline:
@@ -255,7 +256,7 @@ class BehavioralBaseline:
         metric: BehavioralMetric,
         baseline: BaselineProfile,
         use_time_pattern: bool = True
-    ) -> tuple[bool, Decimal | None]:
+    ) -> tuple[bool, Optional[Decimal]]:
         """
         Check if a metric is within normal baseline range.
         
@@ -344,7 +345,7 @@ class BehavioralMetricCollector:
         """
         self.indicators[name] = indicator
 
-    def collect_metric(self, action: dict) -> BehavioralMetric | None:
+    def collect_metric(self, action: dict) -> Optional[BehavioralMetric]:
         """
         Collect metric from a user action.
         

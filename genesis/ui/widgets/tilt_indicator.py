@@ -1,3 +1,4 @@
+from typing import Optional
 """Tilt indicator widget for multi-level tilt visualization."""
 from __future__ import annotations
 
@@ -49,7 +50,7 @@ class TiltIndicator(Widget):
 
     def __init__(
         self,
-        event_bus: EventBus | None = None,
+        event_bus: Optional[EventBus] = None,
         **kwargs
     ):
         """Initialize tilt indicator.
@@ -161,7 +162,7 @@ class TiltIndicator(Widget):
         level: TiltLevel,
         score: int,
         anomalies: list[dict],
-        message: str | None = None
+        message: Optional[str] = None
     ) -> None:
         """Update the tilt status display.
         

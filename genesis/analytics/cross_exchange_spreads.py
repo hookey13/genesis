@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Protocol
+from typing import Optional, Protocol
 
 import structlog
 
@@ -96,7 +96,7 @@ class CrossExchangeSpreadAnalyzer:
 
         # Monitoring state
         self._monitoring = False
-        self._monitoring_task: asyncio.Task | None = None
+        self._monitoring_task: Optional[asyncio.Task] = None
 
     def register_exchange(
         self, exchange: Exchange, gateway: ExchangeGatewayProtocol
@@ -113,7 +113,7 @@ class CrossExchangeSpreadAnalyzer:
 
     async def fetch_spread_data(
         self, symbol: str, exchange: Exchange
-    ) -> ExchangeSpreadData | None:
+    ) -> Optional[ExchangeSpreadData]:
         """
         Fetch spread data for a symbol from an exchange.
 
@@ -206,7 +206,7 @@ class CrossExchangeSpreadAnalyzer:
 
     def identify_arbitrage(
         self, symbol: str, min_profit_bps: Decimal = Decimal("20")
-    ) -> ArbitrageOpportunity | None:
+    ) -> Optional[ArbitrageOpportunity]:
         """
         Identify arbitrage opportunity for a symbol.
 
@@ -365,7 +365,7 @@ class CrossExchangeSpreadAnalyzer:
                 self._logger.error(f"Error in monitoring loop: {e}")
                 await asyncio.sleep(interval_seconds)
 
-    def get_best_exchange_for_buy(self, symbol: str) -> Exchange | None:
+    def get_best_exchange_for_buy(self, symbol: str) -> Optional[Exchange]:
         """
         Get exchange with best price for buying.
 
@@ -388,7 +388,7 @@ class CrossExchangeSpreadAnalyzer:
 
         return best_exchange
 
-    def get_best_exchange_for_sell(self, symbol: str) -> Exchange | None:
+    def get_best_exchange_for_sell(self, symbol: str) -> Optional[Exchange]:
         """
         Get exchange with best price for selling.
 
@@ -411,7 +411,7 @@ class CrossExchangeSpreadAnalyzer:
 
         return best_exchange
 
-    def get_spread_differential(self, symbol: str) -> Decimal | None:
+    def get_spread_differential(self, symbol: str) -> Optional[Decimal]:
         """
         Calculate maximum spread differential across exchanges.
 

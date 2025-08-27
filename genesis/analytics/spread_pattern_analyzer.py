@@ -15,6 +15,7 @@ import pandas as pd
 import structlog
 
 from genesis.analytics.spread_analyzer import SpreadAnalyzer
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -39,7 +40,7 @@ class RecurringPattern:
     pattern_type: str  # 'compression', 'expansion', 'cyclical'
     frequency_hours: Decimal
     confidence: Decimal  # 0-1 confidence score
-    next_occurrence: datetime | None
+    next_occurrence: Optional[datetime]
     description: str
 
 
@@ -359,7 +360,7 @@ class SpreadPatternAnalyzer:
         current_spread: Decimal,
         spread_history: list[tuple[datetime, Decimal]],
         z_threshold: Decimal = Decimal("3"),
-    ) -> SpreadAnomalyEvent | None:
+    ) -> Optional[SpreadAnomalyEvent]:
         """
         Detect anomalies in spread behavior
 

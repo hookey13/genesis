@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 from uuid import uuid4
 
 import structlog
@@ -23,6 +22,7 @@ from genesis.core.events import Event, EventPriority, EventType
 from genesis.engine.event_bus import EventBus
 from genesis.exchange.gateway import BinanceGateway
 from genesis.exchange.websocket_manager import WebSocketManager
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -79,15 +79,15 @@ class OrderBook:
     last_update_id: int = 0
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
 
-    def best_bid(self) -> Decimal | None:
+    def best_bid(self) -> Optional[Decimal]:
         """Get best bid price."""
         return self.bids[0].price if self.bids else None
 
-    def best_ask(self) -> Decimal | None:
+    def best_ask(self) -> Optional[Decimal]:
         """Get best ask price."""
         return self.asks[0].price if self.asks else None
 
-    def spread(self) -> Decimal | None:
+    def spread(self) -> Optional[Decimal]:
         """Calculate spread."""
         bid = self.best_bid()
         ask = self.best_ask()
@@ -95,7 +95,7 @@ class OrderBook:
             return ask - bid
         return None
 
-    def spread_basis_points(self) -> int | None:
+    def spread_basis_points(self) -> Optional[int]:
         """Calculate spread in basis points."""
         bid = self.best_bid()
         ask = self.best_ask()
@@ -105,7 +105,7 @@ class OrderBook:
             return int((spread / mid) * Decimal("10000"))
         return None
 
-    def mid_price(self) -> Decimal | None:
+    def mid_price(self) -> Optional[Decimal]:
         """Calculate mid price."""
         bid = self.best_bid()
         ask = self.best_ask()
@@ -155,9 +155,9 @@ class MarketDataService:
 
     def __init__(
         self,
-        websocket_manager: WebSocketManager | None = None,
-        gateway: BinanceGateway | None = None,
-        event_bus: EventBus | None = None,
+        websocket_manager: Optional[WebSocketManager] = None,
+        gateway: Optional[BinanceGateway] = None,
+        event_bus: Optional[EventBus] = None,
         repository: Optional['Repository'] = None
     ):
         """
@@ -253,7 +253,7 @@ class MarketDataService:
                 latest_tick = tick_queue[-1]
                 yield latest_tick
 
-    def get_current_price(self, symbol: str) -> Decimal | None:
+    def get_current_price(self, symbol: str) -> Optional[Decimal]:
         """
         Get current price for a symbol.
         
@@ -265,7 +265,7 @@ class MarketDataService:
         """
         return self.current_prices.get(symbol)
 
-    def get_order_book(self, symbol: str, depth: int = 5) -> OrderBook | None:
+    def get_order_book(self, symbol: str, depth: int = 5) -> Optional[OrderBook]:
         """
         Get order book for a symbol.
         
@@ -287,7 +287,7 @@ class MarketDataService:
             return limited_book
         return book
 
-    def calculate_spread(self, symbol: str) -> Decimal | None:
+    def calculate_spread(self, symbol: str) -> Optional[Decimal]:
         """
         Calculate spread in basis points.
         
@@ -860,7 +860,7 @@ class MarketDataService:
             logger.error(f"Failed to get trading pairs: {e}")
             return []
 
-    async def get_order_book_snapshot(self, symbol: str, limit: int = 10) -> OrderBook | None:
+    async def get_order_book_snapshot(self, symbol: str, limit: int = 10) -> Optional[OrderBook]:
         """
         Get order book snapshot with specified depth.
         

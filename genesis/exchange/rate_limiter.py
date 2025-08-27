@@ -11,6 +11,7 @@ from collections import deque
 from dataclasses import dataclass
 
 import structlog
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -89,7 +90,7 @@ class RateLimiter:
         self.current_weight = 0
 
         # Backoff state
-        self.backoff_until: float | None = None
+        self.backoff_until: Optional[float] = None
         self.consecutive_threshold_hits = 0
 
         # Statistics
@@ -113,7 +114,7 @@ class RateLimiter:
             old_weight = self.weight_history.popleft()
             self.current_weight -= old_weight.weight
 
-    def _get_endpoint_weight(self, method: str, endpoint: str, params: dict | None = None) -> int:
+    def _get_endpoint_weight(self, method: str, endpoint: str, params: Optional[dict] = None) -> int:
         """
         Get the weight for a specific endpoint.
         
@@ -149,7 +150,7 @@ class RateLimiter:
 
         return weight_config if isinstance(weight_config, int) else 1
 
-    async def check_and_wait(self, method: str, endpoint: str, params: dict | None = None) -> None:
+    async def check_and_wait(self, method: str, endpoint: str, params: Optional[dict] = None) -> None:
         """
         Check rate limit and wait if necessary.
         

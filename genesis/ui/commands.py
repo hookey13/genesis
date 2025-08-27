@@ -1,3 +1,4 @@
+from typing import Optional
 """Command input and parsing system for Genesis trading terminal."""
 
 import re
@@ -12,8 +13,8 @@ class CommandResult:
     """Result of command parsing and execution."""
     success: bool
     message: str
-    command_type: str | None = None
-    params: dict | None = None
+    command_type: Optional[str] = None
+    params: Optional[dict] = None
 
 
 class CommandInput(Input):

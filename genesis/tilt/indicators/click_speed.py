@@ -9,6 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 
 import structlog
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -26,7 +27,7 @@ class ClickSpeedIndicator:
         self.window_size = window_size
         self.action_timestamps = deque(maxlen=window_size)
         self.latencies_ms = deque(maxlen=window_size)
-        self.last_market_update: datetime | None = None
+        self.last_market_update: Optional[datetime] = None
 
     def record_market_update(self, timestamp: datetime):
         """
@@ -37,7 +38,7 @@ class ClickSpeedIndicator:
         """
         self.last_market_update = timestamp
 
-    def record_action(self, action_timestamp: datetime) -> Decimal | None:
+    def record_action(self, action_timestamp: datetime) -> Optional[Decimal]:
         """
         Record a user action and calculate latency.
         
@@ -77,7 +78,7 @@ class ClickSpeedIndicator:
 
         return latency_ms
 
-    def get_average_latency(self) -> Decimal | None:
+    def get_average_latency(self) -> Optional[Decimal]:
         """
         Calculate average latency over the window.
         

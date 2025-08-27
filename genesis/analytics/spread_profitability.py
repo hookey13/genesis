@@ -11,6 +11,7 @@ from decimal import Decimal
 import structlog
 
 from genesis.core.exceptions import ValidationError
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -47,7 +48,7 @@ class SpreadProfitabilityCalculator:
 
     def __init__(
         self,
-        trading_costs: TradingCosts | None = None,
+        trading_costs: Optional[TradingCosts] = None,
         min_profit_bps: Decimal = Decimal("5"),
     ):
         """
@@ -66,8 +67,8 @@ class SpreadProfitabilityCalculator:
         symbol: str,
         spread_bps: Decimal,
         volume: Decimal,
-        fee_bps: Decimal | None = None,
-        custom_slippage: Decimal | None = None,
+        fee_bps: Optional[Decimal] = None,
+        custom_slippage: Optional[Decimal] = None,
     ) -> ProfitabilityMetrics:
         """
         Calculate profit potential for a spread opportunity
@@ -150,7 +151,7 @@ class SpreadProfitabilityCalculator:
         return metrics
 
     def calculate_break_even_spread(
-        self, fee_bps: Decimal | None = None, slippage_bps: Decimal | None = None
+        self, fee_bps: Optional[Decimal] = None, slippage_bps: Optional[Decimal] = None
     ) -> Decimal:
         """
         Calculate minimum spread needed to break even

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 import structlog
 
@@ -72,6 +72,14 @@ MIGRATION_POSITION_MULTIPLIERS = {
 
 
 @dataclass
+class TierStrategy:
+    """Strategy configuration tied to a specific tier."""
+    name: str
+    tier: str
+    enabled: bool = True
+
+
+@dataclass
 class StrategyConfig:
     """Configuration for a strategy."""
     name: str
@@ -79,8 +87,8 @@ class StrategyConfig:
     status: StrategyStatus
     position_multiplier: Decimal
     max_position_usdt: Decimal
-    enabled_at: datetime | None = None
-    disabled_at: datetime | None = None
+    enabled_at: Optional[datetime] = None
+    disabled_at: Optional[datetime] = None
     migration_notes: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -126,7 +134,7 @@ class MigrationPlan:
 class StrategyLoader:
     """Loads and manages strategies based on tier."""
 
-    def __init__(self, session: Session | None = None):
+    def __init__(self, session: Optional[Session] = None):
         """Initialize strategy loader.
         
         Args:
@@ -302,7 +310,7 @@ class StrategyLoader:
         self,
         account_id: str,
         strategy_name: str
-    ) -> StrategyConfig | None:
+    ) -> Optional[StrategyConfig]:
         """Get configuration for a specific strategy.
         
         Args:
@@ -384,7 +392,7 @@ class StrategyLoader:
         account_id: str,
         strategy_name: str,
         tier: str,
-        adjustment_period: Any | None
+        adjustment_period: Optional[Any]
     ) -> StrategyConfig:
         """Create strategy configuration.
         
@@ -502,7 +510,7 @@ class StrategyLoader:
     def _get_active_adjustment_period(
         self,
         account_id: str
-    ) -> AdjustmentPeriod | None:
+    ) -> Optional[AdjustmentPeriod]:
         """Get active adjustment period for account.
         
         Args:

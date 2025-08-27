@@ -210,3 +210,267 @@ correlation_monitoring:
   stress_testing:
     default_spike: 0.8  # Default correlation spike for stress tests
     volatility_assumption: 0.2  # 20% volatility for stress calculations
+
+# Drawdown Recovery Configuration
+drawdown_recovery:
+  enabled: true
+  enabled_from_tier: HUNTER  # Drawdown recovery available from Hunter tier
+  thresholds:
+    HUNTER: 0.10  # 10% drawdown triggers recovery
+    STRATEGIST: 0.15  # 15% drawdown triggers recovery
+    ARCHITECT: 0.20  # 20% drawdown triggers recovery
+  recovery_stages:
+    STAGE_0:
+      position_size_multiplier: 0.25  # 25% of normal position size
+      name: "Initial Recovery"
+    STAGE_1:
+      position_size_multiplier: 0.50  # 50% of normal position size
+      name: "Building Confidence"
+    STAGE_2:
+      position_size_multiplier: 0.75  # 75% of normal position size
+      name: "Nearly Recovered"
+    STAGE_3:
+      position_size_multiplier: 1.00  # 100% - fully recovered
+      name: "Full Recovery"
+  forced_break:
+    consecutive_loss_trigger: 3  # 3 consecutive losses triggers break
+    break_duration_minutes: 30  # 30 minute mandatory break
+    journal_requirement: true  # Journal entry required before resuming
+    cooldown_after_break: 15  # 15 minute cooldown between breaks
+  strategy_restrictions:
+    restrict_to_best: true  # Restrict to highest win-rate strategy
+    lookback_window_days: 30  # Window for calculating best strategy
+    min_trades_for_stats: 10  # Minimum trades for strategy statistics
+  profit_targets:
+    reduction_during_recovery: 0.50  # 50% reduction in daily targets
+    milestone_celebrations:
+      - 25  # Celebrate 25% recovery
+      - 50  # Celebrate 50% recovery
+      - 75  # Celebrate 75% recovery
+      - 100  # Celebrate full recovery
+  psychological_support:
+    messages_enabled: true
+    message_config_file: "config/recovery_messages.yaml"
+    educational_tips: true
+    journal_prompts: true
+  pattern_analysis:
+    enabled: true
+    min_history_for_analysis: 3  # Minimum recovery attempts for analysis
+    track_effective_strategies: true
+    identify_failure_patterns: true
+    generate_recommendations: true
+
+# Portfolio Optimization Configuration
+portfolio_optimization:
+  enabled: true
+  enabled_from_tier: HUNTER  # Portfolio optimization available from Hunter tier
+  risk_free_rate: 0.02  # 2% annual risk-free rate
+  constraints:
+    min_allocation: 0.01  # 1% minimum allocation per strategy
+    max_allocation: 0.40  # 40% maximum allocation per strategy
+    max_correlation: 0.60  # 60% maximum correlation between strategies
+    min_strategies: 2  # Minimum active strategies in portfolio
+    tier_limits:
+      HUNTER:
+        max_strategies: 3
+      STRATEGIST:
+        max_strategies: 5
+      ARCHITECT:
+        max_strategies: 10
+  rebalancing:
+    threshold_percent: 5.0  # 5% deviation triggers rebalancing check
+    min_improvement: 0.01  # Minimum 0.01 Sharpe improvement required
+    schedule: "weekly"  # Weekly rebalancing schedule
+    maker_fee: 0.001  # 0.1% maker fee
+    taker_fee: 0.001  # 0.1% taker fee
+    slippage: 0.0005  # 0.05% estimated slippage
+    cost_benefit_threshold: 2.0  # Benefits must be 2x costs
+    emergency_triggers:
+      max_drawdown: 0.10  # 10% drawdown triggers emergency rebalance
+      correlation_spike: 0.80  # 80% correlation triggers rebalance
+  validation:
+    out_of_sample_ratio: 0.3  # 30% data for out-of-sample testing
+    max_degradation: 0.20  # 20% maximum performance degradation allowed
+    walk_forward_windows: 5  # Number of walk-forward analysis windows
+    min_data_periods: 30  # Minimum periods required per strategy
+  performance:
+    max_optimization_time_ms: 1000  # 1 second max for 10 strategies
+    cache_ttl_seconds: 3600  # 1 hour cache TTL
+    correlation_cache_size: 100  # Maximum cached correlation matrices
+  reporting:
+    weekly_recommendations: true  # Generate weekly recommendations
+    include_rationale: true  # Include detailed rationale
+    visualization_data: true  # Include data for UI visualization
+    historical_tracking: true  # Track optimization history
+
+# Emergency Risk Controls Configuration
+emergency_controls:
+  enabled: true
+  enabled_from_tier: SNIPER  # Emergency controls available for all tiers
+  
+  # Daily loss circuit breaker
+  daily_loss_circuit_breaker:
+    enabled: true
+    threshold_percent: 15.0  # 15% daily loss triggers halt
+    warning_levels:
+      - 5.0   # First warning at 5%
+      - 10.0  # Second warning at 10%
+      - 12.0  # Final warning at 12%
+    auto_halt: true  # Automatically halt trading
+    cancel_all_orders: true  # Cancel all open orders on halt
+  
+  # Correlation spike protection
+  correlation_protection:
+    enabled: true
+    enabled_from_tier: HUNTER  # Only for Hunter+ (multi-position capability)
+    spike_threshold: 0.80  # 80% correlation triggers alert
+    critical_threshold: 0.95  # 95% forces position reduction
+    monitoring_window_minutes: 30
+    auto_deleveraging: true  # Auto-reduce correlated positions
+  
+  # Liquidity crisis management
+  liquidity_crisis:
+    enabled: true
+    crisis_threshold: 0.30  # Below 30% normal liquidity
+    warning_threshold: 0.50  # Below 50% triggers warning
+    spread_alert_bps: 50  # Spread > 50 bps triggers alert
+    force_market_orders: true  # Use market orders only in crisis
+    reduce_position_sizes: true  # Automatically reduce sizes
+  
+  # Flash crash protection
+  flash_crash_protection:
+    enabled: true
+    drop_threshold_percent: 10.0  # 10% drop in 60 seconds
+    detection_window_seconds: 60
+    auto_cancel_orders: true  # Cancel all orders immediately
+    halt_new_positions: true  # Block new position creation
+    recovery_window_minutes: 5  # Wait 5 minutes before resuming
+  
+  # Rapid deleveraging settings
+  deleveraging:
+    enabled: true
+    stages:
+      - trigger_loss_pct: 10.0
+        reduction_pct: 25.0  # Reduce positions by 25%
+      - trigger_loss_pct: 12.0
+        reduction_pct: 50.0  # Reduce positions by 50%
+      - trigger_loss_pct: 14.0
+        reduction_pct: 75.0  # Reduce positions by 75%
+      - trigger_loss_pct: 15.0
+        reduction_pct: 100.0  # Close all positions
+    max_slippage_pct: 2.0  # Maximum 2% slippage accepted
+    execution_delay_ms: 100  # Delay between closures
+  
+  # Manual override capability
+  manual_override:
+    enabled: true
+    confirmation_required: true
+    confirmation_phrase: "OVERRIDE EMERGENCY HALT"
+    timeout_minutes: 5  # Override expires after 5 minutes
+    max_daily_overrides: 2  # Maximum 2 overrides per day
+  
+  # Recovery requirements
+  recovery:
+    checklist_required: true  # Must complete recovery checklist
+    journal_entry_required: true  # Must write journal entry
+    gradual_sizing_days: 4  # Days to return to full size
+    paper_trading_required: false  # Optional paper trading
+    minimum_break_minutes: 30  # Minimum break after emergency
+
+# VWAP Execution Configuration
+vwap_execution:
+  enabled: true
+  enabled_from_tier: STRATEGIST  # VWAP execution available from Strategist tier
+  
+  # Core VWAP parameters
+  vwap_participation_rate_percent: 10.0  # Default 10% participation rate
+  vwap_min_slice_size_usd: 50.00  # Minimum slice size in USD
+  vwap_max_slices: 100  # Maximum number of slices
+  vwap_time_window_minutes: 240  # Default 4-hour time window for execution
+  vwap_aggressive_threshold_percent: 5.0  # Switch to aggressive if 5% behind schedule
+  
+  # Volume analysis settings
+  volume_analysis:
+    historical_days: 30  # Days of historical data for pattern analysis
+    prediction_confidence_threshold: 0.7  # Minimum confidence for predictions
+    volume_spike_multiplier: 2.0  # 2x normal volume considered a spike
+    cache_ttl_minutes: 60  # Cache volume profiles for 1 hour
+  
+  # Execution modes
+  execution_modes:
+    PASSIVE:
+      participation_rate_multiplier: 0.8  # Reduce participation by 20%
+      prefer_post_only: true  # Use post-only orders when possible
+      max_spread_bps: 10  # Maximum spread to place limit orders
+      randomization_seconds: 30  # Random delay 0-30s between slices
+    NORMAL:
+      participation_rate_multiplier: 1.0  # Normal participation
+      prefer_limit: true  # Prefer limit orders
+      max_spread_bps: 20  # Maximum spread for limit orders
+      randomization_seconds: 20  # Random delay 0-20s between slices
+    AGGRESSIVE:
+      participation_rate_multiplier: 1.2  # Increase participation by 20%
+      use_market_orders: true  # Use market orders for speed
+      max_slippage_bps: 50  # Accept up to 50 bps slippage
+      randomization_seconds: 10  # Minimal delay between slices
+  
+  # Iceberg order settings (dark pool simulation)
+  iceberg_settings:
+    enabled: true
+    default_sub_slices: 5  # Split each slice into 5 sub-slices
+    min_sub_slice_size_usd: 10.00  # Minimum sub-slice size
+    max_sub_slices: 10  # Maximum sub-slices per main slice
+    randomize_sizes: true  # Randomize sub-slice sizes
+  
+  # Transaction cost analysis
+  transaction_cost_analysis:
+    enabled: true
+    tracking_window_hours: 24  # Track performance over 24 hours
+    benchmark_slippage_bps: 10  # Expected slippage baseline
+    report_frequency: "hourly"  # Generate TCA reports hourly
+    performance_metrics:
+      - execution_vwap  # Actual execution VWAP
+      - market_vwap  # Market VWAP during execution
+      - slippage_bps  # Slippage in basis points
+      - fill_rate  # Percentage of order filled
+      - average_latency_ms  # Average execution latency
+  
+  # Multi-venue readiness (future expansion)
+  multi_venue:
+    enabled: false  # Not yet implemented
+    venues:
+      - name: "binance"
+        priority: 1
+        enabled: true
+      # Future venues to be added:
+      # - name: "coinbase"
+      #   priority: 2
+      #   enabled: false
+      # - name: "okx"
+      #   priority: 3
+      #   enabled: false
+    routing_strategy: "best_price"  # Options: best_price, lowest_fee, fastest_execution
+    aggregation_interval_ms: 100  # Aggregate order books every 100ms
+  
+  # Performance requirements
+  performance:
+    max_vwap_calculation_ms: 100  # VWAP calc must complete in 100ms
+    max_slice_scheduling_ms: 50  # Slice scheduling in 50ms
+    max_order_latency_ms: 500  # Order submission in 500ms
+    cache_correlation_matrices: true  # Cache for performance
+  
+  # Risk controls
+  risk_controls:
+    max_order_value_usd: 10000.00  # Maximum single VWAP order value
+    max_participation_rate: 0.20  # Never exceed 20% market participation
+    min_liquidity_ratio: 5.0  # Order size must be < 20% of liquidity
+    abort_on_excessive_slippage: true  # Abort if slippage > threshold
+    excessive_slippage_bps: 100  # 100 bps triggers abort
+    
+  # Adaptive features
+  adaptive_execution:
+    enabled: true
+    adjust_for_volatility: true  # Reduce participation in volatile markets
+    adjust_for_liquidity: true  # Increase in deep liquidity
+    adjust_for_time_of_day: true  # Consider typical volume patterns
+    learning_enabled: false  # Machine learning features (future)

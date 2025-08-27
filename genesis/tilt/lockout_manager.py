@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any
+from typing import Optional, Any
 
 import structlog
 
@@ -37,7 +37,7 @@ class Lockout:
     expires_at: datetime
     status: LockoutStatus
     occurrence_count: int  # Number of occurrences at this level
-    reason: str | None = None
+    reason: Optional[str] = None
 
 
 class LockoutManager:
@@ -55,8 +55,8 @@ class LockoutManager:
 
     def __init__(
         self,
-        repository: SQLiteRepository | None = None,
-        event_bus: EventBus | None = None,
+        repository: Optional[SQLiteRepository] = None,
+        event_bus: Optional[EventBus] = None,
     ):
         """Initialize lockout manager.
 
@@ -106,7 +106,7 @@ class LockoutManager:
         self,
         profile_id: str,
         tilt_level: TiltLevel,
-        reason: str | None = None,
+        reason: Optional[str] = None,
     ) -> Lockout:
         """Enforce a lockout period for a profile.
 
@@ -193,7 +193,7 @@ class LockoutManager:
 
         return lockout.status
 
-    def get_active_lockout(self, profile_id: str) -> Lockout | None:
+    def get_active_lockout(self, profile_id: str) -> Optional[Lockout]:
         """Get active lockout for a profile.
 
         Args:
@@ -262,7 +262,7 @@ class LockoutManager:
         return True
 
     def reset_occurrence_count(
-        self, profile_id: str, tilt_level: TiltLevel | None = None
+        self, profile_id: str, tilt_level: Optional[TiltLevel] = None
     ) -> None:
         """Reset occurrence count for a profile.
 

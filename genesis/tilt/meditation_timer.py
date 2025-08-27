@@ -1,3 +1,4 @@
+from typing import Optional
 """Optional meditation timer for tilt recovery."""
 from __future__ import annotations
 
@@ -28,8 +29,8 @@ class MeditationSession:
 
     profile_id: str
     duration_minutes: int
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
     status: MeditationStatus = MeditationStatus.NOT_STARTED
     remaining_seconds: int = 0
 
@@ -40,7 +41,7 @@ class MeditationTimer:
     # Default meditation durations
     DEFAULT_DURATIONS = [5, 10, 15, 20]  # minutes
 
-    def __init__(self, on_tick: Callable[[int], None] | None = None):
+    def __init__(self, on_tick: Optional[Callable[[int], None]] = None):
         """Initialize meditation timer.
 
         Args:
@@ -186,7 +187,7 @@ class MeditationTimer:
         logger.info("Meditation skipped", profile_id=profile_id)
         return session
 
-    def get_session(self, profile_id: str) -> MeditationSession | None:
+    def get_session(self, profile_id: str) -> Optional[MeditationSession]:
         """Get current meditation session for profile.
 
         Args:

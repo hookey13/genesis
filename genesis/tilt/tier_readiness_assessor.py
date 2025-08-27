@@ -9,7 +9,7 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Optional, Any
 
 import structlog
 
@@ -129,7 +129,7 @@ class ReadinessReport:
 class TierReadinessAssessor:
     """Assesses trader readiness for tier transitions."""
 
-    def __init__(self, session: Session | None = None):
+    def __init__(self, session: Optional[Session] = None):
         """Initialize readiness assessor.
         
         Args:

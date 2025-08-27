@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 import structlog
 
 from genesis.tilt.baseline import BaselineProfile, BehavioralBaseline, BehavioralMetric
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -223,7 +224,7 @@ class ProfileManager:
 
         return baseline
 
-    async def get_profile_by_account(self, account_id: str) -> BaselineProfile | None:
+    async def get_profile_by_account(self, account_id: str) -> Optional[BaselineProfile]:
         """
         Get profile for an account.
         
@@ -248,7 +249,7 @@ class ProfileManager:
         # Load from database
         return await self._load_profile_from_db(profile_id)
 
-    async def _get_or_load_profile(self, profile_id: str) -> BaselineProfile | None:
+    async def _get_or_load_profile(self, profile_id: str) -> Optional[BaselineProfile]:
         """
         Get profile from cache or load from database.
         
@@ -265,7 +266,7 @@ class ProfileManager:
         # Load from database
         return await self._load_profile_from_db(profile_id)
 
-    async def _load_profile_from_db(self, profile_id: str) -> BaselineProfile | None:
+    async def _load_profile_from_db(self, profile_id: str) -> Optional[BaselineProfile]:
         """
         Load profile from database.
         

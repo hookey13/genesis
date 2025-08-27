@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 import structlog
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -30,9 +31,9 @@ class HealthMetric:
     """Single health metric measurement."""
 
     timestamp: float
-    response_time_ms: float | None = None
+    response_time_ms: Optional[float] = None
     success: bool = True
-    error: str | None = None
+    error: Optional[str] = None
 
 
 @dataclass
@@ -45,7 +46,7 @@ class ComponentHealth:
     success_rate: float
     avg_response_time_ms: float
     error_count: int
-    last_error: str | None = None
+    last_error: Optional[str] = None
     details: dict = field(default_factory=dict)
 
 
@@ -89,7 +90,7 @@ class HealthMonitor:
 
         # Monitoring state
         self._monitoring = False
-        self._monitor_task: asyncio.Task | None = None
+        self._monitor_task: Optional[asyncio.Task] = None
 
         # Callbacks for health changes
         self.health_change_callbacks = []
@@ -314,7 +315,7 @@ class HealthMonitor:
         # Update stored status
         setattr(self, previous_key, health.status)
 
-    def get_component_health(self, name: str) -> ComponentHealth | None:
+    def get_component_health(self, name: str) -> Optional[ComponentHealth]:
         """
         Get current health status for a component.
         

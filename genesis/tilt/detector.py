@@ -1,3 +1,4 @@
+from typing import Optional
 """Multi-level tilt detection system."""
 from __future__ import annotations
 
@@ -74,14 +75,14 @@ class TiltDetector:
     def __init__(
         self,
         profile_manager: ProfileManager,
-        event_bus: EventBus | None = None,
+        event_bus: Optional[EventBus] = None,
         anomaly_buffer_size: int = 100,
-        click_tracker: ClickLatencyTracker | None = None,
-        modification_tracker: OrderModificationTracker | None = None,
-        focus_detector: FocusPatternDetector | None = None,
-        inactivity_tracker: InactivityTracker | None = None,
-        session_analyzer: SessionAnalyzer | None = None,
-        config_tracker: ConfigurationChangeTracker | None = None
+        click_tracker: Optional[ClickLatencyTracker] = None,
+        modification_tracker: Optional[OrderModificationTracker] = None,
+        focus_detector: Optional[FocusPatternDetector] = None,
+        inactivity_tracker: Optional[InactivityTracker] = None,
+        session_analyzer: Optional[SessionAnalyzer] = None,
+        config_tracker: Optional[ConfigurationChangeTracker] = None
     ):
         """Initialize tilt detector.
         
@@ -230,7 +231,7 @@ class TiltDetector:
 
         return int(tilt_score)
 
-    async def _get_cached_baseline(self, profile_id: str) -> BehavioralBaseline | None:
+    async def _get_cached_baseline(self, profile_id: str) -> Optional[BehavioralBaseline]:
         """Get baseline from cache or refresh if needed.
         
         Args:
@@ -476,7 +477,7 @@ class TiltDetector:
     def get_anomaly_history(
         self,
         profile_id: str,
-        limit: int | None = None
+        limit: Optional[int] = None
     ) -> list[Anomaly]:
         """Get anomaly history for profile.
         

@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Optional, Any
 
 import structlog
 
@@ -116,7 +116,7 @@ def prevent_manual_tier_change(func: Callable) -> Callable:
 class TierStateMachine:
     """Manages tier transitions and progression."""
 
-    def __init__(self, session: Session | None = None, event_bus: EventBus | None = None):
+    def __init__(self, session: Optional[Session] = None, event_bus: Optional[EventBus] = None):
         """Initialize tier state machine.
         
         Args:
@@ -159,7 +159,7 @@ class TierStateMachine:
             )
             return False
 
-    async def evaluate_progression(self, account_id: str) -> TierTransition | None:
+    async def evaluate_progression(self, account_id: str) -> Optional[TierTransition]:
         """Evaluate if account is ready for tier progression.
         
         Args:
@@ -523,7 +523,7 @@ class TierStateMachine:
             new_tier=new_tier
         )
 
-    def get_next_tier(self, current_tier: str) -> str | None:
+    def get_next_tier(self, current_tier: str) -> Optional[str]:
         """Get the next tier in progression.
         
         Args:

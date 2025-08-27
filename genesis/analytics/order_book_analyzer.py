@@ -14,6 +14,7 @@ import structlog
 
 from genesis.engine.executor.base import OrderSide
 from genesis.exchange.models import OrderBook
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -91,7 +92,7 @@ class OrderBookAnalyzer:
     def analyze_liquidity_depth(
         self,
         order_book: OrderBook,
-        side: OrderSide | None = None
+        side: Optional[OrderSide] = None
     ) -> LiquidityProfile:
         """
         Perform comprehensive liquidity analysis on order book.
@@ -495,7 +496,7 @@ class OrderBookAnalyzer:
 
         return slippage.quantize(Decimal("0.0001"))
 
-    def clear_cache(self, symbol: str | None = None) -> None:
+    def clear_cache(self, symbol: Optional[str] = None) -> None:
         """
         Clear cached liquidity profiles.
         

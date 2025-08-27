@@ -39,6 +39,7 @@ class TestKellyCalculator:
         base_time = datetime.now(timezone.utc)
         
         # Create 30 trades: 20 wins, 10 losses
+        # Spread trades evenly over the last 29 days to avoid filter issues
         for i in range(20):  # Wins
             trades.append(Trade(
                 order_id=f"order_{i}",
@@ -50,7 +51,7 @@ class TestKellyCalculator:
                 quantity=Decimal("0.01"),
                 pnl_dollars=Decimal("10"),  # Avg win: $10
                 pnl_percent=Decimal("2"),
-                timestamp=base_time - timedelta(days=30-i)
+                timestamp=base_time - timedelta(days=i % 29)  # Spread over 29 days
             ))
         
         for i in range(10):  # Losses
@@ -64,7 +65,7 @@ class TestKellyCalculator:
                 quantity=Decimal("0.01"),
                 pnl_dollars=Decimal("-5"),  # Avg loss: $5
                 pnl_percent=Decimal("-1"),
-                timestamp=base_time - timedelta(days=10-i)
+                timestamp=base_time - timedelta(days=(i+5) % 29)  # Offset and spread
             ))
         
         return trades
@@ -147,9 +148,9 @@ class TestKellyCalculator:
         edge = calculator.calculate_strategy_edge("test_strategy", sample_trades)
         
         assert edge.strategy_id == "test_strategy"
-        assert abs(edge.win_rate - Decimal("0.6667")) < Decimal("0.02")  # Allow small variation
+        assert abs(edge.win_rate - Decimal("0.6667")) < Decimal("0.01")  # 20 wins / 30 total
         assert edge.win_loss_ratio == Decimal("2.00")
-        assert edge.sample_size >= 29  # Allow for filtering
+        assert edge.sample_size == 30  # All trades should be within window now
         assert edge.confidence_interval[0] < edge.win_rate < edge.confidence_interval[1]
     
     def test_strategy_edge_caching(self, calculator, sample_trades):
@@ -310,16 +311,40 @@ class TestKellyCalculator:
     
     def test_confidence_interval_calculation(self, calculator, sample_trades):
         """Test confidence interval calculation for win rate."""
-        edge = calculator.calculate_strategy_edge("test", sample_trades[:10])  # Small sample
+        # Create trades with timestamps that won't be filtered
+        base_time = datetime.now(timezone.utc)
+        recent_trades = []
         
-        # With smaller sample, confidence interval should be wider
-        interval_width = edge.confidence_interval[1] - edge.confidence_interval[0]
-        assert interval_width > Decimal("0.2")  # Wide interval with 10 trades
+        # Create 10 recent trades (all within the lookback window)
+        for i in range(10):
+            recent_trades.append(Trade(
+                order_id=f"recent_{i}",
+                strategy_id="test",
+                symbol="BTC/USDT",
+                side=OrderSide.BUY,
+                entry_price=Decimal("50000"),
+                exit_price=Decimal("51000") if i < 7 else Decimal("49500"),
+                quantity=Decimal("0.01"),
+                pnl_dollars=Decimal("10") if i < 7 else Decimal("-5"),
+                pnl_percent=Decimal("2") if i < 7 else Decimal("-1"),
+                timestamp=base_time - timedelta(days=i)  # All within 10 days
+            ))
         
-        # With larger sample, confidence interval should be narrower
-        edge_large = calculator.calculate_strategy_edge("test", sample_trades)  # 30 trades
-        interval_width_large = edge_large.confidence_interval[1] - edge_large.confidence_interval[0]
-        assert interval_width_large < interval_width  # Narrower with more data
+        # Test with insufficient data (< min_trades of 20)
+        edge_small = calculator.calculate_strategy_edge("test", recent_trades)
+        assert edge_small.confidence_interval == (Decimal("0"), Decimal("1"))
+        assert edge_small.sample_size == 10  # Exactly 10 trades
+        assert edge_small.sample_size < calculator.min_trades  # Below threshold of 20
+        
+        # Test with sufficient data (use the full sample_trades fixture)
+        edge_large = calculator.calculate_strategy_edge("test_strategy", sample_trades)  # Use correct strategy_id
+        # Should have at least min_trades (20) after any filtering
+        assert edge_large.sample_size >= calculator.min_trades
+        # Confidence interval should be narrower than default
+        interval_width = edge_large.confidence_interval[1] - edge_large.confidence_interval[0]
+        assert interval_width < Decimal("1")  # Should be narrower than (0, 1)
+        # Check win rate is within confidence interval
+        assert edge_large.confidence_interval[0] <= edge_large.win_rate <= edge_large.confidence_interval[1]
 
 
 class TestStrategyPerformanceTracker:

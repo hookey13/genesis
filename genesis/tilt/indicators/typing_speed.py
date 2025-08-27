@@ -1,3 +1,4 @@
+from typing import Optional
 """Typing speed behavioral indicator for tilt detection."""
 from __future__ import annotations
 
@@ -44,7 +45,7 @@ class TypingSpeedIndicator:
 
         # Track typing bursts
         self.burst_count = 0
-        self.last_burst_time: datetime | None = None
+        self.last_burst_time: Optional[datetime] = None
 
         # Average characters per word for WPM calculation
         self.chars_per_word = 5
@@ -53,7 +54,7 @@ class TypingSpeedIndicator:
         self,
         key_count: int,
         duration_ms: float,
-        timestamp: datetime | None = None
+        timestamp: Optional[datetime] = None
     ) -> dict:
         """Record a keystroke event and analyze patterns.
         
@@ -243,7 +244,7 @@ class TypingSpeedIndicator:
 
         return min(score, 100)
 
-    def detect_stress_typing(self) -> dict | None:
+    def detect_stress_typing(self) -> Optional[dict]:
         """Detect stress-induced typing patterns.
         
         Returns:

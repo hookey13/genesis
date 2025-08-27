@@ -1,3 +1,4 @@
+from typing import Optional
 """Performance attribution system for multi-pair trading."""
 
 import asyncio
@@ -69,8 +70,8 @@ class AttributionReport:
     total_pnl_dollars: Decimal
     pair_contributions: dict[str, Decimal]  # symbol -> P&L contribution
     pair_weights: dict[str, Decimal]  # symbol -> % of total trading
-    best_performer: str | None
-    worst_performer: str | None
+    best_performer: Optional[str]
+    worst_performer: Optional[str]
     correlation_impact: Decimal  # P&L impact from correlations
     diversification_benefit: Decimal  # Benefit from diversification
     recommendations: list[str] = field(default_factory=list)
@@ -157,8 +158,8 @@ class PairPerformanceTracker:
     async def get_pair_metrics(
         self,
         symbol: str,
-        period_start: datetime | None = None,
-        period_end: datetime | None = None
+        period_start: Optional[datetime] = None,
+        period_end: Optional[datetime] = None
     ) -> PairMetrics:
         """Get performance metrics for a specific pair.
         
@@ -224,8 +225,8 @@ class PairPerformanceTracker:
 
     async def generate_attribution_report(
         self,
-        period_start: datetime | None = None,
-        period_end: datetime | None = None
+        period_start: Optional[datetime] = None,
+        period_end: Optional[datetime] = None
     ) -> AttributionReport:
         """Generate performance attribution report across all pairs.
         
@@ -367,8 +368,8 @@ class PairPerformanceTracker:
     async def compare_pairs(
         self,
         symbols: list[str],
-        period_start: datetime | None = None,
-        period_end: datetime | None = None
+        period_start: Optional[datetime] = None,
+        period_end: Optional[datetime] = None
     ) -> dict[str, dict[str, any]]:
         """Compare performance across multiple pairs.
         

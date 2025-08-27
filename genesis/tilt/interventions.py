@@ -1,3 +1,4 @@
+from typing import Optional
 """Tilt intervention strategies and management."""
 from __future__ import annotations
 
@@ -34,8 +35,8 @@ class Intervention:
     intervention_type: InterventionType
     message: str
     applied_at: datetime
-    expires_at: datetime | None
-    position_size_multiplier: Decimal | None
+    expires_at: Optional[datetime]
+    position_size_multiplier: Optional[Decimal]
     is_active: bool
 
 
@@ -66,10 +67,10 @@ class InterventionManager:
 
     def __init__(
         self,
-        event_bus: EventBus | None = None,
+        event_bus: Optional[EventBus] = None,
         cooldown_minutes: dict[TiltLevel, int] = None,
         emergency_contact_enabled: bool = False,
-        emergency_contact_info: dict[str, str] | None = None
+        emergency_contact_info: Optional[dict[str, str]] = None
     ):
         """Initialize intervention manager.
         
@@ -390,7 +391,7 @@ class InterventionManager:
         self,
         profile_id: str,
         tilt_level: TiltLevel,
-        message: str | None = None
+        message: Optional[str] = None
     ) -> bool:
         """Notify emergency contact about severe tilt episode (placeholder).
         

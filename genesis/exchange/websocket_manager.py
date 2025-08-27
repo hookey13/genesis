@@ -41,7 +41,7 @@ class StreamSubscription:
 
     stream: str
     callback: Callable[[dict], None]
-    symbol: str | None = None
+    symbol: Optional[str] = None
 
 
 class WebSocketConnection:
@@ -81,15 +81,15 @@ class WebSocketConnection:
         self.gateway = gateway
 
         self.state = ConnectionState.DISCONNECTED
-        self.websocket: Any | None = None  # WebSocket connection object
+        self.websocket: Optional[Any] = None  # WebSocket connection object
         self.current_reconnect_delay = reconnect_delay
         self.last_heartbeat = time.time()
         self.message_buffer = deque(maxlen=1000)
 
         # Tasks
-        self.connection_task: asyncio.Task | None = None
-        self.heartbeat_task: asyncio.Task | None = None
-        self.message_handler_task: asyncio.Task | None = None
+        self.connection_task: Optional[asyncio.Task] = None
+        self.heartbeat_task: Optional[asyncio.Task] = None
+        self.message_handler_task: Optional[asyncio.Task] = None
 
         # Statistics
         self.messages_received = 0
@@ -398,7 +398,7 @@ class WebSocketManager:
     with automatic failover and message buffering.
     """
 
-    def __init__(self, gateway: BinanceGateway | None = None):
+    def __init__(self, gateway: Optional[BinanceGateway] = None):
         """Initialize the WebSocket manager."""
         self.settings = get_settings()
         self.connections: dict[str, WebSocketConnection] = {}

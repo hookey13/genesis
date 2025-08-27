@@ -1,0 +1,217 @@
+# Emergency Risk Control Thresholds
+# Critical thresholds for automatic protective actions
+
+# Daily Loss Circuit Breaker
+daily_loss:
+  # Maximum daily loss percentage before automatic halt
+  limit: 0.15  # 15% daily loss triggers emergency halt
+  
+  # Warning thresholds before halt
+  warning_levels:
+    - threshold: 0.05  # 5% - First warning
+      action: "reduce_position_sizes"
+    - threshold: 0.10  # 10% - Second warning
+      action: "restrict_new_positions"
+    - threshold: 0.12  # 12% - Final warning
+      action: "prepare_emergency_halt"
+
+# Correlation Spike Detection
+correlation:
+  # Threshold for dangerous correlation levels
+  spike_threshold: 0.80  # 80% correlation triggers alert
+  
+  # Critical correlation requiring immediate action
+  critical_threshold: 0.95  # 95% correlation forces position reduction
+  
+  # Monitoring parameters
+  window_minutes: 30  # Rolling window for correlation calculation
+  min_observations: 20  # Minimum data points for calculation
+  
+  # Response levels
+  response_levels:
+    - threshold: 0.70
+      action: "monitor_closely"
+    - threshold: 0.80
+      action: "reduce_correlated_positions"
+    - threshold: 0.90
+      action: "force_diversification"
+    - threshold: 0.95
+      action: "emergency_deleveraging"
+
+# Liquidity Crisis Detection
+liquidity:
+  # Liquidity score thresholds (0 = no liquidity, 1 = perfect liquidity)
+  crisis_threshold: 0.30  # Below 30% triggers crisis mode
+  warning_threshold: 0.50  # Below 50% triggers warning
+  
+  # Order book monitoring
+  depth_drop_threshold: 0.50  # 50% depth reduction triggers alert
+  spread_alert_bps: 50  # Spread > 50 basis points triggers alert
+  
+  # Volume monitoring
+  volume_window_minutes: 30
+  volume_drop_threshold: 0.60  # 60% volume drop triggers alert
+  
+  # Response actions
+  crisis_actions:
+    frozen:  # No liquidity
+      liquidity_score_max: 0.10
+      action: "halt_all_trading"
+    crisis:  # Severe shortage
+      liquidity_score_max: 0.20
+      action: "market_orders_only"
+    degraded:  # Reduced liquidity
+      liquidity_score_max: 0.40
+      action: "reduce_order_sizes"
+
+# Flash Crash Detection
+flash_crash:
+  # Price drop thresholds
+  threshold: 0.10  # 10% drop triggers flash crash detection
+  window_seconds: 60  # Detection window duration
+  
+  # Severity levels
+  severity_levels:
+    - drop_pct: 0.30
+      severity: "CRITICAL"
+      action: "halt_all_trading"
+    - drop_pct: 0.20
+      severity: "HIGH"
+      action: "cancel_all_orders"
+    - drop_pct: 0.15
+      severity: "MEDIUM"
+      action: "reduce_exposure"
+    - drop_pct: 0.10
+      severity: "LOW"
+      action: "monitor_closely"
+  
+  # Recovery parameters
+  recovery_window_seconds: 300  # 5 minutes before allowing new trades
+
+# Rapid Deleveraging Protocol
+deleveraging:
+  # Stages of position reduction
+  stages:
+    stage_1:
+      reduction_percentage: 0.25  # Reduce 25% of positions
+      trigger: "daily_loss_10pct"
+    stage_2:
+      reduction_percentage: 0.50  # Reduce 50% of positions
+      trigger: "daily_loss_12pct"
+    stage_3:
+      reduction_percentage: 0.75  # Reduce 75% of positions
+      trigger: "daily_loss_14pct"
+    stage_4:
+      reduction_percentage: 1.00  # Close all positions
+      trigger: "daily_loss_15pct"
+  
+  # Execution parameters
+  max_slippage_pct: 0.02  # 2% maximum acceptable slippage
+  execution_delay_ms: 100  # Delay between orders
+  
+  # Position prioritization (higher priority closed first)
+  priority_factors:
+    loss_weight: 0.40  # Weight for loss percentage
+    size_weight: 0.30  # Weight for position size
+    age_weight: 0.20   # Weight for position age
+    correlation_weight: 0.10  # Weight for correlation risk
+
+# Manual Override Settings
+manual_override:
+  # Confirmation requirements
+  confirmation_phrase: "OVERRIDE EMERGENCY HALT"
+  
+  # Override limits
+  timeout_seconds: 300  # 5-minute override window
+  max_overrides_per_day: 2  # Maximum daily overrides allowed
+  
+  # Audit requirements
+  require_reason: true  # Must provide reason for override
+  require_supervisor_approval: false  # Set true in production
+
+# Emergency Timeout Settings
+emergency_timeouts:
+  # Auto-clear timeouts (seconds)
+  daily_loss_halt: 3600  # 1 hour
+  correlation_spike: 1800  # 30 minutes
+  liquidity_crisis: 900  # 15 minutes
+  flash_crash: 600  # 10 minutes
+  
+  # Cool-down periods after emergency
+  resume_trading_delay: 300  # 5 minutes before allowing new trades
+  
+# System Circuit Breakers
+circuit_breakers:
+  # API circuit breaker
+  api:
+    failure_threshold: 5
+    failure_window_seconds: 30
+    recovery_timeout_seconds: 60
+  
+  # WebSocket circuit breaker
+  websocket:
+    failure_threshold: 3
+    failure_window_seconds: 20
+    recovery_timeout_seconds: 30
+  
+  # Order execution circuit breaker
+  orders:
+    failure_threshold: 3
+    failure_window_seconds: 10
+    recovery_timeout_seconds: 20
+
+# Notification Settings
+notifications:
+  # Alert levels requiring notification
+  critical_alerts:
+    - "daily_loss_halt"
+    - "flash_crash_detected"
+    - "system_failure"
+  
+  high_alerts:
+    - "correlation_spike"
+    - "liquidity_crisis"
+    - "deleveraging_initiated"
+  
+  # Notification channels
+  channels:
+    email:
+      enabled: false
+      recipients: []
+    sms:
+      enabled: false
+      recipients: []
+    webhook:
+      enabled: false
+      url: ""
+
+# Recovery Requirements
+recovery:
+  # Mandatory recovery steps
+  required_steps:
+    - "verify_positions_closed"
+    - "cancel_pending_orders"
+    - "document_final_pnl"
+    - "complete_journal_entry"
+  
+  # Gradual return to trading
+  position_sizing_recovery:
+    - day: 1
+      max_size_pct: 0.25  # 25% of normal size
+    - day: 2
+      max_size_pct: 0.50  # 50% of normal size
+    - day: 3
+      max_size_pct: 0.75  # 75% of normal size
+    - day: 4
+      max_size_pct: 1.00  # Return to normal
+
+# Monitoring Intervals
+monitoring:
+  # Check frequencies (seconds)
+  daily_loss_check: 1  # Check every second
+  correlation_check: 30  # Check every 30 seconds
+  liquidity_check: 10  # Check every 10 seconds
+  flash_crash_check: 1  # Check every second
+  
+  # Data retention
+  history_retention_hours: 24  # Keep 24 hours of monitoring data

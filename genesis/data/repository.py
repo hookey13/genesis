@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Optional, Any
 
 from genesis.core.models import (
     Account,
@@ -39,7 +39,7 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_account(self, account_id: str) -> Account | None:
+    async def get_account(self, account_id: str) -> Optional[Account]:
         """Get account by ID."""
         pass
 
@@ -60,12 +60,12 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_position(self, position_id: str) -> Position | None:
+    async def get_position(self, position_id: str) -> Optional[Position]:
         """Get position by ID."""
         pass
 
     @abstractmethod
-    async def get_positions_by_account(self, account_id: str, status: str | None = None) -> list[Position]:
+    async def get_positions_by_account(self, account_id: str, status: Optional[str] = None) -> list[Position]:
         """Get all positions for an account."""
         pass
 
@@ -86,12 +86,12 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_session(self, session_id: str) -> TradingSession | None:
+    async def get_session(self, session_id: str) -> Optional[TradingSession]:
         """Get session by ID."""
         pass
 
     @abstractmethod
-    async def get_active_session(self, account_id: str) -> TradingSession | None:
+    async def get_active_session(self, account_id: str) -> Optional[TradingSession]:
         """Get active session for an account."""
         pass
 
@@ -134,7 +134,7 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_events(self, aggregate_id: str, event_type: str | None = None) -> list[dict[str, Any]]:
+    async def get_events(self, aggregate_id: str, event_type: Optional[str] = None) -> list[dict[str, Any]]:
         """Get events for an aggregate."""
         pass
 
@@ -150,7 +150,7 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_order(self, order_id: str) -> dict[str, Any] | None:
+    async def get_order(self, order_id: str) -> Optional[dict[str, Any]]:
         """Get order by ID."""
         pass
 
@@ -160,7 +160,7 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def update_order_status(self, order_id: str, status: str, executed_at: datetime | None = None) -> None:
+    async def update_order_status(self, order_id: str, status: str, executed_at: Optional[datetime] = None) -> None:
         """Update order status."""
         pass
 
@@ -177,7 +177,7 @@ class Repository(ABC):
 
     # Backup and restore methods
     @abstractmethod
-    async def backup(self, backup_path: Path | None = None) -> Path:
+    async def backup(self, backup_path: Optional[Path] = None) -> Path:
         """Create a backup of the database."""
         pass
 
@@ -209,7 +209,7 @@ class Repository(ABC):
 
     # Performance metrics methods
     @abstractmethod
-    async def calculate_performance_metrics(self, account_id: str, session_id: str | None = None) -> dict[str, Any]:
+    async def calculate_performance_metrics(self, account_id: str, session_id: Optional[str] = None) -> dict[str, Any]:
         """Calculate performance metrics (win rate, average R, etc.)."""
         pass
 
@@ -221,7 +221,7 @@ class Repository(ABC):
     # Tilt event methods
     @abstractmethod
     async def save_tilt_event(self, session_id: str, event_type: str, severity: str,
-                             indicator_values: dict[str, Any], intervention: str | None = None) -> str:
+                             indicator_values: dict[str, Any], intervention: Optional[str] = None) -> str:
         """Save a tilt event."""
         pass
 
@@ -253,6 +253,6 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_database_info(self, key: str) -> str | None:
+    async def get_database_info(self, key: str) -> Optional[str]:
         """Get database metadata."""
         pass

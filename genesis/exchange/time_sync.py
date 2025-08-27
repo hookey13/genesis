@@ -11,6 +11,7 @@ import time
 import structlog
 
 from config.settings import get_settings
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -27,10 +28,10 @@ class TimeSync:
         """Initialize the time synchronization manager."""
         self.settings = get_settings()
         self.time_offset: int = 0  # Milliseconds difference between local and server
-        self.last_sync_time: float | None = None
+        self.last_sync_time: Optional[float] = None
         self.sync_interval: int = 300  # 5 minutes default
         self.recv_window: int = 5000  # 5 second tolerance window
-        self._sync_task: asyncio.Task | None = None
+        self._sync_task: Optional[asyncio.Task] = None
         self._running = False
 
         # Statistics

@@ -1,3 +1,4 @@
+from typing import Optional
 """Main Textual application for Genesis trading system."""
 
 import asyncio
@@ -31,8 +32,8 @@ class GenesisApp(App):
         """Initialize the Genesis application."""
         super().__init__(**kwargs)
         self.console = Console()
-        self.update_task: asyncio.Task | None = None
-        self.dashboard_screen: DashboardScreen | None = None
+        self.update_task: Optional[asyncio.Task] = None
+        self.dashboard_screen: Optional[DashboardScreen] = None
 
         # Event loop integration
         self.event_loop = asyncio.get_event_loop()

@@ -10,6 +10,7 @@ from decimal import Decimal
 
 import numpy as np
 import structlog
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -33,7 +34,7 @@ class PositionSizingIndicator:
         self,
         size: Decimal,
         timestamp: datetime,
-        outcome: str | None = None
+        outcome: Optional[str] = None
     ) -> dict:
         """
         Record a position and calculate variance metrics.

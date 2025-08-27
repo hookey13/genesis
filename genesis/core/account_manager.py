@@ -8,7 +8,7 @@ and persistence with the exchange.
 import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Optional, Any
 
 import structlog
 
@@ -33,7 +33,7 @@ class AccountManager:
     def __init__(
         self,
         gateway: BinanceGateway,
-        account: Account | None = None,
+        account: Optional[Account] = None,
         auto_sync: bool = True
     ):
         """
@@ -50,8 +50,8 @@ class AccountManager:
             tier=TradingTier.SNIPER
         )
         self.auto_sync = auto_sync
-        self._sync_task: asyncio.Task | None = None
-        self._last_sync_error: str | None = None
+        self._sync_task: Optional[asyncio.Task] = None
+        self._last_sync_error: Optional[str] = None
         self._sync_count = 0
 
         logger.info(

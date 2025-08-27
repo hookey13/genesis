@@ -10,7 +10,7 @@ import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any
+from typing import Optional, Any
 from uuid import uuid4
 
 import structlog
@@ -68,22 +68,22 @@ class TwapExecution:
     duration_minutes: int
     slices: list[TimeSlice]
     arrival_price: Decimal
-    benchmark_price: Decimal | None = None
+    benchmark_price: Optional[Decimal] = None
     executed_quantity: Decimal = Decimal("0")
     remaining_quantity: Decimal = Decimal("0")
-    average_price: Decimal | None = None
-    twap_price: Decimal | None = None
-    implementation_shortfall: Decimal | None = None
+    average_price: Optional[Decimal] = None
+    twap_price: Optional[Decimal] = None
+    implementation_shortfall: Optional[Decimal] = None
     participation_rate: Decimal = Decimal("0")
     status: str = "ACTIVE"
     early_completion: bool = False
-    early_completion_reason: str | None = None
+    early_completion_reason: Optional[str] = None
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: datetime | None = None
-    paused_at: datetime | None = None
-    resumed_at: datetime | None = None
+    completed_at: Optional[datetime] = None
+    paused_at: Optional[datetime] = None
+    resumed_at: Optional[datetime] = None
     executed_slices: list[dict[str, Any]] = field(default_factory=list)
-    background_task: asyncio.Task | None = None
+    background_task: Optional[asyncio.Task] = None
 
 
 class TwapExecutor(OrderExecutor):
@@ -811,7 +811,7 @@ class TwapExecutor(OrderExecutor):
 
         return await self.market_executor.cancel_order(order_id, symbol)
 
-    async def cancel_all_orders(self, symbol: str | None = None) -> int:
+    async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         """Cancel all orders."""
         cancelled_count = 0
 

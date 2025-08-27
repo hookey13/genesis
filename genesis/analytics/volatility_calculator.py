@@ -14,6 +14,7 @@ import pandas as pd
 import structlog
 
 from genesis.core.exceptions import DataError
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -200,7 +201,7 @@ class VolatilityCalculator:
         return percentile
 
     def calculate_rolling_volatility(
-        self, prices: pd.Series, window: int = 20, min_periods: int | None = None
+        self, prices: pd.Series, window: int = 20, min_periods: Optional[int] = None
     ) -> pd.Series:
         """
         Calculate rolling volatility using pandas.
@@ -468,7 +469,7 @@ class VolatilityCalculator:
         else:
             return "NORMAL"
 
-    def clear_cache(self, symbol: str | None = None):
+    def clear_cache(self, symbol: Optional[str] = None):
         """
         Clear volatility cache.
 

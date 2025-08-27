@@ -13,7 +13,27 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator
 
 # Import TradingTier from constants to avoid duplication
-from genesis.core.constants import TradingTier, ConvictionLevel
+from genesis.core.constants import ConvictionLevel, TradingTier
+from typing import Optional
+
+
+class Symbol(str):
+    """Trading symbol representation."""
+
+    def __new__(cls, value):
+        """Create Symbol instance ensuring proper format."""
+        return str.__new__(cls, value.upper())
+
+    @property
+    def value(self):
+        """Get string value of symbol."""
+        return str(self)
+
+
+class Side(str, Enum):
+    """Trade/Order side."""
+    BUY = "BUY"
+    SELL = "SELL"
 
 
 class PositionSide(str, Enum):
@@ -30,15 +50,15 @@ class Position(BaseModel):
     symbol: str
     side: PositionSide
     entry_price: Decimal
-    current_price: Decimal | None = None
+    current_price: Optional[Decimal] = None
     quantity: Decimal
     dollar_value: Decimal
-    stop_loss: Decimal | None = None
+    stop_loss: Optional[Decimal] = None
     pnl_dollars: Decimal = Decimal("0")
     pnl_percent: Decimal = Decimal("0")
     priority_score: int = 0
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
 
     @field_validator("entry_price", "current_price", "quantity", "dollar_value",
                     "stop_loss", "pnl_dollars", "pnl_percent", mode="before")
@@ -104,7 +124,7 @@ class TradingSession(BaseModel):
     daily_loss_limit: Decimal
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
 
     @field_validator("starting_balance", "current_balance", "realized_pnl",
                     "max_drawdown", "daily_loss_limit", mode="before")
@@ -190,27 +210,27 @@ class Order(BaseModel):
     """Order domain model."""
 
     order_id: str = Field(default_factory=lambda: str(uuid4()))
-    position_id: str | None = None
+    position_id: Optional[str] = None
     client_order_id: str = Field(default_factory=lambda: str(uuid4()))
-    exchange_order_id: str | None = None
+    exchange_order_id: Optional[str] = None
     symbol: str
     type: OrderType
     side: OrderSide
-    price: Decimal | None = None
+    price: Optional[Decimal] = None
     quantity: Decimal
     filled_quantity: Decimal = Decimal("0")
     status: OrderStatus = OrderStatus.PENDING
     conviction_level: ConvictionLevel = ConvictionLevel.MEDIUM
-    slice_number: int | None = None
-    total_slices: int | None = None
-    latency_ms: int | None = None
-    slippage_percent: Decimal | None = None
+    slice_number: Optional[int] = None
+    total_slices: Optional[int] = None
+    latency_ms: Optional[int] = None
+    slippage_percent: Optional[Decimal] = None
     created_at: datetime = Field(default_factory=datetime.now)
-    executed_at: datetime | None = None
-    routing_method: str | None = None
-    maker_fee_paid: Decimal | None = None
-    taker_fee_paid: Decimal | None = None
-    execution_score: float | None = None
+    executed_at: Optional[datetime] = None
+    routing_method: Optional[str] = None
+    maker_fee_paid: Optional[Decimal] = None
+    taker_fee_paid: Optional[Decimal] = None
+    execution_score: Optional[float] = None
 
     @field_validator("price", "quantity", "filled_quantity", "slippage_percent", "maker_fee_paid", "taker_fee_paid", mode="before")
     @classmethod
@@ -221,12 +241,64 @@ class Order(BaseModel):
         return v
 
 
+class SignalType(str, Enum):
+    """Signal types for trading decisions."""
+    BUY = "BUY"
+    SELL = "SELL"
+    HOLD = "HOLD"
+    CLOSE = "CLOSE"
+    SCALE_IN = "SCALE_IN"
+    SCALE_OUT = "SCALE_OUT"
+
+
+class Signal(BaseModel):
+    """Trading signal model."""
+
+    signal_id: str = Field(default_factory=lambda: str(uuid4()))
+    strategy_id: str
+    symbol: str
+    signal_type: SignalType
+    confidence: Decimal = Decimal("0.5")
+    price_target: Optional[Decimal] = None
+    stop_loss: Optional[Decimal] = None
+    take_profit: Optional[Decimal] = None
+    quantity: Optional[Decimal] = None
+    metadata: dict = Field(default_factory=dict)
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+    @field_validator("confidence", "price_target", "stop_loss", "take_profit", "quantity", mode="before")
+    @classmethod
+    def ensure_decimal(cls, v):
+        """Convert to Decimal for precision."""
+        if v is not None:
+            return Decimal(str(v))
+        return v
+
+
+class PriceData(BaseModel):
+    """Market price data point."""
+
+    symbol: str
+    timestamp: datetime
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+    volume: Decimal
+
+    @field_validator("open", "high", "low", "close", "volume", mode="before")
+    @classmethod
+    def ensure_decimal(cls, v):
+        """Convert to Decimal for precision."""
+        return Decimal(str(v))
+
+
 class Trade(BaseModel):
     """Completed trade model for analytics."""
-    
+
     trade_id: str = Field(default_factory=lambda: str(uuid4()))
     order_id: str
-    position_id: str | None = None
+    position_id: Optional[str] = None
     strategy_id: str
     symbol: str
     side: OrderSide
@@ -236,7 +308,7 @@ class Trade(BaseModel):
     pnl_dollars: Decimal
     pnl_percent: Decimal
     timestamp: datetime = Field(default_factory=datetime.now)
-    
+
     @field_validator("entry_price", "exit_price", "quantity", "pnl_dollars", "pnl_percent", mode="before")
     @classmethod
     def ensure_decimal(cls, v):

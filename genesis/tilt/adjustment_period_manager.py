@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Optional, Any
 
 import structlog
 
@@ -105,7 +105,7 @@ class AdjustmentStatus:
 class AdjustmentPeriodManager:
     """Manages 48-hour adjustment periods after tier transitions."""
 
-    def __init__(self, session: Session | None = None):
+    def __init__(self, session: Optional[Session] = None):
         """Initialize adjustment period manager.
         
         Args:
@@ -119,7 +119,7 @@ class AdjustmentPeriodManager:
         account_id: str,
         tier: str,
         duration_hours: int = 48,
-        transition_id: str | None = None
+        transition_id: Optional[str] = None
     ) -> str:
         """Start an adjustment period for tier transition.
         
@@ -216,7 +216,7 @@ class AdjustmentPeriodManager:
     async def get_adjustment_status(
         self,
         account_id: str
-    ) -> AdjustmentStatus | None:
+    ) -> Optional[AdjustmentStatus]:
         """Get current adjustment period status.
         
         Args:
@@ -344,7 +344,7 @@ class AdjustmentPeriodManager:
 
         return True
 
-    def _get_active_period(self, account_id: str) -> AdjustmentPeriod | None:
+    def _get_active_period(self, account_id: str) -> Optional[AdjustmentPeriod]:
         """Get active adjustment period for account.
         
         Args:

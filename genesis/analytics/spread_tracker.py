@@ -16,6 +16,7 @@ import structlog
 from genesis.analytics.spread_analyzer import SpreadAnalyzer, SpreadMetrics
 from genesis.core.events import Event, EventType
 from genesis.engine.event_bus import EventBus
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -58,7 +59,7 @@ class SpreadTracker:
     def __init__(
         self,
         spread_analyzer: SpreadAnalyzer,
-        event_bus: EventBus | None = None,
+        event_bus: Optional[EventBus] = None,
         aggregation_interval_seconds: int = 3600,
     ):
         """
@@ -87,7 +88,7 @@ class SpreadTracker:
 
         self._logger = logger.bind(component="SpreadTracker")
         self._running = False
-        self._aggregation_task: asyncio.Task | None = None
+        self._aggregation_task: Optional[asyncio.Task] = None
 
     async def start(self) -> None:
         """Start spread tracking system"""
@@ -384,7 +385,7 @@ class SpreadTracker:
 
         return sorted_patterns[:top_n]
 
-    def clear_history(self, symbol: str | None = None) -> None:
+    def clear_history(self, symbol: Optional[str] = None) -> None:
         """
         Clear spread history
 

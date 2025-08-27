@@ -4,20 +4,18 @@ Repository for Kelly Criterion parameters and calculations.
 Provides database persistence for Kelly parameters, historical calculations,
 and strategy performance metrics.
 """
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal
-from typing import Dict, List, Optional
-from uuid import UUID
-import json
 import logging
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
-from sqlalchemy import Column, String, Numeric, DateTime, Integer, JSON, Float
+from sqlalchemy import JSON, Column, DateTime, Integer, Numeric, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session
 
-from genesis.core.constants import TradingTier, ConvictionLevel
-from genesis.analytics.kelly_sizing import StrategyEdge, KellyParams, SimulationResult
+from genesis.analytics.kelly_sizing import KellyParams, SimulationResult, StrategyEdge
 from genesis.analytics.strategy_metrics import StrategyMetrics
+from genesis.core.constants import TradingTier
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +24,9 @@ Base = declarative_base()
 
 class KellyParameterDB(Base):
     """Database model for Kelly parameters."""
-    
+
     __tablename__ = "kelly_parameters"
-    
+
     id = Column(Integer, primary_key=True)
     strategy_id = Column(String, nullable=False, index=True)
     kelly_fraction = Column(Numeric(10, 4), nullable=False)
@@ -39,7 +37,7 @@ class KellyParameterDB(Base):
     confidence_lower = Column(Numeric(10, 4))
     confidence_upper = Column(Numeric(10, 4))
     calculated_at = Column(DateTime, nullable=False)
-    
+
     def to_strategy_edge(self) -> StrategyEdge:
         """Convert database model to domain model."""
         return StrategyEdge(
@@ -57,9 +55,9 @@ class KellyParameterDB(Base):
 
 class KellyCalculationDB(Base):
     """Database model for historical Kelly calculations."""
-    
+
     __tablename__ = "kelly_calculations"
-    
+
     id = Column(Integer, primary_key=True)
     calculation_id = Column(String, nullable=False, unique=True)
     strategy_id = Column(String, nullable=False, index=True)
@@ -76,9 +74,9 @@ class KellyCalculationDB(Base):
 
 class StrategyPerformanceDB(Base):
     """Database model for strategy performance metrics."""
-    
+
     __tablename__ = "strategy_performance"
-    
+
     id = Column(Integer, primary_key=True)
     strategy_id = Column(String, nullable=False, unique=True)
     total_trades = Column(Integer, default=0)
@@ -94,7 +92,7 @@ class StrategyPerformanceDB(Base):
     average_win = Column(Numeric(20, 2), default=0)
     average_loss = Column(Numeric(20, 2), default=0)
     last_updated = Column(DateTime, nullable=False)
-    
+
     def to_strategy_metrics(self) -> StrategyMetrics:
         """Convert database model to domain model."""
         return StrategyMetrics(
@@ -117,9 +115,9 @@ class StrategyPerformanceDB(Base):
 
 class MonteCarloSimulationDB(Base):
     """Database model for Monte Carlo simulation results."""
-    
+
     __tablename__ = "monte_carlo_simulations"
-    
+
     id = Column(Integer, primary_key=True)
     simulation_id = Column(String, nullable=False, unique=True)
     strategy_id = Column(String, nullable=False, index=True)
@@ -139,7 +137,7 @@ class MonteCarloSimulationDB(Base):
 
 class KellyRepository:
     """Repository for Kelly Criterion data persistence."""
-    
+
     def __init__(self, session: Session):
         """
         Initialize Kelly repository.
@@ -148,7 +146,7 @@ class KellyRepository:
             session: SQLAlchemy session
         """
         self.session = session
-    
+
     def save_kelly_parameters(self, edge: StrategyEdge) -> None:
         """
         Save Kelly parameters to database.
@@ -168,16 +166,16 @@ class KellyRepository:
                 confidence_upper=float(edge.confidence_interval[1]),
                 calculated_at=edge.last_calculated
             )
-            
+
             self.session.merge(params)
             self.session.commit()
-            
+
             logger.info("Kelly parameters saved", strategy_id=edge.strategy_id)
         except Exception as e:
             logger.error("Failed to save Kelly parameters", error=str(e))
             self.session.rollback()
             raise
-    
+
     def get_kelly_parameters(self, strategy_id: str) -> Optional[StrategyEdge]:
         """
         Retrieve Kelly parameters for a strategy.
@@ -193,14 +191,14 @@ class KellyRepository:
                 .filter_by(strategy_id=strategy_id)\
                 .order_by(KellyParameterDB.calculated_at.desc())\
                 .first()
-            
+
             if params:
                 return params.to_strategy_edge()
             return None
         except Exception as e:
             logger.error("Failed to retrieve Kelly parameters", error=str(e))
             return None
-    
+
     def save_kelly_calculation(
         self,
         calculation_id: str,
@@ -208,7 +206,7 @@ class KellyRepository:
         balance: Decimal,
         kelly_params: KellyParams,
         tier: TradingTier,
-        metadata: Optional[Dict] = None
+        metadata: Optional[dict] = None
     ) -> None:
         """
         Save a Kelly calculation for audit trail.
@@ -232,18 +230,18 @@ class KellyRepository:
                 volatility_multiplier=metadata.get("volatility_multiplier") if metadata else None,
                 final_size=float(kelly_params.position_size),
                 tier=tier.value,
-                calculated_at=datetime.now(timezone.utc),
+                calculated_at=datetime.now(UTC),
                 metadata=metadata
             )
-            
+
             self.session.add(calculation)
             self.session.commit()
-            
+
             logger.debug("Kelly calculation saved", calculation_id=calculation_id)
         except Exception as e:
             logger.error("Failed to save Kelly calculation", error=str(e))
             self.session.rollback()
-    
+
     def save_strategy_performance(self, metrics: StrategyMetrics) -> None:
         """
         Save or update strategy performance metrics.
@@ -268,17 +266,17 @@ class KellyRepository:
                 average_loss=float(metrics.average_loss),
                 last_updated=metrics.last_updated
             )
-            
+
             # Use merge to update if exists
             self.session.merge(perf)
             self.session.commit()
-            
+
             logger.info("Strategy performance saved", strategy_id=metrics.strategy_id)
         except Exception as e:
             logger.error("Failed to save strategy performance", error=str(e))
             self.session.rollback()
             raise
-    
+
     def get_strategy_performance(self, strategy_id: str) -> Optional[StrategyMetrics]:
         """
         Retrieve strategy performance metrics.
@@ -293,14 +291,14 @@ class KellyRepository:
             perf = self.session.query(StrategyPerformanceDB)\
                 .filter_by(strategy_id=strategy_id)\
                 .first()
-            
+
             if perf:
                 return perf.to_strategy_metrics()
             return None
         except Exception as e:
             logger.error("Failed to retrieve strategy performance", error=str(e))
             return None
-    
+
     def save_simulation_result(
         self,
         simulation_id: str,
@@ -340,22 +338,22 @@ class KellyRepository:
                 percentile_95=float(result.percentile_95),
                 iterations=iterations,
                 trades_per_iteration=trades_per_iteration,
-                simulated_at=datetime.now(timezone.utc)
+                simulated_at=datetime.now(UTC)
             )
-            
+
             self.session.add(simulation)
             self.session.commit()
-            
+
             logger.info("Simulation result saved", simulation_id=simulation_id)
         except Exception as e:
             logger.error("Failed to save simulation result", error=str(e))
             self.session.rollback()
-    
+
     def get_recent_calculations(
         self,
         strategy_id: str,
         limit: int = 100
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Get recent Kelly calculations for a strategy.
         
@@ -372,7 +370,7 @@ class KellyRepository:
                 .order_by(KellyCalculationDB.calculated_at.desc())\
                 .limit(limit)\
                 .all()
-            
+
             return [
                 {
                     "calculation_id": c.calculation_id,
@@ -388,7 +386,7 @@ class KellyRepository:
         except Exception as e:
             logger.error("Failed to retrieve calculations", error=str(e))
             return []
-    
+
     def cleanup_old_data(self, days_to_keep: int = 90) -> int:
         """
         Clean up old Kelly data.
@@ -400,23 +398,23 @@ class KellyRepository:
             Number of records deleted
         """
         try:
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
-            
+            cutoff_date = datetime.now(UTC) - timedelta(days=days_to_keep)
+
             # Delete old calculations
             calc_count = self.session.query(KellyCalculationDB)\
                 .filter(KellyCalculationDB.calculated_at < cutoff_date)\
                 .delete()
-            
+
             # Delete old simulations
             sim_count = self.session.query(MonteCarloSimulationDB)\
                 .filter(MonteCarloSimulationDB.simulated_at < cutoff_date)\
                 .delete()
-            
+
             self.session.commit()
-            
+
             total_deleted = calc_count + sim_count
             logger.info("Cleaned up old Kelly data", records_deleted=total_deleted)
-            
+
             return total_deleted
         except Exception as e:
             logger.error("Failed to cleanup old data", error=str(e))

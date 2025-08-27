@@ -1,3 +1,4 @@
+from typing import Optional
 """Signal queue management system for multi-pair trading."""
 
 import asyncio
@@ -44,9 +45,9 @@ class QueuedSignal:
     signal: Signal = field(compare=False)
     status: SignalStatus = field(default=SignalStatus.PENDING, compare=False)
     queued_at: datetime = field(default_factory=datetime.utcnow, compare=False)
-    processed_at: datetime | None = field(default=None, compare=False)
-    conflict_group: str | None = field(default=None, compare=False)
-    rejection_reason: str | None = field(default=None, compare=False)
+    processed_at: Optional[datetime] = field(default=None, compare=False)
+    conflict_group: Optional[str] = field(default=None, compare=False)
+    rejection_reason: Optional[str] = field(default=None, compare=False)
 
     def __post_init__(self):
         """Calculate negative priority for min-heap (higher priority = lower score)."""
@@ -73,7 +74,7 @@ class SignalQueue:
     def __init__(
         self,
         repository: Repository,
-        event_bus: EventBus | None = None,
+        event_bus: Optional[EventBus] = None,
         conflict_resolution: ConflictResolution = ConflictResolution.HIGHEST_PRIORITY
     ):
         """Initialize signal queue.
@@ -108,7 +109,7 @@ class SignalQueue:
             "total_conflicts": 0
         }
 
-    async def add_signal(self, signal: Signal, priority: int | None = None) -> None:
+    async def add_signal(self, signal: Signal, priority: Optional[int] = None) -> None:
         """Add a signal to the queue.
         
         Args:
@@ -194,7 +195,7 @@ class SignalQueue:
             # Persist to database
             await self._persist_signal(queued_signal)
 
-    async def get_next_signal(self) -> Signal | None:
+    async def get_next_signal(self) -> Optional[Signal]:
         """Get the next signal to process.
         
         Returns:
@@ -241,7 +242,7 @@ class SignalQueue:
 
             return None
 
-    async def get_pending_signals(self, symbol: str | None = None) -> list[Signal]:
+    async def get_pending_signals(self, symbol: Optional[str] = None) -> list[Signal]:
         """Get all pending signals.
         
         Args:
@@ -332,7 +333,7 @@ class SignalQueue:
 
     # Private methods
 
-    async def _check_conflicts(self, new_signal: QueuedSignal) -> str | None:
+    async def _check_conflicts(self, new_signal: QueuedSignal) -> Optional[str]:
         """Check for conflicting signals.
         
         Args:
@@ -530,7 +531,7 @@ class SignalQueue:
             symbol=symbol
         )
 
-    def _get_oldest_signal_age(self) -> float | None:
+    def _get_oldest_signal_age(self) -> Optional[float]:
         """Get age of oldest signal in queue.
         
         Returns:

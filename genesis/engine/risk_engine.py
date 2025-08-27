@@ -7,10 +7,12 @@ and P&L tracking with strict adherence to tier-based limits.
 
 from dataclasses import dataclass
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
-from typing import ClassVar
+from typing import Optional, ClassVar
 
 import structlog
 
+from genesis.analytics.kelly_sizing import KellyCalculator
+from genesis.analytics.strategy_metrics import StrategyPerformanceTracker
 from genesis.core.exceptions import (
     DailyLossLimitReached,
     InsufficientBalance,
@@ -19,15 +21,13 @@ from genesis.core.exceptions import (
 )
 from genesis.core.models import (
     Account,
+    ConvictionLevel,
     Position,
     PositionSide,
+    Trade,
     TradingSession,
     TradingTier,
-    Trade,
-    ConvictionLevel,
 )
-from genesis.analytics.kelly_sizing import KellyCalculator
-from genesis.analytics.strategy_metrics import StrategyPerformanceTracker
 from genesis.utils.decorators import requires_tier
 
 logger = structlog.get_logger(__name__)
@@ -37,8 +37,8 @@ logger = structlog.get_logger(__name__)
 class RiskDecision:
     """Result of a risk check."""
     approved: bool
-    reason: str | None = None
-    adjusted_quantity: Decimal | None = None
+    reason: Optional[str] = None
+    adjusted_quantity: Optional[Decimal] = None
     warnings: list[str] = None
 
 
@@ -80,7 +80,7 @@ class RiskEngine:
 
     MINIMUM_POSITION_SIZE = Decimal("10")  # $10 minimum
 
-    def __init__(self, account: Account, session: TradingSession | None = None,
+    def __init__(self, account: Account, session: Optional[TradingSession] = None,
                  use_kelly_sizing: bool = True):
         """
         Initialize risk engine with account and session.
@@ -95,7 +95,7 @@ class RiskEngine:
         self.tier_limits = self.TIER_LIMITS[account.tier]
         self.positions: dict[str, Position] = {}
         self.use_kelly_sizing = use_kelly_sizing and account.tier >= TradingTier.HUNTER
-        
+
         # Initialize Kelly calculator and performance tracker if enabled
         if self.use_kelly_sizing:
             self.kelly_calculator = KellyCalculator(
@@ -121,9 +121,9 @@ class RiskEngine:
         self,
         symbol: str,
         entry_price: Decimal,
-        stop_loss_price: Decimal | None = None,
-        custom_risk_percent: Decimal | None = None,
-        strategy_id: str | None = None,
+        stop_loss_price: Optional[Decimal] = None,
+        custom_risk_percent: Optional[Decimal] = None,
+        strategy_id: Optional[str] = None,
         conviction: ConvictionLevel = ConvictionLevel.MEDIUM,
         use_volatility_adjustment: bool = True
     ) -> Decimal:
@@ -170,7 +170,7 @@ class RiskEngine:
             try:
                 # Get strategy performance metrics
                 edge_metrics = self.performance_tracker.calculate_strategy_edge(strategy_id)
-                
+
                 # Check if we have enough data for Kelly
                 if edge_metrics["sample_size"] >= self.kelly_calculator.min_trades:
                     # Calculate Kelly fraction
@@ -178,42 +178,42 @@ class RiskEngine:
                         edge_metrics["win_rate"],
                         edge_metrics["win_loss_ratio"]
                     )
-                    
+
                     # Get recent trades for performance adjustment
                     recent_trades = self.performance_tracker.get_recent_trades(strategy_id)
                     if recent_trades:
                         kelly_f = self.kelly_calculator.adjust_kelly_for_performance(
                             kelly_f, recent_trades
                         )
-                    
+
                     # Calculate base Kelly position size
                     kelly_size = self.kelly_calculator.calculate_position_size(
                         kelly_f, self.account.balance_usdt
                     )
-                    
+
                     # Apply conviction multiplier if Strategist tier
                     if self.account.tier >= TradingTier.STRATEGIST:
                         kelly_size = self.kelly_calculator.apply_conviction_multiplier(
                             kelly_size, conviction
                         )
-                    
+
                     # Apply volatility adjustment if enabled
                     if use_volatility_adjustment and recent_trades:
                         returns = [float(t.pnl_percent) for t in recent_trades[-14:]]
                         if len(returns) >= 14:
                             vol_multiplier, _ = self.kelly_calculator.calculate_volatility_multiplier(returns)
                             kelly_size = kelly_size * vol_multiplier
-                    
+
                     # Enforce position boundaries
                     kelly_size = self.kelly_calculator.enforce_position_boundaries(
                         kelly_size, self.account.balance_usdt, self.account.tier
                     )
-                    
+
                     # Convert to quantity
                     quantity = (kelly_size / entry_price).quantize(
                         Decimal("0.00000001"), rounding=ROUND_DOWN
                     )
-                    
+
                     logger.info(
                         "Kelly position size calculated",
                         symbol=symbol,
@@ -223,7 +223,7 @@ class RiskEngine:
                         quantity=str(quantity),
                         conviction=conviction.value
                     )
-                    
+
                     return quantity
                 else:
                     logger.info(
@@ -238,7 +238,7 @@ class RiskEngine:
                     error=str(e),
                     strategy_id=strategy_id
                 )
-        
+
         # Fall back to fixed percentage sizing
         risk_percent = custom_risk_percent or self.tier_limits["position_risk_percent"]
         risk_amount = (self.account.balance_usdt * risk_percent) / Decimal("100")
@@ -310,7 +310,7 @@ class RiskEngine:
         self,
         entry_price: Decimal,
         side: PositionSide,
-        stop_loss_percent: Decimal | None = None
+        stop_loss_percent: Optional[Decimal] = None
     ) -> Decimal:
         """
         Calculate stop loss price based on entry and percentage.
@@ -633,7 +633,7 @@ class RiskEngine:
                 trade_id=trade.trade_id,
                 pnl_dollars=str(trade.pnl_dollars)
             )
-    
+
     def validate_portfolio_risk(self, positions: list[Position]) -> dict:
         """
         Validate portfolio-level risk for multi-pair trading.

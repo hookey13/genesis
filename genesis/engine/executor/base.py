@@ -15,6 +15,7 @@ from uuid import uuid4
 import structlog
 
 from genesis.core.models import TradingTier
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -49,26 +50,26 @@ class OrderStatus(str, Enum):
 class Order:
     """Order data structure."""
     order_id: str
-    position_id: str | None
+    position_id: Optional[str]
     client_order_id: str
     symbol: str
     type: OrderType
     side: OrderSide
-    price: Decimal | None
+    price: Optional[Decimal]
     quantity: Decimal
     filled_quantity: Decimal = Decimal("0")
     status: OrderStatus = OrderStatus.PENDING
-    slice_number: int | None = None
-    total_slices: int | None = None
-    latency_ms: int | None = None
-    slippage_percent: Decimal | None = None
+    slice_number: Optional[int] = None
+    total_slices: Optional[int] = None
+    latency_ms: Optional[int] = None
+    slippage_percent: Optional[Decimal] = None
     created_at: datetime = None
-    executed_at: datetime | None = None
-    exchange_order_id: str | None = None
-    routing_method: str | None = None
-    maker_fee_paid: Decimal | None = None
-    taker_fee_paid: Decimal | None = None
-    execution_score: float | None = None
+    executed_at: Optional[datetime] = None
+    exchange_order_id: Optional[str] = None
+    routing_method: Optional[str] = None
+    maker_fee_paid: Optional[Decimal] = None
+    taker_fee_paid: Optional[Decimal] = None
+    execution_score: Optional[float] = None
 
     def __post_init__(self):
         """Initialize timestamps if not provided."""
@@ -84,10 +85,10 @@ class ExecutionResult:
     success: bool
     order: Order
     message: str
-    actual_price: Decimal | None = None
-    slippage_percent: Decimal | None = None
-    latency_ms: int | None = None
-    error: str | None = None
+    actual_price: Optional[Decimal] = None
+    slippage_percent: Optional[Decimal] = None
+    latency_ms: Optional[int] = None
+    error: Optional[str] = None
 
 
 class ExecutionStrategy(str, Enum):
@@ -169,16 +170,16 @@ class OrderExecutor(ABC):
         """
         if self.smart_router is None:
             raise ValueError("Smart router not configured for this tier")
-        
+
         from genesis.engine.executor.smart_router import UrgencyLevel
-        
+
         # Determine urgency based on order characteristics
         urgency = UrgencyLevel.NORMAL
         if hasattr(order, 'urgency'):
             urgency = order.urgency
-        
+
         return await self.smart_router.route_order(order, urgency)
-    
+
     @abstractmethod
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """
@@ -194,7 +195,7 @@ class OrderExecutor(ABC):
         pass
 
     @abstractmethod
-    async def cancel_all_orders(self, symbol: str | None = None) -> int:
+    async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         """
         Emergency cancel all open orders.
         

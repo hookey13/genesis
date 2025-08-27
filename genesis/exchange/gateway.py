@@ -7,7 +7,7 @@ and request/response validation.
 """
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import Optional, TYPE_CHECKING, Any
 
 import ccxt.async_support as ccxt
 import structlog
@@ -46,8 +46,8 @@ class BinanceGateway:
         """
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.development.use_mock_exchange
-        self.exchange: ccxt.Exchange | None = None
-        self.mock_exchange: MockExchange | None = None
+        self.exchange: Optional[ccxt.Exchange] = None
+        self.mock_exchange: Optional[MockExchange] = None
         self.rate_limiter = RateLimiter()
         self._initialized = False
 
@@ -284,7 +284,7 @@ class BinanceGateway:
             logger.error("Failed to cancel order", order_id=order_id, error=str(e))
             raise
 
-    async def get_open_orders(self, symbol: str | None = None) -> list[OrderResponse]:
+    async def get_open_orders(self, symbol: Optional[str] = None) -> list[OrderResponse]:
         """
         Get all open orders.
         

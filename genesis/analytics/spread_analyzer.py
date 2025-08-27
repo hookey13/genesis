@@ -13,6 +13,7 @@ from decimal import Decimal
 import structlog
 
 from genesis.core.exceptions import ValidationError
+from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -183,7 +184,7 @@ class SpreadAnalyzer:
 
         return std_dev
 
-    def get_spread_metrics(self, symbol: str) -> SpreadMetrics | None:
+    def get_spread_metrics(self, symbol: str) -> Optional[SpreadMetrics]:
         """
         Get current spread metrics for a symbol
 
@@ -240,7 +241,7 @@ class SpreadAnalyzer:
 
         return OrderImbalance(ratio=ratio, bid_weight=bid_weight, ask_weight=ask_weight)
 
-    def detect_spread_compression(self, symbol: str) -> SpreadCompressionEvent | None:
+    def detect_spread_compression(self, symbol: str) -> Optional[SpreadCompressionEvent]:
         """
         Detect spread compression for a symbol
 
@@ -305,7 +306,7 @@ class SpreadAnalyzer:
 
         return None
 
-    def get_compression_duration(self, symbol: str) -> float | None:
+    def get_compression_duration(self, symbol: str) -> Optional[float]:
         """
         Get duration of current spread compression
 
@@ -323,7 +324,7 @@ class SpreadAnalyzer:
         ).total_seconds()
         return duration
 
-    def clear_history(self, symbol: str | None = None) -> None:
+    def clear_history(self, symbol: Optional[str] = None) -> None:
         """
         Clear spread history
 

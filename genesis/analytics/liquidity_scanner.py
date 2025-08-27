@@ -1,3 +1,4 @@
+from typing import Optional
 """Liquidity scanner for pair discovery and analysis."""
 
 import asyncio
@@ -70,7 +71,7 @@ class OrderBook:
 class LiquidityScanner:
     """Main liquidity scanner for pair discovery and analysis."""
 
-    def __init__(self, session: aiohttp.ClientSession | None = None):
+    def __init__(self, session: Optional[aiohttp.ClientSession] = None):
         """Initialize liquidity scanner.
 
         Args:
@@ -149,7 +150,7 @@ class LiquidityScanner:
 
     async def _analyze_pair_liquidity(
         self, symbol: str, volume_24h: Decimal, ticker: dict
-    ) -> LiquidityMetrics | None:
+    ) -> Optional[LiquidityMetrics]:
         """Analyze liquidity for a single pair.
 
         Args:
@@ -224,7 +225,7 @@ class LiquidityScanner:
 
     async def analyze_order_book_depth(
         self, symbol: str, levels: int = 10
-    ) -> dict | None:
+    ) -> Optional[dict]:
         """Analyze order book depth at specified levels.
 
         Args:
@@ -416,7 +417,7 @@ class PairRecommendationEngine:
 
     def check_graduation_eligibility(
         self, current_capital: Decimal, current_tier: str
-    ) -> TierAlert | None:
+    ) -> Optional[TierAlert]:
         """Check if capital qualifies for tier graduation.
 
         Args:

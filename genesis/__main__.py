@@ -15,7 +15,7 @@ import signal
 import sys
 import traceback
 from pathlib import Path
-from typing import Any
+from typing import Optional, Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -35,7 +35,7 @@ class GenesisApplication:
 
     def __init__(self):
         """Initialize the application."""
-        self.logger: Any | None = None
+        self.logger: Optional[Any] = None
         self.settings = None
         self.running = False
 

@@ -1,3 +1,4 @@
+from typing import Optional
 """Mouse pattern behavioral indicator for tilt detection."""
 from __future__ import annotations
 
@@ -16,9 +17,9 @@ class MouseEvent:
 
     timestamp: datetime
     event_type: str  # click, move, scroll
-    position: tuple[int, int] | None  # (x, y) coordinates
-    velocity: float | None  # pixels per second for moves
-    click_duration_ms: float | None  # For click events
+    position: Optional[tuple[int, int]]  # (x, y) coordinates
+    velocity: Optional[float]  # pixels per second for moves
+    click_duration_ms: Optional[float]  # For click events
 
 
 class MousePatternsIndicator:
@@ -57,7 +58,7 @@ class MousePatternsIndicator:
         self,
         position: tuple[int, int],
         duration_ms: float,
-        timestamp: datetime | None = None
+        timestamp: Optional[datetime] = None
     ) -> dict:
         """Record a mouse click event.
         
@@ -98,7 +99,7 @@ class MousePatternsIndicator:
         start_pos: tuple[int, int],
         end_pos: tuple[int, int],
         duration_ms: float,
-        timestamp: datetime | None = None
+        timestamp: Optional[datetime] = None
     ) -> dict:
         """Record a mouse movement event.
         
@@ -335,7 +336,7 @@ class MousePatternsIndicator:
 
         return min(score, 100)
 
-    def detect_stress_patterns(self) -> dict | None:
+    def detect_stress_patterns(self) -> Optional[dict]:
         """Detect stress-induced mouse patterns.
         
         Returns:
