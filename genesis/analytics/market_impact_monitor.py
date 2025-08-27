@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 import structlog
@@ -96,7 +96,7 @@ class ImpactAnalysis:
 class MarketImpactMonitor:
     """
     Monitors and analyzes market impact of order executions.
-    
+
     Tracks price movements before and after executions to measure impact,
     providing insights for optimizing future execution strategies.
     """
@@ -122,7 +122,7 @@ class MarketImpactMonitor:
     ):
         """
         Initialize the market impact monitor.
-        
+
         Args:
             gateway: Exchange gateway for market data
             repository: Data repository for persistence
@@ -149,11 +149,11 @@ class MarketImpactMonitor:
     ) -> tuple[Decimal, Decimal, OrderBook]:
         """
         Capture market state before execution.
-        
+
         Args:
             symbol: Trading symbol
             execution_id: Execution to track
-            
+
         Returns:
             Pre-execution bid price, ask price, and order book
         """
@@ -200,13 +200,13 @@ class MarketImpactMonitor:
     ) -> MarketImpactMetric:
         """
         Measure impact of a single slice execution.
-        
+
         Args:
             execution_id: Parent execution ID
             slice_order: The slice order executed
             pre_price: Price before slice execution
             volume: Volume executed in this slice
-            
+
         Returns:
             Market impact metric for the slice
         """
@@ -311,12 +311,12 @@ class MarketImpactMonitor:
     ) -> Decimal:
         """
         Calculate price impact percentage.
-        
+
         Args:
             pre_price: Price before execution
             post_price: Price after execution
             volume: Volume executed
-            
+
         Returns:
             Impact percentage (positive = unfavorable move)
         """
@@ -341,13 +341,13 @@ class MarketImpactMonitor:
     ) -> ImpactAnalysis:
         """
         Perform comprehensive analysis of execution impact.
-        
+
         Args:
             execution_id: Execution to analyze
             symbol: Trading symbol
             total_volume: Total volume executed
             slice_count: Number of slices
-            
+
         Returns:
             Comprehensive impact analysis
         """
@@ -677,7 +677,7 @@ class MarketImpactMonitor:
     async def create_impact_dashboard_widget(self) -> dict[str, Any]:
         """
         Create real-time impact dashboard widget data.
-        
+
         Returns:
             Widget data for UI display
         """

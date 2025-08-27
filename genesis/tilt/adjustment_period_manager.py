@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -107,7 +107,7 @@ class AdjustmentPeriodManager:
 
     def __init__(self, session: Optional[Session] = None):
         """Initialize adjustment period manager.
-        
+
         Args:
             session: Optional database session
         """
@@ -122,16 +122,16 @@ class AdjustmentPeriodManager:
         transition_id: Optional[str] = None
     ) -> str:
         """Start an adjustment period for tier transition.
-        
+
         Args:
             account_id: Account entering adjustment
             tier: New tier level
             duration_hours: Duration of adjustment period
             transition_id: Optional tier transition ID
-            
+
         Returns:
             Period ID for tracking
-            
+
         Raises:
             ValidationError: If period already active
         """
@@ -218,10 +218,10 @@ class AdjustmentPeriodManager:
         account_id: str
     ) -> Optional[AdjustmentStatus]:
         """Get current adjustment period status.
-        
+
         Args:
             account_id: Account to check
-            
+
         Returns:
             AdjustmentStatus or None if no active period
         """
@@ -273,7 +273,7 @@ class AdjustmentPeriodManager:
         details: str
     ) -> None:
         """Record an intervention during adjustment period.
-        
+
         Args:
             account_id: Account that triggered intervention
             intervention_type: Type of intervention
@@ -307,11 +307,11 @@ class AdjustmentPeriodManager:
         reason: str
     ) -> bool:
         """Force completion of adjustment period.
-        
+
         Args:
             account_id: Account to complete
             reason: Reason for early completion
-            
+
         Returns:
             True if completed successfully
         """
@@ -346,10 +346,10 @@ class AdjustmentPeriodManager:
 
     def _get_active_period(self, account_id: str) -> Optional[AdjustmentPeriod]:
         """Get active adjustment period for account.
-        
+
         Args:
             account_id: Account ID
-            
+
         Returns:
             Active AdjustmentPeriod or None
         """
@@ -362,10 +362,10 @@ class AdjustmentPeriodManager:
 
     def _calculate_phase(self, hours_elapsed: float) -> AdjustmentPhase:
         """Calculate current phase based on elapsed time.
-        
+
         Args:
             hours_elapsed: Hours since period start
-            
+
         Returns:
             Current adjustment phase
         """
@@ -385,7 +385,7 @@ class AdjustmentPeriodManager:
         duration_hours: int
     ) -> None:
         """Monitor and update adjustment period phases.
-        
+
         Args:
             period_id: Period to monitor
             duration_hours: Total duration
@@ -432,7 +432,7 @@ class AdjustmentPeriodManager:
         new_phase: AdjustmentPhase
     ) -> None:
         """Transition to a new adjustment phase.
-        
+
         Args:
             period: Adjustment period
             new_phase: New phase to transition to
@@ -467,7 +467,7 @@ class AdjustmentPeriodManager:
 
     async def _complete_adjustment_period(self, period_id: str) -> None:
         """Complete an adjustment period.
-        
+
         Args:
             period_id: Period to complete
         """
@@ -515,7 +515,7 @@ class AdjustmentPeriodManager:
         extension_hours: int
     ) -> None:
         """Extend adjustment period due to interventions.
-        
+
         Args:
             period_id: Period to extend
             extension_hours: Hours to extend by
@@ -542,7 +542,7 @@ class AdjustmentPeriodManager:
         multiplier: float
     ) -> None:
         """Update tilt monitoring sensitivity.
-        
+
         Args:
             account_id: Account ID
             multiplier: Sensitivity multiplier

@@ -17,15 +17,14 @@ import structlog
 import yaml
 
 from genesis.analytics.efficient_frontier import EfficientFrontierAnalyzer
+from typing import Optional
+
 from genesis.analytics.rebalancing_engine import RebalancingEngine
 from genesis.analytics.sharpe_ratio import SharpeRatioCalculator
 from genesis.core.constants import TradingTier
 from genesis.core.events import Event, EventType
 from genesis.core.exceptions import (
-from typing import Optional
     DataError as InvalidDataError,
-)
-from genesis.core.exceptions import (
     GenesisException as CalculationError,
 )
 from genesis.engine.event_bus import EventBus

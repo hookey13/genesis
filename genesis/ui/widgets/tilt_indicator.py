@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Tilt indicator widget for multi-level tilt visualization."""
 from __future__ import annotations
 
@@ -54,7 +55,7 @@ class TiltIndicator(Widget):
         **kwargs
     ):
         """Initialize tilt indicator.
-        
+
         Args:
             event_bus: Event bus for subscribing to tilt events
         """
@@ -165,7 +166,7 @@ class TiltIndicator(Widget):
         message: Optional[str] = None
     ) -> None:
         """Update the tilt status display.
-        
+
         Args:
             level: Current tilt level
             score: Current tilt score (0-100)
@@ -220,7 +221,7 @@ class TiltIndicator(Widget):
 
     def _show_intervention_message(self, message: str) -> None:
         """Show intervention message with auto-dismiss.
-        
+
         Args:
             message: Intervention message to display
         """
@@ -287,7 +288,7 @@ class TiltIndicator(Widget):
     @property
     def is_trading_allowed(self) -> bool:
         """Check if trading is allowed based on tilt level.
-        
+
         Returns:
             True if trading is allowed
         """
@@ -296,7 +297,7 @@ class TiltIndicator(Widget):
     @property
     def position_size_multiplier(self) -> Decimal:
         """Get position size multiplier based on tilt level.
-        
+
         Returns:
             Multiplier for position sizing
         """
@@ -309,7 +310,7 @@ class TiltIndicator(Widget):
 
     def get_status_summary(self) -> dict:
         """Get current tilt status summary.
-        
+
         Returns:
             Dictionary with status information
         """

@@ -7,7 +7,7 @@ and request/response validation.
 """
 
 from decimal import Decimal
-from typing import Optional, TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 import ccxt.async_support as ccxt
 import structlog
@@ -32,7 +32,7 @@ logger = structlog.get_logger(__name__)
 class BinanceGateway:
     """
     High-level gateway for Binance exchange interaction.
-    
+
     Provides a unified interface for all exchange operations with built-in
     validation, error handling, and connection management.
     """
@@ -40,7 +40,7 @@ class BinanceGateway:
     def __init__(self, mock_mode: bool = False):
         """
         Initialize the Binance gateway.
-        
+
         Args:
             mock_mode: If True, use mock exchange for testing
         """
@@ -122,7 +122,7 @@ class BinanceGateway:
     async def get_account_balance(self) -> dict[str, AccountBalance]:
         """
         Fetch account balance information.
-        
+
         Returns:
             Dictionary mapping asset symbols to balance information
         """
@@ -157,10 +157,10 @@ class BinanceGateway:
     async def place_order(self, request: OrderRequest) -> OrderResponse:
         """
         Place an order on the exchange.
-        
+
         Args:
             request: Validated order request
-            
+
         Returns:
             Order response with exchange details
         """
@@ -256,11 +256,11 @@ class BinanceGateway:
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """
         Cancel an existing order.
-        
+
         Args:
             order_id: Exchange order ID
             symbol: Trading pair
-            
+
         Returns:
             True if cancellation successful
         """
@@ -287,10 +287,10 @@ class BinanceGateway:
     async def get_open_orders(self, symbol: Optional[str] = None) -> list[OrderResponse]:
         """
         Get all open orders.
-        
+
         Args:
             symbol: Optional symbol to filter orders
-            
+
         Returns:
             List of open orders
         """
@@ -331,11 +331,11 @@ class BinanceGateway:
     async def get_order_status(self, order_id: str, symbol: str) -> OrderResponse:
         """
         Get the status of an existing order.
-        
+
         Args:
             order_id: Exchange order ID
             symbol: Trading pair
-            
+
         Returns:
             Order response with current status
         """
@@ -385,11 +385,11 @@ class BinanceGateway:
     async def get_order_book(self, symbol: str, limit: int = 20) -> OrderBook:
         """
         Fetch the order book for a symbol.
-        
+
         Args:
             symbol: Trading pair
             limit: Number of price levels to fetch
-            
+
         Returns:
             Order book data
         """
@@ -430,12 +430,12 @@ class BinanceGateway:
     ) -> list[dict[str, Any]]:
         """
         Fetch historical kline/candlestick data.
-        
+
         Args:
             symbol: Trading pair
             interval: Kline interval (1m, 5m, 1h, etc.)
             limit: Number of klines to fetch
-            
+
         Returns:
             List of kline data
         """
@@ -481,10 +481,10 @@ class BinanceGateway:
     async def get_ticker(self, symbol: str) -> MarketTicker:
         """
         Fetch 24hr ticker statistics.
-        
+
         Args:
             symbol: Trading pair
-            
+
         Returns:
             Market ticker data
         """
@@ -528,7 +528,7 @@ class BinanceGateway:
     async def get_server_time(self) -> int:
         """
         Get the current server time.
-        
+
         Returns:
             Server timestamp in milliseconds
         """
@@ -552,14 +552,14 @@ class BinanceGateway:
     async def place_post_only_order(self, request: OrderRequest, max_retries: int = 3) -> OrderResponse:
         """
         Place a post-only order with retry logic.
-        
+
         Post-only orders are rejected if they would immediately match.
         This method retries with adjusted prices to ensure maker execution.
-        
+
         Args:
             request: Order request (must be a limit order)
             max_retries: Maximum number of retry attempts
-            
+
         Returns:
             Order response with exchange details
         """

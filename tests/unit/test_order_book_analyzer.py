@@ -1,17 +1,17 @@
 """Unit tests for the Order Book Analyzer."""
 
-import pytest
-from decimal import Decimal
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
+from decimal import Decimal
+
+import pytest
 
 from genesis.analytics.order_book_analyzer import (
-    OrderBookAnalyzer,
+    LiquidityLevel,
     LiquidityProfile,
-    LiquidityLevel
+    OrderBookAnalyzer,
 )
-from genesis.exchange.models import OrderBook
 from genesis.engine.executor.base import OrderSide
+from genesis.exchange.models import OrderBook
 
 
 @pytest.fixture
@@ -99,17 +99,17 @@ def imbalanced_order_book():
 
 class TestOrderBookAnalyzer:
     """Test suite for OrderBookAnalyzer."""
-    
+
     def test_initialization(self, analyzer):
         """Test analyzer initialization."""
         assert analyzer._cache == {}
         assert analyzer.MIN_SLICES == 3
         assert analyzer.MAX_SLICES == 10
-    
+
     def test_analyze_liquidity_depth_deep_market(self, analyzer, deep_order_book):
         """Test liquidity analysis for deep market."""
         profile = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         assert profile.symbol == "BTCUSDT"
         assert profile.total_bid_volume > 0
         assert profile.total_ask_volume > 0
@@ -119,39 +119,39 @@ class TestOrderBookAnalyzer:
         assert profile.liquidity_level in [LiquidityLevel.DEEP, LiquidityLevel.MODERATE]
         assert profile.optimal_slice_count >= analyzer.MIN_SLICES
         assert profile.max_safe_order_size > 0
-    
+
     def test_analyze_liquidity_depth_shallow_market(self, analyzer, shallow_order_book):
         """Test liquidity analysis for shallow market."""
         profile = analyzer.analyze_liquidity_depth(shallow_order_book)
-        
+
         assert profile.symbol == "ETHUSDT"
         assert profile.liquidity_level in [LiquidityLevel.SHALLOW, LiquidityLevel.CRITICAL]
         assert profile.max_safe_order_size < Decimal("1000")  # Limited safe size
         assert profile.concentration_risk > Decimal("0.5")  # High concentration
-    
+
     def test_analyze_liquidity_depth_imbalanced_market(self, analyzer, imbalanced_order_book):
         """Test liquidity analysis for imbalanced market."""
         profile = analyzer.analyze_liquidity_depth(imbalanced_order_book)
-        
+
         assert profile.symbol == "SOLUSDT"
         assert profile.imbalance_ratio != 0  # Should show imbalance
         assert profile.total_ask_volume > profile.total_bid_volume
-    
+
     def test_calculate_optimal_slice_count_small_order(self, analyzer, deep_order_book):
         """Test slice calculation for small orders."""
         profile = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         # Small order (below safe size)
         slices = analyzer.calculate_optimal_slice_count(
             profile.max_safe_order_size * Decimal("0.5"),
             profile
         )
         assert slices == analyzer.MIN_SLICES
-    
+
     def test_calculate_optimal_slice_count_large_order(self, analyzer, deep_order_book):
         """Test slice calculation for large orders."""
         profile = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         # Large order (3x safe size)
         slices = analyzer.calculate_optimal_slice_count(
             profile.max_safe_order_size * Decimal("3"),
@@ -159,7 +159,7 @@ class TestOrderBookAnalyzer:
         )
         assert slices > analyzer.MIN_SLICES
         assert slices <= analyzer.MAX_SLICES
-    
+
     def test_calculate_optimal_slice_count_critical_liquidity(self, analyzer):
         """Test slice calculation with critical liquidity."""
         # Create a critical liquidity profile
@@ -187,102 +187,102 @@ class TestOrderBookAnalyzer:
             concentration_risk=Decimal("0.8"),
             depth_consistency=Decimal("0.2")
         )
-        
+
         # Large order in critical liquidity
         slices = analyzer.calculate_optimal_slice_count(Decimal("100"), profile)
         assert slices == analyzer.MAX_SLICES  # Should use maximum slicing
-    
+
     def test_depth_calculation(self, analyzer, deep_order_book):
         """Test depth level calculations."""
         profile = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         # Verify depth calculations
         assert profile.bid_depth_0_5pct > 0
         assert profile.bid_depth_1pct > profile.bid_depth_0_5pct
         assert profile.bid_depth_2pct > profile.bid_depth_1pct
-        
+
         assert profile.ask_depth_0_5pct > 0
         assert profile.ask_depth_1pct > profile.ask_depth_0_5pct
         assert profile.ask_depth_2pct > profile.ask_depth_1pct
-    
+
     def test_spread_calculation(self, analyzer, deep_order_book):
         """Test spread calculations."""
         profile = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         expected_spread = Decimal("40001") - Decimal("40000")
         assert profile.spread_absolute == expected_spread
-        
+
         expected_spread_pct = (expected_spread / Decimal("40000")) * Decimal("100")
         assert abs(profile.spread_percent - expected_spread_pct) < Decimal("0.001")
-    
+
     def test_concentration_risk_calculation(self, analyzer, shallow_order_book):
         """Test concentration risk calculation."""
         profile = analyzer.analyze_liquidity_depth(shallow_order_book)
-        
+
         # Shallow book should have higher concentration risk
         assert profile.concentration_risk > Decimal("0.3")
         assert profile.concentration_risk <= Decimal("1")
-    
+
     def test_depth_consistency_calculation(self, analyzer, deep_order_book):
         """Test depth consistency calculation."""
         profile = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         # Well-distributed book should have decent consistency
         assert profile.depth_consistency >= Decimal("0")
         assert profile.depth_consistency <= Decimal("1")
-    
+
     def test_slippage_estimation(self, analyzer, deep_order_book):
         """Test slippage estimation."""
         profile = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         # Slippage should increase with order size
         assert profile.expected_slippage_1x >= Decimal("0")
         assert profile.expected_slippage_2x > profile.expected_slippage_1x
-    
+
     def test_cache_functionality(self, analyzer, deep_order_book):
         """Test caching of liquidity profiles."""
         # First call - should analyze and cache
         profile1 = analyzer.analyze_liquidity_depth(deep_order_book)
         assert "BTCUSDT" in analyzer._cache
-        
+
         # Second call - should return cached result
         profile2 = analyzer.analyze_liquidity_depth(deep_order_book)
         assert profile1.timestamp == profile2.timestamp  # Same cached result
-        
+
         # Clear cache
         analyzer.clear_cache("BTCUSDT")
         assert "BTCUSDT" not in analyzer._cache
-        
+
         # Third call - should re-analyze
         profile3 = analyzer.analyze_liquidity_depth(deep_order_book)
         assert profile3.timestamp > profile1.timestamp
-    
+
     def test_cache_expiry(self, analyzer, deep_order_book):
         """Test cache TTL expiry."""
         # Analyze and cache
         profile1 = analyzer.analyze_liquidity_depth(deep_order_book)
-        
+
         # Manually expire the cache
         cached_profile, _ = analyzer._cache["BTCUSDT"]
         expired_time = datetime.now() - timedelta(seconds=10)
         analyzer._cache["BTCUSDT"] = (cached_profile, expired_time)
-        
+
         # Should re-analyze due to expiry
         profile2 = analyzer.analyze_liquidity_depth(deep_order_book)
         assert profile2.timestamp > profile1.timestamp
-    
+
     def test_clear_all_cache(self, analyzer, deep_order_book, shallow_order_book):
         """Test clearing all cached profiles."""
         # Cache multiple profiles
         analyzer.analyze_liquidity_depth(deep_order_book)
         analyzer.analyze_liquidity_depth(shallow_order_book)
-        
+
         assert len(analyzer._cache) == 2
-        
+
         # Clear all
         analyzer.clear_cache()
         assert len(analyzer._cache) == 0
-    
+
     def test_empty_order_book(self, analyzer):
         """Test handling of empty order book."""
         empty_book = OrderBook(
@@ -291,14 +291,14 @@ class TestOrderBookAnalyzer:
             asks=[],
             timestamp=datetime.now()
         )
-        
+
         profile = analyzer.analyze_liquidity_depth(empty_book)
-        
+
         assert profile.liquidity_level == LiquidityLevel.CRITICAL
         assert profile.total_bid_volume == Decimal("0")
         assert profile.total_ask_volume == Decimal("0")
         assert profile.optimal_slice_count == analyzer.MIN_SLICES
-    
+
     def test_one_sided_order_book(self, analyzer):
         """Test handling of one-sided order book."""
         one_sided_book = OrderBook(
@@ -307,22 +307,22 @@ class TestOrderBookAnalyzer:
             asks=[],  # No asks
             timestamp=datetime.now()
         )
-        
+
         profile = analyzer.analyze_liquidity_depth(one_sided_book)
-        
+
         assert profile.liquidity_level == LiquidityLevel.CRITICAL
         assert profile.total_ask_volume == Decimal("0")
-    
+
     def test_side_specific_analysis(self, analyzer, deep_order_book):
         """Test analysis focused on specific side."""
         # Analyze for buy side
         buy_profile = analyzer.analyze_liquidity_depth(deep_order_book, OrderSide.BUY)
         assert buy_profile.ask_depth_1pct > 0  # Should analyze ask side for buys
-        
-        # Analyze for sell side  
+
+        # Analyze for sell side
         sell_profile = analyzer.analyze_liquidity_depth(deep_order_book, OrderSide.SELL)
         assert sell_profile.bid_depth_1pct > 0  # Should analyze bid side for sells
-    
+
     def test_minimum_slices_enforcement(self, analyzer):
         """Test that minimum 3 slices are always recommended."""
         profile = LiquidityProfile(
@@ -349,11 +349,11 @@ class TestOrderBookAnalyzer:
             concentration_risk=Decimal("0.2"),
             depth_consistency=Decimal("0.8")
         )
-        
+
         # Very small order
         slices = analyzer.calculate_optimal_slice_count(Decimal("50"), profile)
         assert slices >= 3  # AC: Ensure minimum 3 slices
-    
+
     def test_calculate_depth_to_price_levels(self, analyzer):
         """Test internal depth calculation method."""
         bids = [
@@ -362,14 +362,14 @@ class TestOrderBookAnalyzer:
             [99.0, 20.0],
             [98.5, 25.0]
         ]
-        
+
         # Test bid side depth calculation
         depths = analyzer._calculate_depth_levels(
             bids,
             Decimal("100"),
             is_bid=True
         )
-        
+
         assert len(depths) == 3  # 0.5%, 1%, 2%
         assert all(d >= 0 for d in depths)
         assert depths[2] >= depths[1] >= depths[0]  # Should be increasing

@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Repository for correlation data persistence."""
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ class CorrelationRepository:
 
     def __init__(self, connection_string: Optional[str] = None):
         """Initialize repository with database connection.
-        
+
         Args:
             connection_string: Database connection string
         """
@@ -52,14 +53,14 @@ class CorrelationRepository:
         alert_triggered: bool = False
     ) -> UUID:
         """Save correlation data to database.
-        
+
         Args:
             position_1_id: First position ID
             position_2_id: Second position ID
             correlation_coefficient: Correlation value
             calculation_window: Window in minutes
             alert_triggered: Whether alert was triggered
-            
+
         Returns:
             Correlation record ID
         """
@@ -110,12 +111,12 @@ class CorrelationRepository:
         calculation_window: int = 30
     ) -> int:
         """Save entire correlation matrix to database.
-        
+
         Args:
             positions: List of position IDs
             correlation_matrix: 2D correlation matrix
             calculation_window: Window in minutes
-            
+
         Returns:
             Number of correlations saved
         """
@@ -144,11 +145,11 @@ class CorrelationRepository:
         position_2_id: UUID
     ) -> Optional[dict]:
         """Get correlation between two positions.
-        
+
         Args:
             position_1_id: First position ID
             position_2_id: Second position ID
-            
+
         Returns:
             Correlation data or None
         """
@@ -157,7 +158,7 @@ class CorrelationRepository:
             position_1_id, position_2_id = position_2_id, position_1_id
 
         query = """
-            SELECT 
+            SELECT
                 correlation_id,
                 correlation_coefficient,
                 calculation_window,
@@ -188,16 +189,16 @@ class CorrelationRepository:
         threshold: Optional[Decimal] = None
     ) -> list[dict]:
         """Get all correlations for a specific position.
-        
+
         Args:
             position_id: Position ID
             threshold: Optional correlation threshold filter
-            
+
         Returns:
             List of correlation records
         """
         query = """
-            SELECT 
+            SELECT
                 correlation_id,
                 position_a,
                 position_b,
@@ -236,16 +237,16 @@ class CorrelationRepository:
         limit: int = 10
     ) -> list[dict]:
         """Get positions with high correlations.
-        
+
         Args:
             threshold: Correlation threshold
             limit: Maximum results
-            
+
         Returns:
             List of high correlation pairs
         """
         query = """
-            SELECT 
+            SELECT
                 correlation_id,
                 position_1_id,
                 position_2_id,
@@ -277,7 +278,7 @@ class CorrelationRepository:
 
     async def save_correlation_alert(self, alert: CorrelationAlert) -> None:
         """Save correlation alert to database.
-        
+
         Args:
             alert: Correlation alert to save
         """
@@ -329,12 +330,12 @@ class CorrelationRepository:
         days: int = 30
     ) -> list[dict]:
         """Get historical correlation data for position pair.
-        
+
         Args:
             position_1_id: First position ID
             position_2_id: Second position ID
             days: Number of days of history
-            
+
         Returns:
             List of historical correlation records
         """
@@ -347,10 +348,10 @@ class CorrelationRepository:
 
     async def cleanup_old_correlations(self, days: int = 7) -> int:
         """Remove old correlation records.
-        
+
         Args:
             days: Delete records older than this many days
-            
+
         Returns:
             Number of records deleted
         """

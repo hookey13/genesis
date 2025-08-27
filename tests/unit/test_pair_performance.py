@@ -1,26 +1,23 @@
 """Unit tests for pair performance tracking system."""
 
-import asyncio
+import uuid
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch
-import uuid
+from unittest.mock import AsyncMock
 
 import pytest
 
 from genesis.analytics.pair_performance import (
-    PairPerformanceTracker,
     PairMetrics,
-    AttributionReport,
-    PeriodType
+    PairPerformanceTracker,
+    PeriodType,
 )
 from genesis.core.models import Position, PositionSide
 
 
 class TestPairMetrics:
     """Test PairMetrics class."""
-    
+
     def test_expectancy_calculation(self):
         """Test expectancy calculation."""
         metrics = PairMetrics(
@@ -42,9 +39,9 @@ class TestPairMetrics:
             worst_trade_pnl=Decimal("-200"),
             average_hold_time_minutes=30.5
         )
-        
+
         assert metrics.expectancy == Decimal("50")  # 500 / 10
-    
+
     def test_risk_reward_ratio(self):
         """Test risk/reward ratio calculation."""
         metrics = PairMetrics(
@@ -66,13 +63,13 @@ class TestPairMetrics:
             worst_trade_pnl=Decimal("-150"),
             average_hold_time_minutes=25
         )
-        
+
         assert metrics.risk_reward_ratio == Decimal("2")  # 200 / 100
 
 
 class TestPairPerformanceTracker:
     """Test PairPerformanceTracker class."""
-    
+
     @pytest.fixture
     def mock_repository(self):
         """Create mock repository."""
@@ -81,12 +78,12 @@ class TestPairPerformanceTracker:
         repo.get_trades_by_symbol = AsyncMock(return_value=[])
         repo.get_traded_symbols = AsyncMock(return_value=[])
         return repo
-    
+
     @pytest.fixture
     def account_id(self):
         """Generate test account ID."""
         return str(uuid.uuid4())
-    
+
     @pytest.fixture
     def tracker(self, mock_repository, account_id):
         """Create PairPerformanceTracker instance."""
@@ -94,7 +91,7 @@ class TestPairPerformanceTracker:
             repository=mock_repository,
             account_id=account_id
         )
-    
+
     @pytest.fixture
     def sample_position_closed(self, account_id):
         """Create sample closed position."""
@@ -112,7 +109,7 @@ class TestPairPerformanceTracker:
             closed_at=datetime.utcnow()
         )
         return position
-    
+
     @pytest.fixture
     def sample_trades(self):
         """Create sample trade data."""
@@ -145,22 +142,22 @@ class TestPairPerformanceTracker:
                 "closed_at": datetime.utcnow() - timedelta(hours=3)
             }
         ]
-    
+
     @pytest.mark.asyncio
     async def test_track_trade(self, tracker, mock_repository, sample_position_closed):
         """Test tracking a completed trade."""
         await tracker.track_trade(sample_position_closed)
-        
+
         # Should save to repository
         mock_repository.save_trade_performance.assert_called_once()
         saved_data = mock_repository.save_trade_performance.call_args[0][0]
-        
+
         assert saved_data["account_id"] == tracker.account_id
         assert saved_data["position_id"] == sample_position_closed.position_id
         assert saved_data["symbol"] == "BTC/USDT"
         assert saved_data["pnl_dollars"] == Decimal("500")
         assert saved_data["is_winner"] is True
-    
+
     @pytest.mark.asyncio
     async def test_track_trade_open_position(self, tracker, mock_repository, account_id):
         """Test that open positions are not tracked."""
@@ -173,71 +170,71 @@ class TestPairPerformanceTracker:
             opened_at=datetime.utcnow(),
             closed_at=None  # Still open
         )
-        
+
         await tracker.track_trade(open_position)
-        
+
         # Should not save
         mock_repository.save_trade_performance.assert_not_called()
-    
+
     @pytest.mark.asyncio
     async def test_get_pair_metrics_no_trades(self, tracker, mock_repository):
         """Test getting metrics with no trades."""
         mock_repository.get_trades_by_symbol.return_value = []
-        
+
         metrics = await tracker.get_pair_metrics("BTC/USDT")
-        
+
         assert metrics.symbol == "BTC/USDT"
         assert metrics.total_trades == 0
         assert metrics.total_pnl_dollars == Decimal("0")
         assert metrics.win_rate == Decimal("0")
-    
+
     @pytest.mark.asyncio
     async def test_get_pair_metrics_with_trades(self, tracker, mock_repository, sample_trades):
         """Test getting metrics with trade data."""
         mock_repository.get_trades_by_symbol.return_value = sample_trades
-        
+
         metrics = await tracker.get_pair_metrics("BTC/USDT")
-        
+
         assert metrics.symbol == "BTC/USDT"
         assert metrics.total_trades == 3
         assert metrics.winning_trades == 2
         assert metrics.losing_trades == 1
         assert metrics.total_pnl_dollars == Decimal("400")  # 200 - 100 + 300
         assert metrics.win_rate == Decimal("2") / Decimal("3")
-    
+
     @pytest.mark.asyncio
     async def test_metrics_caching(self, tracker, mock_repository, sample_trades):
         """Test that metrics are cached."""
         mock_repository.get_trades_by_symbol.return_value = sample_trades
-        
+
         # First call
         metrics1 = await tracker.get_pair_metrics("BTC/USDT")
-        
+
         # Second call (should use cache)
         metrics2 = await tracker.get_pair_metrics("BTC/USDT")
-        
+
         # Repository should only be called once
         assert mock_repository.get_trades_by_symbol.call_count == 1
         assert metrics1 == metrics2
-    
+
     @pytest.mark.asyncio
     async def test_generate_attribution_report_empty(self, tracker, mock_repository):
         """Test attribution report with no data."""
         mock_repository.get_traded_symbols.return_value = []
-        
+
         report = await tracker.generate_attribution_report()
-        
+
         assert report.total_pnl_dollars == Decimal("0")
         assert report.pair_contributions == {}
         assert report.best_performer is None
         assert report.worst_performer is None
-    
+
     @pytest.mark.asyncio
     async def test_generate_attribution_report(self, tracker, mock_repository):
         """Test attribution report generation."""
         # Mock traded symbols
         mock_repository.get_traded_symbols.return_value = ["BTC/USDT", "ETH/USDT"]
-        
+
         # Mock trades for each symbol
         btc_trades = [
             {
@@ -247,7 +244,7 @@ class TestPairPerformanceTracker:
                 "closed_at": datetime.utcnow()
             }
         ]
-        
+
         eth_trades = [
             {
                 "pnl_dollars": Decimal("-200"),
@@ -256,7 +253,7 @@ class TestPairPerformanceTracker:
                 "closed_at": datetime.utcnow()
             }
         ]
-        
+
         # Setup mock to return different trades for different symbols
         def get_trades_side_effect(account_id, symbol, **kwargs):
             if symbol == "BTC/USDT":
@@ -264,17 +261,17 @@ class TestPairPerformanceTracker:
             elif symbol == "ETH/USDT":
                 return eth_trades
             return []
-        
+
         mock_repository.get_trades_by_symbol.side_effect = get_trades_side_effect
-        
+
         report = await tracker.generate_attribution_report()
-        
+
         assert report.total_pnl_dollars == Decimal("300")  # 500 - 200
         assert report.pair_contributions["BTC/USDT"] == Decimal("500")
         assert report.pair_contributions["ETH/USDT"] == Decimal("-200")
         assert report.best_performer == "BTC/USDT"
         assert report.worst_performer == "ETH/USDT"
-    
+
     @pytest.mark.asyncio
     async def test_get_historical_performance(self, tracker, mock_repository):
         """Test getting historical performance."""
@@ -287,16 +284,16 @@ class TestPairPerformanceTracker:
                 "closed_at": datetime.utcnow()
             }
         ]
-        
+
         historical = await tracker.get_historical_performance(
             "BTC/USDT",
             periods=7,
             period_type=PeriodType.DAILY
         )
-        
+
         assert len(historical) == 7
         assert all(m.symbol == "BTC/USDT" for m in historical)
-    
+
     @pytest.mark.asyncio
     async def test_compare_pairs(self, tracker, mock_repository):
         """Test comparing multiple pairs."""
@@ -315,33 +312,33 @@ class TestPairPerformanceTracker:
                     {"pnl_dollars": Decimal("-200"), "volume_quote": Decimal("10000")}
                 ]
             return []
-        
+
         mock_repository.get_trades_by_symbol.side_effect = get_trades_side_effect
-        
+
         comparison = await tracker.compare_pairs(
             ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
         )
-        
+
         assert len(comparison) == 3
         assert "BTC/USDT" in comparison
         assert "ETH/USDT" in comparison
         assert "SOL/USDT" in comparison
-        
+
         # Check rankings
         assert comparison["BTC/USDT"]["pnl_rank"] == 1
         assert comparison["ETH/USDT"]["pnl_rank"] == 2
         assert comparison["SOL/USDT"]["pnl_rank"] == 3
-    
+
     def test_calculate_sharpe_ratio(self, tracker):
         """Test Sharpe ratio calculation."""
         returns = [100, -50, 200, -25, 150, 75, -100, 300, 50, -75]
-        
+
         sharpe = tracker._calculate_sharpe_ratio(returns)
-        
+
         # Should return a reasonable Sharpe ratio
         assert isinstance(sharpe, float)
         assert -10 < sharpe < 10  # Reasonable range
-    
+
     def test_calculate_max_drawdown(self, tracker):
         """Test maximum drawdown calculation."""
         trades = [
@@ -351,12 +348,12 @@ class TestPairPerformanceTracker:
             {"pnl_dollars": -100, "closed_at": datetime.utcnow() - timedelta(days=2)},
             {"pnl_dollars": 50, "closed_at": datetime.utcnow() - timedelta(days=1)}
         ]
-        
+
         max_dd = tracker._calculate_max_drawdown(trades)
-        
+
         # Peak was 300 (100+200), dropped to 50, so drawdown is 250
         assert max_dd == Decimal("250")
-    
+
     def test_generate_recommendations(self, tracker):
         """Test recommendation generation."""
         pair_metrics = {
@@ -399,18 +396,18 @@ class TestPairPerformanceTracker:
                 average_hold_time_minutes=25
             )
         }
-        
+
         pair_weights = {
             "BTC/USDT": Decimal("0.7"),  # High concentration
             "ETH/USDT": Decimal("0.3")
         }
-        
+
         recommendations = tracker._generate_recommendations(
             pair_metrics,
             pair_weights,
             Decimal("0")
         )
-        
+
         assert len(recommendations) > 0
         # Should recommend reviewing BTC/USDT due to poor performance
         assert any("BTC/USDT" in r for r in recommendations)

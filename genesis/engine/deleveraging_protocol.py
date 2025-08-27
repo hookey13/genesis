@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -101,7 +101,7 @@ class DeleveragingResult:
 class DeleveragingProtocol:
     """
     Manages emergency position reduction during crisis events.
-    
+
     Features:
     - Progressive position reduction (25%, 50%, 75%, 100%)
     - Intelligent position prioritization
@@ -117,7 +117,7 @@ class DeleveragingProtocol:
     ):
         """
         Initialize deleveraging protocol.
-        
+
         Args:
             event_bus: Event bus for publishing updates
             max_slippage_pct: Maximum acceptable slippage
@@ -160,7 +160,7 @@ class DeleveragingProtocol:
     def update_positions(self, positions: list[Position]) -> None:
         """
         Update current positions.
-        
+
         Args:
             positions: List of current positions
         """
@@ -176,13 +176,13 @@ class DeleveragingProtocol:
     def calculate_position_priorities(self) -> list[tuple[Position, ClosurePriority]]:
         """
         Calculate closure priority for each position.
-        
+
         Priority factors:
         - Loss percentage (losing positions closed first)
         - Position age (newer positions closed first)
         - Position size (larger positions reduced first)
         - Correlation risk (highly correlated positions prioritized)
-        
+
         Returns:
             List of positions with priorities
         """
@@ -244,11 +244,11 @@ class DeleveragingProtocol:
     ) -> list[DeleveragingPlan]:
         """
         Initiate deleveraging at specified stage.
-        
+
         Args:
             stage: Target deleveraging stage
             reason: Reason for deleveraging
-            
+
         Returns:
             List of deleveraging plans
         """
@@ -333,7 +333,7 @@ class DeleveragingProtocol:
     async def execute_deleveraging(self) -> list[DeleveragingResult]:
         """
         Execute the deleveraging plan.
-        
+
         Returns:
             List of execution results
         """
@@ -379,10 +379,10 @@ class DeleveragingProtocol:
     ) -> DeleveragingResult:
         """
         Execute a single position reduction.
-        
+
         Args:
             plan: Deleveraging plan to execute
-            
+
         Returns:
             Execution result
         """
@@ -464,7 +464,7 @@ class DeleveragingProtocol:
     ) -> None:
         """
         Publish deleveraging progress update.
-        
+
         Args:
             plan: Executed plan
             result: Execution result
@@ -492,7 +492,7 @@ class DeleveragingProtocol:
     async def _publish_completion_event(self, results: list[DeleveragingResult]) -> None:
         """
         Publish deleveraging completion event.
-        
+
         Args:
             results: All execution results
         """
@@ -537,7 +537,7 @@ class DeleveragingProtocol:
     def get_deleveraging_report(self) -> dict[str, Any]:
         """
         Generate deleveraging status report.
-        
+
         Returns:
             Status report dictionary
         """

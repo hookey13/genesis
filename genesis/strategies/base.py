@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 import structlog
@@ -73,7 +73,7 @@ class BaseStrategy(ABC):
     @abstractmethod
     async def generate_signals(self) -> list[Signal]:
         """Generate trading signals based on strategy logic.
-        
+
         Returns:
             List of signals to be processed by the executor.
         """
@@ -82,7 +82,7 @@ class BaseStrategy(ABC):
     @abstractmethod
     async def on_order_filled(self, order: Order) -> None:
         """Handle order fill event.
-        
+
         Args:
             order: The filled order.
         """
@@ -91,7 +91,7 @@ class BaseStrategy(ABC):
     @abstractmethod
     async def on_position_closed(self, position: Position) -> None:
         """Handle position close event.
-        
+
         Args:
             position: The closed position.
         """
@@ -170,10 +170,10 @@ class BaseStrategy(ABC):
 
     def _should_process_signal(self, signal: Signal) -> bool:
         """Check if signal should be processed.
-        
+
         Args:
             signal: The signal to check.
-            
+
         Returns:
             True if signal should be processed.
         """
@@ -191,7 +191,7 @@ class BaseStrategy(ABC):
 
     async def _process_signal(self, signal: Signal) -> None:
         """Process a trading signal.
-        
+
         Args:
             signal: The signal to process.
         """
@@ -211,7 +211,7 @@ class BaseStrategy(ABC):
 
     def update_performance_metrics(self, pnl: Decimal, is_win: bool) -> None:
         """Update strategy performance metrics.
-        
+
         Args:
             pnl: Profit/loss amount.
             is_win: Whether the trade was profitable.
@@ -234,7 +234,7 @@ class BaseStrategy(ABC):
 
     def get_stats(self) -> dict[str, Any]:
         """Get strategy statistics.
-        
+
         Returns:
             Dictionary of strategy statistics.
         """

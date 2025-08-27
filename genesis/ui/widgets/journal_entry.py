@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Journal entry widget for tilt recovery UI."""
 from __future__ import annotations
 

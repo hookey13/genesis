@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Dashboard screen with three-panel layout for Genesis trading terminal."""
 
 import asyncio
@@ -24,28 +25,28 @@ class DashboardScreen(Screen):
     DashboardScreen {
         layout: vertical;
     }
-    
+
     #pnl-container {
         height: 25%;
         border: solid $primary;
         margin: 1;
         padding: 1;
     }
-    
+
     #position-container {
         height: 50%;
         border: solid $primary;
         margin: 1;
         padding: 1;
     }
-    
+
     #command-container {
         height: 25%;
         border: solid $primary;
         margin: 1;
         padding: 1;
     }
-    
+
     #status-area {
         dock: bottom;
         height: 1;

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -74,7 +74,7 @@ class StrategySignal(BaseModel):
 class StrategyOrchestrator:
     """
     Main orchestrator for multi-strategy trading system.
-    
+
     Coordinates all aspects of running multiple strategies concurrently
     while managing risk, capital allocation, and conflicts.
     """
@@ -84,11 +84,11 @@ class StrategyOrchestrator:
         event_bus: EventBus,
         risk_engine: RiskEngine,
         total_capital: Decimal,
-        config: Optional[OrchestrationConfig] = None
+        config: OrchestrationConfig | None = None
     ):
         """
         Initialize strategy orchestrator.
-        
+
         Args:
             event_bus: Event bus for system communication
             risk_engine: Risk management engine
@@ -173,20 +173,20 @@ class StrategyOrchestrator:
         account_id: str,
         strategy_name: str,
         metadata: StrategyMetadata,
-        initial_allocation: Optional[Decimal] = None
+        initial_allocation: Decimal | None = None
     ) -> str:
         """
         Register a new strategy with the orchestrator.
-        
+
         Args:
             account_id: Account ID
             strategy_name: Strategy name
             metadata: Strategy metadata
             initial_allocation: Initial capital allocation
-            
+
         Returns:
             Strategy ID
-            
+
         Raises:
             ValueError: If registration fails
         """
@@ -229,10 +229,10 @@ class StrategyOrchestrator:
     async def start_strategy(self, strategy_id: str) -> bool:
         """
         Start a registered strategy.
-        
+
         Args:
             strategy_id: Strategy ID to start
-            
+
         Returns:
             True if successfully started
         """
@@ -261,11 +261,11 @@ class StrategyOrchestrator:
     async def stop_strategy(self, strategy_id: str, close_positions: bool = True) -> bool:
         """
         Stop a running strategy.
-        
+
         Args:
             strategy_id: Strategy ID to stop
             close_positions: Whether to close open positions
-            
+
         Returns:
             True if successfully stopped
         """
@@ -299,10 +299,10 @@ class StrategyOrchestrator:
     async def submit_signal(self, signal: StrategySignal) -> bool:
         """
         Submit a trading signal from a strategy.
-        
+
         Args:
             signal: Trading signal to process
-            
+
         Returns:
             True if signal accepted for processing
         """
@@ -337,7 +337,7 @@ class StrategyOrchestrator:
     async def get_portfolio_status(self) -> dict:
         """
         Get current portfolio status across all strategies.
-        
+
         Returns:
             Portfolio status dictionary
         """
@@ -348,7 +348,7 @@ class StrategyOrchestrator:
         total_pnl = Decimal("0")
         total_locked = Decimal("0")
 
-        for strategy_id, positions in self.active_positions.items():
+        for _strategy_id, positions in self.active_positions.items():
             for position in positions:
                 total_pnl += position.pnl_dollars
 
@@ -375,10 +375,23 @@ class StrategyOrchestrator:
             "pending_signals": len(self.pending_signals)
         }
 
+    async def rebalance_allocations(self) -> None:
+        """Rebalance capital allocations based on performance."""
+        performances = await self.performance_tracker.get_all_performances()
+        await self.capital_allocator.rebalance(performances)
+
+    async def pause_strategy(self, strategy_id: str) -> None:
+        """Pause a strategy."""
+        await self.strategy_registry.pause_strategy(strategy_id)
+
+    async def resume_strategy(self, strategy_id: str) -> None:
+        """Resume a strategy."""
+        await self.strategy_registry.resume_strategy(strategy_id)
+
     async def set_mode(self, mode: OrchestrationMode) -> None:
         """
         Set orchestration mode.
-        
+
         Args:
             mode: New orchestration mode
         """
@@ -563,12 +576,34 @@ class StrategyOrchestrator:
             dollar_value=order.quantity * (order.price or Decimal("0"))
         )
 
+    async def _calculate_portfolio_metrics(self) -> dict:
+        """Calculate portfolio metrics."""
+        total_value = Decimal("0")
+        total_pnl = Decimal("0")
+
+        for positions in self.active_positions.values():
+            for position in positions:
+                total_value += position.dollar_value
+                total_pnl += position.pnl_dollars
+
+        return {
+            "total_value": total_value,
+            "total_pnl": total_pnl,
+            "total_pnl_pct": (total_pnl / self.total_capital * 100) if self.total_capital else Decimal("0")
+        }
+
+    async def _close_all_positions(self) -> None:
+        """Close all positions."""
+        for positions in self.active_positions.values():
+            for position in positions:
+                await self._close_position(position)
+
     async def _close_position(self, position: Position) -> None:
         """Close a position."""
         # Create closing order
         from genesis.core.models import OrderSide, OrderType
 
-        closing_order = Order(
+        Order(
             symbol=position.symbol,
             type=OrderType.MARKET,
             side=OrderSide.SELL if position.side.value == "LONG" else OrderSide.BUY,
@@ -586,6 +621,21 @@ class StrategyOrchestrator:
         elif regime == MarketRegime.HIGH_VOLATILITY:
             return "volatility" in metadata.name.lower()
         return True
+
+    async def emergency_stop(self, reason: str = "Emergency stop triggered") -> None:
+        """Emergency stop all trading operations."""
+        logger.critical(f"Emergency stop: {reason}")
+        self.mode = OrchestrationMode.EMERGENCY
+
+        # Stop all strategies
+        for strategy_id in await self.strategy_registry.get_active_strategies():
+            await self.strategy_registry.stop_strategy(strategy_id)
+
+        # Close all positions
+        await self._close_all_positions()
+
+        # Set shutdown flag
+        self._shutdown_event.set()
 
     async def _enter_emergency_mode(self) -> None:
         """Enter emergency mode."""
@@ -736,14 +786,14 @@ class StrategyOrchestrator:
 
     async def _subscribe_to_events(self) -> None:
         """Subscribe to relevant events."""
-        # Subscribe to risk events
-        await self.event_bus.subscribe(
+        # Subscribe to risk events (subscribe is synchronous)
+        self.event_bus.subscribe(
             EventType.RISK_LIMIT_BREACH,
             self._handle_risk_event
         )
 
         # Subscribe to market events
-        await self.event_bus.subscribe(
+        self.event_bus.subscribe(
             EventType.MARKET_STATE_CHANGE,
             self._handle_market_event
         )
@@ -760,3 +810,18 @@ class StrategyOrchestrator:
         if event.event_type == EventType.MARKET_STATE_CHANGE:
             # Regime change handled by background task
             pass
+
+    async def _handle_correlation_event(self, event: Event) -> None:
+        """Handle correlation-related events."""
+        if event.event_type == EventType.CORRELATION_ALERT:
+            correlation = event.data.get("correlation", Decimal("0"))
+            if correlation > Decimal("0.8"):
+                # High correlation detected
+                await self.set_mode(OrchestrationMode.DEFENSIVE)
+
+    async def _handle_strategy_signal(self, event: Event) -> None:
+        """Handle strategy signal events."""
+        if event.event_type == EventType.STRATEGY_SIGNAL:
+            signal = event.data.get("signal")
+            if signal:
+                await self.submit_signal(signal)

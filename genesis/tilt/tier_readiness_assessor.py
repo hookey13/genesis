@@ -9,7 +9,7 @@ import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -131,7 +131,7 @@ class TierReadinessAssessor:
 
     def __init__(self, session: Optional[Session] = None):
         """Initialize readiness assessor.
-        
+
         Args:
             session: Optional database session
         """
@@ -143,11 +143,11 @@ class TierReadinessAssessor:
         target_tier: str
     ) -> ReadinessReport:
         """Assess readiness for tier transition.
-        
+
         Args:
             profile_id: Tilt profile ID to assess
             target_tier: Target tier to transition to
-            
+
         Returns:
             ReadinessReport with comprehensive assessment
         """
@@ -235,10 +235,10 @@ class TierReadinessAssessor:
 
     async def _assess_behavioral_stability(self, profile: TiltProfile) -> int:
         """Assess behavioral stability over past 30 days.
-        
+
         Args:
             profile: Tilt profile to assess
-            
+
         Returns:
             Behavioral stability score (0-100)
         """
@@ -272,10 +272,10 @@ class TierReadinessAssessor:
 
     async def _assess_profitability(self, account: AccountDB) -> int:
         """Assess consistent profitability.
-        
+
         Args:
             account: AccountDB to assess
-            
+
         Returns:
             Profitability score (0-100)
         """
@@ -309,10 +309,10 @@ class TierReadinessAssessor:
 
     async def _assess_consistency(self, account: AccountDB) -> int:
         """Assess trading consistency.
-        
+
         Args:
             account: AccountDB to assess
-            
+
         Returns:
             Consistency score (0-100)
         """
@@ -364,10 +364,10 @@ class TierReadinessAssessor:
 
     async def _assess_risk_management(self, account: AccountDB) -> int:
         """Assess risk management discipline.
-        
+
         Args:
             account: AccountDB to assess
-            
+
         Returns:
             Risk management score (0-100)
         """
@@ -423,10 +423,10 @@ class TierReadinessAssessor:
 
     async def _assess_experience(self, account: AccountDB) -> int:
         """Assess trading experience.
-        
+
         Args:
             account: AccountDB to assess
-            
+
         Returns:
             Experience score (0-100)
         """
@@ -477,14 +477,14 @@ class TierReadinessAssessor:
         experience: int
     ) -> int:
         """Calculate overall readiness score.
-        
+
         Args:
             behavioral: Behavioral stability score
             profitability: Profitability score
             consistency: Consistency score
             risk: Risk management score
             experience: Experience score
-            
+
         Returns:
             Overall readiness score (0-100)
         """
@@ -513,11 +513,11 @@ class TierReadinessAssessor:
         profile: TiltProfile
     ) -> dict[str, Any]:
         """Gather detailed metrics for assessment.
-        
+
         Args:
             account: AccountDB to assess
             profile: Tilt profile
-            
+
         Returns:
             Dictionary of detailed metrics
         """
@@ -592,12 +592,12 @@ class TierReadinessAssessor:
         readiness_score: int
     ) -> tuple[bool, list[str]]:
         """Check if metrics meet requirements.
-        
+
         Args:
             metrics: Calculated metrics
             requirements: Tier requirements
             readiness_score: Overall readiness score
-            
+
         Returns:
             Tuple of (is_ready, failure_reasons)
         """
@@ -651,12 +651,12 @@ class TierReadinessAssessor:
         failure_reasons: list[str]
     ) -> list[str]:
         """Generate improvement recommendations.
-        
+
         Args:
             metrics: Current metrics
             requirements: Tier requirements
             failure_reasons: Reasons for failure
-            
+
         Returns:
             List of recommendations
         """
@@ -696,7 +696,7 @@ class TierReadinessAssessor:
 
     async def _store_assessment(self, report: ReadinessReport) -> None:
         """Store assessment report in database.
-        
+
         Args:
             report: Readiness report to store
         """

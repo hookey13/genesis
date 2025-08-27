@@ -114,7 +114,7 @@ class AllocationConfig(BaseModel):
 class CapitalAllocator:
     """
     Manages capital allocation across multiple trading strategies.
-    
+
     Implements various allocation methods and enforces risk limits.
     """
 
@@ -126,7 +126,7 @@ class CapitalAllocator:
     ):
         """
         Initialize capital allocator.
-        
+
         Args:
             event_bus: Event bus for allocation events
             total_capital: Total available capital
@@ -143,10 +143,10 @@ class CapitalAllocator:
     def _load_config(self, config_path: str | None) -> AllocationConfig:
         """
         Load allocation configuration.
-        
+
         Args:
             config_path: Path to config file
-            
+
         Returns:
             AllocationConfig instance
         """
@@ -166,13 +166,13 @@ class CapitalAllocator:
     ) -> dict[str, Decimal]:
         """
         Allocate capital across strategies.
-        
+
         Args:
             strategy_allocations: List of strategy allocation requests
-            
+
         Returns:
             Dictionary of strategy_id -> allocated capital
-            
+
         Raises:
             ValueError: If allocation constraints cannot be satisfied
         """
@@ -227,7 +227,7 @@ class CapitalAllocator:
     async def _allocate_equal_weight(self) -> dict[str, Decimal]:
         """
         Allocate capital equally across strategies.
-        
+
         Returns:
             Dictionary of allocations
         """
@@ -250,7 +250,7 @@ class CapitalAllocator:
     async def _allocate_performance_weighted(self) -> dict[str, Decimal]:
         """
         Allocate based on performance scores.
-        
+
         Returns:
             Dictionary of allocations
         """
@@ -282,7 +282,7 @@ class CapitalAllocator:
     async def _allocate_risk_parity(self) -> dict[str, Decimal]:
         """
         Allocate based on risk parity (inverse volatility).
-        
+
         Returns:
             Dictionary of allocations
         """
@@ -316,7 +316,7 @@ class CapitalAllocator:
     async def _allocate_kelly(self) -> dict[str, Decimal]:
         """
         Allocate using Kelly Criterion.
-        
+
         Returns:
             Dictionary of allocations
         """
@@ -361,7 +361,7 @@ class CapitalAllocator:
     async def _allocate_custom(self) -> dict[str, Decimal]:
         """
         Apply custom allocation rules.
-        
+
         Returns:
             Dictionary of allocations
         """
@@ -392,11 +392,11 @@ class CapitalAllocator:
     def _evaluate_rule(self, rule: AllocationRule, allocation: StrategyAllocation) -> bool:
         """
         Evaluate if a rule applies to an allocation.
-        
+
         Args:
             rule: Allocation rule
             allocation: Strategy allocation
-            
+
         Returns:
             True if rule applies
         """
@@ -414,10 +414,10 @@ class CapitalAllocator:
     def _apply_constraints(self, allocations: dict[str, Decimal]) -> dict[str, Decimal]:
         """
         Apply min/max constraints to allocations.
-        
+
         Args:
             allocations: Proposed allocations
-            
+
         Returns:
             Constrained allocations
         """
@@ -454,10 +454,10 @@ class CapitalAllocator:
     async def rebalance(self, force: bool = False) -> bool:
         """
         Rebalance portfolio allocations.
-        
+
         Args:
             force: Force rebalance regardless of schedule
-            
+
         Returns:
             True if rebalanced
         """
@@ -483,7 +483,7 @@ class CapitalAllocator:
     def _should_rebalance(self) -> bool:
         """
         Check if rebalancing is needed.
-        
+
         Returns:
             True if rebalance should occur
         """
@@ -519,7 +519,7 @@ class CapitalAllocator:
     ) -> None:
         """
         Update strategy performance metrics.
-        
+
         Args:
             strategy_id: Strategy ID
             performance_score: New performance score (0-1+)
@@ -533,11 +533,11 @@ class CapitalAllocator:
     def lock_capital(self, strategy_id: str, amount: Decimal) -> bool:
         """
         Lock capital for a strategy (e.g., for open positions).
-        
+
         Args:
             strategy_id: Strategy ID
             amount: Amount to lock
-            
+
         Returns:
             True if successful
         """
@@ -563,11 +563,11 @@ class CapitalAllocator:
     def unlock_capital(self, strategy_id: str, amount: Decimal) -> bool:
         """
         Unlock capital for a strategy.
-        
+
         Args:
             strategy_id: Strategy ID
             amount: Amount to unlock
-            
+
         Returns:
             True if successful
         """
@@ -585,10 +585,10 @@ class CapitalAllocator:
     def get_available_capital(self, strategy_id: str) -> Decimal:
         """
         Get available capital for a strategy.
-        
+
         Args:
             strategy_id: Strategy ID
-            
+
         Returns:
             Available capital amount
         """
@@ -599,7 +599,7 @@ class CapitalAllocator:
     def get_allocation_summary(self) -> dict[str, any]:
         """
         Get summary of current allocations.
-        
+
         Returns:
             Allocation summary dictionary
         """
@@ -633,7 +633,7 @@ class CapitalAllocator:
     def add_rule(self, rule: AllocationRule) -> None:
         """
         Add a custom allocation rule.
-        
+
         Args:
             rule: Allocation rule to add
         """

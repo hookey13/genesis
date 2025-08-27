@@ -8,7 +8,7 @@ retry logic for transient errors.
 import asyncio
 import functools
 from collections.abc import Callable
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -21,7 +21,7 @@ class ExchangeError(Exception):
     def __init__(self, message: str, code: Optional[int] = None, retry_after: Optional[int] = None):
         """
         Initialize exchange error.
-        
+
         Args:
             message: Error message
             code: Error code from exchange
@@ -90,7 +90,7 @@ class MaxOrderSizeError(ExchangeError):
 class ErrorTranslator:
     """
     Translates Binance error codes to domain exceptions.
-    
+
     Based on Binance API documentation:
     https://binance-docs.github.io/apidocs/spot/en/#error-codes
     """
@@ -176,10 +176,10 @@ class ErrorTranslator:
     def translate(cls, error: Exception) -> ExchangeError:
         """
         Translate an exchange error to a domain exception.
-        
+
         Args:
             error: Original exception
-            
+
         Returns:
             Translated domain exception
         """
@@ -225,10 +225,10 @@ class ErrorTranslator:
 def is_transient_error(error: Exception) -> bool:
     """
     Check if an error is transient and should be retried.
-    
+
     Args:
         error: Exception to check
-        
+
     Returns:
         True if error is transient
     """
@@ -250,7 +250,7 @@ def retry_on_transient_error(
 ):
     """
     Decorator to retry function on transient errors.
-    
+
     Args:
         max_retries: Maximum number of retry attempts
         initial_delay: Initial delay between retries in seconds

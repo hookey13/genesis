@@ -10,9 +10,9 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
 
 import structlog
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -53,7 +53,7 @@ class ComponentHealth:
 class HealthMonitor:
     """
     Monitors health of exchange connections and services.
-    
+
     Tracks response times, success rates, and provides
     health check endpoints.
     """
@@ -68,7 +68,7 @@ class HealthMonitor:
     ):
         """
         Initialize health monitor.
-        
+
         Args:
             check_interval_seconds: Interval between health checks
             window_size: Number of metrics to keep in rolling window
@@ -105,7 +105,7 @@ class HealthMonitor:
     def register_component(self, name: str, check_func: callable) -> None:
         """
         Register a component for health monitoring.
-        
+
         Args:
             name: Component name
             check_func: Async function that returns health data
@@ -117,7 +117,7 @@ class HealthMonitor:
     def register_health_change_callback(self, callback: callable) -> None:
         """
         Register callback for health status changes.
-        
+
         Args:
             callback: Function to call on health change
         """
@@ -162,7 +162,7 @@ class HealthMonitor:
     async def check_all_components(self) -> dict[str, ComponentHealth]:
         """
         Check health of all registered components.
-        
+
         Returns:
             Dictionary of component health statuses
         """
@@ -180,11 +180,11 @@ class HealthMonitor:
     async def check_component(self, name: str, check_func: callable) -> ComponentHealth:
         """
         Check health of a single component.
-        
+
         Args:
             name: Component name
             check_func: Health check function
-            
+
         Returns:
             Component health status
         """
@@ -224,10 +224,10 @@ class HealthMonitor:
     def _calculate_health(self, component_name: str) -> ComponentHealth:
         """
         Calculate health status for a component.
-        
+
         Args:
             component_name: Component name
-            
+
         Returns:
             Component health status
         """
@@ -287,7 +287,7 @@ class HealthMonitor:
     def _check_health_change(self, name: str, health: ComponentHealth) -> None:
         """
         Check for health status changes and notify callbacks.
-        
+
         Args:
             name: Component name
             health: Current health status
@@ -318,10 +318,10 @@ class HealthMonitor:
     def get_component_health(self, name: str) -> Optional[ComponentHealth]:
         """
         Get current health status for a component.
-        
+
         Args:
             name: Component name
-            
+
         Returns:
             Component health or None if not found
         """
@@ -332,7 +332,7 @@ class HealthMonitor:
     def get_all_health(self) -> dict[str, ComponentHealth]:
         """
         Get health status for all components.
-        
+
         Returns:
             Dictionary of all component health statuses
         """
@@ -344,7 +344,7 @@ class HealthMonitor:
     def is_healthy(self) -> bool:
         """
         Check if all components are healthy.
-        
+
         Returns:
             True if all components are healthy
         """
@@ -357,7 +357,7 @@ class HealthMonitor:
     def get_statistics(self) -> dict:
         """
         Get health monitoring statistics.
-        
+
         Returns:
             Dictionary of statistics
         """
@@ -388,7 +388,7 @@ class HealthMonitor:
     def _get_overall_status(self) -> HealthStatus:
         """
         Get overall system health status.
-        
+
         Returns:
             Overall health status
         """

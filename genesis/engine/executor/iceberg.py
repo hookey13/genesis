@@ -84,7 +84,7 @@ class IcebergExecution:
 class IcebergOrderExecutor(OrderExecutor):
     """
     Iceberg order executor for Hunter tier.
-    
+
     Automatically slices large orders into smaller pieces to minimize
     market impact. Includes smart sizing based on order book depth,
     random delays, and automatic abort on excessive slippage.
@@ -102,7 +102,7 @@ class IcebergOrderExecutor(OrderExecutor):
     ):
         """
         Initialize the iceberg order executor.
-        
+
         Args:
             gateway: Binance gateway for exchange interaction
             account: Trading account
@@ -152,14 +152,14 @@ class IcebergOrderExecutor(OrderExecutor):
     ) -> ExecutionResult:
         """
         Execute an order using iceberg slicing if it meets criteria.
-        
+
         Args:
             order: Order to execute
             force_iceberg: Force iceberg execution regardless of order value
-            
+
         Returns:
             ExecutionResult with execution details
-            
+
         Raises:
             OrderExecutionError: If execution fails
             SlippageAlert: If cumulative slippage exceeds threshold
@@ -386,11 +386,11 @@ class IcebergOrderExecutor(OrderExecutor):
     ) -> list[Decimal]:
         """
         Calculate optimal slice sizes based on liquidity profile.
-        
+
         Args:
             order_value: Total order value in USDT
             liquidity_profile: Market liquidity analysis
-            
+
         Returns:
             List of slice sizes in USDT
         """
@@ -435,11 +435,11 @@ class IcebergOrderExecutor(OrderExecutor):
     ) -> Decimal:
         """
         Add random variation to slice size.
-        
+
         Args:
             base_size: Base slice size
             variation_percent: Maximum variation percentage
-            
+
         Returns:
             Varied slice size
         """
@@ -453,7 +453,7 @@ class IcebergOrderExecutor(OrderExecutor):
     def generate_random_delay(self) -> float:
         """
         Generate random delay between slices.
-        
+
         Returns:
             Delay in seconds (1-5 seconds)
         """
@@ -467,12 +467,12 @@ class IcebergOrderExecutor(OrderExecutor):
     ) -> LiquidityProfile:
         """
         Analyze order book liquidity depth.
-        
+
         Args:
             order_book: Current order book
             side: Order side (buy/sell)
             order_value: Total order value
-            
+
         Returns:
             Liquidity profile analysis
         """
@@ -546,12 +546,12 @@ class IcebergOrderExecutor(OrderExecutor):
     ) -> Decimal:
         """
         Calculate total volume to reach a target price level.
-        
+
         Args:
             levels: Order book levels (price, quantity pairs)
             target_price: Target price to reach
             is_ask: True for ask side, False for bid side
-            
+
         Returns:
             Total volume in base currency
         """
@@ -577,10 +577,10 @@ class IcebergOrderExecutor(OrderExecutor):
     async def _get_cached_order_book(self, symbol: str) -> OrderBook:
         """
         Get order book with caching.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Order book snapshot
         """
@@ -601,7 +601,7 @@ class IcebergOrderExecutor(OrderExecutor):
     async def _abort_execution(self, execution: IcebergExecution) -> None:
         """
         Abort an iceberg execution and cancel remaining slices.
-        
+
         Args:
             execution: Execution to abort
         """
@@ -648,7 +648,7 @@ class IcebergOrderExecutor(OrderExecutor):
     ) -> ExecutionResult:
         """
         Execute a market order, using iceberg if it qualifies.
-        
+
         This method routes to iceberg execution for qualifying orders.
         """
         return await self.execute_iceberg_order(order, force_iceberg=False)
@@ -668,11 +668,11 @@ class IcebergOrderExecutor(OrderExecutor):
     async def rollback_partial_execution(self, execution_id: str, confirmed_by: str = None) -> dict[str, Any]:
         """
         Rollback a partially filled iceberg execution.
-        
+
         Args:
             execution_id: Execution to rollback
             confirmed_by: Manual confirmation from authorized user (required)
-            
+
         Returns:
             Rollback result details
         """

@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Main Textual application for Genesis trading system."""
 
 import asyncio

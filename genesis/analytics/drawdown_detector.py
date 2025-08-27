@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Drawdown detection and monitoring for recovery protocol."""
 
 from datetime import UTC, datetime
@@ -24,7 +25,7 @@ class DrawdownDetector:
         event_bus: EventBus,
     ):
         """Initialize drawdown detector.
-        
+
         Args:
             repository: Database repository for persistence
             event_bus: Event bus for publishing drawdown events
@@ -39,11 +40,11 @@ class DrawdownDetector:
         peak_balance: Decimal
     ) -> Decimal:
         """Calculate drawdown percentage from peak.
-        
+
         Args:
             balance: Current balance
             peak_balance: Peak balance to compare against
-            
+
         Returns:
             Drawdown percentage as decimal (0.10 = 10%)
         """
@@ -60,11 +61,11 @@ class DrawdownDetector:
         threshold: Optional[Decimal] = None
     ) -> bool:
         """Check if account has breached drawdown threshold.
-        
+
         Args:
             account_id: Account identifier
             threshold: Optional custom threshold (default 0.10 for 10%)
-            
+
         Returns:
             True if drawdown threshold breached
         """
@@ -121,11 +122,11 @@ class DrawdownDetector:
         current_balance: Decimal
     ) -> Decimal:
         """Get or update peak balance for account.
-        
+
         Args:
             account_id: Account identifier
             current_balance: Current account balance
-            
+
         Returns:
             Peak balance for the account
         """
@@ -146,10 +147,10 @@ class DrawdownDetector:
 
     def _get_tier_threshold(self, account_id: str) -> Decimal:
         """Get drawdown threshold based on account tier.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             Drawdown threshold for the tier
         """
@@ -172,11 +173,11 @@ class DrawdownDetector:
         new_balance: Decimal
     ) -> tuple[Decimal, Decimal]:
         """Update balance tracking and return drawdown info.
-        
+
         Args:
             account_id: Account identifier
             new_balance: New balance to track
-            
+
         Returns:
             Tuple of (peak_balance, current_drawdown_pct)
         """
@@ -195,10 +196,10 @@ class DrawdownDetector:
 
     def get_drawdown_stats(self, account_id: str) -> dict:
         """Get comprehensive drawdown statistics for account.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             Dictionary with drawdown statistics
         """
@@ -224,7 +225,7 @@ class DrawdownDetector:
 
     def reset_peak_balance(self, account_id: str) -> None:
         """Reset peak balance tracking for account.
-        
+
         Args:
             account_id: Account identifier
         """

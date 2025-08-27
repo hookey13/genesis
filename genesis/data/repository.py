@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 from genesis.core.models import (
     Account,

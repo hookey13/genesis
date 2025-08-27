@@ -7,9 +7,9 @@ Tracks the speed of user actions to detect abnormal decision-making patterns.
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 import structlog
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -20,7 +20,7 @@ class ClickSpeedIndicator:
     def __init__(self, window_size: int = 100):
         """
         Initialize the click speed indicator.
-        
+
         Args:
             window_size: Number of recent actions to track
         """
@@ -32,7 +32,7 @@ class ClickSpeedIndicator:
     def record_market_update(self, timestamp: datetime):
         """
         Record when market data was last updated.
-        
+
         Args:
             timestamp: Market update timestamp
         """
@@ -41,10 +41,10 @@ class ClickSpeedIndicator:
     def record_action(self, action_timestamp: datetime) -> Optional[Decimal]:
         """
         Record a user action and calculate latency.
-        
+
         Args:
             action_timestamp: When the action occurred
-            
+
         Returns:
             Latency in milliseconds if calculable
         """
@@ -81,7 +81,7 @@ class ClickSpeedIndicator:
     def get_average_latency(self) -> Optional[Decimal]:
         """
         Calculate average latency over the window.
-        
+
         Returns:
             Average latency in milliseconds
         """
@@ -96,10 +96,10 @@ class ClickSpeedIndicator:
     def get_recent_pattern(self, last_n: int = 10) -> dict:
         """
         Get pattern analysis of recent click speeds.
-        
+
         Args:
             last_n: Number of recent actions to analyze
-            
+
         Returns:
             Dictionary with pattern metrics
         """
@@ -158,10 +158,10 @@ class ClickSpeedIndicator:
     def detect_panic_clicking(self, threshold_ms: Decimal = Decimal("100")) -> bool:
         """
         Detect panic clicking pattern (very fast consecutive actions).
-        
+
         Args:
             threshold_ms: Threshold for panic clicking
-            
+
         Returns:
             True if panic pattern detected
         """

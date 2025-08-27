@@ -7,6 +7,7 @@ and strategy performance metrics.
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from sqlalchemy import JSON, Column, DateTime, Integer, Numeric, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -15,7 +16,6 @@ from sqlalchemy.orm import Session
 from genesis.analytics.kelly_sizing import KellyParams, SimulationResult, StrategyEdge
 from genesis.analytics.strategy_metrics import StrategyMetrics
 from genesis.core.constants import TradingTier
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class KellyRepository:
     def __init__(self, session: Session):
         """
         Initialize Kelly repository.
-        
+
         Args:
             session: SQLAlchemy session
         """
@@ -150,7 +150,7 @@ class KellyRepository:
     def save_kelly_parameters(self, edge: StrategyEdge) -> None:
         """
         Save Kelly parameters to database.
-        
+
         Args:
             edge: StrategyEdge with calculated parameters
         """
@@ -179,10 +179,10 @@ class KellyRepository:
     def get_kelly_parameters(self, strategy_id: str) -> Optional[StrategyEdge]:
         """
         Retrieve Kelly parameters for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
-            
+
         Returns:
             StrategyEdge or None if not found
         """
@@ -210,7 +210,7 @@ class KellyRepository:
     ) -> None:
         """
         Save a Kelly calculation for audit trail.
-        
+
         Args:
             calculation_id: Unique calculation ID
             strategy_id: Strategy identifier
@@ -245,7 +245,7 @@ class KellyRepository:
     def save_strategy_performance(self, metrics: StrategyMetrics) -> None:
         """
         Save or update strategy performance metrics.
-        
+
         Args:
             metrics: Strategy performance metrics
         """
@@ -280,10 +280,10 @@ class KellyRepository:
     def get_strategy_performance(self, strategy_id: str) -> Optional[StrategyMetrics]:
         """
         Retrieve strategy performance metrics.
-        
+
         Args:
             strategy_id: Strategy identifier
-            
+
         Returns:
             StrategyMetrics or None if not found
         """
@@ -312,7 +312,7 @@ class KellyRepository:
     ) -> None:
         """
         Save Monte Carlo simulation results.
-        
+
         Args:
             simulation_id: Unique simulation ID
             strategy_id: Strategy identifier
@@ -356,11 +356,11 @@ class KellyRepository:
     ) -> list[dict]:
         """
         Get recent Kelly calculations for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
             limit: Maximum number of results
-            
+
         Returns:
             List of calculation dictionaries
         """
@@ -390,10 +390,10 @@ class KellyRepository:
     def cleanup_old_data(self, days_to_keep: int = 90) -> int:
         """
         Clean up old Kelly data.
-        
+
         Args:
             days_to_keep: Number of days to keep
-            
+
         Returns:
             Number of records deleted
         """

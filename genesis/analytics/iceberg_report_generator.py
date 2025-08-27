@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -147,7 +147,7 @@ class ExecutionReport:
 class IcebergReportGenerator:
     """
     Generates comprehensive reports for iceberg executions.
-    
+
     Tracks execution progress in real-time and produces detailed
     post-execution analysis reports for performance optimization.
     """
@@ -155,7 +155,7 @@ class IcebergReportGenerator:
     def __init__(self, repository: Optional[Repository] = None):
         """
         Initialize the report generator.
-        
+
         Args:
             repository: Data repository for persistence
         """
@@ -176,7 +176,7 @@ class IcebergReportGenerator:
     ) -> ExecutionProgress:
         """
         Start tracking a new iceberg execution.
-        
+
         Args:
             execution_id: Unique execution identifier
             symbol: Trading symbol
@@ -184,7 +184,7 @@ class IcebergReportGenerator:
             total_quantity: Total quantity to execute
             total_value_usdt: Total value in USDT
             slice_count: Number of slices
-            
+
         Returns:
             ExecutionProgress tracker
         """
@@ -230,11 +230,11 @@ class IcebergReportGenerator:
     ) -> ExecutionProgress:
         """
         Update execution progress with slice result.
-        
+
         Args:
             execution_id: Execution to update
             slice_record: Slice execution record
-            
+
         Returns:
             Updated execution progress
         """
@@ -319,7 +319,7 @@ class IcebergReportGenerator:
     ) -> None:
         """
         Mark execution as aborted.
-        
+
         Args:
             execution_id: Execution to abort
             reason: Abort reason
@@ -342,10 +342,10 @@ class IcebergReportGenerator:
     ) -> ExecutionReport:
         """
         Generate comprehensive execution report.
-        
+
         Args:
             execution_id: Execution to report on
-            
+
         Returns:
             Detailed execution report
         """
@@ -583,10 +583,10 @@ class IcebergReportGenerator:
     def create_progress_widget(self, execution_id: str) -> dict[str, Any]:
         """
         Create real-time progress widget data.
-        
+
         Args:
             execution_id: Execution to display
-            
+
         Returns:
             Widget data for UI display
         """
@@ -625,10 +625,10 @@ class IcebergReportGenerator:
     def export_report_json(self, report: ExecutionReport) -> str:
         """
         Export report as JSON.
-        
+
         Args:
             report: Report to export
-            
+
         Returns:
             JSON string representation
         """

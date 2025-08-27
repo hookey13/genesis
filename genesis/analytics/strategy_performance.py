@@ -9,7 +9,6 @@ import structlog
 
 from genesis.core.models import Trade
 from genesis.engine.event_bus import EventBus
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -75,7 +74,7 @@ class StrategyPerformanceTracker:
         if data["volatility"] > 0:
             data["sharpe_ratio"] = data["total_pnl"] / (data["volatility"] * Decimal("100"))
 
-    async def get_strategy_performance(self, strategy_id: str) -> Optional[dict]:
+    async def get_strategy_performance(self, strategy_id: str) -> dict | None:
         """Get performance metrics for a strategy."""
         return self.performance_data.get(strategy_id)
 

@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Liquidity scanner for pair discovery and analysis."""
 
 import asyncio

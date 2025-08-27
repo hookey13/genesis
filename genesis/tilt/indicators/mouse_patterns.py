@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Mouse pattern behavioral indicator for tilt detection."""
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ class MousePatternsIndicator:
         jitter_threshold_pixels: int = 5
     ):
         """Initialize mouse patterns indicator.
-        
+
         Args:
             window_size: Number of mouse events to track
             rapid_click_threshold_ms: Time threshold for rapid clicking
@@ -61,12 +62,12 @@ class MousePatternsIndicator:
         timestamp: Optional[datetime] = None
     ) -> dict:
         """Record a mouse click event.
-        
+
         Args:
             position: Click position (x, y)
             duration_ms: Click duration in milliseconds
             timestamp: Event timestamp
-            
+
         Returns:
             Analysis of click patterns
         """
@@ -102,13 +103,13 @@ class MousePatternsIndicator:
         timestamp: Optional[datetime] = None
     ) -> dict:
         """Record a mouse movement event.
-        
+
         Args:
             start_pos: Starting position (x, y)
             end_pos: Ending position (x, y)
             duration_ms: Movement duration in milliseconds
             timestamp: Event timestamp
-            
+
         Returns:
             Analysis of movement patterns
         """
@@ -139,7 +140,7 @@ class MousePatternsIndicator:
 
     def analyze_patterns(self) -> dict:
         """Analyze mouse patterns for anomalies.
-        
+
         Returns:
             Dictionary with mouse pattern analysis
         """
@@ -180,10 +181,10 @@ class MousePatternsIndicator:
 
     def _analyze_clicks(self, clicks: list[MouseEvent]) -> dict:
         """Analyze click patterns.
-        
+
         Args:
             clicks: List of click events
-            
+
         Returns:
             Click pattern analysis
         """
@@ -214,10 +215,10 @@ class MousePatternsIndicator:
 
     def _analyze_movements(self, moves: list[MouseEvent]) -> dict:
         """Analyze movement patterns.
-        
+
         Args:
             moves: List of movement events
-            
+
         Returns:
             Movement pattern analysis
         """
@@ -257,7 +258,7 @@ class MousePatternsIndicator:
 
     def _detect_rapid_clicking(self) -> bool:
         """Detect rapid clicking pattern.
-        
+
         Returns:
             True if rapid clicking detected
         """
@@ -271,7 +272,7 @@ class MousePatternsIndicator:
 
     def _detect_double_click(self) -> bool:
         """Detect double click pattern.
-        
+
         Returns:
             True if double click detected
         """
@@ -290,12 +291,12 @@ class MousePatternsIndicator:
         distance: float
     ) -> bool:
         """Detect jittery movement.
-        
+
         Args:
             start_pos: Starting position
             end_pos: Ending position
             distance: Distance moved
-            
+
         Returns:
             True if jitter detected
         """
@@ -308,11 +309,11 @@ class MousePatternsIndicator:
         movement_analysis: dict
     ) -> int:
         """Calculate overall anomaly score.
-        
+
         Args:
             click_analysis: Click pattern analysis
             movement_analysis: Movement pattern analysis
-            
+
         Returns:
             Anomaly score from 0 to 100
         """
@@ -338,7 +339,7 @@ class MousePatternsIndicator:
 
     def detect_stress_patterns(self) -> Optional[dict]:
         """Detect stress-induced mouse patterns.
-        
+
         Returns:
             Stress detection result if found, None otherwise
         """

@@ -1,13 +1,13 @@
 """Unit tests for tilt debt tracking system."""
-import pytest
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+
+import pytest
 
 from genesis.tilt.detector import TiltLevel
 from genesis.tilt.tilt_debt import (
     TiltDebtCalculator,
-    DebtTransaction,
     TransactionType,
 )
 
@@ -108,7 +108,7 @@ class TestDebtLedger:
     async def test_add_below_minimum_debt(self, debt_calculator):
         """Test adding debt below minimum threshold."""
         profile_id = "test_profile"
-        
+
         transaction = await debt_calculator.add_to_debt_ledger(
             profile_id,
             Decimal("0.5")  # Below minimum
@@ -358,7 +358,7 @@ class TestTransactionHistory:
     async def test_get_transaction_history(self, mock_repository):
         """Test retrieving transaction history."""
         calculator = TiltDebtCalculator(repository=mock_repository)
-        
+
         # Mock some transactions
         mock_repository.get_debt_transactions.return_value = [
             {

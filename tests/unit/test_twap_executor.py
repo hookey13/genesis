@@ -1,32 +1,28 @@
 """Unit tests for TWAP executor."""
 
-import pytest
 import asyncio
-from datetime import datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
+
 from genesis.core.exceptions import OrderExecutionError, ValidationError
 from genesis.core.models import Account, TradingTier
-from genesis.data.market_data_service import MarketDataService, VolumeProfile
-from genesis.core.events import Event, EventType, EventPriority
-from genesis.engine.event_bus import EventBus
+from genesis.data.market_data_service import VolumeProfile
 from genesis.engine.executor.base import (
     ExecutionResult,
     Order,
     OrderSide,
-    OrderStatus,
     OrderType,
 )
 from genesis.engine.executor.twap import (
-    TwapExecutor,
-    TwapExecution,
-    TimeSlice,
-    MIN_DURATION_MINUTES,
     MAX_DURATION_MINUTES,
     MAX_PARTICIPATION_RATE,
-    EARLY_COMPLETION_THRESHOLD,
+    MIN_DURATION_MINUTES,
+    TimeSlice,
+    TwapExecution,
+    TwapExecutor,
 )
 from genesis.engine.risk_engine import RiskDecision
 
@@ -82,14 +78,14 @@ class TestTwapExecutor:
         service = AsyncMock()
         service.get_current_price = AsyncMock(return_value=Decimal("50000"))
         service.is_volume_anomaly = AsyncMock(return_value=False)
-        
+
         # Mock volume profile
         volume_profile = MagicMock(spec=VolumeProfile)
         volume_profile.get_hourly_volumes = MagicMock(return_value={
             i: Decimal("100") for i in range(24)
         })
         service.get_volume_profile = AsyncMock(return_value=volume_profile)
-        
+
         return service
 
     @pytest.fixture

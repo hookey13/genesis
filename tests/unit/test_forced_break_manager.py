@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from genesis.core.events import EventType
-from genesis.core.models import TradingTier, Account
+from genesis.core.models import TradingTier
 from genesis.tilt.forced_break_manager import ForcedBreakManager
 
 
@@ -142,7 +142,7 @@ class TestForcedBreakManager(unittest.TestCase):
         # Setup
         now = datetime(2025, 8, 26, 10, 0, 0, tzinfo=UTC)
         expected_expiration = now + timedelta(minutes=30)
-        
+
         # Create a mock datetime class with proper UTC method
         mock_datetime.now.return_value.replace.return_value = now
         mock_datetime.now.return_value = now

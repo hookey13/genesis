@@ -19,7 +19,7 @@ class OrderFrequencyIndicator:
     def __init__(self, window_minutes: int = 60):
         """
         Initialize the order frequency indicator.
-        
+
         Args:
             window_minutes: Time window for frequency calculation
         """
@@ -30,10 +30,10 @@ class OrderFrequencyIndicator:
     def record_order(self, timestamp: datetime) -> Decimal:
         """
         Record an order placement.
-        
+
         Args:
             timestamp: When the order was placed
-            
+
         Returns:
             Current orders per hour rate
         """
@@ -64,7 +64,7 @@ class OrderFrequencyIndicator:
     def _calculate_rate(self) -> Decimal:
         """
         Calculate current orders per hour rate.
-        
+
         Returns:
             Orders per hour
         """
@@ -90,7 +90,7 @@ class OrderFrequencyIndicator:
     def get_current_rate(self) -> Decimal:
         """
         Get current order frequency.
-        
+
         Returns:
             Orders per hour
         """
@@ -106,7 +106,7 @@ class OrderFrequencyIndicator:
     def get_pattern_analysis(self) -> dict:
         """
         Analyze order frequency patterns.
-        
+
         Returns:
             Dictionary with pattern analysis
         """
@@ -164,10 +164,10 @@ class OrderFrequencyIndicator:
     def detect_overtrading(self, threshold: Decimal) -> bool:
         """
         Check if current rate exceeds overtrading threshold.
-        
+
         Args:
             threshold: Orders per hour threshold
-            
+
         Returns:
             True if overtrading detected
         """
@@ -186,7 +186,7 @@ class OrderFrequencyIndicator:
     def get_inter_order_times(self) -> list[Decimal]:
         """
         Calculate time between consecutive orders.
-        
+
         Returns:
             List of inter-order times in seconds
         """

@@ -17,11 +17,12 @@ import structlog
 from genesis.analytics.volume_analyzer import VolumeAnalyzer, VolumePrediction
 from genesis.analytics.vwap_tracker import VWAPTracker
 from genesis.core.constants import TradingTier
+from typing import Optional
+
 from genesis.core.events import Event, EventType
 from genesis.core.models import Symbol
 from genesis.engine.event_bus import EventBus
 from genesis.engine.executor.base import (
-from typing import Optional
     ExecutionResult,
     Order,
     OrderExecutor,
@@ -85,7 +86,7 @@ class VWAPExecutor(OrderExecutor):
         config: dict
     ):
         """Initialize VWAP executor.
-        
+
         Args:
             tier: Current trading tier
             exchange_gateway: Gateway for exchange operations
@@ -129,14 +130,14 @@ class VWAPExecutor(OrderExecutor):
         use_iceberg: bool = True
     ) -> ExecutionResult:
         """Execute an order using VWAP algorithm.
-        
+
         Args:
             order: Order to execute
             mode: Execution mode (passive/normal/aggressive)
             time_horizon_minutes: Time window for execution
             participation_rate: Maximum market participation rate
             use_iceberg: Whether to use iceberg orders for dark pool simulation
-            
+
         Returns:
             ExecutionResult with final execution details
         """
@@ -236,14 +237,14 @@ class VWAPExecutor(OrderExecutor):
         horizon_minutes: int
     ) -> list[VWAPSlice]:
         """Calculate order slices based on volume predictions.
-        
+
         Args:
             order: Parent order to slice
             prediction: Volume predictions
             participation_rate: Market participation rate
             mode: Execution mode
             horizon_minutes: Time horizon for execution
-            
+
         Returns:
             List of VWAP slices
         """
@@ -344,13 +345,13 @@ class VWAPExecutor(OrderExecutor):
         use_iceberg: bool
     ) -> ExecutionResult:
         """Execute VWAP slices according to schedule.
-        
+
         Args:
             parent_order: Parent order
             slices: List of slices to execute
             mode: Execution mode
             use_iceberg: Whether to use iceberg orders
-            
+
         Returns:
             Final execution result
         """
@@ -402,7 +403,7 @@ class VWAPExecutor(OrderExecutor):
         use_iceberg: bool
     ):
         """Execute a single VWAP slice.
-        
+
         Args:
             slice_obj: Slice to execute
             parent_order: Parent order
@@ -475,11 +476,11 @@ class VWAPExecutor(OrderExecutor):
         sub_slices: int
     ) -> ExecutionResult:
         """Execute slice as iceberg order.
-        
+
         Args:
             order: Slice order
             sub_slices: Number of sub-slices for iceberg
-            
+
         Returns:
             Execution result
         """
@@ -500,11 +501,11 @@ class VWAPExecutor(OrderExecutor):
         mode: ExecutionMode
     ) -> ExecutionResult:
         """Execute slice directly based on mode.
-        
+
         Args:
             order: Slice order
             mode: Execution mode
-            
+
         Returns:
             Execution result
         """
@@ -523,10 +524,10 @@ class VWAPExecutor(OrderExecutor):
 
     def _get_order_type(self, mode: ExecutionMode) -> OrderType:
         """Get appropriate order type for execution mode.
-        
+
         Args:
             mode: Execution mode
-            
+
         Returns:
             Order type to use
         """
@@ -543,11 +544,11 @@ class VWAPExecutor(OrderExecutor):
         slices: list[VWAPSlice]
     ) -> bool:
         """Determine if should switch to aggressive mode.
-        
+
         Args:
             order: Parent order
             slices: All slices
-            
+
         Returns:
             True if should switch to aggressive
         """
@@ -568,12 +569,12 @@ class VWAPExecutor(OrderExecutor):
         message: str
     ) -> ExecutionResult:
         """Build final execution result from slices.
-        
+
         Args:
             order: Parent order
             slices: All execution slices
             message: Result message
-            
+
         Returns:
             Final execution result
         """
@@ -606,7 +607,7 @@ class VWAPExecutor(OrderExecutor):
         performance
     ):
         """Emit VWAP execution completion event.
-        
+
         Args:
             order: Executed order
             result: Execution result
@@ -634,7 +635,7 @@ class VWAPExecutor(OrderExecutor):
 
     async def _cleanup_execution(self, order_id: str):
         """Clean up execution tracking.
-        
+
         Args:
             order_id: Order ID to clean up
         """
@@ -654,11 +655,11 @@ class VWAPExecutor(OrderExecutor):
         confirmation_required: bool = True
     ) -> ExecutionResult:
         """Execute a market order through exchange.
-        
+
         Args:
             order: Order to execute
             confirmation_required: Whether to confirm before execution
-            
+
         Returns:
             Execution result
         """
@@ -687,11 +688,11 @@ class VWAPExecutor(OrderExecutor):
 
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """Cancel an order.
-        
+
         Args:
             order_id: Order ID to cancel
             symbol: Trading symbol
-            
+
         Returns:
             True if cancelled successfully
         """
@@ -705,10 +706,10 @@ class VWAPExecutor(OrderExecutor):
 
     async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         """Cancel all orders.
-        
+
         Args:
             symbol: Optional symbol filter
-            
+
         Returns:
             Number of orders cancelled
         """
@@ -728,11 +729,11 @@ class VWAPExecutor(OrderExecutor):
 
     async def get_order_status(self, order_id: str, symbol: str) -> Order:
         """Get order status.
-        
+
         Args:
             order_id: Order ID to check
             symbol: Trading symbol
-            
+
         Returns:
             Order with current status
         """

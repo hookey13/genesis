@@ -10,7 +10,7 @@ import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -137,7 +137,7 @@ class HabitFuneralCeremony:
 
     def __init__(self, session: Optional[Session] = None):
         """Initialize funeral ceremony manager.
-        
+
         Args:
             session: Optional database session
         """
@@ -152,16 +152,16 @@ class HabitFuneralCeremony:
         commitments: list[str]
     ) -> CeremonyRecord:
         """Conduct a funeral ceremony for old habits.
-        
+
         Args:
             transition_id: Tier transition ID
             old_habits: List of bad habit descriptions
             impact_descriptions: How each habit impacted trading
             commitments: Commitments to new behaviors
-            
+
         Returns:
             CeremonyRecord with ceremony details
-            
+
         Raises:
             ValidationError: If inputs invalid
         """
@@ -256,10 +256,10 @@ class HabitFuneralCeremony:
         current_tier: str
     ) -> list[str]:
         """Get suggested bad habits for a tier.
-        
+
         Args:
             current_tier: Current tier name
-            
+
         Returns:
             List of common bad habits for that tier
         """
@@ -270,10 +270,10 @@ class HabitFuneralCeremony:
         transition_id: str
     ) -> tuple[bool, Optional[str]]:
         """Validate that funeral ceremony is complete.
-        
+
         Args:
             transition_id: Transition to check
-            
+
         Returns:
             Tuple of (is_complete, certificate_hash)
         """
@@ -297,10 +297,10 @@ class HabitFuneralCeremony:
         transition_id: str
     ) -> Optional[CeremonyRecord]:
         """Get ceremony record for a transition.
-        
+
         Args:
             transition_id: Transition ID
-            
+
         Returns:
             CeremonyRecord or None if not found
         """
@@ -345,10 +345,10 @@ class HabitFuneralCeremony:
 
     def _assess_frequency(self, habit_description: str) -> str:
         """Assess frequency of a habit based on description.
-        
+
         Args:
             habit_description: Habit text
-            
+
         Returns:
             Frequency classification
         """
@@ -366,10 +366,10 @@ class HabitFuneralCeremony:
 
     def _assess_severity(self, impact_description: str) -> str:
         """Assess severity based on impact description.
-        
+
         Args:
             impact_description: Impact text
-            
+
         Returns:
             Severity classification
         """
@@ -387,10 +387,10 @@ class HabitFuneralCeremony:
 
     async def _generate_eulogy(self, habits: list[OldHabit]) -> str:
         """Generate eulogy text for the habits.
-        
+
         Args:
             habits: List of habits being buried
-            
+
         Returns:
             Eulogy text
         """
@@ -402,7 +402,7 @@ Today we lay to rest {len(habits)} trading behaviors that no longer serve our jo
 These habits, born from inexperience and emotion, taught us valuable lessons through their consequences.
 We acknowledge their role in our growth, but recognize they have no place in our future.
 
-{"Most notably, we release " + high_severity[0].description.lower() if high_severity else "We release these patterns"} 
+{"Most notably, we release " + high_severity[0].description.lower() if high_severity else "We release these patterns"}
 and all associated emotional attachments.
 
 We commit to conscious, disciplined trading practices moving forward.
@@ -415,7 +415,7 @@ The past is buried. The future is earned through discipline.
 
     async def _generate_certificate(self, ceremony: CeremonyRecord) -> None:
         """Generate ceremony certificate.
-        
+
         Args:
             ceremony: Ceremony record
         """
@@ -466,7 +466,7 @@ Ceremony ID: {ceremony.funeral_id}
 
     async def _store_ceremony(self, ceremony: CeremonyRecord) -> None:
         """Store ceremony record in database.
-        
+
         Args:
             ceremony: Ceremony to store
         """
@@ -511,11 +511,11 @@ Ceremony ID: {ceremony.funeral_id}
         days_since: int = 30
     ) -> dict[str, Any]:
         """Review commitments made during ceremony.
-        
+
         Args:
             transition_id: Transition to review
             days_since: Days since ceremony
-            
+
         Returns:
             Review summary
         """

@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Tilt intervention strategies and management."""
 from __future__ import annotations
 
@@ -73,7 +74,7 @@ class InterventionManager:
         emergency_contact_info: Optional[dict[str, str]] = None
     ):
         """Initialize intervention manager.
-        
+
         Args:
             event_bus: Event bus for publishing intervention events
             cooldown_minutes: Cooldown periods by tilt level
@@ -99,10 +100,10 @@ class InterventionManager:
 
     def get_intervention_message(self, level: TiltLevel) -> str:
         """Get appropriate intervention message for tilt level.
-        
+
         Args:
             level: Tilt severity level
-            
+
         Returns:
             Supportive intervention message
         """
@@ -127,12 +128,12 @@ class InterventionManager:
         tilt_score: int
     ) -> Intervention:
         """Apply intervention based on tilt level.
-        
+
         Args:
             profile_id: Profile identifier
             level: Tilt severity level
             tilt_score: Current tilt score
-            
+
         Returns:
             Applied intervention
         """
@@ -185,10 +186,10 @@ class InterventionManager:
         level: TiltLevel
     ) -> tuple[InterventionType, dict]:
         """Determine intervention type and parameters based on level.
-        
+
         Args:
             level: Tilt severity level
-            
+
         Returns:
             Intervention type and parameters
         """
@@ -213,7 +214,7 @@ class InterventionManager:
 
     async def _apply_intervention_effects(self, intervention: Intervention) -> None:
         """Apply the effects of an intervention.
-        
+
         Args:
             intervention: Intervention to apply
         """
@@ -241,7 +242,7 @@ class InterventionManager:
         tilt_score: int
     ) -> None:
         """Publish intervention event.
-        
+
         Args:
             intervention: Applied intervention
             tilt_score: Current tilt score
@@ -268,10 +269,10 @@ class InterventionManager:
 
     def get_active_interventions(self, profile_id: str) -> list[Intervention]:
         """Get active interventions for a profile.
-        
+
         Args:
             profile_id: Profile identifier
-            
+
         Returns:
             List of active interventions
         """
@@ -293,10 +294,10 @@ class InterventionManager:
 
     def get_position_size_multiplier(self, profile_id: str) -> Decimal:
         """Get current position size multiplier for profile.
-        
+
         Args:
             profile_id: Profile identifier
-            
+
         Returns:
             Position size multiplier (1.0 if no reduction)
         """
@@ -319,10 +320,10 @@ class InterventionManager:
 
     def is_trading_locked(self, profile_id: str) -> bool:
         """Check if trading is locked for profile.
-        
+
         Args:
             profile_id: Profile identifier
-            
+
         Returns:
             True if trading is locked
         """
@@ -336,7 +337,7 @@ class InterventionManager:
 
     def clear_interventions(self, profile_id: str) -> None:
         """Clear all interventions for a profile.
-        
+
         Args:
             profile_id: Profile identifier
         """
@@ -348,10 +349,10 @@ class InterventionManager:
 
     async def check_recovery(self, profile_id: str) -> bool:
         """Check if profile has recovered from tilt.
-        
+
         Args:
             profile_id: Profile identifier
-            
+
         Returns:
             True if recovered
         """
@@ -394,19 +395,19 @@ class InterventionManager:
         message: Optional[str] = None
     ) -> bool:
         """Notify emergency contact about severe tilt episode (placeholder).
-        
+
         This is a placeholder for future implementation of emergency contact
         notification. When implemented, this could:
         - Send SMS/email to designated contact
         - Include account status and tilt severity
         - Provide recovery instructions
         - Log notification for audit trail
-        
+
         Args:
             profile_id: Profile identifier
             tilt_level: Severity level of tilt
             message: Optional custom message
-            
+
         Returns:
             True if notification would be sent (always False in placeholder)
         """

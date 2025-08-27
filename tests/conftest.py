@@ -59,7 +59,7 @@ def event_loop():
 def mock_settings():
     """Mock settings object for testing."""
     settings = MagicMock()
-    
+
     # Mock exchange settings
     settings.exchange = MagicMock()
     settings.exchange.binance_api_key = MagicMock()
@@ -68,13 +68,13 @@ def mock_settings():
     settings.exchange.binance_api_secret.get_secret_value = MagicMock(return_value="test_api_secret")
     settings.exchange.binance_testnet = True
     settings.exchange.exchange_rate_limit = 1200
-    
+
     # Mock trading settings
     settings.trading = MagicMock()
     settings.trading.trading_pairs = ["BTC/USDT", "ETH/USDT"]
     settings.trading.trading_tier = "sniper"
     settings.trading.max_position_size_usdt = Decimal("100.0")
-    
+
     # Mock development settings
     settings.development = MagicMock()
     settings.development.use_mock_exchange = True
@@ -86,9 +86,9 @@ def mock_settings():
 def market_data():
     """Load market data fixtures."""
     fixture_path = Path(__file__).parent / "fixtures" / "market_data.json"
-    with open(fixture_path, "r") as f:
+    with open(fixture_path) as f:
         data = json.load(f)
-    
+
     # Convert numeric values to Decimal
     def convert_to_decimal(obj):
         if isinstance(obj, dict):
@@ -98,7 +98,7 @@ def market_data():
         elif isinstance(obj, (int, float)):
             return Decimal(str(obj))
         return obj
-    
+
     return convert_to_decimal(data)
 
 
@@ -106,7 +106,7 @@ def market_data():
 async def mock_exchange():
     """Create a mock exchange instance."""
     from genesis.exchange.mock_exchange import MockExchange
-    
+
     exchange = MockExchange(
         initial_balance={
             "USDT": Decimal("10000"),
@@ -125,7 +125,7 @@ async def mock_exchange():
 async def gateway(mock_settings):
     """Create a BinanceGateway instance."""
     from genesis.exchange.gateway import BinanceGateway
-    
+
     with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
         gateway = BinanceGateway(mock_mode=True)
         await gateway.initialize()
@@ -168,7 +168,7 @@ def health_monitor():
 def mock_ccxt_exchange():
     """Create a mock ccxt exchange."""
     mock = AsyncMock()
-    
+
     # Mock common methods
     mock.load_markets = AsyncMock(return_value=True)
     mock.fetch_balance = AsyncMock(return_value={
@@ -223,7 +223,7 @@ def mock_ccxt_exchange():
     })
     mock.fetch_time = AsyncMock(return_value=1700000000000)
     mock.close = AsyncMock(return_value=None)
-    
+
     return mock
 
 

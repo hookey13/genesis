@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Multi-level tilt detection system."""
 from __future__ import annotations
 
@@ -85,7 +86,7 @@ class TiltDetector:
         config_tracker: Optional[ConfigurationChangeTracker] = None
     ):
         """Initialize tilt detector.
-        
+
         Args:
             profile_manager: Manager for behavioral profiles
             event_bus: Event bus for publishing tilt events
@@ -122,11 +123,11 @@ class TiltDetector:
         metrics: list[BehavioralMetric]
     ) -> TiltDetectionResult:
         """Detect tilt level from behavioral metrics.
-        
+
         Args:
             profile_id: Profile identifier
             metrics: Current behavioral metrics
-            
+
         Returns:
             TiltDetectionResult with level, score, and anomalies
         """
@@ -190,10 +191,10 @@ class TiltDetector:
 
     def calculate_tilt_score(self, anomalies: list[Anomaly]) -> int:
         """Calculate tilt score from anomalies (0-100 scale).
-        
+
         Args:
             anomalies: List of detected anomalies
-            
+
         Returns:
             Tilt score between 0 and 100
         """
@@ -233,10 +234,10 @@ class TiltDetector:
 
     async def _get_cached_baseline(self, profile_id: str) -> Optional[BehavioralBaseline]:
         """Get baseline from cache or refresh if needed.
-        
+
         Args:
             profile_id: Profile identifier
-            
+
         Returns:
             Cached or refreshed baseline
         """
@@ -263,11 +264,11 @@ class TiltDetector:
         metrics: list[BehavioralMetric]
     ) -> list[Anomaly]:
         """Detect anomalies by comparing metrics to baseline.
-        
+
         Args:
             baseline: Behavioral baseline
             metrics: Current metrics
-            
+
         Returns:
             List of detected anomalies
         """
@@ -322,7 +323,7 @@ class TiltDetector:
 
     def _detect_behavioral_anomalies(self) -> list[Anomaly]:
         """Detect anomalies from new behavioral trackers.
-        
+
         Returns:
             List of behavioral anomalies
         """
@@ -399,10 +400,10 @@ class TiltDetector:
 
     def _determine_tilt_level(self, anomaly_count: int) -> TiltLevel:
         """Determine tilt level based on anomaly count.
-        
+
         Args:
             anomaly_count: Number of detected anomalies
-            
+
         Returns:
             Appropriate tilt level
         """
@@ -417,7 +418,7 @@ class TiltDetector:
 
     def _update_anomaly_buffer(self, profile_id: str, anomalies: list[Anomaly]) -> None:
         """Update anomaly buffer for profile.
-        
+
         Args:
             profile_id: Profile identifier
             anomalies: New anomalies to add
@@ -431,7 +432,7 @@ class TiltDetector:
 
     async def _publish_tilt_event(self, result: TiltDetectionResult) -> None:
         """Publish tilt detection event.
-        
+
         Args:
             result: Tilt detection result
         """
@@ -480,11 +481,11 @@ class TiltDetector:
         limit: Optional[int] = None
     ) -> list[Anomaly]:
         """Get anomaly history for profile.
-        
+
         Args:
             profile_id: Profile identifier
             limit: Maximum number of anomalies to return
-            
+
         Returns:
             List of historical anomalies
         """
@@ -498,7 +499,7 @@ class TiltDetector:
 
     def clear_anomaly_buffer(self, profile_id: str) -> None:
         """Clear anomaly buffer for profile.
-        
+
         Args:
             profile_id: Profile identifier
         """
@@ -512,7 +513,7 @@ class AnomalyDetector:
 
     def __init__(self, baseline: BehavioralBaseline):
         """Initialize anomaly detector.
-        
+
         Args:
             baseline: Behavioral baseline for comparison
         """
@@ -521,7 +522,7 @@ class AnomalyDetector:
 
     def register_indicator(self, name: str, detector: callable) -> None:
         """Register an anomaly detector for an indicator.
-        
+
         Args:
             name: Indicator name
             detector: Detection function
@@ -534,11 +535,11 @@ class AnomalyDetector:
         current: BehavioralMetric
     ) -> list[Anomaly]:
         """Detect all anomalies from current metrics.
-        
+
         Args:
             baseline: Behavioral baseline
             current: Current behavioral metric
-            
+
         Returns:
             List of detected anomalies
         """

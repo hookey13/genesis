@@ -3,13 +3,11 @@
 import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from unittest.mock import AsyncMock
 
 import pytest
 
 from genesis.analytics.liquidity_scanner import (
-    HealthStatus,
     LiquidityMetrics,
     LiquidityScanner,
     LiquidityScannerJob,
@@ -318,7 +316,7 @@ class TestLiquidityScannerWorkflow:
         for i in range(1, len(metrics_history)):
             current = metrics_history[i]
             historical = metrics_history[:i]
-            
+
             if len(historical) >= 5:
                 status = monitor.monitor_pair_health("BADCOIN", current, historical[-5:])
             else:
@@ -371,7 +369,7 @@ class TestLiquidityScannerWorkflow:
         )
 
         await event_bus.publish(grad_event)
-        
+
         # Give event bus time to process
         await asyncio.sleep(0.1)
 
@@ -430,7 +428,7 @@ class TestLiquidityScannerWorkflow:
 
         # Simulate spread observations over time
         base_time = datetime.now()
-        
+
         # Add profitable spreads (>= 10 bps) for 30 minutes
         for i in range(6):  # 6 observations, 5 minutes apart
             tracker.record_spread(

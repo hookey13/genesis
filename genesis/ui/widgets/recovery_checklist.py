@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Recovery checklist UI widget for tilt recovery."""
 from __future__ import annotations
 

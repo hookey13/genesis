@@ -8,7 +8,7 @@ emergency events to ensure safe return to normal trading operations.
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -89,7 +89,7 @@ class RecoveryChecklist:
 class EmergencyRecoveryChecklist:
     """
     Manages recovery checklists for post-emergency procedures.
-    
+
     Ensures systematic recovery with:
     - Phase-based recovery steps
     - Critical path validation
@@ -100,7 +100,7 @@ class EmergencyRecoveryChecklist:
     def __init__(self, event_bus: EventBus):
         """
         Initialize recovery checklist manager.
-        
+
         Args:
             event_bus: Event bus for publishing updates
         """
@@ -127,11 +127,11 @@ class EmergencyRecoveryChecklist:
     ) -> RecoveryChecklist:
         """
         Create a recovery checklist for an emergency type.
-        
+
         Args:
             emergency_type: Type of emergency
             severity: Emergency severity level
-            
+
         Returns:
             Created recovery checklist
         """
@@ -607,12 +607,12 @@ class EmergencyRecoveryChecklist:
     ) -> bool:
         """
         Mark a checklist item as started.
-        
+
         Args:
             checklist_id: Checklist identifier
             item_id: Item identifier
             user_id: User starting the item
-            
+
         Returns:
             True if successful
         """
@@ -672,13 +672,13 @@ class EmergencyRecoveryChecklist:
     ) -> bool:
         """
         Mark a checklist item as completed.
-        
+
         Args:
             checklist_id: Checklist identifier
             item_id: Item identifier
             notes: Completion notes
             user_id: User completing the item
-            
+
         Returns:
             True if successful
         """
@@ -772,10 +772,10 @@ class EmergencyRecoveryChecklist:
     async def _validate_item(self, item: ChecklistItem) -> dict[str, Any]:
         """
         Validate a checklist item.
-        
+
         Args:
             item: Item to validate
-            
+
         Returns:
             Validation result
         """
@@ -815,7 +815,7 @@ class EmergencyRecoveryChecklist:
     async def _complete_checklist(self, checklist_id: str) -> None:
         """
         Mark checklist as complete.
-        
+
         Args:
             checklist_id: Checklist identifier
         """
@@ -856,10 +856,10 @@ class EmergencyRecoveryChecklist:
     def get_checklist_status(self, checklist_id: str) -> Optional[dict[str, Any]]:
         """
         Get current status of a checklist.
-        
+
         Args:
             checklist_id: Checklist identifier
-            
+
         Returns:
             Status dictionary or None
         """

@@ -9,12 +9,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
 
 import structlog
 
 from genesis.core.models import Order, OrderSide, OrderType
 from genesis.data.sqlite_repo import SQLiteRepository
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -71,7 +71,7 @@ class ExecutionStats:
 class ExecutionScorer:
     """
     Scores execution quality based on configurable metrics.
-    
+
     The scoring algorithm weights different factors to produce
     a quality score from 0-100.
     """
@@ -110,13 +110,13 @@ class ExecutionScorer:
     ) -> tuple[float, ExecutionQuality]:
         """
         Calculate execution quality score for an order.
-        
+
         Args:
             order: Completed order
             actual_price: Actual execution price
             time_to_fill_ms: Time from submission to fill
             market_mid_price: Market mid price at execution
-            
+
         Returns:
             Tuple of (score, quality_details)
         """
@@ -194,12 +194,12 @@ class ExecutionScorer:
     ) -> Decimal:
         """
         Calculate slippage in basis points.
-        
+
         Args:
             expected_price: Expected execution price
             actual_price: Actual execution price
             side: Order side (BUY/SELL)
-            
+
         Returns:
             Slippage in basis points (positive = unfavorable)
         """
@@ -224,13 +224,13 @@ class ExecutionScorer:
     ) -> Decimal:
         """
         Calculate price improvement relative to market.
-        
+
         Args:
             expected_price: Expected execution price
             actual_price: Actual execution price
             market_mid_price: Market mid price at execution
             side: Order side
-            
+
         Returns:
             Price improvement in basis points (positive = favorable)
         """
@@ -319,7 +319,7 @@ class ExecutionQualityTracker:
     def __init__(self, repository: SQLiteRepository):
         """
         Initialize the tracker.
-        
+
         Args:
             repository: Database repository for persistence
         """
@@ -337,13 +337,13 @@ class ExecutionQualityTracker:
     ) -> float:
         """
         Track an order execution and return quality score.
-        
+
         Args:
             order: Completed order
             actual_price: Actual execution price
             time_to_fill_ms: Time from submission to fill
             market_mid_price: Market mid price at execution
-            
+
         Returns:
             Execution quality score
         """
@@ -369,11 +369,11 @@ class ExecutionQualityTracker:
     ) -> ExecutionStats:
         """
         Get aggregated execution statistics.
-        
+
         Args:
             period: Time period (1h, 24h, 7d)
             symbol: Optional symbol filter
-            
+
         Returns:
             Aggregated statistics
         """
@@ -507,10 +507,10 @@ class ExecutionQualityTracker:
     def generate_report(self, stats: ExecutionStats) -> str:
         """
         Generate a human-readable execution quality report.
-        
+
         Args:
             stats: Execution statistics
-            
+
         Returns:
             Formatted report string
         """

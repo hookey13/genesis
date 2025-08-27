@@ -6,7 +6,7 @@ with color gradients and sorting capabilities.
 """
 
 from decimal import Decimal
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 import structlog
 from rich.console import RenderableType
@@ -46,16 +46,16 @@ class SpreadHeatmap(Widget):
         background: $surface;
         border: solid $primary;
     }
-    
+
     .heatmap-container {
         padding: 1;
     }
-    
+
     .control-bar {
         height: 3;
         margin-bottom: 1;
     }
-    
+
     .spread-table {
         height: 1fr;
     }

@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
 from uuid import uuid4
 
 import structlog
@@ -22,7 +23,6 @@ from genesis.core.events import Event, EventPriority, EventType
 from genesis.engine.event_bus import EventBus
 from genesis.exchange.gateway import BinanceGateway
 from genesis.exchange.websocket_manager import WebSocketManager
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -148,7 +148,7 @@ class VolumeProfile:
 class MarketDataService:
     """
     Service for managing real-time market data.
-    
+
     Provides interfaces for subscribing to market data streams,
     accessing current prices and order books, and analyzing market conditions.
     """
@@ -162,7 +162,7 @@ class MarketDataService:
     ):
         """
         Initialize the Market Data Service.
-        
+
         Args:
             websocket_manager: WebSocket manager for streams
             gateway: Exchange gateway for REST API
@@ -226,10 +226,10 @@ class MarketDataService:
     async def subscribe_market_data(self, symbol: str) -> AsyncIterator[Tick]:
         """
         Subscribe to real-time market data for a symbol.
-        
+
         Args:
             symbol: Trading symbol (e.g., "BTCUSDT")
-            
+
         Yields:
             Tick objects as they arrive
         """
@@ -256,10 +256,10 @@ class MarketDataService:
     def get_current_price(self, symbol: str) -> Optional[Decimal]:
         """
         Get current price for a symbol.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Current price or None if not available
         """
@@ -268,11 +268,11 @@ class MarketDataService:
     def get_order_book(self, symbol: str, depth: int = 5) -> Optional[OrderBook]:
         """
         Get order book for a symbol.
-        
+
         Args:
             symbol: Trading symbol
             depth: Number of levels to return (max 5)
-            
+
         Returns:
             OrderBook or None if not available
         """
@@ -290,10 +290,10 @@ class MarketDataService:
     def calculate_spread(self, symbol: str) -> Optional[Decimal]:
         """
         Calculate spread in basis points.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Spread in basis points or None
         """
@@ -305,10 +305,10 @@ class MarketDataService:
     def classify_market_state(self, symbol: str) -> MarketState:
         """
         Classify current market state for a symbol.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Market state classification
         """
@@ -662,7 +662,7 @@ class MarketDataService:
     async def _persist_volume_profile(self, symbol: str, profile: VolumeProfile) -> None:
         """
         Persist volume profile to database.
-        
+
         Args:
             symbol: Trading symbol
             profile: Volume profile to persist
@@ -686,7 +686,7 @@ class MarketDataService:
 
                 # Insert or update volume profile
                 await self.repository.connection.execute("""
-                    INSERT OR REPLACE INTO volume_profiles 
+                    INSERT OR REPLACE INTO volume_profiles
                     (profile_id, symbol, hour, volume, trade_count, average_trade_size, date, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
@@ -728,11 +728,11 @@ class MarketDataService:
     async def get_price_history(self, symbol: str, window_days: int) -> list[Decimal]:
         """
         Get historical price data for a symbol.
-        
+
         Args:
             symbol: Trading symbol
             window_days: Number of days of history to retrieve
-            
+
         Returns:
             List of historical prices
         """
@@ -779,7 +779,7 @@ class MarketDataService:
     async def subscribe_multi_pair(self, symbols: list[str]) -> None:
         """
         Subscribe to multiple trading pairs for correlation monitoring.
-        
+
         Args:
             symbols: List of trading symbols to subscribe to
         """
@@ -792,10 +792,10 @@ class MarketDataService:
     def get_correlated_pairs_data(self, pairs: list[tuple[str, str]]) -> dict[str, list[Decimal]]:
         """
         Get current price data for correlated pairs.
-        
+
         Args:
             pairs: List of trading pair tuples
-            
+
         Returns:
             Dictionary mapping pair keys to price lists
         """
@@ -818,7 +818,7 @@ class MarketDataService:
     async def start_correlation_monitoring(self, pairs: list[tuple[str, str]]) -> None:
         """
         Start monitoring correlations between specified pairs.
-        
+
         Args:
             pairs: List of pair tuples to monitor
         """
@@ -835,7 +835,7 @@ class MarketDataService:
     async def get_all_trading_pairs(self) -> list[str]:
         """
         Get all available trading pairs from the exchange.
-        
+
         Returns:
             List of trading pair symbols
         """
@@ -863,11 +863,11 @@ class MarketDataService:
     async def get_order_book_snapshot(self, symbol: str, limit: int = 10) -> Optional[OrderBook]:
         """
         Get order book snapshot with specified depth.
-        
+
         Args:
             symbol: Trading pair symbol
             limit: Number of levels to fetch (default 10)
-            
+
         Returns:
             OrderBook snapshot or None if error
         """
@@ -914,12 +914,12 @@ class MarketDataService:
     ) -> list[Candle]:
         """
         Get historical candles for volatility calculation.
-        
+
         Args:
             symbol: Trading symbol
             interval: Candle interval (1m, 5m, 15m, 1h, etc.)
             limit: Number of candles to fetch
-            
+
         Returns:
             List of Candle objects
         """
@@ -965,11 +965,11 @@ class MarketDataService:
     ) -> dict[str, Decimal]:
         """
         Get volatility data for market state classification.
-        
+
         Args:
             symbol: Trading symbol
             period: Period for calculations
-            
+
         Returns:
             Dict with volatility metrics
         """
@@ -1030,7 +1030,7 @@ class MarketDataService:
     ) -> None:
         """
         Update market state for a symbol.
-        
+
         Args:
             symbol: Trading symbol
             state: New market state
@@ -1060,10 +1060,10 @@ class MarketDataService:
     async def get_24h_ticker(self, symbol: str) -> dict[str, Decimal]:
         """
         Get 24-hour ticker statistics.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Dict with ticker data including volume
         """
@@ -1134,10 +1134,10 @@ class MarketDataService:
     def get_spread_analytics(self, symbol: str) -> dict:
         """
         Get comprehensive spread analytics for a symbol.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Dictionary with spread analytics
         """

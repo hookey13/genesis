@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Strategy restriction system for recovery mode."""
 
 from datetime import UTC, datetime, timedelta
@@ -22,7 +23,7 @@ class StrategyRestrictionManager:
         repository: SQLiteRepository,
     ):
         """Initialize strategy restriction manager.
-        
+
         Args:
             repository: Database repository for persistence
         """
@@ -39,7 +40,7 @@ class StrategyRestrictionManager:
         allowed_strategies: list[str]
     ) -> None:
         """Restrict account to specific strategies.
-        
+
         Args:
             account_id: Account identifier
             allowed_strategies: List of allowed strategy names
@@ -65,10 +66,10 @@ class StrategyRestrictionManager:
         window_days: int = 30
     ) -> str:
         """Get strategy with highest win rate over recent period.
-        
+
         Args:
             window_days: Number of days to analyze
-            
+
         Returns:
             Name of highest win-rate strategy
         """
@@ -105,11 +106,11 @@ class StrategyRestrictionManager:
         strategy_name: str
     ) -> bool:
         """Check if strategy is allowed for account.
-        
+
         Args:
             account_id: Account identifier
             strategy_name: Strategy to check
-            
+
         Returns:
             True if strategy is allowed
         """
@@ -121,7 +122,7 @@ class StrategyRestrictionManager:
 
     def remove_restrictions(self, account_id: str) -> None:
         """Remove all strategy restrictions for account.
-        
+
         Args:
             account_id: Account identifier
         """
@@ -140,7 +141,7 @@ class StrategyRestrictionManager:
         account_id: str
     ) -> None:
         """Apply default recovery mode restrictions.
-        
+
         Args:
             account_id: Account identifier
         """
@@ -158,7 +159,7 @@ class StrategyRestrictionManager:
 
     def _should_refresh_cache(self) -> bool:
         """Check if performance cache should be refreshed.
-        
+
         Returns:
             True if cache should be refreshed
         """
@@ -170,7 +171,7 @@ class StrategyRestrictionManager:
 
     def _refresh_strategy_performance(self, window_days: int) -> None:
         """Refresh strategy performance statistics.
-        
+
         Args:
             window_days: Number of days to analyze
         """
@@ -229,7 +230,7 @@ class StrategyRestrictionManager:
 
 def recovery_mode(func):
     """Decorator to enforce strategy restrictions in recovery mode.
-    
+
     This decorator checks if the current account is in recovery mode
     and enforces strategy restrictions accordingly.
     """
@@ -264,7 +265,7 @@ class StrategyFilter:
         restriction_manager: StrategyRestrictionManager,
     ):
         """Initialize strategy filter.
-        
+
         Args:
             restriction_manager: Strategy restriction manager
         """
@@ -276,11 +277,11 @@ class StrategyFilter:
         all_strategies: list[str]
     ) -> list[str]:
         """Filter strategies based on account restrictions.
-        
+
         Args:
             account_id: Account identifier
             all_strategies: List of all available strategies
-            
+
         Returns:
             List of allowed strategies
         """

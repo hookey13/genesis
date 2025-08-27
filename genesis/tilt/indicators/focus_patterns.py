@@ -32,7 +32,7 @@ class FocusMetrics:
 class FocusPatternDetector:
     """
     Detects patterns in window focus and tab switching.
-    
+
     Monitors when the trading application loses/gains focus
     and identifies patterns that may indicate psychological states.
     """
@@ -44,7 +44,7 @@ class FocusPatternDetector:
     ) -> None:
         """
         Initialize focus pattern detector.
-        
+
         Args:
             rapid_switch_threshold_ms: Time threshold for rapid switching
             window_size: Size of rolling window for pattern analysis
@@ -80,7 +80,7 @@ class FocusPatternDetector:
     ) -> None:
         """
         Track window focus change event.
-        
+
         Args:
             window_active: True if window gained focus, False if lost
             duration_ms: Duration since last focus change in milliseconds
@@ -133,10 +133,10 @@ class FocusPatternDetector:
     def get_focus_metrics(self, window_minutes: int = 5) -> FocusMetrics:
         """
         Calculate focus pattern metrics for recent window.
-        
+
         Args:
             window_minutes: Time window to analyze in minutes
-            
+
         Returns:
             FocusMetrics with calculated statistics
         """
@@ -204,12 +204,12 @@ class FocusPatternDetector:
     ) -> float:
         """
         Calculate distraction score from focus metrics.
-        
+
         Args:
             switch_frequency: Switches per minute
             rapid_switches: Number of rapid switches
             avg_focus_duration: Average focus duration in seconds
-            
+
         Returns:
             Distraction score from 0 (focused) to 100 (highly distracted)
         """
@@ -231,10 +231,10 @@ class FocusPatternDetector:
     def is_distracted(self, threshold: float = 50.0) -> bool:
         """
         Check if user appears distracted based on focus patterns.
-        
+
         Args:
             threshold: Distraction score threshold
-            
+
         Returns:
             True if distraction score exceeds threshold
         """
@@ -244,7 +244,7 @@ class FocusPatternDetector:
     def get_pattern_analysis(self) -> dict[str, any]:
         """
         Analyze focus patterns for behavioral insights.
-        
+
         Returns:
             Dictionary with pattern analysis results
         """
@@ -278,10 +278,10 @@ class FocusPatternDetector:
     def _get_recommendation(self, metrics: FocusMetrics) -> str:
         """
         Generate recommendation based on focus metrics.
-        
+
         Args:
             metrics: Current focus metrics
-            
+
         Returns:
             Recommendation string
         """

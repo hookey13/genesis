@@ -11,7 +11,7 @@ import shutil
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 import aiosqlite
@@ -520,7 +520,7 @@ class SQLiteRepository(Repository):
 
         await self.connection.execute(
             """
-            INSERT INTO events (event_id, event_type, aggregate_id, event_data, 
+            INSERT INTO events (event_id, event_type, aggregate_id, event_data,
                               sequence_number, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
@@ -545,7 +545,7 @@ class SQLiteRepository(Repository):
         if event_type:
             cursor = await self.connection.execute(
                 """
-                SELECT * FROM events 
+                SELECT * FROM events
                 WHERE aggregate_id = ? AND event_type = ?
                 ORDER BY sequence_number
                 """,
@@ -554,7 +554,7 @@ class SQLiteRepository(Repository):
         else:
             cursor = await self.connection.execute(
                 """
-                SELECT * FROM events 
+                SELECT * FROM events
                 WHERE aggregate_id = ?
                 ORDER BY sequence_number
                 """,
@@ -584,7 +584,7 @@ class SQLiteRepository(Repository):
         """Get events by type and time range."""
         cursor = await self.connection.execute(
             """
-            SELECT * FROM events 
+            SELECT * FROM events
             WHERE event_type = ? AND created_at >= ? AND created_at <= ?
             ORDER BY created_at DESC
             """,
@@ -614,7 +614,7 @@ class SQLiteRepository(Repository):
 
         await self.connection.execute(
             """
-            INSERT INTO accounts (account_id, balance_usdt, tier, locked_features, 
+            INSERT INTO accounts (account_id, balance_usdt, tier, locked_features,
                                  last_sync, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
@@ -663,8 +663,8 @@ class SQLiteRepository(Repository):
 
         await self.connection.execute(
             """
-            UPDATE accounts 
-            SET balance_usdt = ?, tier = ?, locked_features = ?, 
+            UPDATE accounts
+            SET balance_usdt = ?, tier = ?, locked_features = ?,
                 last_sync = ?, updated_at = ?
             WHERE account_id = ?
             """,
@@ -831,7 +831,7 @@ class SQLiteRepository(Repository):
         """Update order status."""
         await self.connection.execute(
             """
-            UPDATE orders 
+            UPDATE orders
             SET status = ?, executed_at = ?
             WHERE order_id = ?
             """,
@@ -967,8 +967,8 @@ class SQLiteRepository(Repository):
         """Update existing position."""
         await self.connection.execute(
             """
-            UPDATE positions 
-            SET current_price = ?, pnl_dollars = ?, pnl_percent = ?, 
+            UPDATE positions
+            SET current_price = ?, pnl_dollars = ?, pnl_percent = ?,
                 priority_score = ?, updated_at = ?
             WHERE position_id = ?
             """,
@@ -989,7 +989,7 @@ class SQLiteRepository(Repository):
         """Close a position."""
         await self.connection.execute(
             """
-            UPDATE positions 
+            UPDATE positions
             SET status = 'CLOSED', pnl_dollars = ?, closed_at = ?, updated_at = ?
             WHERE position_id = ?
             """,
@@ -1011,7 +1011,7 @@ class SQLiteRepository(Repository):
         """Create a new trading session."""
         await self.connection.execute(
             """
-            INSERT INTO trading_sessions (session_id, account_id, session_date, 
+            INSERT INTO trading_sessions (session_id, account_id, session_date,
                                          starting_balance, current_balance, realized_pnl,
                                          total_trades, winning_trades, losing_trades,
                                          max_drawdown, daily_loss_limit, is_active,
@@ -1106,7 +1106,7 @@ class SQLiteRepository(Repository):
         """Update existing session."""
         await self.connection.execute(
             """
-            UPDATE trading_sessions 
+            UPDATE trading_sessions
             SET current_balance = ?, realized_pnl = ?, total_trades = ?,
                 winning_trades = ?, losing_trades = ?, max_drawdown = ?,
                 updated_at = ?
@@ -1131,7 +1131,7 @@ class SQLiteRepository(Repository):
         """End a trading session."""
         await self.connection.execute(
             """
-            UPDATE trading_sessions 
+            UPDATE trading_sessions
             SET is_active = 0, ended_at = ?, updated_at = ?
             WHERE session_id = ?
             """,
@@ -1150,7 +1150,7 @@ class SQLiteRepository(Repository):
 
         await self.connection.execute(
             """
-            INSERT OR REPLACE INTO position_correlations 
+            INSERT OR REPLACE INTO position_correlations
             (position_a_id, position_b_id, correlation_coefficient, alert_triggered, calculated_at)
             VALUES (?, ?, ?, ?, ?)
             """,
@@ -1168,7 +1168,7 @@ class SQLiteRepository(Repository):
         """Get correlations for a position."""
         cursor = await self.connection.execute(
             """
-            SELECT * FROM position_correlations 
+            SELECT * FROM position_correlations
             WHERE position_a_id = ? OR position_b_id = ?
             """,
             (position_id, position_id),
@@ -1223,7 +1223,7 @@ class SQLiteRepository(Repository):
         """Get risk metrics for time range."""
         cursor = await self.connection.execute(
             """
-            SELECT * FROM risk_metrics 
+            SELECT * FROM risk_metrics
             WHERE account_id = ? AND timestamp >= ? AND timestamp <= ?
             ORDER BY timestamp DESC
             """,
@@ -1293,8 +1293,8 @@ class SQLiteRepository(Repository):
         """Update an existing order."""
         await self.connection.execute(
             """
-            UPDATE orders 
-            SET exchange_order_id = ?, filled_quantity = ?, status = ?, 
+            UPDATE orders
+            SET exchange_order_id = ?, filled_quantity = ?, status = ?,
                 latency_ms = ?, slippage_percent = ?, executed_at = ?
             WHERE order_id = ?
             """,
@@ -1522,15 +1522,15 @@ class SQLiteRepository(Repository):
         # Query closed positions in date range
         cursor = await self.connection.execute(
             """
-            SELECT p.*, 
+            SELECT p.*,
                    (SELECT SUM(CAST(o.filled_quantity AS REAL) * CAST(o.executed_price AS REAL))
-                    FROM orders o 
+                    FROM orders o
                     WHERE o.position_id = p.position_id AND o.side = 'BUY') as total_buy_value,
                    (SELECT SUM(CAST(o.filled_quantity AS REAL) * CAST(o.executed_price AS REAL))
-                    FROM orders o 
+                    FROM orders o
                     WHERE o.position_id = p.position_id AND o.side = 'SELL') as total_sell_value
             FROM positions p
-            WHERE p.account_id = ? 
+            WHERE p.account_id = ?
             AND p.status = 'CLOSED'
             AND DATE(p.closed_at) >= ?
             AND DATE(p.closed_at) <= ?
@@ -1628,7 +1628,7 @@ class SQLiteRepository(Repository):
             # Calculate for specific session
             cursor = await self.connection.execute(
                 """
-                SELECT * FROM positions 
+                SELECT * FROM positions
                 WHERE account_id = ? AND status = 'CLOSED'
                 AND created_at >= (SELECT created_at FROM trading_sessions WHERE session_id = ?)
                 AND closed_at <= (SELECT COALESCE(ended_at, datetime('now')) FROM trading_sessions WHERE session_id = ?)
@@ -1724,7 +1724,7 @@ class SQLiteRepository(Repository):
         # Get metrics for date range
         cursor = await self.connection.execute(
             """
-            SELECT * FROM positions 
+            SELECT * FROM positions
             WHERE account_id = ? AND status = 'CLOSED'
             AND DATE(closed_at) >= ? AND DATE(closed_at) <= ?
             """,
@@ -1920,7 +1920,7 @@ class SQLiteRepository(Repository):
             List of signal dictionaries
         """
         query = f"""
-            SELECT * FROM arbitrage_signals 
+            SELECT * FROM arbitrage_signals
             WHERE created_at > datetime('now', '-{hours_back} hours')
         """
 
@@ -2076,7 +2076,7 @@ class SQLiteRepository(Repository):
             List of snapshot dictionaries
         """
         query = f"""
-            SELECT * FROM liquidity_snapshots 
+            SELECT * FROM liquidity_snapshots
             WHERE scanned_at > datetime('now', '-{hours_back} hours')
         """
 
@@ -2626,7 +2626,7 @@ class SQLiteRepository(Repository):
         # Get hourly patterns
         hourly_cursor = await self.connection.execute(
             """
-            SELECT 
+            SELECT
                 hour_of_day,
                 AVG(CAST(spread_bps AS REAL)) as avg_spread,
                 MIN(CAST(spread_bps AS REAL)) as min_spread,
@@ -2653,7 +2653,7 @@ class SQLiteRepository(Repository):
         # Get daily patterns
         daily_cursor = await self.connection.execute(
             """
-            SELECT 
+            SELECT
                 day_of_week,
                 AVG(CAST(spread_bps AS REAL)) as avg_spread,
                 MIN(CAST(spread_bps AS REAL)) as min_spread,
@@ -3159,7 +3159,7 @@ class SQLiteRepository(Repository):
     async def save_execution_quality(self, quality: Any) -> None:
         """
         Save execution quality metrics to the database.
-        
+
         Args:
             quality: ExecutionQuality object with order execution metrics
         """
@@ -3205,18 +3205,18 @@ class SQLiteRepository(Repository):
     ) -> list[Any]:
         """
         Retrieve execution quality records from the database.
-        
+
         Args:
             start_time: Start time for filtering records
             symbol: Optional symbol filter
-            
+
         Returns:
             List of ExecutionQuality objects
         """
         from genesis.analytics.execution_quality import ExecutionQuality
 
         query = """
-            SELECT * FROM execution_quality 
+            SELECT * FROM execution_quality
             WHERE timestamp >= ?
         """
         params = [start_time.isoformat()]
@@ -3336,7 +3336,7 @@ class SQLiteRepository(Repository):
         cursor = await self.connection.execute(
             """
             SELECT * FROM tilt_events
-            WHERE profile_id = ? 
+            WHERE profile_id = ?
                 AND timestamp > ?
                 AND intervention_message IS NOT NULL
             ORDER BY timestamp DESC

@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Forced break management for consecutive losses."""
 
 from datetime import UTC, datetime, timedelta
@@ -23,7 +24,7 @@ class ForcedBreakManager:
         event_bus: EventBus,
     ):
         """Initialize forced break manager.
-        
+
         Args:
             repository: Database repository for persistence
             event_bus: Event bus for publishing break events
@@ -39,10 +40,10 @@ class ForcedBreakManager:
         account_id: str
     ) -> int:
         """Check consecutive loss count for account.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             Number of consecutive losses
         """
@@ -77,11 +78,11 @@ class ForcedBreakManager:
         is_profitable: bool
     ) -> Optional[datetime]:
         """Record trade result and check for forced break trigger.
-        
+
         Args:
             account_id: Account identifier
             is_profitable: Whether trade was profitable
-            
+
         Returns:
             Break expiration time if break enforced, None otherwise
         """
@@ -141,11 +142,11 @@ class ForcedBreakManager:
         duration_minutes: int = 30
     ) -> datetime:
         """Enforce a trading break for the account.
-        
+
         Args:
             account_id: Account identifier
             duration_minutes: Break duration in minutes
-            
+
         Returns:
             Break expiration time
         """
@@ -187,10 +188,10 @@ class ForcedBreakManager:
         account_id: str
     ) -> bool:
         """Check if account is currently on forced break.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             True if on break
         """
@@ -221,10 +222,10 @@ class ForcedBreakManager:
         account_id: str
     ) -> dict:
         """Get detailed break status for account.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             Dictionary with break status details
         """
@@ -255,11 +256,11 @@ class ForcedBreakManager:
         journal_completed: bool = False
     ) -> bool:
         """Clear forced break for account.
-        
+
         Args:
             account_id: Account identifier
             journal_completed: Whether journal entry was completed
-            
+
         Returns:
             True if break cleared successfully
         """

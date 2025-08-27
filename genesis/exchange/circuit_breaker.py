@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -37,7 +37,7 @@ class FailureRecord:
 class CircuitBreaker:
     """
     Circuit breaker for managing service failures.
-    
+
     States:
     - CLOSED: Normal operation, requests pass through
     - OPEN: Circuit is tripped, requests are blocked
@@ -56,7 +56,7 @@ class CircuitBreaker:
     ):
         """
         Initialize the circuit breaker.
-        
+
         Args:
             name: Circuit breaker name
             failure_threshold: Number of failures to trip the circuit
@@ -141,15 +141,15 @@ class CircuitBreaker:
     async def call(self, func: Callable, *args, **kwargs) -> Any:
         """
         Execute a function through the circuit breaker.
-        
+
         Args:
             func: Function to execute
             *args: Function arguments
             **kwargs: Function keyword arguments
-            
+
         Returns:
             Function result
-            
+
         Raises:
             CircuitOpenError: If circuit is open
             Original exception: If function fails
@@ -300,7 +300,7 @@ class CircuitOpenError(Exception):
     def __init__(self, message: str, recovery_timeout: int, time_since_failure: float):
         """
         Initialize the exception.
-        
+
         Args:
             message: Error message
             recovery_timeout: Seconds until recovery attempt
@@ -350,10 +350,10 @@ class CircuitBreakerManager:
     def get_breaker(self, name: str) -> CircuitBreaker:
         """
         Get a circuit breaker by name.
-        
+
         Args:
             name: Breaker name
-            
+
         Returns:
             Circuit breaker instance
         """
@@ -387,7 +387,7 @@ class CircuitBreakerManager:
     def check_health(self) -> dict[str, bool]:
         """
         Check health of all circuit breakers.
-        
+
         Returns:
             Dictionary mapping breaker names to health status
         """

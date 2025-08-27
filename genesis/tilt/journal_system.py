@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 import structlog

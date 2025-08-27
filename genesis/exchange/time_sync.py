@@ -7,11 +7,11 @@ with the exchange server time.
 
 import asyncio
 import time
+from typing import Optional
 
 import structlog
 
 from config.settings import get_settings
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -19,7 +19,7 @@ logger = structlog.get_logger(__name__)
 class TimeSync:
     """
     Manages time synchronization with Binance servers.
-    
+
     Critical for API authentication which requires timestamps
     to be within a certain window of server time.
     """
@@ -48,7 +48,7 @@ class TimeSync:
     async def start(self, gateway=None) -> None:
         """
         Start the time synchronization service.
-        
+
         Args:
             gateway: BinanceGateway instance for fetching server time
         """
@@ -146,7 +146,7 @@ class TimeSync:
     def get_synchronized_timestamp(self) -> int:
         """
         Get timestamp synchronized with server time.
-        
+
         Returns:
             Timestamp in milliseconds adjusted for server time offset
         """
@@ -155,7 +155,7 @@ class TimeSync:
     def get_recv_window(self) -> int:
         """
         Get the receive window for API requests.
-        
+
         Returns:
             Receive window in milliseconds
         """
@@ -164,7 +164,7 @@ class TimeSync:
     def is_synchronized(self) -> bool:
         """
         Check if time is synchronized.
-        
+
         Returns:
             True if synchronized within the last sync interval
         """
@@ -177,7 +177,7 @@ class TimeSync:
     def get_offset(self) -> int:
         """
         Get current time offset.
-        
+
         Returns:
             Time offset in milliseconds
         """
@@ -186,7 +186,7 @@ class TimeSync:
     def get_statistics(self) -> dict:
         """
         Get time synchronization statistics.
-        
+
         Returns:
             Dictionary with sync statistics
         """
@@ -206,7 +206,7 @@ class TimeSync:
     async def ensure_synchronized(self) -> None:
         """
         Ensure time is synchronized, sync if necessary.
-        
+
         Raises:
             RuntimeError: If synchronization fails
         """

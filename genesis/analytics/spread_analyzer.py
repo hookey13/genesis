@@ -9,11 +9,11 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Optional
 
 import structlog
 
 from genesis.core.exceptions import ValidationError
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 

@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -71,7 +71,7 @@ class TransitionMonitor:
 
     def __init__(self, session: Optional[Session] = None):
         """Initialize transition monitor.
-        
+
         Args:
             session: Optional database session
         """
@@ -85,11 +85,11 @@ class TransitionMonitor:
         current_tier: str
     ) -> TransitionProximity:
         """Check if balance is approaching next tier threshold.
-        
+
         Args:
             balance: Current account balance in USDT
             current_tier: Current tier name
-            
+
         Returns:
             TransitionProximity with details about distance to threshold
         """
@@ -147,7 +147,7 @@ class TransitionMonitor:
         check_interval_seconds: int = 60
     ) -> None:
         """Start monitoring an account for tier transitions.
-        
+
         Args:
             account_id: Account to monitor
             check_interval_seconds: How often to check proximity
@@ -172,7 +172,7 @@ class TransitionMonitor:
 
     async def stop_monitoring(self, account_id: str) -> None:
         """Stop monitoring an account.
-        
+
         Args:
             account_id: Account to stop monitoring
         """
@@ -200,7 +200,7 @@ class TransitionMonitor:
         check_interval_seconds: int
     ) -> None:
         """Monitor account for tier transition proximity.
-        
+
         Args:
             account_id: Account to monitor
             check_interval_seconds: Check interval
@@ -264,7 +264,7 @@ class TransitionMonitor:
         last_proximity: Optional[TransitionProximity]
     ) -> None:
         """Handle detection of approaching tier transition.
-        
+
         Args:
             account_id: Account approaching transition
             proximity: Current proximity details
@@ -310,7 +310,7 @@ class TransitionMonitor:
         proximity: TransitionProximity
     ) -> None:
         """Create or update transition record in database.
-        
+
         Args:
             account_id: Account ID
             proximity: Proximity details
@@ -357,7 +357,7 @@ class TransitionMonitor:
         proximity: TransitionProximity
     ) -> None:
         """Enhance behavioral monitoring for approaching transition.
-        
+
         Args:
             account_id: Account ID
             proximity: Proximity details
@@ -401,7 +401,7 @@ class TransitionMonitor:
         proximity: TransitionProximity
     ) -> None:
         """Handle critical proximity to tier threshold.
-        
+
         Args:
             account_id: Account ID
             proximity: Proximity details
@@ -430,10 +430,10 @@ class TransitionMonitor:
 
     def _get_next_tier_info(self, current_tier: str) -> tuple[Optional[str], Optional[Decimal]]:
         """Get next tier name and threshold.
-        
+
         Args:
             current_tier: Current tier name
-            
+
         Returns:
             Tuple of (next_tier_name, threshold) or (None, None) if at highest
         """
@@ -454,7 +454,7 @@ class TransitionMonitor:
 
     def get_monitoring_stats(self) -> dict[str, Any]:
         """Get monitoring statistics.
-        
+
         Returns:
             Dictionary of monitoring stats
         """

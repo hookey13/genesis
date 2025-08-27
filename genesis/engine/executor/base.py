@@ -10,12 +10,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
 from uuid import uuid4
 
 import structlog
 
 from genesis.core.models import TradingTier
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -103,7 +103,7 @@ class ExecutionStrategy(str, Enum):
 class OrderExecutor(ABC):
     """
     Abstract base class for order execution strategies.
-    
+
     This class defines the interface that all concrete executors must implement.
     Each tier has its own executor with appropriate features.
     """
@@ -111,7 +111,7 @@ class OrderExecutor(ABC):
     def __init__(self, tier: TradingTier):
         """
         Initialize the order executor.
-        
+
         Args:
             tier: Current trading tier
         """
@@ -124,11 +124,11 @@ class OrderExecutor(ABC):
     async def execute_market_order(self, order: Order, confirmation_required: bool = True) -> ExecutionResult:
         """
         Execute a market order.
-        
+
         Args:
             order: Order to execute
             confirmation_required: Whether to require confirmation before execution
-            
+
         Returns:
             ExecutionResult with execution details
         """
@@ -137,11 +137,11 @@ class OrderExecutor(ABC):
     async def execute_order(self, order: Order, strategy: ExecutionStrategy = ExecutionStrategy.MARKET) -> ExecutionResult:
         """
         Execute an order with the specified strategy.
-        
+
         Args:
             order: Order to execute
             strategy: Execution strategy to use
-            
+
         Returns:
             ExecutionResult with execution details
         """
@@ -161,10 +161,10 @@ class OrderExecutor(ABC):
     async def route_order(self, order: Order) -> "RoutedOrder":
         """
         Route an order using smart routing logic.
-        
+
         Args:
             order: Order to route
-            
+
         Returns:
             RoutedOrder with routing decision
         """
@@ -184,11 +184,11 @@ class OrderExecutor(ABC):
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """
         Cancel an existing order.
-        
+
         Args:
             order_id: Exchange order ID to cancel
             symbol: Trading symbol
-            
+
         Returns:
             True if cancellation successful
         """
@@ -198,10 +198,10 @@ class OrderExecutor(ABC):
     async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         """
         Emergency cancel all open orders.
-        
+
         Args:
             symbol: Optional symbol to filter cancellations
-            
+
         Returns:
             Number of orders cancelled
         """
@@ -211,11 +211,11 @@ class OrderExecutor(ABC):
     async def get_order_status(self, order_id: str, symbol: str) -> Order:
         """
         Get current status of an order.
-        
+
         Args:
             order_id: Order ID to check
             symbol: Trading symbol
-            
+
         Returns:
             Order with current status
         """
@@ -224,7 +224,7 @@ class OrderExecutor(ABC):
     def generate_client_order_id(self) -> str:
         """
         Generate a unique client order ID for idempotency.
-        
+
         Returns:
             Unique client order ID
         """
@@ -233,12 +233,12 @@ class OrderExecutor(ABC):
     def calculate_slippage(self, expected_price: Decimal, actual_price: Decimal, side: OrderSide) -> Decimal:
         """
         Calculate slippage percentage between expected and actual price.
-        
+
         Args:
             expected_price: Expected execution price
             actual_price: Actual execution price
             side: Order side (buy/sell)
-            
+
         Returns:
             Slippage percentage (positive = unfavorable, negative = favorable)
         """
@@ -257,10 +257,10 @@ class OrderExecutor(ABC):
     def validate_order(self, order: Order) -> None:
         """
         Validate order parameters.
-        
+
         Args:
             order: Order to validate
-            
+
         Raises:
             ValueError: If order parameters are invalid
         """

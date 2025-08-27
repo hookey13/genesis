@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Revenge trading pattern detection indicator."""
 from __future__ import annotations
 
@@ -33,7 +34,7 @@ class RevengeTradingDetector:
         size_multiplier_threshold: Decimal = Decimal('1.5')
     ):
         """Initialize revenge trading detector.
-        
+
         Args:
             loss_streak_threshold: Number of consecutive losses to trigger
             time_window_minutes: Time window to analyze patterns
@@ -57,7 +58,7 @@ class RevengeTradingDetector:
         timestamp: Optional[datetime] = None
     ) -> None:
         """Record a trade result for pattern detection.
-        
+
         Args:
             profile_id: Profile identifier
             pnl: Profit/loss from trade
@@ -101,11 +102,11 @@ class RevengeTradingDetector:
         current_metric: BehavioralMetric
     ) -> Optional[dict]:
         """Detect revenge trading pattern.
-        
+
         Args:
             profile_id: Profile identifier
             current_metric: Current behavioral metric
-            
+
         Returns:
             Detection result if pattern found, None otherwise
         """
@@ -151,7 +152,7 @@ class RevengeTradingDetector:
 
     def _clean_old_losses(self, profile_id: str) -> None:
         """Remove losses outside the time window.
-        
+
         Args:
             profile_id: Profile identifier
         """
@@ -166,10 +167,10 @@ class RevengeTradingDetector:
 
     def _get_recent_losses(self, profile_id: str) -> list[TradingLoss]:
         """Get recent losses within time window.
-        
+
         Args:
             profile_id: Profile identifier
-            
+
         Returns:
             List of recent losses
         """
@@ -184,7 +185,7 @@ class RevengeTradingDetector:
 
     def reset_profile(self, profile_id: str) -> None:
         """Reset tracking for a profile.
-        
+
         Args:
             profile_id: Profile identifier
         """

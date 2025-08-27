@@ -14,9 +14,10 @@ from enum import Enum
 
 import structlog
 
+from typing import Optional
+
 from genesis.core.exceptions import StateError, ValidationError
 from genesis.data.models_db import (
-from typing import Optional
     PaperTradingSession,
     Session,
     TierTransition,
@@ -120,7 +121,7 @@ class PaperTradingEnforcer:
 
     def __init__(self, session: Optional[Session] = None):
         """Initialize paper trading enforcer.
-        
+
         Args:
             session: Optional database session
         """
@@ -136,16 +137,16 @@ class PaperTradingEnforcer:
         transition_id: Optional[str] = None
     ) -> str:
         """Create and enforce paper trading requirement.
-        
+
         Args:
             account_id: Account required to paper trade
             strategy: Strategy/execution method to practice
             duration_hours: Minimum duration required
             transition_id: Optional tier transition ID
-            
+
         Returns:
             Session ID for tracking
-            
+
         Raises:
             ValidationError: If requirements invalid
         """
@@ -208,7 +209,7 @@ class PaperTradingEnforcer:
         trade: PaperTrade
     ) -> None:
         """Record a paper trade in the session.
-        
+
         Args:
             session_id: Paper trading session ID
             trade: Paper trade to record
@@ -237,13 +238,13 @@ class PaperTradingEnforcer:
         closed_at: Optional[datetime] = None
     ) -> PaperTrade:
         """Close a paper trade and calculate P&L.
-        
+
         Args:
             session_id: Session ID
             trade_id: Trade to close
             exit_price: Exit price
             closed_at: Optional close timestamp
-            
+
         Returns:
             Updated paper trade
         """
@@ -287,10 +288,10 @@ class PaperTradingEnforcer:
 
     async def get_session_metrics(self, session_id: str) -> SessionMetrics:
         """Get current metrics for a paper trading session.
-        
+
         Args:
             session_id: Session to get metrics for
-            
+
         Returns:
             SessionMetrics with current performance
         """
@@ -363,10 +364,10 @@ class PaperTradingEnforcer:
 
     async def check_session_completion(self, session_id: str) -> tuple[bool, list[str]]:
         """Check if paper trading session meets completion requirements.
-        
+
         Args:
             session_id: Session to check
-            
+
         Returns:
             Tuple of (is_complete, failure_reasons)
         """
@@ -428,14 +429,14 @@ class PaperTradingEnforcer:
         force: bool = False
     ) -> SessionMetrics:
         """Complete a paper trading session.
-        
+
         Args:
             session_id: Session to complete
             force: Force completion even if requirements not met
-            
+
         Returns:
             Final session metrics
-            
+
         Raises:
             ValidationError: If requirements not met and not forced
         """
@@ -496,7 +497,7 @@ class PaperTradingEnforcer:
 
     async def cancel_session(self, session_id: str, reason: str) -> None:
         """Cancel a paper trading session.
-        
+
         Args:
             session_id: Session to cancel
             reason: Reason for cancellation
@@ -530,7 +531,7 @@ class PaperTradingEnforcer:
         duration_hours: int
     ) -> None:
         """Monitor paper trading session for timeout.
-        
+
         Args:
             session_id: Session to monitor
             duration_hours: Maximum duration
@@ -560,7 +561,7 @@ class PaperTradingEnforcer:
 
     async def _update_session_metrics(self, session_id: str) -> None:
         """Update session metrics in database.
-        
+
         Args:
             session_id: Session to update
         """
@@ -589,10 +590,10 @@ class PaperTradingEnforcer:
 
     def get_active_sessions(self, account_id: Optional[str] = None) -> list[str]:
         """Get list of active paper trading sessions.
-        
+
         Args:
             account_id: Optional filter by account
-            
+
         Returns:
             List of active session IDs
         """

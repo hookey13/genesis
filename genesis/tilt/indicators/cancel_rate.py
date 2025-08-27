@@ -19,7 +19,7 @@ class CancelRateIndicator:
     def __init__(self, window_minutes: int = 60):
         """
         Initialize the cancel rate indicator.
-        
+
         Args:
             window_minutes: Time window for rate calculation
         """
@@ -30,7 +30,7 @@ class CancelRateIndicator:
     def record_order_placed(self, order_id: str, timestamp: datetime):
         """
         Record an order placement.
-        
+
         Args:
             order_id: Unique order identifier
             timestamp: When the order was placed
@@ -40,7 +40,7 @@ class CancelRateIndicator:
     def record_order_cancelled(self, order_id: str, timestamp: datetime):
         """
         Record an order cancellation.
-        
+
         Args:
             order_id: Unique order identifier
             timestamp: When the order was cancelled
@@ -50,7 +50,7 @@ class CancelRateIndicator:
     def record_order_filled(self, order_id: str, timestamp: datetime):
         """
         Record an order fill.
-        
+
         Args:
             order_id: Unique order identifier
             timestamp: When the order was filled
@@ -60,7 +60,7 @@ class CancelRateIndicator:
     def _add_event(self, timestamp: datetime, event_type: str, order_id: str):
         """
         Add an order event to the history.
-        
+
         Args:
             timestamp: Event timestamp
             event_type: Type of event (placed/cancelled/filled)
@@ -87,7 +87,7 @@ class CancelRateIndicator:
     def calculate_cancel_rate(self) -> Decimal:
         """
         Calculate current cancellation rate.
-        
+
         Returns:
             Cancellation rate (0.0 to 1.0)
         """
@@ -131,7 +131,7 @@ class CancelRateIndicator:
     def get_pattern_analysis(self) -> dict:
         """
         Analyze cancellation patterns.
-        
+
         Returns:
             Dictionary with pattern analysis
         """
@@ -205,10 +205,10 @@ class CancelRateIndicator:
     def _detect_rapid_cancels(self, threshold_seconds: int = 5) -> int:
         """
         Detect orders cancelled within seconds of placement.
-        
+
         Args:
             threshold_seconds: Time threshold for rapid cancellation
-            
+
         Returns:
             Number of rapid cancellations detected
         """
@@ -246,7 +246,7 @@ class CancelRateIndicator:
     def _get_cancel_times(self) -> list[Decimal]:
         """
         Calculate time between order placement and cancellation.
-        
+
         Returns:
             List of cancellation times in seconds
         """
@@ -278,10 +278,10 @@ class CancelRateIndicator:
     def detect_indecision_pattern(self, threshold: Decimal = Decimal("0.5")) -> bool:
         """
         Detect indecision pattern (high cancellation rate).
-        
+
         Args:
             threshold: Cancellation rate threshold
-            
+
         Returns:
             True if indecision pattern detected
         """
@@ -300,7 +300,7 @@ class CancelRateIndicator:
     def get_streak_analysis(self) -> dict:
         """
         Analyze consecutive cancellation streaks.
-        
+
         Returns:
             Streak analysis data
         """

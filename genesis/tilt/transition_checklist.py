@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -155,10 +155,10 @@ class ChecklistItem:
 
     def validate_response(self, response: str) -> tuple[bool, Optional[str]]:
         """Validate a response for this item.
-        
+
         Args:
             response: Response text to validate
-            
+
         Returns:
             Tuple of (is_valid, error_message)
         """
@@ -208,7 +208,7 @@ class TransitionChecklist:
 
     def __init__(self, session: Optional[Session] = None):
         """Initialize transition checklist.
-        
+
         Args:
             session: Optional database session
         """
@@ -221,14 +221,14 @@ class TransitionChecklist:
         target_tier: str
     ) -> list[ChecklistItem]:
         """Create a checklist for tier transition.
-        
+
         Args:
             transition_id: Tier transition ID
             target_tier: Target tier name
-            
+
         Returns:
             List of checklist items
-            
+
         Raises:
             ValidationError: If target tier unknown
         """
@@ -299,15 +299,15 @@ class TransitionChecklist:
         response: str
     ) -> ChecklistItem:
         """Complete a checklist item with response.
-        
+
         Args:
             transition_id: Transition ID
             item_name: Item name to complete
             response: Response text
-            
+
         Returns:
             Updated checklist item
-            
+
         Raises:
             ValidationError: If item not found or response invalid
         """
@@ -365,10 +365,10 @@ class TransitionChecklist:
 
     async def get_progress(self, transition_id: str) -> ChecklistProgress:
         """Get checklist completion progress.
-        
+
         Args:
             transition_id: Transition to check
-            
+
         Returns:
             ChecklistProgress with current status
         """
@@ -427,10 +427,10 @@ class TransitionChecklist:
         transition_id: str
     ) -> list[ChecklistItem]:
         """Get all checklist items for a transition.
-        
+
         Args:
             transition_id: Transition ID
-            
+
         Returns:
             List of checklist items
         """
@@ -441,10 +441,10 @@ class TransitionChecklist:
 
     async def validate_completion(self, transition_id: str) -> tuple[bool, list[str]]:
         """Validate that checklist is complete for transition.
-        
+
         Args:
             transition_id: Transition to validate
-            
+
         Returns:
             Tuple of (is_complete, missing_items)
         """
@@ -457,7 +457,7 @@ class TransitionChecklist:
 
     async def _load_checklist(self, transition_id: str) -> None:
         """Load checklist from database.
-        
+
         Args:
             transition_id: Transition ID to load
         """
@@ -502,7 +502,7 @@ class TransitionChecklist:
 
     async def _check_checklist_completion(self, transition_id: str) -> None:
         """Check if checklist is complete and update transition.
-        
+
         Args:
             transition_id: Transition to check
         """
@@ -530,11 +530,11 @@ class TransitionChecklist:
         item_name: str
     ) -> Optional[str]:
         """Get the prompt for a specific checklist item.
-        
+
         Args:
             target_tier: Target tier
             item_name: Item name
-            
+
         Returns:
             Prompt text or None if not found
         """
@@ -546,7 +546,7 @@ class TransitionChecklist:
 
     async def clear_checklist(self, transition_id: str) -> None:
         """Clear a checklist from memory.
-        
+
         Args:
             transition_id: Transition ID to clear
         """

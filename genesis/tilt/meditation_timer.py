@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Optional meditation timer for tilt recovery."""
 from __future__ import annotations
 

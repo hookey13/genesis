@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Multi-pair concurrent trading manager for Hunter tier and above."""
 
 import asyncio
@@ -57,7 +58,7 @@ class MultiPairManager:
         account_id: str
     ):
         """Initialize multi-pair manager.
-        
+
         Args:
             repository: Data repository for persistence
             state_manager: State machine for tier validation
@@ -96,11 +97,11 @@ class MultiPairManager:
 
     async def can_open_position(self, symbol: str, size: Decimal) -> bool:
         """Check if a new position can be opened.
-        
+
         Args:
             symbol: Trading pair symbol
             size: Position size in base currency
-            
+
         Returns:
             True if position can be opened, False otherwise
         """
@@ -167,10 +168,10 @@ class MultiPairManager:
 
     async def allocate_capital(self, signals: list[Signal]) -> dict[str, Decimal]:
         """Allocate capital across multiple signals intelligently.
-        
+
         Args:
             signals: List of trading signals to allocate capital to
-            
+
         Returns:
             Dictionary mapping symbol to allocated capital amount
         """
@@ -259,7 +260,7 @@ class MultiPairManager:
 
     async def get_active_positions(self) -> list[Position]:
         """Get all active positions.
-        
+
         Returns:
             List of active Position objects
         """
@@ -268,7 +269,7 @@ class MultiPairManager:
 
     async def calculate_portfolio_risk(self) -> PortfolioRisk:
         """Calculate portfolio-level risk metrics.
-        
+
         Returns:
             PortfolioRisk object with current risk assessment
         """
@@ -359,7 +360,7 @@ class MultiPairManager:
 
     async def add_position(self, position: Position) -> None:
         """Add a new position to tracking.
-        
+
         Args:
             position: Position object to add
         """
@@ -374,7 +375,7 @@ class MultiPairManager:
 
     async def remove_position(self, symbol: str) -> None:
         """Remove a position from tracking.
-        
+
         Args:
             symbol: Symbol of position to remove
         """
@@ -385,7 +386,7 @@ class MultiPairManager:
 
     async def update_correlations(self, correlations: dict[tuple[str, str], Decimal]) -> None:
         """Update position correlation matrix.
-        
+
         Args:
             correlations: Dictionary of (symbol1, symbol2) -> correlation coefficient
         """
@@ -422,10 +423,10 @@ class MultiPairManager:
 
     def _get_default_limits(self, tier: Tier) -> PortfolioLimits:
         """Get default limits based on tier.
-        
+
         Args:
             tier: Current account tier
-            
+
         Returns:
             Default PortfolioLimits for the tier
         """
@@ -462,10 +463,10 @@ class MultiPairManager:
 
     def _get_pair_limits(self, symbol: str) -> tuple[Decimal, Decimal]:
         """Get limits for a specific pair.
-        
+
         Args:
             symbol: Trading pair symbol
-            
+
         Returns:
             Tuple of (max_size, max_dollars)
         """
@@ -478,10 +479,10 @@ class MultiPairManager:
 
     async def _get_current_price(self, symbol: str) -> Decimal:
         """Get current price for a symbol.
-        
+
         Args:
             symbol: Trading pair symbol
-            
+
         Returns:
             Current price
         """
@@ -491,10 +492,10 @@ class MultiPairManager:
 
     async def _calculate_correlation_penalty(self, symbol: str) -> Decimal:
         """Calculate correlation penalty for a symbol.
-        
+
         Args:
             symbol: Trading pair to check
-            
+
         Returns:
             Penalty factor (0-1) based on correlation with existing positions
         """
@@ -527,10 +528,10 @@ class MultiPairManager:
 
     async def _calculate_max_drawdown(self, positions: list[Position]) -> Decimal:
         """Calculate maximum drawdown across positions.
-        
+
         Args:
             positions: List of positions
-            
+
         Returns:
             Maximum drawdown in dollars
         """
@@ -543,10 +544,10 @@ class MultiPairManager:
 
     async def _calculate_correlation_risk(self, positions: list[Position]) -> Decimal:
         """Calculate overall correlation risk.
-        
+
         Args:
             positions: List of positions
-            
+
         Returns:
             Correlation risk score (0-1)
         """

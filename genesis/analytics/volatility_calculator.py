@@ -8,13 +8,13 @@ and volatility percentile rankings for market analysis.
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 import structlog
 
 from genesis.core.exceptions import DataError
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 

@@ -1,13 +1,13 @@
 """Unit tests for meditation timer."""
-import pytest
 import asyncio
-from datetime import UTC, datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 from genesis.tilt.meditation_timer import (
-    MeditationTimer,
-    MeditationStatus,
     MeditationSession,
+    MeditationStatus,
+    MeditationTimer,
 )
 
 

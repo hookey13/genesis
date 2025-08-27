@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -87,10 +87,10 @@ class AchievementReport:
 
 def prevent_manual_tier_change(func: Callable) -> Callable:
     """Decorator to prevent manual tier changes outside state machine.
-    
+
     Args:
         func: Function to wrap
-        
+
     Returns:
         Wrapped function with protection
     """
@@ -118,7 +118,7 @@ class TierStateMachine:
 
     def __init__(self, session: Optional[Session] = None, event_bus: Optional[EventBus] = None):
         """Initialize tier state machine.
-        
+
         Args:
             session: Optional database session
             event_bus: Optional event bus for publishing events
@@ -128,11 +128,11 @@ class TierStateMachine:
 
     async def check_tier_requirement(self, account_id: str, required: Tier) -> bool:
         """Check if account meets tier requirement.
-        
+
         Args:
             account_id: Account to check
             required: Required tier level
-            
+
         Returns:
             True if account tier >= required tier
         """
@@ -161,10 +161,10 @@ class TierStateMachine:
 
     async def evaluate_progression(self, account_id: str) -> Optional[TierTransition]:
         """Evaluate if account is ready for tier progression.
-        
+
         Args:
             account_id: Account to evaluate
-            
+
         Returns:
             TierTransition if progression available, None otherwise
         """
@@ -190,12 +190,12 @@ class TierStateMachine:
         reason: str
     ) -> bool:
         """Request a tier change (promotion or demotion).
-        
+
         Args:
             account_id: Account to change
             new_tier: Target tier
             reason: Reason for change
-            
+
         Returns:
             True if change approved and executed
         """
@@ -291,7 +291,7 @@ class TierStateMachine:
 
     async def force_demotion(self, account_id: str, new_tier: str, reason: str) -> None:
         """Force emergency tier demotion.
-        
+
         Args:
             account_id: Account to demote
             new_tier: Target tier (must be lower)
@@ -340,7 +340,7 @@ class TierStateMachine:
 
     async def celebrate_tier_achievement(self, account_id: str, new_tier: str) -> None:
         """Celebrate tier achievement with muted recognition.
-        
+
         Args:
             account_id: Account that achieved new tier
             new_tier: New tier achieved
@@ -382,11 +382,11 @@ class TierStateMachine:
         new_tier: str
     ) -> AchievementReport:
         """Generate achievement report for tier transition.
-        
+
         Args:
             account_id: Account ID
             new_tier: New tier achieved
-            
+
         Returns:
             AchievementReport with journey summary
         """
@@ -444,10 +444,10 @@ class TierStateMachine:
 
     def _create_achievement_message(self, report: AchievementReport) -> str:
         """Create muted achievement message.
-        
+
         Args:
             report: Achievement report
-            
+
         Returns:
             Professional, muted message
         """
@@ -476,12 +476,12 @@ class TierStateMachine:
         days: int
     ) -> str:
         """Generate journey summary text.
-        
+
         Args:
             from_tier: Previous tier
             to_tier: New tier
             days: Days at previous tier
-            
+
         Returns:
             Journey summary
         """
@@ -496,7 +496,7 @@ class TierStateMachine:
         message: str
     ) -> None:
         """Store achievement record.
-        
+
         Args:
             report: Achievement report
             message: Achievement message
@@ -511,7 +511,7 @@ class TierStateMachine:
 
     async def _update_tier_badge(self, account_id: str, new_tier: str) -> None:
         """Update UI tier badge.
-        
+
         Args:
             account_id: Account ID
             new_tier: New tier
@@ -525,10 +525,10 @@ class TierStateMachine:
 
     def get_next_tier(self, current_tier: str) -> Optional[str]:
         """Get the next tier in progression.
-        
+
         Args:
             current_tier: Current tier name
-            
+
         Returns:
             Next tier name or None if at highest
         """
@@ -546,10 +546,10 @@ class TierStateMachine:
 
     def get_tier_requirements(self, tier: str) -> dict[str, Any]:
         """Get requirements for a tier.
-        
+
         Args:
             tier: Tier name
-            
+
         Returns:
             Dictionary of requirements
         """
@@ -589,11 +589,11 @@ class TierStateMachine:
         new_tier: Tier
     ) -> TransitionResult:
         """Enforce automatic tier transition with validation.
-        
+
         Args:
             account: Account to transition
             new_tier: Target tier
-            
+
         Returns:
             TransitionResult indicating outcome
         """
@@ -685,7 +685,7 @@ class TierStateMachine:
 
     async def apply_grace_period(self, account_id: str, hours: int = GRACE_PERIOD_HOURS) -> None:
         """Apply grace period after tier transition.
-        
+
         Args:
             account_id: Account to apply grace period
             hours: Grace period duration in hours
@@ -711,10 +711,10 @@ class TierStateMachine:
 
     async def is_in_grace_period(self, account: AccountDB) -> bool:
         """Check if account is in grace period.
-        
+
         Args:
             account: Account to check
-            
+
         Returns:
             True if in grace period
         """
@@ -726,11 +726,11 @@ class TierStateMachine:
 
     async def validate_requirements(self, account: AccountDB, target_tier: Tier) -> bool:
         """Validate all requirements for tier transition.
-        
+
         Args:
             account: Account to validate
             target_tier: Target tier
-            
+
         Returns:
             True if all requirements met
         """
@@ -780,10 +780,10 @@ class TierStateMachine:
 
     def get_available_features(self, tier: str) -> list[str]:
         """Get available features for a tier.
-        
+
         Args:
             tier: Tier name
-            
+
         Returns:
             List of available features
         """
@@ -840,7 +840,7 @@ class TierStateMachine:
         completion_value: Any
     ) -> None:
         """Handle gate completion and check for tier eligibility.
-        
+
         Args:
             account_id: Account ID
             gate_name: Name of the completed gate

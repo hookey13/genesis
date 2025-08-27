@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 
@@ -252,7 +252,7 @@ class TierProgressionEvent(Event):
                  **kwargs):
         """
         Initialize tier progression event.
-        
+
         Args:
             account_id: Account ID
             from_tier: Previous tier
@@ -286,7 +286,7 @@ class TierDemotionEvent(Event):
                  **kwargs):
         """
         Initialize tier demotion event.
-        
+
         Args:
             account_id: Account ID
             from_tier: Previous tier
@@ -320,7 +320,7 @@ class GateCompletedEvent(Event):
                  **kwargs):
         """
         Initialize gate completed event.
-        
+
         Args:
             account_id: Account ID
             gate_name: Name of the completed gate

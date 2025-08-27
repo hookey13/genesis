@@ -7,7 +7,7 @@ and P&L tracking with strict adherence to tier-based limits.
 
 from dataclasses import dataclass
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
-from typing import Optional, ClassVar
+from typing import ClassVar, Optional
 
 import structlog
 
@@ -376,10 +376,10 @@ class RiskEngine:
     async def check_risk_limits(self, order_params: dict) -> RiskDecision:
         """
         Check if an order meets risk requirements.
-        
+
         Args:
             order_params: Dictionary with symbol, side, quantity
-            
+
         Returns:
             RiskDecision with approval status and details
         """
@@ -620,7 +620,7 @@ class RiskEngine:
     def record_trade_result(self, strategy_id: str, trade: Trade) -> None:
         """
         Record a completed trade for Kelly sizing calculations.
-        
+
         Args:
             strategy_id: Strategy identifier
             trade: Completed trade result
@@ -637,10 +637,10 @@ class RiskEngine:
     def validate_portfolio_risk(self, positions: list[Position]) -> dict:
         """
         Validate portfolio-level risk for multi-pair trading.
-        
+
         Args:
             positions: List of positions to validate
-            
+
         Returns:
             RiskDecision dictionary with validation results
         """

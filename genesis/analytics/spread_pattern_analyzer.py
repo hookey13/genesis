@@ -9,13 +9,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 import structlog
 
 from genesis.analytics.spread_analyzer import SpreadAnalyzer
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 

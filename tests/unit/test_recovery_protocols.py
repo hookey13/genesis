@@ -1,12 +1,13 @@
 """Unit tests for recovery protocols with position size management."""
-import pytest
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
+
+import pytest
 
 from genesis.tilt.recovery_protocols import (
-    RecoveryProtocolManager,
     RecoveryProtocol,
+    RecoveryProtocolManager,
     RecoveryStage,
 )
 

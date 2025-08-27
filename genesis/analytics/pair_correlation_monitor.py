@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Correlation monitoring system for multi-pair trading."""
 
 import asyncio
@@ -75,7 +76,7 @@ class CorrelationMonitor:
 
     def __init__(self, repository: Repository):
         """Initialize correlation monitor.
-        
+
         Args:
             repository: Data repository for persistence
         """
@@ -88,7 +89,7 @@ class CorrelationMonitor:
 
     async def update_price(self, symbol: str, price: Decimal, timestamp: Optional[datetime] = None) -> None:
         """Update price for a symbol.
-        
+
         Args:
             symbol: Trading pair symbol
             price: Current price
@@ -115,12 +116,12 @@ class CorrelationMonitor:
         window_minutes: int = None
     ) -> Decimal:
         """Calculate correlation between two symbols.
-        
+
         Args:
             symbol1: First trading pair
-            symbol2: Second trading pair  
+            symbol2: Second trading pair
             window_minutes: Time window for calculation
-            
+
         Returns:
             Correlation coefficient between -1 and 1
         """
@@ -218,10 +219,10 @@ class CorrelationMonitor:
 
     async def get_correlation_matrix(self, symbols: Optional[list[str]] = None) -> np.ndarray:
         """Get correlation matrix for specified symbols.
-        
+
         Args:
             symbols: List of symbols (uses all available if None)
-            
+
         Returns:
             Numpy array with correlation matrix
         """
@@ -252,10 +253,10 @@ class CorrelationMonitor:
         threshold: Optional[Decimal] = None
     ) -> list[tuple[str, str, Decimal]]:
         """Get pairs with correlation above threshold.
-        
+
         Args:
             threshold: Correlation threshold (uses WARNING_THRESHOLD if None)
-            
+
         Returns:
             List of (symbol1, symbol2, correlation) tuples
         """
@@ -287,10 +288,10 @@ class CorrelationMonitor:
         positions: list[Position]
     ) -> dict[str, any]:
         """Analyze correlation across portfolio positions.
-        
+
         Args:
             positions: List of active positions
-            
+
         Returns:
             Dictionary with correlation analysis
         """
@@ -339,10 +340,10 @@ class CorrelationMonitor:
 
     async def get_recent_alerts(self, limit: int = 10) -> list[CorrelationAlert]:
         """Get recent correlation alerts.
-        
+
         Args:
             limit: Maximum number of alerts to return
-            
+
         Returns:
             List of recent alerts
         """
@@ -359,7 +360,7 @@ class CorrelationMonitor:
 
     async def _load_price_history(self, symbol: str, window_minutes: int) -> None:
         """Load price history from database.
-        
+
         Args:
             symbol: Trading pair symbol
             window_minutes: Time window to load
@@ -399,7 +400,7 @@ class CorrelationMonitor:
         correlation: Decimal
     ) -> None:
         """Check if correlation triggers an alert.
-        
+
         Args:
             symbol1: First symbol
             symbol2: Second symbol
@@ -452,7 +453,7 @@ class CorrelationMonitor:
         window_minutes: int
     ) -> None:
         """Store correlation in database.
-        
+
         Args:
             symbol1: First symbol
             symbol2: Second symbol

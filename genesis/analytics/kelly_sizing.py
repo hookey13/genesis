@@ -9,13 +9,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_DOWN, Decimal
 from enum import Enum
+from typing import Optional
 
 import numpy as np
 from scipy import stats
 
 from genesis.core.constants import ConvictionLevel, TradingTier
 from genesis.core.models import Trade
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ class VolatilityRegime(Enum):
 class KellyCalculator:
     """
     Kelly Criterion-based position sizing calculator.
-    
+
     Provides optimal position sizing based on historical performance,
     with fractional Kelly implementation for safety.
     """
@@ -81,7 +81,7 @@ class KellyCalculator:
     ):
         """
         Initialize Kelly calculator.
-        
+
         Args:
             default_fraction: Default fractional Kelly multiplier (safety factor)
             min_trades: Minimum trades required for Kelly calculation
@@ -102,17 +102,17 @@ class KellyCalculator:
     ) -> Decimal:
         """
         Calculate raw Kelly fraction.
-        
+
         Kelly formula: f* = (p * b - q) / b
         Where:
         - p = probability of winning
         - q = probability of losing (1 - p)
         - b = win/loss ratio
-        
+
         Args:
             win_rate: Probability of winning (0 to 1)
             win_loss_ratio: Average win / average loss ratio
-            
+
         Returns:
             Kelly fraction (capped at max_kelly)
         """
@@ -148,12 +148,12 @@ class KellyCalculator:
     ) -> Decimal:
         """
         Calculate position size using fractional Kelly.
-        
+
         Args:
             kelly_f: Raw Kelly fraction
             balance: Account balance
             fraction: Fractional Kelly multiplier (default: 0.25)
-            
+
         Returns:
             Position size in base currency
         """
@@ -176,11 +176,11 @@ class KellyCalculator:
     ) -> dict[str, Decimal]:
         """
         Estimate trading edge from historical trades.
-        
+
         Args:
             trades: List of completed trades
             confidence_level: Confidence level for interval estimation
-            
+
         Returns:
             Dictionary with win_rate, win_loss_ratio, and confidence metrics
         """
@@ -233,7 +233,7 @@ class KellyCalculator:
     ) -> Decimal:
         """
         Calculate confidence interval for win rate.
-        
+
         Uses Wilson score interval for binomial proportion.
         """
         if sample_size < self.min_trades:
@@ -263,12 +263,12 @@ class KellyCalculator:
     ) -> StrategyEdge:
         """
         Calculate edge for a specific strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
             trades: Historical trades for the strategy
             window_days: Days to look back (default: lookback_days)
-            
+
         Returns:
             StrategyEdge with calculated metrics
         """
@@ -327,14 +327,14 @@ class KellyCalculator:
     ) -> Decimal:
         """
         Adjust Kelly fraction based on recent performance.
-        
+
         Reduces Kelly during drawdowns and increases during winning streaks.
-        
+
         Args:
             base_kelly: Base Kelly fraction
             recent_trades: Recent trade history
             window_size: Number of trades to consider
-            
+
         Returns:
             Adjusted Kelly fraction
         """
@@ -380,14 +380,14 @@ class KellyCalculator:
     ) -> Decimal:
         """
         Apply conviction multiplier to Kelly-based position size.
-        
+
         Strategist+ feature for high-conviction trade overrides.
-        
+
         Args:
             kelly_size: Base Kelly position size
             conviction: Trade conviction level
             multipliers: Custom multipliers (optional)
-            
+
         Returns:
             Adjusted position size
         """
@@ -417,13 +417,13 @@ class KellyCalculator:
     ) -> Decimal:
         """
         Enforce minimum and maximum position size boundaries.
-        
+
         Args:
             calculated_size: Calculated position size
             balance: Account balance
             tier: Current trading tier
             boundaries: Custom boundaries (min_pct, max_pct)
-            
+
         Returns:
             Position size within boundaries
         """
@@ -456,12 +456,12 @@ class KellyCalculator:
     ) -> tuple[Decimal, VolatilityRegime]:
         """
         Calculate position size multiplier based on volatility.
-        
+
         Args:
             returns: Recent returns for volatility calculation
             lookback: Number of periods for volatility calculation
             max_reduction: Maximum reduction factor in high volatility
-            
+
         Returns:
             Tuple of (multiplier, volatility regime)
         """
@@ -503,7 +503,7 @@ class KellyCalculator:
     ) -> SimulationResult:
         """
         Run Monte Carlo simulation to validate Kelly parameters.
-        
+
         Args:
             win_rate: Historical win rate
             win_loss_ratio: Average win/loss ratio
@@ -511,7 +511,7 @@ class KellyCalculator:
             initial_balance: Starting balance for simulation
             iterations: Number of simulation runs
             trades_per_iteration: Trades per simulation run
-            
+
         Returns:
             SimulationResult with statistics
         """

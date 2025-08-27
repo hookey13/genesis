@@ -9,9 +9,9 @@ import asyncio
 import time
 from collections import deque
 from dataclasses import dataclass
+from typing import Optional
 
 import structlog
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -36,7 +36,7 @@ class EndpointWeight:
 class RateLimiter:
     """
     Manages API rate limiting for Binance.
-    
+
     Binance uses a weight-based system where different endpoints consume
     different amounts of weight. The limit is 1200 weight per minute.
     """
@@ -74,7 +74,7 @@ class RateLimiter:
     def __init__(self, max_weight: int = 1200, window_seconds: int = 60, threshold_percent: float = 80.0):
         """
         Initialize the rate limiter.
-        
+
         Args:
             max_weight: Maximum weight allowed per window (default: 1200)
             window_seconds: Time window in seconds (default: 60)
@@ -117,12 +117,12 @@ class RateLimiter:
     def _get_endpoint_weight(self, method: str, endpoint: str, params: Optional[dict] = None) -> int:
         """
         Get the weight for a specific endpoint.
-        
+
         Args:
             method: HTTP method
             endpoint: API endpoint path
             params: Request parameters (for conditional weights)
-            
+
         Returns:
             Weight value for the endpoint
         """
@@ -153,7 +153,7 @@ class RateLimiter:
     async def check_and_wait(self, method: str, endpoint: str, params: Optional[dict] = None) -> None:
         """
         Check rate limit and wait if necessary.
-        
+
         Args:
             method: HTTP method
             endpoint: API endpoint
@@ -225,7 +225,7 @@ class RateLimiter:
     def get_current_utilization(self) -> float:
         """
         Get current rate limit utilization as a percentage.
-        
+
         Returns:
             Utilization percentage (0-100)
         """
@@ -235,7 +235,7 @@ class RateLimiter:
     def get_remaining_weight(self) -> int:
         """
         Get remaining weight in current window.
-        
+
         Returns:
             Remaining weight capacity
         """
@@ -253,7 +253,7 @@ class RateLimiter:
     def get_statistics(self) -> dict:
         """
         Get rate limiter statistics.
-        
+
         Returns:
             Dictionary with usage statistics
         """

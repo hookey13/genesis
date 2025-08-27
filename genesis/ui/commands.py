@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Command input and parsing system for Genesis trading terminal."""
 
 import re

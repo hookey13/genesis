@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import IntEnum
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 import structlog
@@ -101,11 +101,11 @@ class RecoveryProtocolManager:
         drawdown_pct: Decimal,
     ) -> RecoveryProtocol:
         """Initiate recovery protocol for drawdown breach.
-        
+
         Args:
             account_id: Account identifier
             drawdown_pct: Current drawdown percentage
-            
+
         Returns:
             Created recovery protocol for drawdown
         """
@@ -174,11 +174,11 @@ class RecoveryProtocolManager:
         trade_result: dict,
     ) -> RecoveryStage:
         """Update recovery progress based on trade results.
-        
+
         Args:
             protocol_id: Protocol identifier
             trade_result: Trade result dictionary
-            
+
         Returns:
             Updated recovery stage
         """

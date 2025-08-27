@@ -12,8 +12,9 @@ from uuid import uuid4
 
 import structlog
 
-from genesis.core.exceptions import (
 from typing import Optional
+
+from genesis.core.exceptions import (
     OrderExecutionError,
     SlippageAlert,
 )
@@ -36,7 +37,7 @@ logger = structlog.get_logger(__name__)
 class MarketOrderExecutor(OrderExecutor):
     """
     Market order executor for Sniper tier.
-    
+
     Provides simple market order execution with confirmations,
     slippage monitoring, and automatic stop-loss placement.
     """
@@ -51,7 +52,7 @@ class MarketOrderExecutor(OrderExecutor):
     ):
         """
         Initialize the market order executor.
-        
+
         Args:
             gateway: Binance gateway for exchange interaction
             account: Trading account
@@ -82,14 +83,14 @@ class MarketOrderExecutor(OrderExecutor):
     ) -> ExecutionResult:
         """
         Execute a market order with optional confirmation.
-        
+
         Args:
             order: Market order to execute
             confirmation_required: Whether to require user confirmation
-            
+
         Returns:
             ExecutionResult with execution details
-            
+
         Raises:
             OrderExecutionError: If order execution fails
             SlippageAlert: If slippage exceeds 0.5%
@@ -211,13 +212,13 @@ class MarketOrderExecutor(OrderExecutor):
     async def _get_confirmation(self, order: Order) -> bool:
         """
         Get user confirmation for order execution.
-        
+
         This is a placeholder - actual implementation would integrate
         with the terminal UI to prompt the user.
-        
+
         Args:
             order: Order requiring confirmation
-            
+
         Returns:
             True if confirmed, False if cancelled
         """
@@ -244,14 +245,14 @@ class MarketOrderExecutor(OrderExecutor):
     async def _verify_execution(self, order: Order, expected_price: Decimal) -> ExecutionResult:
         """
         Verify order execution and calculate slippage.
-        
+
         Args:
             order: Executed order
             expected_price: Expected execution price
-            
+
         Returns:
             ExecutionResult with verification details
-            
+
         Raises:
             SlippageAlert: If slippage exceeds 0.5%
         """
@@ -310,11 +311,11 @@ class MarketOrderExecutor(OrderExecutor):
     async def _place_stop_loss(self, entry_order: Order, entry_price: Decimal) -> Optional[Order]:
         """
         Place automatic stop-loss order after entry.
-        
+
         Args:
             entry_order: The entry order that was filled
             entry_price: Actual entry price
-            
+
         Returns:
             Stop-loss order if placed successfully
         """
@@ -383,11 +384,11 @@ class MarketOrderExecutor(OrderExecutor):
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """
         Cancel an existing order.
-        
+
         Args:
             order_id: Exchange order ID to cancel
             symbol: Trading symbol
-            
+
         Returns:
             True if cancellation successful
         """
@@ -413,10 +414,10 @@ class MarketOrderExecutor(OrderExecutor):
     async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         """
         Emergency cancel all open orders.
-        
+
         Args:
             symbol: Optional symbol to filter cancellations
-            
+
         Returns:
             Number of orders cancelled
         """
@@ -467,11 +468,11 @@ class MarketOrderExecutor(OrderExecutor):
     async def get_order_status(self, order_id: str, symbol: str) -> Order:
         """
         Get current status of an order.
-        
+
         Args:
             order_id: Order ID to check
             symbol: Trading symbol
-            
+
         Returns:
             Order with current status
         """

@@ -1,11 +1,10 @@
 """Unit tests for TWAP progress widget."""
 
-import pytest
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
-from textual.app import App
+import pytest
 from textual.widgets import Static
 
 from genesis.ui.widgets.twap_progress import TwapProgressWidget
@@ -100,14 +99,14 @@ class TestTwapProgressWidget:
     def test_twap_price_calculation(self, widget):
         """Test TWAP price calculation from slice history."""
         widget.total_quantity = Decimal("10.0")
-        
+
         # Add multiple slices
         slices = [
             {"executed_quantity": "2.0", "execution_price": "50000"},
             {"executed_quantity": "3.0", "execution_price": "50100"},
             {"executed_quantity": "2.0", "execution_price": "50200"},
         ]
-        
+
         for slice_data in slices:
             widget.add_slice_execution(slice_data)
 
@@ -120,15 +119,15 @@ class TestTwapProgressWidget:
         # Set up execution with some progress
         sample_execution_data["started_at"] = datetime.now()
         widget.update_execution(sample_execution_data)
-        
+
         with patch('genesis.ui.widgets.twap_progress.datetime') as mock_datetime:
             # Mock 30 seconds elapsed
             mock_datetime.now.return_value = widget.started_at.replace(
                 second=widget.started_at.second + 30
             )
-            
+
             widget.update_time_remaining()
-            
+
             # With 3 slices done in 30 seconds, expect ~70 seconds remaining for 7 slices
             assert widget.time_remaining_seconds > 0
 
@@ -187,7 +186,7 @@ class TestTwapProgressWidget:
     def test_create_header_with_execution(self, widget, sample_execution_data):
         """Test header creation with active execution."""
         widget.update_execution(sample_execution_data)
-        
+
         with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
             header = widget._create_header()
             assert header is not None
@@ -196,7 +195,7 @@ class TestTwapProgressWidget:
     def test_create_metrics_table(self, widget, sample_execution_data):
         """Test metrics table creation."""
         widget.update_execution(sample_execution_data)
-        
+
         with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
             table = widget._create_metrics_table()
             assert table is not None
@@ -216,7 +215,7 @@ class TestTwapProgressWidget:
             slice_data = sample_slice_data.copy()
             slice_data["slice_number"] = i + 1
             widget.slice_history.append(slice_data)
-        
+
         with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
             table = widget._create_slices_table()
             assert table is not None
@@ -225,7 +224,7 @@ class TestTwapProgressWidget:
     def test_status_colors(self, widget):
         """Test status color mapping."""
         statuses = ["ACTIVE", "PAUSED", "COMPLETED", "FAILED", "CANCELLED"]
-        
+
         for status in statuses:
             widget.status = status
             widget.execution_id = "test"
@@ -236,11 +235,11 @@ class TestTwapProgressWidget:
     def test_progress_calculation(self, widget, sample_execution_data):
         """Test progress percentage calculation."""
         widget.update_execution(sample_execution_data)
-        
+
         # 3 out of 10 slices = 30%
         progress_percent = (widget.completed_slices / widget.slice_count) * 100
         assert progress_percent == 30.0
-        
+
         # 3 out of 10 quantity = 30%
         quantity_percent = (widget.executed_quantity / widget.total_quantity) * 100
         assert quantity_percent == 30.0
@@ -248,16 +247,16 @@ class TestTwapProgressWidget:
     def test_multiple_slice_additions(self, widget):
         """Test adding multiple slices updates metrics correctly."""
         widget.total_quantity = Decimal("10.0")
-        
+
         slices = [
             {"executed_quantity": "1.0", "execution_price": "50000", "status": "EXECUTED"},
             {"executed_quantity": "1.5", "execution_price": "50100", "status": "EXECUTED"},
             {"executed_quantity": "0.5", "execution_price": "50200", "status": "EXECUTED"},
         ]
-        
+
         for slice_data in slices:
             widget.add_slice_execution(slice_data)
-        
+
         assert widget.executed_quantity == Decimal("3.0")
         assert widget.remaining_quantity == Decimal("7.0")
         assert widget.completed_slices == 3

@@ -9,13 +9,13 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 import structlog
 
 from genesis.core.events import Event, EventType
 from genesis.core.models import Side, Symbol
 from genesis.engine.event_bus import EventBus
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -98,7 +98,7 @@ class VWAPTracker:
 
     def __init__(self, event_bus: EventBus, window_minutes: int = 30):
         """Initialize VWAP tracker.
-        
+
         Args:
             event_bus: Event bus for emitting metrics
             window_minutes: Rolling window for VWAP calculation
@@ -159,7 +159,7 @@ class VWAPTracker:
 
     def add_trade(self, symbol: Symbol, trade: Trade):
         """Add a new trade to tracking.
-        
+
         Args:
             symbol: Trading symbol
             trade: Trade data
@@ -178,7 +178,7 @@ class VWAPTracker:
 
     def _clean_old_trades(self, symbol: str):
         """Remove trades older than the time window.
-        
+
         Args:
             symbol: Trading symbol string
         """
@@ -194,10 +194,10 @@ class VWAPTracker:
 
     def _calculate_vwap(self, symbol: str) -> Optional[VWAPMetrics]:
         """Calculate current VWAP for a symbol.
-        
+
         Args:
             symbol: Trading symbol string
-            
+
         Returns:
             VWAP metrics or None if no trades
         """
@@ -231,7 +231,7 @@ class VWAPTracker:
 
     async def _emit_metrics(self, metrics: VWAPMetrics):
         """Emit VWAP metrics via event bus.
-        
+
         Args:
             metrics: VWAP metrics to emit
         """
@@ -248,10 +248,10 @@ class VWAPTracker:
 
     def get_current_vwap(self, symbol: Symbol) -> Optional[Decimal]:
         """Get current VWAP for a symbol.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Current VWAP or None if not available
         """
@@ -275,12 +275,12 @@ class VWAPTracker:
         target_volume: Decimal
     ) -> ExecutionPerformance:
         """Start tracking an execution against VWAP benchmark.
-        
+
         Args:
             symbol: Trading symbol
             execution_id: Unique execution identifier
             target_volume: Target volume to execute
-            
+
         Returns:
             New execution performance tracker
         """
@@ -316,7 +316,7 @@ class VWAPTracker:
         volume: Decimal
     ):
         """Update execution with a new fill.
-        
+
         Args:
             execution_id: Execution identifier
             price: Fill price
@@ -353,11 +353,11 @@ class VWAPTracker:
         target_volume: Decimal
     ) -> Optional[ExecutionPerformance]:
         """Complete execution tracking and return final performance.
-        
+
         Args:
             execution_id: Execution identifier
             target_volume: Original target volume
-            
+
         Returns:
             Final execution performance or None
         """
@@ -395,11 +395,11 @@ class VWAPTracker:
         hours: int = 24
     ) -> dict:
         """Get aggregated performance statistics.
-        
+
         Args:
             symbol: Filter by symbol (optional)
             hours: Hours of history to analyze
-            
+
         Returns:
             Performance statistics dictionary
         """
@@ -440,11 +440,11 @@ class VWAPTracker:
         time_window: Optional[timedelta] = None
     ) -> Decimal:
         """Calculate VWAP from a list of trades.
-        
+
         Args:
             trades: List of trades
             time_window: Optional time window to filter trades
-            
+
         Returns:
             Calculated VWAP
         """

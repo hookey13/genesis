@@ -9,10 +9,10 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 import numpy as np
 import structlog
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -68,7 +68,7 @@ class BehavioralBaseline:
     def __init__(self, learning_days: int = BASELINE_LEARNING_DAYS):
         """
         Initialize the behavioral baseline calculator.
-        
+
         Args:
             learning_days: Number of days for initial baseline learning
         """
@@ -80,10 +80,10 @@ class BehavioralBaseline:
     def calculate_baseline(self, metrics: list[BehavioralMetric]) -> BaselineProfile:
         """
         Calculate baseline profile from a list of behavioral metrics.
-        
+
         Args:
             metrics: List of behavioral metrics
-            
+
         Returns:
             BaselineProfile with calculated normal ranges
         """
@@ -158,10 +158,10 @@ class BehavioralBaseline:
     def _calculate_metric_range(self, values: list[Decimal]) -> MetricRange:
         """
         Calculate the normal range for a metric using IQR method.
-        
+
         Args:
             values: List of metric values
-            
+
         Returns:
             MetricRange with statistical bounds
         """
@@ -199,11 +199,11 @@ class BehavioralBaseline:
     ) -> BaselineProfile:
         """
         Update baseline using a rolling window approach.
-        
+
         Args:
             current_baseline: Existing baseline profile
             new_metrics: New metrics to incorporate
-            
+
         Returns:
             Updated baseline profile
         """
@@ -259,12 +259,12 @@ class BehavioralBaseline:
     ) -> tuple[bool, Optional[Decimal]]:
         """
         Check if a metric is within normal baseline range.
-        
+
         Args:
             metric: The metric to check
             baseline: The baseline profile to compare against
             use_time_pattern: Whether to use time-of-day specific patterns
-            
+
         Returns:
             Tuple of (is_normal, deviation_score)
         """
@@ -302,10 +302,10 @@ class BehavioralBaseline:
     def reset_baseline(self, profile_id: str) -> BaselineProfile:
         """
         Reset baseline for a profile, clearing all learned patterns.
-        
+
         Args:
             profile_id: Profile ID to reset
-            
+
         Returns:
             Empty baseline profile
         """
@@ -338,7 +338,7 @@ class BehavioralMetricCollector:
     def register_indicator(self, name: str, indicator):
         """
         Register a behavioral indicator.
-        
+
         Args:
             name: Indicator name
             indicator: Indicator instance
@@ -348,10 +348,10 @@ class BehavioralMetricCollector:
     def collect_metric(self, action: dict) -> Optional[BehavioralMetric]:
         """
         Collect metric from a user action.
-        
+
         Args:
             action: User action dictionary
-            
+
         Returns:
             BehavioralMetric if collectible, None otherwise
         """

@@ -4,7 +4,7 @@ Displays real-time progress towards tier requirements and
 celebrates transitions with appropriate restraint.
 """
 
-from typing import Optional, Any
+from typing import Any, Optional
 
 from rich.console import RenderableType
 from rich.panel import Panel
@@ -32,7 +32,7 @@ class GateProgressBar(Widget):
         **kwargs
     ):
         """Initialize gate progress bar.
-        
+
         Args:
             gate_name: Name of the gate requirement
             current_value: Current progress value
@@ -62,7 +62,7 @@ class GateProgressBar(Widget):
 
     def update_progress(self, current_value: float) -> None:
         """Update progress value.
-        
+
         Args:
             current_value: New current value
         """
@@ -76,7 +76,7 @@ class TierCeremonyAnimation(Widget):
 
     def __init__(self, from_tier: str, to_tier: str, **kwargs):
         """Initialize ceremony animation.
-        
+
         Args:
             from_tier: Previous tier
             to_tier: New tier achieved
@@ -129,7 +129,7 @@ class FeatureTutorial(Widget):
 
     def __init__(self, feature_name: str, description: str, **kwargs):
         """Initialize feature tutorial.
-        
+
         Args:
             feature_name: Name of the unlocked feature
             description: Tutorial description
@@ -162,7 +162,7 @@ class TierGateProgressWidget(Widget):
 
     def __init__(self, state_machine: TierStateMachine, **kwargs):
         """Initialize tier gate progress widget.
-        
+
         Args:
             state_machine: Tier state machine instance
         """
@@ -286,7 +286,7 @@ class TierGateProgressWidget(Widget):
 
     async def trigger_ceremony(self, from_tier: str, to_tier: str) -> None:
         """Trigger tier transition ceremony.
-        
+
         Args:
             from_tier: Previous tier
             to_tier: New tier achieved
@@ -310,7 +310,7 @@ class TierGateProgressWidget(Widget):
 
     async def show_feature_tutorials(self, features: list[str]) -> None:
         """Show tutorials for newly unlocked features.
-        
+
         Args:
             features: List of feature names
         """
@@ -336,7 +336,7 @@ class TierTransitionHistory(Widget):
 
     def __init__(self, transitions: list[dict[str, Any]], **kwargs):
         """Initialize transition history.
-        
+
         Args:
             transitions: List of transition records
         """

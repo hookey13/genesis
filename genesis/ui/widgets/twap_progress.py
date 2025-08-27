@@ -7,6 +7,7 @@ including slice execution status, participation rates, and price tracking.
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 import structlog
 from rich.align import Align
@@ -20,7 +21,6 @@ from textual.containers import Container, Vertical
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Static
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -56,7 +56,7 @@ class TwapProgressBar(ProgressColumn):
 class TwapProgressWidget(Widget):
     """
     Widget for monitoring TWAP execution progress.
-    
+
     Displays:
     - Overall execution progress
     - Time remaining
@@ -108,7 +108,7 @@ class TwapProgressWidget(Widget):
     def update_execution(self, execution_data: dict) -> None:
         """
         Update the widget with new execution data.
-        
+
         Args:
             execution_data: Dictionary containing execution details
         """
@@ -137,7 +137,7 @@ class TwapProgressWidget(Widget):
     def add_slice_execution(self, slice_data: dict) -> None:
         """
         Add a new slice execution to the history.
-        
+
         Args:
             slice_data: Dictionary containing slice execution details
         """
@@ -416,7 +416,7 @@ class TwapProgressWidget(Widget):
     def complete_execution(self, final_metrics: dict) -> None:
         """
         Update display when execution completes.
-        
+
         Args:
             final_metrics: Final execution metrics
         """

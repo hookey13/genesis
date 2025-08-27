@@ -25,7 +25,7 @@ import logging.handlers
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 from structlog.processors import CallsiteParameter

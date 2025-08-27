@@ -5,7 +5,7 @@ Conflict resolution system for competing strategy signals.
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Any
+from typing import Any
 
 import structlog
 
@@ -41,8 +41,8 @@ class SignalConflict:
     conflicting_signals: list[dict[str, Any]]
     timestamp: datetime
     resolved: bool = False
-    resolution: Optional[dict[str, Any]] = None
-    resolution_method: Optional[ResolutionMethod] = None
+    resolution: dict[str, Any] | None = None
+    resolution_method: ResolutionMethod | None = None
 
 
 class ConflictResolver:
@@ -50,7 +50,7 @@ class ConflictResolver:
 
     def __init__(self, event_bus=None):
         """Initialize conflict resolver.
-        
+
         Args:
             event_bus: Event bus for publishing conflict events
         """
@@ -59,11 +59,11 @@ class ConflictResolver:
         self.conflict_history: list[SignalConflict] = []
         self.resolution_rules: dict[str, Any] = {}
         self.veto_strategies: set = set()
-        self.custom_rule_name: Optional[str] = None
+        self.custom_rule_name: str | None = None
 
     def set_resolution_method(self, method: ResolutionMethod) -> None:
         """Set the resolution method.
-        
+
         Args:
             method: Resolution method to use
         """
@@ -72,7 +72,7 @@ class ConflictResolver:
 
     def add_resolution_rule(self, name: str, rule: Any) -> None:
         """Add a custom resolution rule.
-        
+
         Args:
             name: Rule name
             rule: Rule function or configuration
@@ -82,7 +82,7 @@ class ConflictResolver:
 
     def add_veto_strategy(self, strategy_id: str) -> None:
         """Add a strategy with veto power.
-        
+
         Args:
             strategy_id: Strategy identifier
         """
@@ -91,7 +91,7 @@ class ConflictResolver:
 
     def remove_veto_strategy(self, strategy_id: str) -> None:
         """Remove a strategy's veto power.
-        
+
         Args:
             strategy_id: Strategy identifier
         """
@@ -100,10 +100,10 @@ class ConflictResolver:
 
     def _detect_conflicts(self, signals: list[dict[str, Any]]) -> list[SignalConflict]:
         """Detect conflicts among signals.
-        
+
         Args:
             signals: List of trading signals
-            
+
         Returns:
             List of detected conflicts
         """
@@ -121,7 +121,7 @@ class ConflictResolver:
         for symbol, symbol_signals in by_symbol.items():
             if len(symbol_signals) > 1:
                 # Check for opposing directions
-                actions = set(s.get("action") for s in symbol_signals)
+                actions = {s.get("action") for s in symbol_signals}
                 if "buy" in actions and "sell" in actions:
                     conflict = SignalConflict(
                         conflict_id=f"conflict_{datetime.now().timestamp()}",
@@ -136,7 +136,7 @@ class ConflictResolver:
                     self.conflict_history.append(conflict)
                 elif len(actions) == 1:  # Same direction
                     # Check for quantity mismatch
-                    quantities = set(s.get("quantity") for s in symbol_signals)
+                    quantities = {s.get("quantity") for s in symbol_signals}
                     if len(quantities) > 1:
                         conflict = SignalConflict(
                             conflict_id=f"conflict_{datetime.now().timestamp()}",
@@ -159,10 +159,10 @@ class ConflictResolver:
     async def resolve(self, signals: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Resolve conflicts among signals.
-        
+
         Args:
             signals: List of all signals to resolve
-            
+
         Returns:
             List of resolved signals
         """
@@ -214,13 +214,13 @@ class ConflictResolver:
 
         return resolved_signals
 
-    async def _resolve_symbol_conflicts(self, signals: list[dict[str, Any]]) -> Optional[Any]:
+    async def _resolve_symbol_conflicts(self, signals: list[dict[str, Any]]) -> Any | None:
         """
         Resolve conflicts for signals of the same symbol.
-        
+
         Args:
             signals: List of conflicting signals for same symbol
-            
+
         Returns:
             Resolved signal(s) or None if rejected
         """
@@ -273,7 +273,7 @@ class ConflictResolver:
 
         elif self.resolution_method == ResolutionMethod.CONSENSUS:
             # All must have same action
-            actions = set(s.get("action") for s in signals)
+            actions = {s.get("action") for s in signals}
             if len(actions) == 1:
                 # Consensus achieved, return all signals
                 return signals
@@ -306,7 +306,7 @@ class ConflictResolver:
 
     def get_conflict_statistics(self) -> dict[str, Any]:
         """Get statistics about conflict history.
-        
+
         Returns:
             Dictionary with conflict statistics
         """

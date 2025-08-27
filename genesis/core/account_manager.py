@@ -8,7 +8,7 @@ and persistence with the exchange.
 import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -23,7 +23,7 @@ logger = structlog.get_logger(__name__)
 class AccountManager:
     """
     Manages account balance and synchronization with exchange.
-    
+
     Handles periodic balance updates, persistence, and account state.
     """
 
@@ -38,7 +38,7 @@ class AccountManager:
     ):
         """
         Initialize account manager.
-        
+
         Args:
             gateway: Exchange gateway for balance fetching
             account: Existing account (optional, will create if None)
@@ -89,10 +89,10 @@ class AccountManager:
     async def sync_balance(self) -> Decimal:
         """
         Synchronize account balance with exchange.
-        
+
         Returns:
             Updated balance in USDT
-            
+
         Raises:
             ExchangeError: If unable to fetch balance
         """
@@ -167,7 +167,7 @@ class AccountManager:
     def get_balance(self) -> Decimal:
         """
         Get current account balance.
-        
+
         Returns:
             Current balance in USDT
         """
@@ -176,7 +176,7 @@ class AccountManager:
     def get_tier(self) -> TradingTier:
         """
         Get current trading tier.
-        
+
         Returns:
             Current trading tier
         """
@@ -185,7 +185,7 @@ class AccountManager:
     def update_balance(self, new_balance: Decimal) -> None:
         """
         Manually update account balance.
-        
+
         Args:
             new_balance: New balance in USDT
         """
@@ -204,10 +204,10 @@ class AccountManager:
     def deduct_balance(self, amount: Decimal) -> None:
         """
         Deduct amount from balance (for position opening).
-        
+
         Args:
             amount: Amount to deduct
-            
+
         Raises:
             ValueError: If deduction would make balance negative
         """
@@ -226,7 +226,7 @@ class AccountManager:
     def add_balance(self, amount: Decimal) -> None:
         """
         Add amount to balance (for position closing).
-        
+
         Args:
             amount: Amount to add
         """
@@ -240,7 +240,7 @@ class AccountManager:
     def is_sync_healthy(self) -> bool:
         """
         Check if balance synchronization is healthy.
-        
+
         Returns:
             True if sync is working, False if errors or stale
         """
@@ -258,7 +258,7 @@ class AccountManager:
     def get_sync_status(self) -> dict[str, Any]:
         """
         Get detailed sync status.
-        
+
         Returns:
             Dictionary with sync status information
         """
@@ -274,7 +274,7 @@ class AccountManager:
     async def validate_balance_constraint(self) -> None:
         """
         Validate that balance meets database CHECK constraint.
-        
+
         Raises:
             ValueError: If balance is negative
         """
@@ -286,7 +286,7 @@ class AccountManager:
     def to_dict(self) -> dict[str, Any]:
         """
         Convert account to dictionary for persistence.
-        
+
         Returns:
             Dictionary representation of account
         """
@@ -303,11 +303,11 @@ class AccountManager:
     def from_dict(cls, data: dict[str, Any], gateway: BinanceGateway) -> "AccountManager":
         """
         Create AccountManager from dictionary.
-        
+
         Args:
             data: Dictionary with account data
             gateway: Exchange gateway
-            
+
         Returns:
             AccountManager instance
         """

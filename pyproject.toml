@@ -107,6 +107,7 @@ markers = [
     "slow: Slow tests",
     "requires_api: Tests requiring API access",
 ]
+asyncio_mode = "auto"
 
 [tool.coverage.run]
 source = ["genesis"]

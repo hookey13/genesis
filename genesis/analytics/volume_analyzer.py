@@ -55,7 +55,7 @@ class VolumeAnalyzer:
 
     def __init__(self, exchange_gateway: ExchangeGateway):
         """Initialize volume analyzer.
-        
+
         Args:
             exchange_gateway: Gateway for exchange API access
         """
@@ -70,12 +70,12 @@ class VolumeAnalyzer:
         interval: str = '30m'
     ) -> pd.DataFrame:
         """Fetch historical volume data from exchange.
-        
+
         Args:
             symbol: Trading symbol
             days: Number of days of history to fetch
             interval: Candle interval (30m for 30-minute buckets)
-            
+
         Returns:
             DataFrame with timestamp, volume columns
         """
@@ -132,11 +132,11 @@ class VolumeAnalyzer:
         lookback_days: int = 30
     ) -> VolumeProfile:
         """Calculate typical volume profile from historical data.
-        
+
         Args:
             symbol: Trading symbol
             lookback_days: Days of history to analyze
-            
+
         Returns:
             Typical volume profile with 30-minute bucket distribution
         """
@@ -207,12 +207,12 @@ class VolumeAnalyzer:
         horizon_hours: int = 4
     ) -> VolumePrediction:
         """Predict volume distribution for upcoming time period.
-        
+
         Args:
             symbol: Trading symbol
             current_time: Current timestamp
             horizon_hours: Hours ahead to predict
-            
+
         Returns:
             Volume prediction with confidence scores
         """
@@ -289,12 +289,12 @@ class VolumeAnalyzer:
         max_participation: Decimal = Decimal('0.10')
     ) -> dict[int, Decimal]:
         """Calculate optimal participation rate for each time bucket.
-        
+
         Args:
             target_volume: Total volume to execute
             prediction: Volume predictions
             max_participation: Maximum participation rate (default 10%)
-            
+
         Returns:
             Participation rates by bucket
         """
@@ -323,12 +323,12 @@ class VolumeAnalyzer:
         time_window_minutes: int = 30
     ) -> tuple[bool, Decimal]:
         """Detect if current volume is anomalous.
-        
+
         Args:
             symbol: Trading symbol
             current_volume: Current period volume
             time_window_minutes: Time window for comparison
-            
+
         Returns:
             Tuple of (is_spike, deviation_ratio)
         """

@@ -11,12 +11,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
 
 import structlog
 
 from genesis.core.events import Event, EventPriority, EventType
 from genesis.engine.event_bus import EventBus
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -64,7 +64,7 @@ class LiquidityCrisis:
 class LiquidityMonitor:
     """
     Monitors market liquidity conditions across trading pairs.
-    
+
     Detects:
     - Sudden spread widening
     - Order book depth reduction
@@ -82,7 +82,7 @@ class LiquidityMonitor:
     ):
         """
         Initialize liquidity monitor.
-        
+
         Args:
             event_bus: Event bus for publishing alerts
             depth_window_minutes: Window for depth analysis
@@ -132,13 +132,13 @@ class LiquidityMonitor:
     ) -> OrderBookSnapshot:
         """
         Process order book data and calculate liquidity metrics.
-        
+
         Args:
             symbol: Trading symbol
             bids: List of bid levels (price, volume)
             asks: List of ask levels (price, volume)
             timestamp: Snapshot time
-            
+
         Returns:
             Order book snapshot with calculated metrics
         """
@@ -237,7 +237,7 @@ class LiquidityMonitor:
     def _update_baseline(self, symbol: str, snapshot: OrderBookSnapshot) -> None:
         """
         Update baseline liquidity metrics.
-        
+
         Args:
             symbol: Trading symbol
             snapshot: Current order book snapshot
@@ -271,13 +271,13 @@ class LiquidityMonitor:
     async def calculate_liquidity_score(self, symbol: str) -> Decimal:
         """
         Calculate comprehensive liquidity score for a symbol.
-        
+
         Score components:
         - Spread tightness (25%)
         - Order book depth (35%)
         - Volume consistency (25%)
         - Market balance (15%)
-        
+
         Returns:
             Liquidity score from 0 (no liquidity) to 1 (perfect liquidity)
         """
@@ -359,7 +359,7 @@ class LiquidityMonitor:
     ) -> None:
         """
         Check if liquidity crisis conditions are met.
-        
+
         Args:
             symbol: Trading symbol
             liquidity_score: Current liquidity score
@@ -444,7 +444,7 @@ class LiquidityMonitor:
     async def _publish_crisis_alert(self, crisis: LiquidityCrisis) -> None:
         """
         Publish liquidity crisis alert.
-        
+
         Args:
             crisis: Liquidity crisis details
         """
@@ -478,10 +478,10 @@ class LiquidityMonitor:
     def _get_recommendation(self, crisis: LiquidityCrisis) -> str:
         """
         Get trading recommendation for liquidity crisis.
-        
+
         Args:
             crisis: Liquidity crisis details
-            
+
         Returns:
             Trading recommendation
         """
@@ -497,7 +497,7 @@ class LiquidityMonitor:
     def get_liquidity_summary(self) -> dict[str, Any]:
         """
         Get summary of current liquidity conditions.
-        
+
         Returns:
             Summary dictionary
         """
@@ -533,10 +533,10 @@ class LiquidityMonitor:
     def get_symbol_status(self, symbol: str) -> dict[str, Any]:
         """
         Get detailed liquidity status for a specific symbol.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Status dictionary
         """

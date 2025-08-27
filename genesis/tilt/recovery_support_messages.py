@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Psychological support messaging system for recovery."""
 
 import random
@@ -21,7 +22,7 @@ class RecoverySupportMessenger:
         config_path: Optional[Path] = None
     ):
         """Initialize recovery support messenger.
-        
+
         Args:
             config_path: Path to recovery messages config file
         """
@@ -33,7 +34,7 @@ class RecoverySupportMessenger:
 
     def _load_messages(self) -> dict:
         """Load messages from configuration file.
-        
+
         Returns:
             Dictionary of recovery messages
         """
@@ -52,7 +53,7 @@ class RecoverySupportMessenger:
 
     def _get_default_messages(self) -> dict:
         """Get default messages if config file fails to load.
-        
+
         Returns:
             Default recovery messages
         """
@@ -94,11 +95,11 @@ class RecoverySupportMessenger:
         context: dict
     ) -> str:
         """Get appropriate recovery message based on stage and context.
-        
+
         Args:
             recovery_stage: Current recovery stage
             context: Additional context (e.g., milestone reached)
-            
+
         Returns:
             Supportive message string
         """
@@ -125,10 +126,10 @@ class RecoverySupportMessenger:
         drawdown_pct: Decimal
     ) -> str:
         """Get drawdown detection message.
-        
+
         Args:
             drawdown_pct: Drawdown percentage
-            
+
         Returns:
             Drawdown message
         """
@@ -145,10 +146,10 @@ class RecoverySupportMessenger:
         drawdown_pct: Decimal
     ) -> str:
         """Get encouragement message based on drawdown severity.
-        
+
         Args:
             drawdown_pct: Drawdown percentage
-            
+
         Returns:
             Encouragement message
         """
@@ -176,12 +177,12 @@ class RecoverySupportMessenger:
         duration_minutes: int = 30
     ) -> str:
         """Get message for consecutive losses.
-        
+
         Args:
             loss_count: Number of consecutive losses
             is_break: Whether a break is being enforced
             duration_minutes: Break duration if applicable
-            
+
         Returns:
             Consecutive loss message
         """
@@ -209,10 +210,10 @@ class RecoverySupportMessenger:
         milestone_pct: int
     ) -> str:
         """Get celebration message for recovery milestone.
-        
+
         Args:
             milestone_pct: Milestone percentage (25, 50, 75, 100)
-            
+
         Returns:
             Milestone celebration message
         """
@@ -231,10 +232,10 @@ class RecoverySupportMessenger:
         category: str = None
     ) -> str:
         """Get educational tip for avoiding revenge trading.
-        
+
         Args:
             category: Specific category of tips
-            
+
         Returns:
             Educational tip
         """
@@ -259,10 +260,10 @@ class RecoverySupportMessenger:
         prompt_type: str = "after_losses"
     ) -> str:
         """Get journal prompt for recovery reflection.
-        
+
         Args:
             prompt_type: Type of journal prompt
-            
+
         Returns:
             Journal prompt question
         """
@@ -282,13 +283,13 @@ class RecoverySupportMessenger:
         consecutive_losses: int
     ) -> list[str]:
         """Format comprehensive recovery status message.
-        
+
         Args:
             recovery_stage: Current recovery stage
             drawdown_pct: Original drawdown percentage
             recovery_pct: Percentage recovered so far
             consecutive_losses: Current consecutive loss count
-            
+
         Returns:
             List of status message lines
         """

@@ -8,9 +8,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from genesis.core.models import Trade
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +67,14 @@ class StrategyMetrics:
 class StrategyPerformanceTracker:
     """
     Tracks performance metrics for multiple trading strategies.
-    
+
     Provides strategy-specific edge calculations for Kelly sizing.
     """
 
     def __init__(self, cache_ttl_minutes: int = 5):
         """
         Initialize performance tracker.
-        
+
         Args:
             cache_ttl_minutes: Cache TTL in minutes
         """
@@ -86,7 +86,7 @@ class StrategyPerformanceTracker:
     def record_trade(self, strategy_id: str, trade: Trade) -> None:
         """
         Record a completed trade for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
             trade: Completed trade
@@ -112,10 +112,10 @@ class StrategyPerformanceTracker:
     def get_strategy_metrics(self, strategy_id: str) -> Optional[StrategyMetrics]:
         """
         Get performance metrics for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
-            
+
         Returns:
             StrategyMetrics or None if no data
         """
@@ -128,11 +128,11 @@ class StrategyPerformanceTracker:
     ) -> list[Trade]:
         """
         Get recent trades for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
             window_days: Days to look back
-            
+
         Returns:
             List of recent trades
         """
@@ -153,11 +153,11 @@ class StrategyPerformanceTracker:
     ) -> dict[str, Decimal]:
         """
         Calculate trading edge for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
             window_days: Days to look back
-            
+
         Returns:
             Dict with win_rate, win_loss_ratio, sample_size
         """
@@ -212,11 +212,11 @@ class StrategyPerformanceTracker:
     ) -> Decimal:
         """
         Calculate maximum drawdown for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
             window_days: Days to look back (None for all history)
-            
+
         Returns:
             Maximum drawdown as decimal (0.20 = 20%)
         """
@@ -253,10 +253,10 @@ class StrategyPerformanceTracker:
     def get_winning_streak(self, strategy_id: str) -> int:
         """
         Get current winning streak for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
-            
+
         Returns:
             Number of consecutive wins
         """
@@ -277,10 +277,10 @@ class StrategyPerformanceTracker:
     def get_losing_streak(self, strategy_id: str) -> int:
         """
         Get current losing streak for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
-            
+
         Returns:
             Number of consecutive losses
         """
@@ -305,7 +305,7 @@ class StrategyPerformanceTracker:
     def reset_strategy_metrics(self, strategy_id: str) -> None:
         """
         Reset metrics for a strategy.
-        
+
         Args:
             strategy_id: Strategy identifier
         """

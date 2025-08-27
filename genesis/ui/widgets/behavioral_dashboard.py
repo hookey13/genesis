@@ -37,7 +37,7 @@ class BehavioralDashboard(Widget):
     ):
         """
         Initialize the behavioral dashboard.
-        
+
         Args:
             profile_manager: Profile manager instance
         """
@@ -187,10 +187,10 @@ class BehavioralDashboard(Widget):
     def _create_hourly_chart(self, current_hour: int) -> RenderableType:
         """
         Create hourly activity chart.
-        
+
         Args:
             current_hour: Current hour for highlighting
-            
+
         Returns:
             Renderable chart
         """
@@ -285,7 +285,7 @@ class BehavioralDashboard(Widget):
     def set_profile(self, profile_id: str) -> None:
         """
         Set the profile to display.
-        
+
         Args:
             profile_id: Profile ID
         """
@@ -295,7 +295,7 @@ class BehavioralDashboard(Widget):
     def update_current_metrics(self, metrics: dict) -> None:
         """
         Update current metrics display.
-        
+
         Args:
             metrics: Current metric values
         """
@@ -305,7 +305,7 @@ class BehavioralDashboard(Widget):
     def update_baseline_ranges(self, ranges: dict) -> None:
         """
         Update baseline range values.
-        
+
         Args:
             ranges: Baseline ranges for each metric
         """

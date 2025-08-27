@@ -7,10 +7,10 @@ Tracks position size patterns to detect emotional trading behavior.
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 import numpy as np
 import structlog
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -21,7 +21,7 @@ class PositionSizingIndicator:
     def __init__(self, window_size: int = 50):
         """
         Initialize the position sizing indicator.
-        
+
         Args:
             window_size: Number of recent positions to track
         """
@@ -38,12 +38,12 @@ class PositionSizingIndicator:
     ) -> dict:
         """
         Record a position and calculate variance metrics.
-        
+
         Args:
             size: Position size (in base units or USD value)
             timestamp: When position was opened
             outcome: Position outcome (win/loss/open)
-            
+
         Returns:
             Current variance metrics
         """
@@ -65,7 +65,7 @@ class PositionSizingIndicator:
     def calculate_variance(self) -> dict:
         """
         Calculate position size variance metrics.
-        
+
         Returns:
             Dictionary with variance analysis
         """
@@ -136,7 +136,7 @@ class PositionSizingIndicator:
     def _detect_martingale(self) -> bool:
         """
         Detect martingale betting pattern (doubling after losses).
-        
+
         Returns:
             True if martingale pattern detected
         """
@@ -169,7 +169,7 @@ class PositionSizingIndicator:
     def _detect_drift(self) -> str:
         """
         Detect gradual drift in position sizing.
-        
+
         Returns:
             Direction of drift: "increasing", "decreasing", or "stable"
         """
@@ -199,7 +199,7 @@ class PositionSizingIndicator:
     def _calculate_volatility(self) -> int:
         """
         Calculate position size volatility score.
-        
+
         Returns:
             Volatility score from 0 (stable) to 100 (extremely volatile)
         """
@@ -242,7 +242,7 @@ class PositionSizingIndicator:
     def get_risk_score(self) -> Decimal:
         """
         Calculate a risk score based on position sizing behavior.
-        
+
         Returns:
             Risk score from 0 (low) to 100 (high)
         """
@@ -280,10 +280,10 @@ class PositionSizingIndicator:
     def get_last_n_analysis(self, n: int = 10) -> dict:
         """
         Analyze the last N positions.
-        
+
         Args:
             n: Number of recent positions to analyze
-            
+
         Returns:
             Analysis of recent positions
         """

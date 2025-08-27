@@ -1,9 +1,10 @@
 """Unit tests for TWAP analyzer."""
 
-import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
+
+import pytest
 
 from genesis.analytics.twap_analyzer import TwapAnalyzer, TwapReport
 from genesis.engine.executor.base import OrderSide
@@ -63,7 +64,7 @@ class TestTwapAnalyzer:
     def test_calculate_price_metrics(self, analyzer, sample_execution_data, sample_slice_history):
         """Test price metrics calculation."""
         metrics = analyzer._calculate_price_metrics(sample_execution_data, sample_slice_history)
-        
+
         assert 'arrival_price' in metrics
         assert metrics['arrival_price'] == Decimal('50000')
         assert 'average_execution_price' in metrics
@@ -85,13 +86,13 @@ class TestTwapAnalyzer:
             'worst_slice_price': Decimal('50090'),
             'best_slice_price': Decimal('50000')
         }
-        
+
         metrics = analyzer._calculate_performance_metrics(
             sample_execution_data,
             sample_slice_history,
             price_metrics
         )
-        
+
         assert 'implementation_shortfall' in metrics
         assert 'twap_effectiveness' in metrics
         assert 'slippage_bps' in metrics
@@ -104,7 +105,7 @@ class TestTwapAnalyzer:
     async def test_estimate_market_impact(self, analyzer, sample_execution_data, sample_slice_history):
         """Test market impact estimation."""
         impact = await analyzer._estimate_market_impact(sample_execution_data, sample_slice_history)
-        
+
         assert 'estimated_impact_bps' in impact
         assert 'temporary_impact_bps' in impact
         assert 'permanent_impact_bps' in impact
@@ -114,7 +115,7 @@ class TestTwapAnalyzer:
     def test_calculate_volume_metrics(self, analyzer, sample_slice_history):
         """Test volume metrics calculation."""
         metrics = analyzer._calculate_volume_metrics(sample_slice_history)
-        
+
         assert 'avg_participation_rate' in metrics
         assert 'max_participation_rate' in metrics
         assert 'min_participation_rate' in metrics
@@ -132,13 +133,13 @@ class TestTwapAnalyzer:
             'worst_slice_price': Decimal('50090'),
             'best_slice_price': Decimal('50000')
         }
-        
+
         metrics = analyzer._calculate_timing_effectiveness(
             sample_execution_data,
             sample_slice_history,
             price_metrics
         )
-        
+
         assert 'timing_score' in metrics
         assert 0 <= metrics['timing_score'] <= 100
         assert metrics['early_completion_benefit'] is None  # No early completion
@@ -160,9 +161,9 @@ class TestTwapAnalyzer:
             'min_participation_rate': Decimal('5'),
             'volume_weighted_participation': Decimal('7.5')
         }
-        
+
         metrics = analyzer._calculate_risk_metrics(sample_slice_history, volume_metrics)
-        
+
         assert 'execution_risk_score' in metrics
         assert 'concentration_risk' in metrics
         assert 0 <= metrics['execution_risk_score'] <= 100
@@ -177,26 +178,26 @@ class TestTwapAnalyzer:
             'max_slice_slippage_bps': Decimal('25'),
             'total_slippage_cost': Decimal('100')
         }
-        
+
         volume_metrics = {
             'avg_participation_rate': Decimal('8'),
             'max_participation_rate': Decimal('12'),
             'min_participation_rate': Decimal('5'),
             'volume_weighted_participation': Decimal('7.5')
         }
-        
+
         risk_metrics = {
             'execution_risk_score': Decimal('45'),
             'concentration_risk': Decimal('20')
         }
-        
+
         recommendations = analyzer._generate_recommendations(
             sample_execution_data,
             performance_metrics,
             volume_metrics,
             risk_metrics
         )
-        
+
         assert 'optimal_slice_count' in recommendations
         assert 'recommended_duration' in recommendations
         assert 'suggested_participation_rate' in recommendations
@@ -212,26 +213,26 @@ class TestTwapAnalyzer:
             'max_slice_slippage_bps': Decimal('50'),
             'total_slippage_cost': Decimal('500')
         }
-        
+
         volume_metrics = {
             'avg_participation_rate': Decimal('12'),  # High participation
             'max_participation_rate': Decimal('18'),  # Too high
             'min_participation_rate': Decimal('8'),
             'volume_weighted_participation': Decimal('11')
         }
-        
+
         risk_metrics = {
             'execution_risk_score': Decimal('75'),  # High risk
             'concentration_risk': Decimal('40')  # High concentration
         }
-        
+
         recommendations = analyzer._generate_recommendations(
             sample_execution_data,
             performance_metrics,
             volume_metrics,
             risk_metrics
         )
-        
+
         # Should recommend longer duration and more slices
         assert recommendations['recommended_duration'] > sample_execution_data['duration_minutes']
         assert recommendations['optimal_slice_count'] > sample_execution_data['slice_count']
@@ -298,7 +299,7 @@ class TestTwapAnalyzer:
             'completed_at': datetime.now() - timedelta(minutes=15),
             'remaining_quantity': '0'
         }
-        
+
         execution2 = {
             'execution_id': 'exec-2',
             'symbol': 'BTC/USDT',
@@ -313,7 +314,7 @@ class TestTwapAnalyzer:
             'completed_at': datetime.now(),
             'remaining_quantity': '0'
         }
-        
+
         slices1 = [
             {
                 'slice_number': i + 1,
@@ -328,7 +329,7 @@ class TestTwapAnalyzer:
             }
             for i in range(10)
         ]
-        
+
         slices2 = [
             {
                 'slice_number': i + 1,
@@ -343,7 +344,7 @@ class TestTwapAnalyzer:
             }
             for i in range(15)
         ]
-        
+
         mock_repository.get_twap_execution = AsyncMock(side_effect=[execution1, execution2])
         mock_repository.get_twap_slices = AsyncMock(side_effect=[slices1, slices2])
         mock_repository.save_twap_analysis = AsyncMock()

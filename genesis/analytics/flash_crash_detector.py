@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional, Any
+from typing import Any, Optional
 
 import structlog
 
@@ -51,7 +51,7 @@ class FlashCrashEvent:
 class FlashCrashDetector:
     """
     Detects flash crashes - rapid price drops within short time windows.
-    
+
     Flash crashes can occur due to:
     - Large market sell orders
     - Algorithmic trading errors
@@ -68,7 +68,7 @@ class FlashCrashDetector:
     ):
         """
         Initialize flash crash detector.
-        
+
         Args:
             event_bus: Event bus for publishing alerts
             window_seconds: Time window for crash detection
@@ -117,14 +117,14 @@ class FlashCrashDetector:
     ) -> Optional[FlashCrashEvent]:
         """
         Process a new price and check for flash crash.
-        
+
         Args:
             symbol: Trading symbol
             price: Current price
             volume: Volume at this price (optional)
             trades_count: Number of trades (optional)
             timestamp: Price timestamp
-            
+
         Returns:
             FlashCrashEvent if crash detected, None otherwise
         """
@@ -160,7 +160,7 @@ class FlashCrashDetector:
     def _clean_old_prices(self, symbol: str) -> None:
         """
         Remove prices outside the analysis window.
-        
+
         Args:
             symbol: Trading symbol
         """
@@ -180,10 +180,10 @@ class FlashCrashDetector:
     async def _detect_flash_crash(self, symbol: str) -> Optional[FlashCrashEvent]:
         """
         Detect flash crash in recent price history.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             FlashCrashEvent if detected, None otherwise
         """
@@ -296,7 +296,7 @@ class FlashCrashDetector:
     async def _publish_crash_alert(self, crash: FlashCrashEvent) -> None:
         """
         Publish flash crash alert.
-        
+
         Args:
             crash: Flash crash event details
         """
@@ -331,7 +331,7 @@ class FlashCrashDetector:
     async def _trigger_protective_actions(self, crash: FlashCrashEvent) -> None:
         """
         Trigger protective actions for flash crash.
-        
+
         Args:
             crash: Flash crash event
         """
@@ -362,10 +362,10 @@ class FlashCrashDetector:
     def _get_recommendation(self, crash: FlashCrashEvent) -> str:
         """
         Get trading recommendation for flash crash.
-        
+
         Args:
             crash: Flash crash event
-            
+
         Returns:
             Trading recommendation
         """
@@ -381,10 +381,10 @@ class FlashCrashDetector:
     async def cancel_all_orders(self, symbol: str) -> dict[str, Any]:
         """
         Cancel all open orders for a symbol (to be implemented with exchange).
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Cancellation result
         """
@@ -410,10 +410,10 @@ class FlashCrashDetector:
     def get_crash_history(self, symbol: Optional[str] = None) -> list[dict[str, Any]]:
         """
         Get crash history, optionally filtered by symbol.
-        
+
         Args:
             symbol: Optional symbol filter
-            
+
         Returns:
             List of crash events
         """
@@ -440,7 +440,7 @@ class FlashCrashDetector:
     def get_statistics(self) -> dict[str, Any]:
         """
         Get detector statistics.
-        
+
         Returns:
             Statistics dictionary
         """
@@ -461,10 +461,10 @@ class FlashCrashDetector:
     def is_in_crash_recovery(self, symbol: str) -> bool:
         """
         Check if symbol is in crash recovery period.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             True if in recovery period
         """

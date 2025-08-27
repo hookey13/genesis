@@ -17,7 +17,6 @@ from scipy import stats
 from genesis.analytics.strategy_performance import StrategyPerformanceTracker
 from genesis.core.events import Event, EventType
 from genesis.engine.event_bus import EventBus
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -73,13 +72,13 @@ class ABTest:
 
     # Test state
     status: TestStatus = TestStatus.PENDING
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
 
     # Results
-    winner: Optional[str] = None
-    p_value: Optional[Decimal] = None
-    confidence_interval: Optional[tuple[Decimal, Decimal]] = None
+    winner: str | None = None
+    p_value: Decimal | None = None
+    confidence_interval: tuple[Decimal, Decimal] | None = None
     statistical_significance: bool = False
 
     def to_dict(self) -> dict:
@@ -131,7 +130,7 @@ class ABTestFramework:
                  performance_tracker: StrategyPerformanceTracker,
                  storage_path: str = ".genesis/data/ab_tests"):
         """Initialize A/B test framework
-        
+
         Args:
             event_bus: Event bus for publishing test events
             performance_tracker: Strategy performance tracking
@@ -159,7 +158,7 @@ class ABTestFramework:
                          confidence_level: Decimal = Decimal("0.95"),
                          allocation_method: AllocationMethod = AllocationMethod.RANDOM) -> ABTest:
         """Create a new A/B test
-        
+
         Args:
             test_id: Unique test identifier
             name: Test name
@@ -169,7 +168,7 @@ class ABTestFramework:
             min_trades: Minimum trades per variant
             confidence_level: Required confidence level
             allocation_method: Traffic allocation method
-            
+
         Returns:
             Created A/B test
         """
@@ -213,7 +212,7 @@ class ABTestFramework:
 
     async def start_test(self, test_id: str) -> None:
         """Start an A/B test
-        
+
         Args:
             test_id: Test identifier
         """
@@ -240,10 +239,10 @@ class ABTestFramework:
 
     def allocate_variant(self, test_id: str) -> str:
         """Allocate traffic to a variant based on test configuration
-        
+
         Args:
             test_id: Test identifier
-            
+
         Returns:
             Variant ID to use
         """
@@ -287,7 +286,7 @@ class ABTestFramework:
                                  pnl_usdt: Decimal,
                                  timestamp: datetime) -> None:
         """Record a trade result for a variant
-        
+
         Args:
             test_id: Test identifier
             variant_id: Variant identifier
@@ -330,10 +329,10 @@ class ABTestFramework:
 
     async def _check_test_completion(self, test: ABTest) -> bool:
         """Check if test has enough data for completion
-        
+
         Args:
             test: A/B test to check
-            
+
         Returns:
             True if test should be completed
         """
@@ -353,11 +352,11 @@ class ABTestFramework:
 
     def _calculate_p_value(self, returns_a: list[Decimal], returns_b: list[Decimal]) -> Decimal:
         """Calculate p-value using t-test
-        
+
         Args:
             returns_a: Returns for variant A
             returns_b: Returns for variant B
-            
+
         Returns:
             P-value from t-test
         """
@@ -375,12 +374,12 @@ class ABTestFramework:
                                       returns_b: list[Decimal],
                                       confidence_level: Decimal) -> tuple[Decimal, Decimal]:
         """Calculate confidence interval for difference in means
-        
+
         Args:
             returns_a: Returns for variant A
             returns_b: Returns for variant B
             confidence_level: Confidence level (e.g., 0.95)
-            
+
         Returns:
             Confidence interval (lower, upper)
         """
@@ -408,10 +407,10 @@ class ABTestFramework:
 
     def _calculate_sharpe_ratio(self, returns: list[Decimal]) -> Decimal:
         """Calculate Sharpe ratio for returns
-        
+
         Args:
             returns: List of returns
-            
+
         Returns:
             Sharpe ratio
         """
@@ -432,10 +431,10 @@ class ABTestFramework:
 
     def _calculate_max_drawdown(self, returns: list[Decimal]) -> Decimal:
         """Calculate maximum drawdown
-        
+
         Args:
             returns: List of returns
-            
+
         Returns:
             Maximum drawdown percentage
         """
@@ -464,10 +463,10 @@ class ABTestFramework:
 
     async def complete_test(self, test_id: str) -> ABTest:
         """Complete an A/B test and calculate results
-        
+
         Args:
             test_id: Test identifier
-            
+
         Returns:
             Completed test with results
         """
@@ -537,7 +536,7 @@ class ABTestFramework:
 
     async def abort_test(self, test_id: str, reason: str = "") -> None:
         """Abort an A/B test
-        
+
         Args:
             test_id: Test identifier
             reason: Reason for aborting
@@ -567,12 +566,12 @@ class ABTestFramework:
             }
         ))
 
-    async def get_test_results(self, test_id: str) -> Optional[ABTest]:
+    async def get_test_results(self, test_id: str) -> ABTest | None:
         """Get results for a test
-        
+
         Args:
             test_id: Test identifier
-            
+
         Returns:
             Test results or None if not found
         """
@@ -590,7 +589,7 @@ class ABTestFramework:
 
     async def get_all_tests(self) -> list[ABTest]:
         """Get all tests (active and completed)
-        
+
         Returns:
             List of all tests
         """
@@ -599,7 +598,7 @@ class ABTestFramework:
 
     async def _save_test_results(self, test: ABTest) -> None:
         """Save test results to storage
-        
+
         Args:
             test: Test to save
         """
@@ -616,12 +615,12 @@ class ABTestFramework:
         except Exception as e:
             logger.error("Failed to save test results", test_id=test.test_id, error=str(e))
 
-    async def _load_test_results(self, test_id: str) -> Optional[ABTest]:
+    async def _load_test_results(self, test_id: str) -> ABTest | None:
         """Load test results from storage
-        
+
         Args:
             test_id: Test identifier
-            
+
         Returns:
             Loaded test or None if not found
         """
@@ -687,10 +686,10 @@ class ABTestFramework:
 
     async def generate_report(self, test_id: str) -> str:
         """Generate a detailed report for a test
-        
+
         Args:
             test_id: Test identifier
-            
+
         Returns:
             Formatted report string
         """

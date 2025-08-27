@@ -9,12 +9,12 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
 
 import structlog
 
 from genesis.engine.executor.base import OrderSide
 from genesis.exchange.models import OrderBook
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -69,7 +69,7 @@ class LiquidityProfile:
 class OrderBookAnalyzer:
     """
     Analyzes order book depth and liquidity for optimal order execution.
-    
+
     Provides intelligent slicing recommendations based on available liquidity,
     minimizing market impact while ensuring execution efficiency.
     """
@@ -96,11 +96,11 @@ class OrderBookAnalyzer:
     ) -> LiquidityProfile:
         """
         Perform comprehensive liquidity analysis on order book.
-        
+
         Args:
             order_book: Current order book snapshot
             side: Optional side to focus analysis on
-            
+
         Returns:
             Detailed liquidity profile
         """
@@ -229,11 +229,11 @@ class OrderBookAnalyzer:
     ) -> int:
         """
         Calculate optimal number of slices for an order.
-        
+
         Args:
             order_value: Total order value in USDT
             liquidity_profile: Current liquidity analysis
-            
+
         Returns:
             Optimal number of slices (minimum 3)
         """
@@ -499,7 +499,7 @@ class OrderBookAnalyzer:
     def clear_cache(self, symbol: Optional[str] = None) -> None:
         """
         Clear cached liquidity profiles.
-        
+
         Args:
             symbol: Optional specific symbol to clear, otherwise clear all
         """

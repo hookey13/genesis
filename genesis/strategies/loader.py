@@ -136,7 +136,7 @@ class StrategyLoader:
 
     def __init__(self, session: Optional[Session] = None):
         """Initialize strategy loader.
-        
+
         Args:
             session: Optional database session
         """
@@ -147,11 +147,11 @@ class StrategyLoader:
 
     async def load_strategies(self, account_id: str, tier: str) -> list[StrategyConfig]:
         """Load strategies available for a tier.
-        
+
         Args:
             account_id: Account ID
             tier: Tier name
-            
+
         Returns:
             List of available strategy configurations
         """
@@ -194,15 +194,15 @@ class StrategyLoader:
         new_tier: str
     ) -> MigrationPlan:
         """Migrate strategies during tier transition.
-        
+
         Args:
             account_id: Account ID
             old_tier: Previous tier
             new_tier: New tier
-            
+
         Returns:
             MigrationPlan with details
-            
+
         Raises:
             ValidationError: If migration invalid
         """
@@ -250,10 +250,10 @@ class StrategyLoader:
         account_id: str
     ) -> bool:
         """Rollback the last strategy migration.
-        
+
         Args:
             account_id: Account ID
-            
+
         Returns:
             True if rollback successful
         """
@@ -312,11 +312,11 @@ class StrategyLoader:
         strategy_name: str
     ) -> Optional[StrategyConfig]:
         """Get configuration for a specific strategy.
-        
+
         Args:
             account_id: Account ID
             strategy_name: Strategy name
-            
+
         Returns:
             StrategyConfig or None if not found
         """
@@ -329,11 +329,11 @@ class StrategyLoader:
         strategy_name: str
     ) -> bool:
         """Check if a strategy is enabled for an account.
-        
+
         Args:
             account_id: Account ID
             strategy_name: Strategy name
-            
+
         Returns:
             True if strategy is enabled
         """
@@ -346,11 +346,11 @@ class StrategyLoader:
         strategy_name: str
     ) -> Decimal:
         """Get position size multiplier for a strategy.
-        
+
         Args:
             account_id: Account ID
             strategy_name: Strategy name
-            
+
         Returns:
             Position multiplier (0-1)
         """
@@ -361,10 +361,10 @@ class StrategyLoader:
 
     def _get_tier_strategies(self, tier: str) -> list[str]:
         """Get available strategies for a tier.
-        
+
         Args:
             tier: Tier name
-            
+
         Returns:
             List of strategy names
         """
@@ -395,13 +395,13 @@ class StrategyLoader:
         adjustment_period: Optional[Any]
     ) -> StrategyConfig:
         """Create strategy configuration.
-        
+
         Args:
             account_id: Account ID
             strategy_name: Strategy name
             tier: Current tier
             adjustment_period: Active adjustment period if any
-            
+
         Returns:
             StrategyConfig
         """
@@ -448,7 +448,7 @@ class StrategyLoader:
         plan: MigrationPlan
     ) -> None:
         """Execute a strategy migration plan.
-        
+
         Args:
             account_id: Account ID
             plan: Migration plan to execute
@@ -495,7 +495,7 @@ class StrategyLoader:
         plan: MigrationPlan
     ) -> None:
         """Store migration audit trail.
-        
+
         Args:
             account_id: Account ID
             plan: Migration plan
@@ -512,10 +512,10 @@ class StrategyLoader:
         account_id: str
     ) -> Optional[AdjustmentPeriod]:
         """Get active adjustment period for account.
-        
+
         Args:
             account_id: Account ID
-            
+
         Returns:
             AdjustmentPeriod or None
         """
@@ -530,10 +530,10 @@ class StrategyLoader:
 
     def prevent_manual_override(self, account_id: str) -> bool:
         """Prevent manual override of strategy migration.
-        
+
         Args:
             account_id: Account ID
-            
+
         Returns:
             True if override prevented
         """

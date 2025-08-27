@@ -8,12 +8,12 @@ slippage, market impact, timing effectiveness, and generating detailed reports.
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 
 import structlog
 
 from genesis.data.repository import Repository
 from genesis.engine.executor.base import OrderSide
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -81,7 +81,7 @@ class TwapReport:
 class TwapAnalyzer:
     """
     Analyzes TWAP execution performance and generates reports.
-    
+
     Provides detailed post-trade analysis including slippage calculation,
     market impact estimation, and execution quality metrics.
     """
@@ -89,7 +89,7 @@ class TwapAnalyzer:
     def __init__(self, repository: Repository):
         """
         Initialize the TWAP analyzer.
-        
+
         Args:
             repository: Data repository for accessing execution data
         """
@@ -99,13 +99,13 @@ class TwapAnalyzer:
     async def generate_execution_report(self, execution_id: str) -> TwapReport:
         """
         Generate comprehensive report for a TWAP execution.
-        
+
         Args:
             execution_id: ID of the execution to analyze
-            
+
         Returns:
             TwapReport with detailed analysis
-            
+
         Raises:
             ValueError: If execution not found
         """
@@ -253,11 +253,11 @@ class TwapAnalyzer:
     ) -> dict[str, Decimal]:
         """
         Calculate price-related metrics.
-        
+
         Args:
             execution_data: Execution details
             slice_history: List of slice executions
-            
+
         Returns:
             Dictionary of price metrics
         """
@@ -313,12 +313,12 @@ class TwapAnalyzer:
     ) -> dict[str, Decimal]:
         """
         Calculate performance metrics.
-        
+
         Args:
             execution_data: Execution details
             slice_history: List of slice executions
             price_metrics: Calculated price metrics
-            
+
         Returns:
             Dictionary of performance metrics
         """
@@ -372,11 +372,11 @@ class TwapAnalyzer:
     ) -> dict[str, Decimal]:
         """
         Estimate market impact of the TWAP execution.
-        
+
         Args:
             execution_data: Execution details
             slice_history: List of slice executions
-            
+
         Returns:
             Dictionary of market impact estimates
         """
@@ -418,10 +418,10 @@ class TwapAnalyzer:
     def _calculate_volume_metrics(self, slice_history: list[dict]) -> dict[str, Decimal]:
         """
         Calculate volume-related metrics.
-        
+
         Args:
             slice_history: List of slice executions
-            
+
         Returns:
             Dictionary of volume metrics
         """
@@ -465,12 +465,12 @@ class TwapAnalyzer:
     ) -> dict[str, Optional[Decimal]]:
         """
         Calculate timing effectiveness metrics.
-        
+
         Args:
             execution_data: Execution details
             slice_history: List of slice executions
             price_metrics: Calculated price metrics
-            
+
         Returns:
             Dictionary of timing metrics
         """
@@ -525,11 +525,11 @@ class TwapAnalyzer:
     ) -> dict[str, Decimal]:
         """
         Calculate risk metrics.
-        
+
         Args:
             slice_history: List of slice executions
             volume_metrics: Volume metrics
-            
+
         Returns:
             Dictionary of risk metrics
         """
@@ -597,13 +597,13 @@ class TwapAnalyzer:
     ) -> dict:
         """
         Generate recommendations for future executions.
-        
+
         Args:
             execution_data: Execution details
             performance_metrics: Performance metrics
             volume_metrics: Volume metrics
             risk_metrics: Risk metrics
-            
+
         Returns:
             Dictionary of recommendations
         """
@@ -684,7 +684,7 @@ class TwapAnalyzer:
     async def _store_analysis_results(self, report: TwapReport) -> None:
         """
         Store analysis results for future reference and optimization.
-        
+
         Args:
             report: Generated TWAP report
         """
@@ -707,10 +707,10 @@ class TwapAnalyzer:
     ) -> dict:
         """
         Compare multiple TWAP executions for the same symbol.
-        
+
         Args:
             execution_ids: List of execution IDs to compare
-            
+
         Returns:
             Comparative analysis results
         """

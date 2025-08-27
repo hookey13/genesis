@@ -1,9 +1,8 @@
 """Unit tests for liquidity scanner module."""
 
-import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import aiohttp
 import pytest
@@ -16,7 +15,6 @@ from genesis.analytics.liquidity_scanner import (
     PairHealthMonitor,
     PairRecommendationEngine,
     SpreadPersistenceTracker,
-    TierAlert,
 )
 
 
@@ -202,7 +200,7 @@ class TestSpreadPersistenceTracker:
 
     def test_record_spread(self, spread_tracker):
         """Test recording spread observations."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Record some spreads
         spread_tracker.record_spread("BTCUSDT", 15, now)
@@ -214,7 +212,7 @@ class TestSpreadPersistenceTracker:
 
     def test_record_spread_window_cleanup(self, spread_tracker):
         """Test that old observations are removed."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Record spread outside window
         spread_tracker.record_spread("BTCUSDT", 15, now - timedelta(hours=25))
@@ -228,7 +226,7 @@ class TestSpreadPersistenceTracker:
 
     def test_calculate_spread_persistence_score(self, spread_tracker):
         """Test spread persistence score calculation."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Test with no data
         score = spread_tracker.calculate_spread_persistence_score("BTCUSDT")
@@ -250,7 +248,7 @@ class TestSpreadPersistenceTracker:
 
     def test_persistence_score_with_high_variance(self, spread_tracker):
         """Test that high variance reduces persistence score."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Add highly variable spreads
         spreads = [5, 50, 2, 100, 3, 80, 1, 90, 4, 70, 15, 25, 35, 45, 55]
@@ -277,7 +275,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("10000"),
                 tier=LiquidityTier.LOW,
                 depth_score=Decimal("80"),
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(UTC)
             ),
             "DOGEUSDT": LiquidityMetrics(
                 symbol="DOGEUSDT",
@@ -287,7 +285,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("15000"),
                 tier=LiquidityTier.LOW,
                 depth_score=Decimal("75"),
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(UTC)
             ),
             "MATICUSDT": LiquidityMetrics(
                 symbol="MATICUSDT",
@@ -297,7 +295,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.MEDIUM,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(UTC)
             ),
             "BTCUSDT": LiquidityMetrics(
                 symbol="BTCUSDT",
@@ -307,7 +305,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("1000000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("100"),
-                timestamp=datetime.now(timezone.utc)
+                timestamp=datetime.now(UTC)
             ),
         }
 
@@ -378,7 +376,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("100000"),
             tier=LiquidityTier.HIGH,
             depth_score=Decimal("90"),
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(UTC)
         )
 
         historical = [
@@ -390,7 +388,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("95000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("88"),
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i)
             )
             for i in range(1, 6)
         ]
@@ -408,7 +406,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("70000"),
             tier=LiquidityTier.HIGH,
             depth_score=Decimal("65"),  # 28% reduction
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(UTC)
         )
 
         historical = [
@@ -420,7 +418,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i)
             )
             for i in range(1, 6)
         ]
@@ -438,7 +436,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("40000"),
             tier=LiquidityTier.HIGH,
             depth_score=Decimal("40"),  # 55% reduction
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(UTC)
         )
 
         historical = [
@@ -450,7 +448,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i)
             )
             for i in range(1, 6)
         ]
@@ -468,7 +466,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("10000"),
             tier=LiquidityTier.MEDIUM,
             depth_score=Decimal("20"),
-            timestamp=datetime.now(timezone.utc)
+            timestamp=datetime.now(UTC)
         )
 
         historical = [
@@ -480,7 +478,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(timezone.utc) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i)
             )
             for i in range(1, 6)
         ]
@@ -501,8 +499,8 @@ class TestPairHealthMonitor:
             "blacklist_id": "test-id",
             "reason": "test",
             "consecutive_losses": 5,
-            "blacklisted_at": datetime.now(timezone.utc) - timedelta(days=31),
-            "expires_at": datetime.now(timezone.utc) - timedelta(days=1)  # Expired yesterday
+            "blacklisted_at": datetime.now(UTC) - timedelta(days=31),
+            "expires_at": datetime.now(UTC) - timedelta(days=1)  # Expired yesterday
         }
 
         # Should not be blacklisted (expired)

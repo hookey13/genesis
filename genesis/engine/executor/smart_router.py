@@ -93,7 +93,7 @@ class OrderBook:
 class SmartRouter:
     """
     Smart order router for intelligent order type selection.
-    
+
     Analyzes market conditions and automatically selects the most
     appropriate order type to minimize costs and slippage.
     """
@@ -116,7 +116,7 @@ class SmartRouter:
     def __init__(self, exchange_gateway):
         """
         Initialize the smart router.
-        
+
         Args:
             exchange_gateway: Exchange gateway for market data
         """
@@ -128,10 +128,10 @@ class SmartRouter:
     async def analyze_market_conditions(self, symbol: str) -> MarketConditions:
         """
         Analyze current market conditions for a symbol.
-        
+
         Args:
             symbol: Trading pair symbol
-            
+
         Returns:
             MarketConditions with current market state
         """
@@ -223,12 +223,12 @@ class SmartRouter:
     ) -> ExtendedOrderType:
         """
         Select the most appropriate order type based on conditions.
-        
+
         Args:
             order: Order to route
             conditions: Current market conditions
             urgency: Order urgency level
-            
+
         Returns:
             Selected order type
         """
@@ -295,12 +295,12 @@ class SmartRouter:
     ) -> float:
         """
         Calculate execution quality score (0-100).
-        
+
         Args:
             order: Original order
             result: Execution result
             market_conditions: Market conditions at execution
-            
+
         Returns:
             Execution quality score
         """
@@ -351,11 +351,11 @@ class SmartRouter:
     ) -> RoutedOrder:
         """
         Route an order with intelligent type selection.
-        
+
         Args:
             order: Order to route
             urgency: Order urgency level
-            
+
         Returns:
             RoutedOrder with routing decision
         """
@@ -401,10 +401,10 @@ class SmartRouter:
     def calculate_spread_percentage(self, order_book: OrderBook) -> Decimal:
         """
         Calculate spread as a percentage of mid price.
-        
+
         Args:
             order_book: Order book data
-            
+
         Returns:
             Spread percentage
         """
@@ -430,11 +430,11 @@ class SmartRouter:
     ) -> LiquidityLevel:
         """
         Assess liquidity depth relative to order size.
-        
+
         Args:
             order_book: Order book data
             size: Order size to evaluate
-            
+
         Returns:
             Liquidity level assessment
         """
@@ -460,7 +460,7 @@ class SmartRouter:
     def get_time_of_day_factor(self) -> TimeFactor:
         """
         Get current time of day trading factor.
-        
+
         Returns:
             Time factor based on UTC hour
         """
@@ -482,11 +482,11 @@ class SmartRouter:
     ) -> Decimal:
         """
         Estimate market impact of an order.
-        
+
         Args:
             size: Order size
             liquidity: Current liquidity level
-            
+
         Returns:
             Estimated price impact percentage
         """
@@ -507,10 +507,10 @@ class SmartRouter:
     def _assess_liquidity_level(self, total_liquidity: Decimal) -> LiquidityLevel:
         """
         Assess overall liquidity level.
-        
+
         Args:
             total_liquidity: Total available liquidity
-            
+
         Returns:
             Liquidity level classification
         """
@@ -527,7 +527,7 @@ class SmartRouter:
     def _get_time_factor(self) -> TimeFactor:
         """
         Get current time factor.
-        
+
         Returns:
             Current time factor
         """
@@ -541,12 +541,12 @@ class SmartRouter:
     ) -> str:
         """
         Generate human-readable routing reason.
-        
+
         Args:
             selected_type: Selected order type
             conditions: Market conditions
             urgency: Order urgency
-            
+
         Returns:
             Routing reason string
         """
@@ -579,10 +579,10 @@ class SmartRouter:
     async def execute_routed_order(self, order: Order) -> "ExecutionResult":
         """
         Execute an order using smart routing.
-        
+
         Args:
             order: Order to execute
-            
+
         Returns:
             ExecutionResult with execution details
         """

@@ -9,7 +9,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 import structlog
@@ -69,7 +69,7 @@ class PriorityQueue:
 class EventBus:
     """
     Central event bus for the trading system.
-    
+
     Manages event publishing and subscription with priority-based
     delivery and support for both sync and async callbacks.
     """
@@ -77,7 +77,7 @@ class EventBus:
     def __init__(self, max_queue_size: int = 10000):
         """
         Initialize the event bus.
-        
+
         Args:
             max_queue_size: Maximum events per priority queue
         """
@@ -139,13 +139,13 @@ class EventBus:
     ) -> str:
         """
         Subscribe to events.
-        
+
         Args:
             event_type_or_callback: EventType or callback function
             callback_or_event_types: Callback or Set of event types
             filter_func: Optional filter function
             priority: Subscription priority
-            
+
         Returns:
             Subscription ID
         """
@@ -196,10 +196,10 @@ class EventBus:
     def unsubscribe(self, subscription_id: str) -> bool:
         """
         Unsubscribe from events.
-        
+
         Args:
             subscription_id: ID of subscription to remove
-            
+
         Returns:
             True if subscription was found and removed
         """
@@ -230,7 +230,7 @@ class EventBus:
     ) -> None:
         """
         Publish an event.
-        
+
         Args:
             event: Event to publish
             priority: Event priority
@@ -360,12 +360,12 @@ class EventBus:
     ) -> Optional[Event]:
         """
         Wait for a specific event type.
-        
+
         Args:
             event_type: Event type to wait for
             timeout: Maximum time to wait
             filter_func: Optional filter function
-            
+
         Returns:
             Event if received, None if timeout
         """

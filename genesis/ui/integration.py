@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Integration layer connecting UI to Genesis core components."""
 
 from decimal import Decimal
@@ -28,7 +29,7 @@ class UIIntegration:
     ):
         """
         Initialize UI integration.
-        
+
         Args:
             account_manager: Account manager for balance data
             risk_engine: Risk engine for position data
@@ -51,7 +52,7 @@ class UIIntegration:
     ) -> None:
         """
         Connect UI widgets to integration layer.
-        
+
         Args:
             pnl_widget: P&L display widget
             position_widget: Position display widget
@@ -127,10 +128,10 @@ class UIIntegration:
     async def execute_buy_command(self, amount_usdt: Decimal) -> dict:
         """
         Execute buy command through order executor.
-        
+
         Args:
             amount_usdt: Amount in USDT to buy
-            
+
         Returns:
             Command result dictionary
         """
@@ -175,10 +176,10 @@ class UIIntegration:
     async def execute_sell_command(self, amount_usdt: Decimal) -> dict:
         """
         Execute sell command through order executor.
-        
+
         Args:
             amount_usdt: Amount in USDT to sell
-            
+
         Returns:
             Command result dictionary
         """
@@ -225,7 +226,7 @@ class UIIntegration:
     async def cancel_all_orders(self) -> dict:
         """
         Cancel all open orders.
-        
+
         Returns:
             Command result dictionary
         """
@@ -254,7 +255,7 @@ class UIIntegration:
     def get_connection_status(self) -> str:
         """
         Get connection status to exchange.
-        
+
         Returns:
             Status string
         """
@@ -266,7 +267,7 @@ class UIIntegration:
     def get_system_status(self) -> dict:
         """
         Get overall system status.
-        
+
         Returns:
             Status dictionary
         """

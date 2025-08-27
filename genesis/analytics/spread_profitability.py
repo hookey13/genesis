@@ -7,11 +7,11 @@ based on spread analysis and market conditions.
 
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Optional
 
 import structlog
 
 from genesis.core.exceptions import ValidationError
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 

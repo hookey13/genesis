@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Widget for displaying iceberg order execution status."""
 
 from decimal import Decimal

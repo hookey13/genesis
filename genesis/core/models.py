@@ -8,13 +8,13 @@ focusing on trading positions, accounts, and sessions.
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
 # Import TradingTier from constants to avoid duplication
 from genesis.core.constants import ConvictionLevel, TradingTier
-from typing import Optional
 
 
 class Symbol(str):

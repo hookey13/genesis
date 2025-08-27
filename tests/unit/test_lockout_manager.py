@@ -1,13 +1,13 @@
 """Unit tests for the lockout management system."""
-import pytest
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from genesis.tilt.detector import TiltLevel
 from genesis.tilt.lockout_manager import (
     LockoutManager,
     LockoutStatus,
-    Lockout,
 )
 
 
@@ -128,17 +128,17 @@ class TestLockoutEnforcement:
     async def test_lockout_expiration_times(self, lockout_manager):
         """Test that expiration times are calculated correctly."""
         profile_id = "test_profile"
-        
+
         with patch('genesis.tilt.lockout_manager.datetime') as mock_datetime:
             now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = now
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
-            
+
             lockout = await lockout_manager.enforce_lockout(
                 profile_id=profile_id,
                 tilt_level=TiltLevel.LEVEL1,
             )
-            
+
             assert lockout.started_at == now
             assert lockout.expires_at == now + timedelta(minutes=5)
 
@@ -155,7 +155,7 @@ class TestLockoutStatusChecking:
     async def test_active_lockout_status(self, lockout_manager):
         """Test status for active lockout."""
         profile_id = "test_profile"
-        
+
         await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL1)
         status = lockout_manager.check_lockout_status(profile_id)
         assert status == LockoutStatus.ACTIVE
@@ -164,23 +164,23 @@ class TestLockoutStatusChecking:
     async def test_expired_lockout_status(self, lockout_manager):
         """Test status for expired lockout."""
         profile_id = "test_profile"
-        
+
         # Create a lockout that's already expired
         with patch('genesis.tilt.lockout_manager.datetime') as mock_datetime:
             # Set time to past for creation
             past = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = past
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
-            
+
             await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL1)
-            
+
             # Move time forward past expiration
             future = past + timedelta(minutes=10)
             mock_datetime.now.return_value = future
-            
+
             status = lockout_manager.check_lockout_status(profile_id)
             assert status == LockoutStatus.EXPIRED
-            
+
             # Lockout should be removed from active cache
             assert profile_id not in lockout_manager.active_lockouts
 
@@ -192,13 +192,13 @@ class TestLockoutRetrieval:
     async def test_get_active_lockout(self, lockout_manager):
         """Test retrieving active lockout."""
         profile_id = "test_profile"
-        
+
         # No lockout initially
         assert lockout_manager.get_active_lockout(profile_id) is None
-        
+
         # Enforce lockout
         await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL2)
-        
+
         # Should now retrieve the lockout
         lockout = lockout_manager.get_active_lockout(profile_id)
         assert lockout is not None
@@ -209,25 +209,25 @@ class TestLockoutRetrieval:
     async def test_get_remaining_minutes(self, lockout_manager):
         """Test getting remaining lockout minutes."""
         profile_id = "test_profile"
-        
+
         # No lockout initially
         assert lockout_manager.get_remaining_minutes(profile_id) == 0
-        
+
         with patch('genesis.tilt.lockout_manager.datetime') as mock_datetime:
             now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = now
             mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
-            
+
             # Enforce 30-minute lockout
             await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL2)
-            
+
             # Check immediately - should be 30 minutes
             assert lockout_manager.get_remaining_minutes(profile_id) == 30
-            
+
             # Move forward 10 minutes
             mock_datetime.now.return_value = now + timedelta(minutes=10)
             assert lockout_manager.get_remaining_minutes(profile_id) == 20
-            
+
             # Move forward 30 minutes total (expired)
             mock_datetime.now.return_value = now + timedelta(minutes=30)
             assert lockout_manager.get_remaining_minutes(profile_id) == 0
@@ -241,19 +241,19 @@ class TestLockoutRelease:
         """Test releasing an active lockout."""
         manager = LockoutManager(repository=mock_repository, event_bus=mock_event_bus)
         profile_id = "test_profile"
-        
+
         # Enforce lockout
         await manager.enforce_lockout(profile_id, TiltLevel.LEVEL3)
         assert profile_id in manager.active_lockouts
-        
+
         # Release lockout
         result = await manager.release_lockout(profile_id)
         assert result is True
         assert profile_id not in manager.active_lockouts
-        
+
         # Check database update
         mock_repository.update_lockout_status.assert_called_once()
-        
+
         # Check event published
         assert mock_event_bus.publish.call_count == 2  # enforce + release
 
@@ -271,14 +271,14 @@ class TestOccurrenceCountManagement:
     async def test_occurrence_count_tracking(self, lockout_manager):
         """Test that occurrence counts are tracked correctly."""
         profile_id = "test_profile"
-        
+
         # Multiple Level 1 occurrences
         await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL1)
         await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL1)
         await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL1)
-        
+
         assert lockout_manager.occurrence_counts[profile_id][TiltLevel.LEVEL1] == 3
-        
+
         # Different level
         await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL2)
         assert lockout_manager.occurrence_counts[profile_id][TiltLevel.LEVEL2] == 1
@@ -286,33 +286,33 @@ class TestOccurrenceCountManagement:
     def test_reset_specific_level_count(self, lockout_manager):
         """Test resetting occurrence count for specific level."""
         profile_id = "test_profile"
-        
+
         # Set up counts
         lockout_manager.occurrence_counts[profile_id] = {
             TiltLevel.LEVEL1: 3,
             TiltLevel.LEVEL2: 2,
         }
-        
+
         # Reset Level 1 only
         lockout_manager.reset_occurrence_count(profile_id, TiltLevel.LEVEL1)
-        
+
         assert lockout_manager.occurrence_counts[profile_id][TiltLevel.LEVEL1] == 0
         assert lockout_manager.occurrence_counts[profile_id][TiltLevel.LEVEL2] == 2
 
     def test_reset_all_counts(self, lockout_manager):
         """Test resetting all occurrence counts."""
         profile_id = "test_profile"
-        
+
         # Set up counts
         lockout_manager.occurrence_counts[profile_id] = {
             TiltLevel.LEVEL1: 3,
             TiltLevel.LEVEL2: 2,
             TiltLevel.LEVEL3: 1,
         }
-        
+
         # Reset all
         lockout_manager.reset_occurrence_count(profile_id)
-        
+
         assert lockout_manager.occurrence_counts[profile_id] == {}
 
 
@@ -325,7 +325,7 @@ class TestLockoutPersistence:
         # Mock database response
         now = datetime.now(UTC)
         future = now + timedelta(minutes=30)
-        
+
         mock_repository.get_active_lockouts.return_value = [
             {
                 "lockout_id": "lockout_1",
@@ -339,10 +339,10 @@ class TestLockoutPersistence:
                 "reason": "Test lockout",
             }
         ]
-        
+
         manager = LockoutManager(repository=mock_repository)
         await manager.load_active_lockouts()
-        
+
         assert "profile_1" in manager.active_lockouts
         lockout = manager.active_lockouts["profile_1"]
         assert lockout.lockout_id == "lockout_1"
@@ -353,12 +353,12 @@ class TestLockoutPersistence:
     async def test_persist_lockout_error_handling(self, mock_repository, mock_event_bus):
         """Test error handling when persisting lockout."""
         mock_repository.save_lockout.side_effect = Exception("Database error")
-        
+
         manager = LockoutManager(repository=mock_repository, event_bus=mock_event_bus)
-        
+
         # Should not raise exception, just log error
         lockout = await manager.enforce_lockout("test_profile", TiltLevel.LEVEL1)
-        
+
         assert lockout is not None
         assert lockout.status == LockoutStatus.ACTIVE
         mock_repository.save_lockout.assert_called_once()

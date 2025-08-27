@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Recovery pattern analysis for learning from recovery attempts."""
 
 from dataclasses import dataclass
@@ -37,7 +38,7 @@ class RecoveryPatternAnalyzer:
         repository: SQLiteRepository,
     ):
         """Initialize recovery pattern analyzer.
-        
+
         Args:
             repository: Database repository for historical data
         """
@@ -48,10 +49,10 @@ class RecoveryPatternAnalyzer:
         account_id: str
     ) -> RecoveryAnalysis:
         """Analyze recovery patterns for an account.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             Comprehensive recovery analysis
         """
@@ -141,10 +142,10 @@ class RecoveryPatternAnalyzer:
         protocols: list[dict]
     ) -> list[str]:
         """Analyze which strategies were most effective during recovery.
-        
+
         Args:
             protocols: List of recovery protocol data
-            
+
         Returns:
             List of most effective strategy names
         """
@@ -193,10 +194,10 @@ class RecoveryPatternAnalyzer:
         failed_protocols: list[dict]
     ) -> list[str]:
         """Identify common patterns in failed recovery attempts.
-        
+
         Args:
             failed_protocols: List of failed recovery protocol data
-            
+
         Returns:
             List of common failure pattern descriptions
         """
@@ -237,10 +238,10 @@ class RecoveryPatternAnalyzer:
         account_id: str
     ) -> Optional[float]:
         """Get current recovery progress if actively recovering.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             Recovery progress percentage or None
         """
@@ -267,13 +268,13 @@ class RecoveryPatternAnalyzer:
         failure_patterns: list[str]
     ) -> list[str]:
         """Generate personalized recovery recommendations.
-        
+
         Args:
             successful: Number of successful recoveries
             failed: Number of failed recoveries
             avg_days: Average recovery duration
             failure_patterns: Identified failure patterns
-            
+
         Returns:
             List of recommendations
         """
@@ -312,10 +313,10 @@ class RecoveryPatternAnalyzer:
         account_id: str
     ) -> RecoveryAnalysis:
         """Create empty analysis for accounts with no recovery history.
-        
+
         Args:
             account_id: Account identifier
-            
+
         Returns:
             Empty recovery analysis
         """
@@ -339,7 +340,7 @@ class RecoveryPatternAnalyzer:
         outcome: str
     ) -> None:
         """Track a recovery attempt for future analysis.
-        
+
         Args:
             protocol: Recovery protocol to track
             outcome: Outcome of the attempt (success/failure/abandoned)

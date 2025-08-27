@@ -121,14 +121,14 @@ class StrategyInstance(BaseModel):
 class StrategyRegistry:
     """
     Central registry for all trading strategies.
-    
+
     Manages strategy lifecycle, health monitoring, and automatic recovery.
     """
 
     def __init__(self, event_bus: EventBus, strategy_loader: StrategyLoader):
         """
         Initialize strategy registry.
-        
+
         Args:
             event_bus: Event bus for strategy events
             strategy_loader: Strategy loader for tier management
@@ -175,16 +175,16 @@ class StrategyRegistry:
     ) -> str:
         """
         Register a new strategy instance.
-        
+
         Args:
             account_id: Account ID
             strategy_name: Strategy name
             metadata: Strategy metadata
             strategy_callable: Optional strategy execution function
-            
+
         Returns:
             Strategy ID
-            
+
         Raises:
             ValueError: If strategy cannot be registered
         """
@@ -238,10 +238,10 @@ class StrategyRegistry:
     async def unregister_strategy(self, strategy_id: str) -> bool:
         """
         Unregister and stop a strategy.
-        
+
         Args:
             strategy_id: Strategy ID to unregister
-            
+
         Returns:
             True if successfully unregistered
         """
@@ -281,10 +281,10 @@ class StrategyRegistry:
     async def start_strategy(self, strategy_id: str) -> bool:
         """
         Start a registered strategy.
-        
+
         Args:
             strategy_id: Strategy ID to start
-            
+
         Returns:
             True if successfully started
         """
@@ -330,10 +330,10 @@ class StrategyRegistry:
     async def pause_strategy(self, strategy_id: str) -> bool:
         """
         Pause a running strategy.
-        
+
         Args:
             strategy_id: Strategy ID to pause
-            
+
         Returns:
             True if successfully paused
         """
@@ -364,10 +364,10 @@ class StrategyRegistry:
     async def resume_strategy(self, strategy_id: str) -> bool:
         """
         Resume a paused strategy.
-        
+
         Args:
             strategy_id: Strategy ID to resume
-            
+
         Returns:
             True if successfully resumed
         """
@@ -398,7 +398,7 @@ class StrategyRegistry:
     async def _stop_strategy(self, strategy_id: str) -> None:
         """
         Internal method to stop a strategy.
-        
+
         Args:
             strategy_id: Strategy ID to stop
         """
@@ -423,10 +423,10 @@ class StrategyRegistry:
     def get_active_strategies(self, account_id: str | None = None) -> list[StrategyInstance]:
         """
         Get list of active strategies.
-        
+
         Args:
             account_id: Optional account ID filter
-            
+
         Returns:
             List of active strategy instances
         """
@@ -444,10 +444,10 @@ class StrategyRegistry:
     def get_strategy_state(self, strategy_id: str) -> StrategyState | None:
         """
         Get current state of a strategy.
-        
+
         Args:
             strategy_id: Strategy ID
-            
+
         Returns:
             Current state or None if not found
         """
@@ -457,10 +457,10 @@ class StrategyRegistry:
     def get_strategy_health(self, strategy_id: str) -> StrategyHealth | None:
         """
         Get health metrics for a strategy.
-        
+
         Args:
             strategy_id: Strategy ID
-            
+
         Returns:
             Health metrics or None if not found
         """
@@ -469,7 +469,7 @@ class StrategyRegistry:
     async def _run_strategy(self, strategy_id: str) -> None:
         """
         Strategy execution loop (placeholder).
-        
+
         Args:
             strategy_id: Strategy ID to run
         """
@@ -551,7 +551,7 @@ class StrategyRegistry:
     async def _recover_strategy(self, strategy_id: str) -> None:
         """
         Attempt to recover a failed strategy.
-        
+
         Args:
             strategy_id: Strategy ID to recover
         """

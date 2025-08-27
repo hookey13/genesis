@@ -10,7 +10,6 @@ import structlog
 
 from genesis.core.events import Event, EventType
 from genesis.engine.event_bus import EventBus
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -55,14 +54,14 @@ class MarketRegimeDetector:
 
     async def detect_regime(
         self,
-        market_data: Optional[dict] = None
+        market_data: dict | None = None
     ) -> MarketRegime:
         """
         Detect current market regime.
-        
+
         Args:
             market_data: Optional market data for detection
-            
+
         Returns:
             Detected market regime
         """

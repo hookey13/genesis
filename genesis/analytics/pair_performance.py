@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Performance attribution system for multi-pair trading."""
 
 import asyncio
@@ -82,7 +83,7 @@ class PairPerformanceTracker:
 
     def __init__(self, repository: Repository, account_id: str):
         """Initialize performance tracker.
-        
+
         Args:
             repository: Data repository for persistence
             account_id: Account identifier
@@ -96,7 +97,7 @@ class PairPerformanceTracker:
 
     async def track_trade(self, position: Position) -> None:
         """Track a completed trade for performance analysis.
-        
+
         Args:
             position: Closed position to track
         """
@@ -162,12 +163,12 @@ class PairPerformanceTracker:
         period_end: Optional[datetime] = None
     ) -> PairMetrics:
         """Get performance metrics for a specific pair.
-        
+
         Args:
             symbol: Trading pair symbol
             period_start: Start of period (defaults to 30 days ago)
             period_end: End of period (defaults to now)
-            
+
         Returns:
             PairMetrics with performance data
         """
@@ -229,11 +230,11 @@ class PairPerformanceTracker:
         period_end: Optional[datetime] = None
     ) -> AttributionReport:
         """Generate performance attribution report across all pairs.
-        
+
         Args:
             period_start: Start of period
             period_end: End of period
-            
+
         Returns:
             AttributionReport with attribution analysis
         """
@@ -328,12 +329,12 @@ class PairPerformanceTracker:
         period_type: PeriodType = PeriodType.DAILY
     ) -> list[PairMetrics]:
         """Get historical performance for a pair.
-        
+
         Args:
             symbol: Trading pair symbol
             periods: Number of periods to retrieve
             period_type: Type of period
-            
+
         Returns:
             List of PairMetrics for each period
         """
@@ -372,12 +373,12 @@ class PairPerformanceTracker:
         period_end: Optional[datetime] = None
     ) -> dict[str, dict[str, any]]:
         """Compare performance across multiple pairs.
-        
+
         Args:
             symbols: List of symbols to compare
             period_start: Start of comparison period
             period_end: End of comparison period
-            
+
         Returns:
             Dictionary with comparison data
         """
@@ -418,11 +419,11 @@ class PairPerformanceTracker:
 
     def _calculate_pair_metrics(self, symbol: str, trades: list[dict]) -> PairMetrics:
         """Calculate metrics from trade data.
-        
+
         Args:
             symbol: Trading pair symbol
             trades: List of trade records
-            
+
         Returns:
             Calculated PairMetrics
         """
@@ -511,11 +512,11 @@ class PairPerformanceTracker:
 
     def _calculate_sharpe_ratio(self, returns: list[float], risk_free_rate: float = 0.0) -> float:
         """Calculate Sharpe ratio.
-        
+
         Args:
             returns: List of returns
             risk_free_rate: Risk-free rate
-            
+
         Returns:
             Sharpe ratio
         """
@@ -536,10 +537,10 @@ class PairPerformanceTracker:
 
     def _calculate_max_drawdown(self, trades: list[dict]) -> Decimal:
         """Calculate maximum drawdown.
-        
+
         Args:
             trades: List of trade records
-            
+
         Returns:
             Maximum drawdown amount
         """
@@ -574,12 +575,12 @@ class PairPerformanceTracker:
         period_end: datetime
     ) -> Decimal:
         """Calculate P&L impact from correlations.
-        
+
         Args:
             pair_metrics: Metrics for each pair
             period_start: Period start
             period_end: Period end
-            
+
         Returns:
             Estimated correlation impact on P&L
         """
@@ -593,11 +594,11 @@ class PairPerformanceTracker:
         pair_weights: dict[str, Decimal]
     ) -> Decimal:
         """Calculate diversification benefit.
-        
+
         Args:
             pair_metrics: Metrics for each pair
             pair_weights: Weight of each pair in portfolio
-            
+
         Returns:
             Diversification benefit amount
         """
@@ -629,12 +630,12 @@ class PairPerformanceTracker:
         correlation_impact: Decimal
     ) -> list[str]:
         """Generate performance recommendations.
-        
+
         Args:
             pair_metrics: Metrics for each pair
             pair_weights: Weight of each pair
             correlation_impact: Correlation impact
-            
+
         Returns:
             List of recommendations
         """
@@ -669,10 +670,10 @@ class PairPerformanceTracker:
 
     def _get_current_period(self, period_type: PeriodType) -> tuple[datetime, datetime]:
         """Get current period boundaries.
-        
+
         Args:
             period_type: Type of period
-            
+
         Returns:
             Tuple of (start, end) datetime
         """
@@ -704,10 +705,10 @@ class PairPerformanceTracker:
 
     def _empty_metrics(self, symbol: str) -> PairMetrics:
         """Create empty metrics for a symbol.
-        
+
         Args:
             symbol: Trading pair symbol
-            
+
         Returns:
             Empty PairMetrics
         """

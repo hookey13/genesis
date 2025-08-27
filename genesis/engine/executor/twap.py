@@ -10,7 +10,7 @@ import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 import structlog
@@ -89,7 +89,7 @@ class TwapExecution:
 class TwapExecutor(OrderExecutor):
     """
     TWAP executor for Strategist tier.
-    
+
     Distributes order execution across a time window to achieve better
     average prices. Includes adaptive slice timing based on volume patterns,
     participation rate limiting, and early completion on favorable prices.
@@ -107,7 +107,7 @@ class TwapExecutor(OrderExecutor):
     ):
         """
         Initialize the TWAP executor.
-        
+
         Args:
             gateway: Binance gateway for exchange interaction
             account: Trading account
@@ -150,14 +150,14 @@ class TwapExecutor(OrderExecutor):
     ) -> ExecutionResult:
         """
         Execute an order using TWAP strategy.
-        
+
         Args:
             order: Order to execute
             duration_minutes: Time window for execution (5-30 minutes)
-            
+
         Returns:
             ExecutionResult with execution details
-            
+
         Raises:
             OrderExecutionError: If execution fails
             ValidationError: If parameters are invalid
@@ -282,7 +282,7 @@ class TwapExecutor(OrderExecutor):
     async def _execute_slices(self, execution: TwapExecution, original_order: Order) -> None:
         """
         Execute time slices in background.
-        
+
         Args:
             execution: TWAP execution tracker
             original_order: Original order being executed
@@ -482,12 +482,12 @@ class TwapExecutor(OrderExecutor):
     ) -> list[TimeSlice]:
         """
         Calculate time slices with adaptive timing based on volume patterns.
-        
+
         Args:
             duration_minutes: Total execution duration
             volume_profile: Market volume profile
             total_quantity: Total quantity to execute
-            
+
         Returns:
             List of time slices with target times and quantities
         """
@@ -553,12 +553,12 @@ class TwapExecutor(OrderExecutor):
     ) -> bool:
         """
         Check if current price is favorable for early completion.
-        
+
         Args:
             symbol: Trading symbol
             side: Order side
             target_price: Target/arrival price
-            
+
         Returns:
             True if early completion should trigger
         """
@@ -585,10 +585,10 @@ class TwapExecutor(OrderExecutor):
     async def pause(self, execution_id: str) -> bool:
         """
         Pause a TWAP execution.
-        
+
         Args:
             execution_id: Execution to pause
-            
+
         Returns:
             True if successfully paused
         """
@@ -615,10 +615,10 @@ class TwapExecutor(OrderExecutor):
     async def resume(self, execution_id: str) -> bool:
         """
         Resume a paused TWAP execution.
-        
+
         Args:
             execution_id: Execution to resume
-            
+
         Returns:
             True if successfully resumed
         """
@@ -645,10 +645,10 @@ class TwapExecutor(OrderExecutor):
     async def track_arrival_price(self, symbol: str) -> Decimal:
         """
         Capture arrival price for benchmark tracking.
-        
+
         Args:
             symbol: Trading symbol
-            
+
         Returns:
             Current market price at arrival
         """
@@ -657,10 +657,10 @@ class TwapExecutor(OrderExecutor):
     def calculate_twap_price(self, slices: list[dict[str, Any]]) -> Decimal:
         """
         Calculate time-weighted average price from executed slices.
-        
+
         Args:
             slices: List of executed slice data
-            
+
         Returns:
             TWAP price
         """
@@ -685,11 +685,11 @@ class TwapExecutor(OrderExecutor):
     ) -> Decimal:
         """
         Calculate implementation shortfall (slippage from arrival price).
-        
+
         Args:
             arrival_price: Price at order arrival
             execution_price: Average execution price
-            
+
         Returns:
             Implementation shortfall in percent
         """
@@ -707,12 +707,12 @@ class TwapExecutor(OrderExecutor):
     ) -> Decimal:
         """
         Enforce participation rate limit based on current volume.
-        
+
         Args:
             slice_size: Target slice size
             symbol: Trading symbol
             max_participation: Maximum participation rate
-            
+
         Returns:
             Adjusted slice size respecting participation limit
         """
@@ -752,10 +752,10 @@ class TwapExecutor(OrderExecutor):
     def _validate_duration(self, duration_minutes: int) -> None:
         """
         Validate TWAP duration.
-        
+
         Args:
             duration_minutes: Requested duration
-            
+
         Raises:
             ValidationError: If duration is invalid
         """
@@ -793,7 +793,7 @@ class TwapExecutor(OrderExecutor):
     ) -> ExecutionResult:
         """
         Execute a market order using TWAP strategy.
-        
+
         Routes to TWAP execution with default duration.
         """
         return await self.execute_twap(order, DEFAULT_DURATION_MINUTES)

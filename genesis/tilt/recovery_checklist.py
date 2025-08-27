@@ -5,7 +5,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Optional, Any
+from typing import Any, Optional
 from uuid import uuid4
 
 import structlog

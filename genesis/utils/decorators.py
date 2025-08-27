@@ -16,10 +16,10 @@ from genesis.core.exceptions import TierViolation
 def requires_tier(minimum_tier: TradingTier):
     """
     Decorator to enforce tier requirements on methods.
-    
+
     Args:
         minimum_tier: Minimum tier required to access the function
-        
+
     Raises:
         TierViolation: If current tier is below minimum required
     """
@@ -117,10 +117,10 @@ def requires_tier(minimum_tier: TradingTier):
 def with_timeout(seconds: float):
     """
     Decorator to add timeout to async functions.
-    
+
     Args:
         seconds: Timeout in seconds
-        
+
     Raises:
         asyncio.TimeoutError: If function execution exceeds timeout
     """
@@ -135,7 +135,7 @@ def with_timeout(seconds: float):
 def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
     """
     Decorator to retry failed operations with exponential backoff.
-    
+
     Args:
         max_attempts: Maximum number of retry attempts
         delay: Initial delay between retries in seconds

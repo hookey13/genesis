@@ -10,13 +10,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 import numpy as np
 import structlog
 
 from genesis.core.events import Event, EventPriority, EventType
 from genesis.engine.event_bus import EventBus
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -46,7 +46,7 @@ class CorrelationAlert:
 class CorrelationSpikeDetector:
     """
     Detects dangerous correlation spikes between trading pairs.
-    
+
     High correlations during market stress can lead to:
     - Amplified losses across positions
     - Reduced diversification benefits
@@ -62,7 +62,7 @@ class CorrelationSpikeDetector:
     ):
         """
         Initialize correlation spike detector.
-        
+
         Args:
             event_bus: Event bus for publishing alerts
             window_minutes: Rolling window for correlation calculation
@@ -106,7 +106,7 @@ class CorrelationSpikeDetector:
     ) -> None:
         """
         Add a price observation for correlation tracking.
-        
+
         Args:
             symbol: Trading symbol
             price: Current price
@@ -136,7 +136,7 @@ class CorrelationSpikeDetector:
     async def calculate_correlation_matrix(self) -> dict[tuple[str, str], Decimal]:
         """
         Calculate current correlation matrix for all tracked symbols.
-        
+
         Returns:
             Dictionary mapping symbol pairs to correlation coefficients
         """
@@ -218,7 +218,7 @@ class CorrelationSpikeDetector:
     ) -> None:
         """
         Check for correlation spikes compared to rolling average.
-        
+
         Args:
             current_matrix: Current correlation matrix
         """
@@ -293,7 +293,7 @@ class CorrelationSpikeDetector:
     async def _publish_alert(self, alert: CorrelationAlert) -> None:
         """
         Publish correlation spike alert.
-        
+
         Args:
             alert: Correlation alert to publish
         """
@@ -326,10 +326,10 @@ class CorrelationSpikeDetector:
     def _get_recommendation(self, alert: CorrelationAlert) -> str:
         """
         Get risk management recommendation for correlation spike.
-        
+
         Args:
             alert: Correlation alert
-            
+
         Returns:
             Recommendation string
         """
@@ -348,10 +348,10 @@ class CorrelationSpikeDetector:
     ) -> list[dict[str, Any]]:
         """
         Get position adjustment recommendations based on correlations.
-        
+
         Args:
             positions: Current positions (symbol -> size)
-            
+
         Returns:
             List of recommended adjustments
         """
@@ -401,7 +401,7 @@ class CorrelationSpikeDetector:
     def get_correlation_matrix_summary(self) -> dict[str, Any]:
         """
         Get summary of current correlation state.
-        
+
         Returns:
             Summary dictionary
         """

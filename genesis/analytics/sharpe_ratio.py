@@ -15,12 +15,11 @@ from enum import Enum
 import numpy as np
 import structlog
 
+from typing import Optional
+
 from genesis.core.constants import TradingTier
 from genesis.core.exceptions import (
-from typing import Optional
     DataError as InvalidDataError,
-)
-from genesis.core.exceptions import (
     GenesisException as CalculationError,
 )
 from genesis.utils.decorators import requires_tier, with_timeout

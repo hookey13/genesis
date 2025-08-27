@@ -9,7 +9,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional, Literal
+from typing import Literal, Optional
 
 import structlog
 from rich.console import RenderableType
@@ -59,29 +59,29 @@ class SpreadAlertsWidget(Widget):
         background: $surface;
         border: solid $primary;
     }
-    
+
     .alerts-container {
         padding: 1;
     }
-    
+
     .filter-bar {
         height: 3;
         margin-bottom: 1;
     }
-    
+
     .alerts-display {
         height: 1fr;
         overflow-y: auto;
     }
-    
+
     .alert-info {
         color: $text;
     }
-    
+
     .alert-warning {
         color: yellow;
     }
-    
+
     .alert-critical {
         color: red;
     }

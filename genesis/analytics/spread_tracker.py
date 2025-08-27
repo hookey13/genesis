@@ -10,13 +10,13 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Optional
 
 import structlog
 
 from genesis.analytics.spread_analyzer import SpreadAnalyzer, SpreadMetrics
 from genesis.core.events import Event, EventType
 from genesis.engine.event_bus import EventBus
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 

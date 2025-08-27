@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Position display widget for Genesis trading terminal."""
 
 from decimal import Decimal

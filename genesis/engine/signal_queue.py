@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Signal queue management system for multi-pair trading."""
 
 import asyncio
@@ -78,7 +79,7 @@ class SignalQueue:
         conflict_resolution: ConflictResolution = ConflictResolution.HIGHEST_PRIORITY
     ):
         """Initialize signal queue.
-        
+
         Args:
             repository: Data repository for persistence
             event_bus: Event bus for signal events
@@ -111,7 +112,7 @@ class SignalQueue:
 
     async def add_signal(self, signal: Signal, priority: Optional[int] = None) -> None:
         """Add a signal to the queue.
-        
+
         Args:
             signal: Trading signal to queue
             priority: Override signal priority (optional)
@@ -197,7 +198,7 @@ class SignalQueue:
 
     async def get_next_signal(self) -> Optional[Signal]:
         """Get the next signal to process.
-        
+
         Returns:
             Next signal to process, or None if queue is empty
         """
@@ -244,10 +245,10 @@ class SignalQueue:
 
     async def get_pending_signals(self, symbol: Optional[str] = None) -> list[Signal]:
         """Get all pending signals.
-        
+
         Args:
             symbol: Filter by symbol (optional)
-            
+
         Returns:
             List of pending signals
         """
@@ -260,10 +261,10 @@ class SignalQueue:
 
     async def cancel_signal(self, signal_id: str) -> bool:
         """Cancel a pending signal.
-        
+
         Args:
             signal_id: ID of signal to cancel
-            
+
         Returns:
             True if cancelled, False if not found
         """
@@ -302,7 +303,7 @@ class SignalQueue:
 
     async def clear_expired(self) -> int:
         """Clear all expired signals.
-        
+
         Returns:
             Number of expired signals cleared
         """
@@ -311,7 +312,7 @@ class SignalQueue:
 
     async def get_queue_stats(self) -> dict[str, any]:
         """Get queue statistics.
-        
+
         Returns:
             Dictionary with queue statistics
         """
@@ -335,10 +336,10 @@ class SignalQueue:
 
     async def _check_conflicts(self, new_signal: QueuedSignal) -> Optional[str]:
         """Check for conflicting signals.
-        
+
         Args:
             new_signal: Signal to check
-            
+
         Returns:
             Conflict group ID if conflicts exist, None otherwise
         """
@@ -375,11 +376,11 @@ class SignalQueue:
 
     def _are_signals_conflicting(self, signal1: Signal, signal2: Signal) -> bool:
         """Check if two signals are conflicting.
-        
+
         Args:
             signal1: First signal
             signal2: Second signal
-            
+
         Returns:
             True if signals conflict
         """
@@ -397,7 +398,7 @@ class SignalQueue:
 
     async def _resolve_conflict(self, new_signal: QueuedSignal) -> None:
         """Resolve conflicts between signals.
-        
+
         Args:
             new_signal: New conflicting signal
         """
@@ -479,7 +480,7 @@ class SignalQueue:
 
     async def _clean_expired_signals(self) -> int:
         """Remove expired signals from queue.
-        
+
         Returns:
             Number of expired signals removed
         """
@@ -507,7 +508,7 @@ class SignalQueue:
 
     async def _mark_expired(self, queued_signal: QueuedSignal) -> None:
         """Mark a signal as expired.
-        
+
         Args:
             queued_signal: Signal to mark as expired
         """
@@ -533,7 +534,7 @@ class SignalQueue:
 
     def _get_oldest_signal_age(self) -> Optional[float]:
         """Get age of oldest signal in queue.
-        
+
         Returns:
             Age in seconds, or None if queue is empty
         """
@@ -545,7 +546,7 @@ class SignalQueue:
 
     async def _persist_signal(self, queued_signal: QueuedSignal) -> None:
         """Persist signal to database.
-        
+
         Args:
             queued_signal: Signal to persist
         """
@@ -569,7 +570,7 @@ class SignalQueue:
 
     async def _update_signal_status(self, queued_signal: QueuedSignal) -> None:
         """Update signal status in database.
-        
+
         Args:
             queued_signal: Signal to update
         """

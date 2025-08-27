@@ -28,14 +28,14 @@ logger = structlog.get_logger(__name__)
 class MockExchange:
     """
     Mock exchange for testing and development.
-    
+
     Simulates Binance API responses with configurable behavior.
     """
 
     def __init__(self, initial_balance: dict[str, Decimal] = None):
         """
         Initialize the mock exchange.
-        
+
         Args:
             initial_balance: Initial account balances
         """
@@ -89,7 +89,7 @@ class MockExchange:
     async def fetch_balance(self) -> dict[str, AccountBalance]:
         """
         Fetch account balances.
-        
+
         Returns:
             Dictionary of account balances
         """
@@ -114,10 +114,10 @@ class MockExchange:
     async def create_order(self, request: OrderRequest) -> OrderResponse:
         """
         Create a new order.
-        
+
         Args:
             request: Order request
-            
+
         Returns:
             Order response
         """
@@ -196,11 +196,11 @@ class MockExchange:
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """
         Cancel an order.
-        
+
         Args:
             order_id: Order ID
             symbol: Trading pair
-            
+
         Returns:
             True if cancellation successful
         """
@@ -223,11 +223,11 @@ class MockExchange:
     async def fetch_order(self, order_id: str, symbol: str) -> OrderResponse:
         """
         Fetch order status.
-        
+
         Args:
             order_id: Order ID
             symbol: Trading pair
-            
+
         Returns:
             Order response
         """
@@ -260,11 +260,11 @@ class MockExchange:
     async def fetch_order_book(self, symbol: str, limit: int = 20) -> OrderBook:
         """
         Fetch order book.
-        
+
         Args:
             symbol: Trading pair
             limit: Number of levels
-            
+
         Returns:
             Order book data
         """
@@ -308,12 +308,12 @@ class MockExchange:
     ) -> list[dict[str, Any]]:
         """
         Fetch kline data.
-        
+
         Args:
             symbol: Trading pair
             interval: Time interval
             limit: Number of klines
-            
+
         Returns:
             List of kline data
         """
@@ -352,10 +352,10 @@ class MockExchange:
     async def fetch_ticker(self, symbol: str) -> MarketTicker:
         """
         Fetch ticker data.
-        
+
         Args:
             symbol: Trading pair
-            
+
         Returns:
             Market ticker data
         """
@@ -383,7 +383,7 @@ class MockExchange:
     async def fetch_time(self) -> int:
         """
         Fetch server time.
-        
+
         Returns:
             Server timestamp in milliseconds
         """
@@ -399,7 +399,7 @@ class MockExchange:
     def set_failure_rate(self, rate: float) -> None:
         """
         Set the failure rate for simulating errors.
-        
+
         Args:
             rate: Failure probability (0.0 to 1.0)
         """
@@ -409,7 +409,7 @@ class MockExchange:
     def set_latency(self, latency_ms: int) -> None:
         """
         Set simulated network latency.
-        
+
         Args:
             latency_ms: Latency in milliseconds
         """
@@ -419,7 +419,7 @@ class MockExchange:
     def update_market_price(self, symbol: str, price: Decimal) -> None:
         """
         Update market price for a symbol.
-        
+
         Args:
             symbol: Trading pair
             price: New market price

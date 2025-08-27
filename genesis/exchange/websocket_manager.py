@@ -60,7 +60,7 @@ class WebSocketConnection:
     ):
         """
         Initialize a WebSocket connection.
-        
+
         Args:
             name: Connection identifier
             url: WebSocket URL
@@ -272,7 +272,7 @@ class WebSocketConnection:
     async def _check_for_gaps(self, data: dict) -> None:
         """
         Check for gaps in message sequence.
-        
+
         Args:
             data: Message data
         """
@@ -325,7 +325,7 @@ class WebSocketConnection:
     async def _fill_gap(self, stream: str, start_sequence: int, end_sequence: int) -> None:
         """
         Fill gap in data using REST API.
-        
+
         Args:
             stream: Stream name
             start_sequence: Start of gap
@@ -393,7 +393,7 @@ class WebSocketConnection:
 class WebSocketManager:
     """
     Manages multiple WebSocket connections for Binance.
-    
+
     Maintains connection pools for execution, monitoring, and backup,
     with automatic failover and message buffering.
     """
@@ -514,7 +514,7 @@ class WebSocketManager:
     def subscribe(self, stream: str, callback: Callable[[dict], None]) -> None:
         """
         Subscribe to a stream.
-        
+
         Args:
             stream: Stream name
             callback: Callback function for messages
@@ -528,7 +528,7 @@ class WebSocketManager:
     def unsubscribe(self, stream: str, callback: Callable[[dict], None]) -> None:
         """
         Unsubscribe from a stream.
-        
+
         Args:
             stream: Stream name
             callback: Callback function to remove

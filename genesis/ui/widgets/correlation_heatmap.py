@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Optional, Any
+from typing import Any, Optional
 
 import numpy as np
 from rich.console import RenderableType
@@ -43,7 +43,7 @@ class CorrelationHeatmap(Widget):
         **kwargs
     ):
         """Initialize correlation heatmap widget.
-        
+
         Args:
             correlation_monitor: Correlation monitor instance
             event_bus: Event bus for subscribing to updates
@@ -102,7 +102,7 @@ class CorrelationHeatmap(Widget):
 
     async def update_correlation(self, positions: Optional[list[Position]] = None) -> None:
         """Update correlation matrix with new position data.
-        
+
         Args:
             positions: List of positions to analyze
         """
@@ -199,10 +199,10 @@ class CorrelationHeatmap(Widget):
 
     def _get_correlation_color(self, correlation: float) -> str:
         """Get color style for correlation value.
-        
+
         Args:
             correlation: Correlation value (0-1)
-            
+
         Returns:
             Color style string
         """
@@ -231,7 +231,7 @@ class CorrelationHeatmap(Widget):
 
     def get_correlation_summary(self) -> dict[str, Any]:
         """Get correlation summary statistics.
-        
+
         Returns:
             Dictionary with correlation statistics
         """
@@ -282,7 +282,7 @@ class CorrelationSummaryWidget(Static):
         **kwargs
     ):
         """Initialize correlation summary widget.
-        
+
         Args:
             correlation_monitor: Correlation monitor instance
             **kwargs: Additional widget arguments
@@ -293,7 +293,7 @@ class CorrelationSummaryWidget(Static):
 
     def update_summary(self, summary: dict[str, Any]) -> None:
         """Update summary data.
-        
+
         Args:
             summary: Summary data from heatmap widget
         """

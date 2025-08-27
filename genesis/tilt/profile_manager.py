@@ -7,11 +7,11 @@ profile contexts and operations.
 
 import json
 from datetime import UTC, datetime
+from typing import Optional
 
 import structlog
 
 from genesis.tilt.baseline import BaselineProfile, BehavioralBaseline, BehavioralMetric
-from typing import Optional
 
 logger = structlog.get_logger(__name__)
 
@@ -22,7 +22,7 @@ class ProfileManager:
     def __init__(self, repository):
         """
         Initialize the profile manager.
-        
+
         Args:
             repository: Data repository for persistence
         """
@@ -37,11 +37,11 @@ class ProfileManager:
     ) -> BaselineProfile:
         """
         Create a new baseline profile.
-        
+
         Args:
             account_id: Account ID
             context: Profile context (normal/tired/alert/stressed)
-            
+
         Returns:
             New baseline profile
         """
@@ -77,10 +77,10 @@ class ProfileManager:
     async def reset_baseline(self, profile_id: str) -> BaselineProfile:
         """
         Reset a profile's baseline, clearing all learned patterns.
-        
+
         Args:
             profile_id: Profile ID to reset
-            
+
         Returns:
             Reset baseline profile
         """
@@ -107,11 +107,11 @@ class ProfileManager:
     ) -> BaselineProfile:
         """
         Switch profile to a different context.
-        
+
         Args:
             profile_id: Profile ID
             new_context: New context (tired/alert/stressed/normal)
-            
+
         Returns:
             Updated profile
         """
@@ -145,11 +145,11 @@ class ProfileManager:
     ) -> BaselineProfile:
         """
         Update profile baseline from collected metrics.
-        
+
         Args:
             profile_id: Profile ID
             force_recalculation: Force full recalculation instead of rolling update
-            
+
         Returns:
             Updated baseline profile
         """
@@ -227,10 +227,10 @@ class ProfileManager:
     async def get_profile_by_account(self, account_id: str) -> Optional[BaselineProfile]:
         """
         Get profile for an account.
-        
+
         Args:
             account_id: Account ID
-            
+
         Returns:
             Baseline profile or None
         """
@@ -252,10 +252,10 @@ class ProfileManager:
     async def _get_or_load_profile(self, profile_id: str) -> Optional[BaselineProfile]:
         """
         Get profile from cache or load from database.
-        
+
         Args:
             profile_id: Profile ID
-            
+
         Returns:
             Baseline profile or None
         """
@@ -269,10 +269,10 @@ class ProfileManager:
     async def _load_profile_from_db(self, profile_id: str) -> Optional[BaselineProfile]:
         """
         Load profile from database.
-        
+
         Args:
             profile_id: Profile ID
-            
+
         Returns:
             Baseline profile or None
         """
@@ -311,10 +311,10 @@ class ProfileManager:
     def validate_profile_consistency(self, profile: BaselineProfile) -> list[str]:
         """
         Validate profile consistency and identify issues.
-        
+
         Args:
             profile: Profile to validate
-            
+
         Returns:
             List of validation issues (empty if valid)
         """
@@ -348,10 +348,10 @@ class ProfileManager:
     async def export_all_profiles(self, output_path: str) -> dict:
         """
         Export all profiles for backup or analysis.
-        
+
         Args:
             output_path: Path to export file
-            
+
         Returns:
             Export summary
         """
@@ -387,10 +387,10 @@ class ProfileManager:
     async def cleanup_stale_profiles(self, inactive_days: int = 90) -> int:
         """
         Clean up profiles that haven't been used recently.
-        
+
         Args:
             inactive_days: Days of inactivity before cleanup
-            
+
         Returns:
             Number of profiles cleaned up
         """

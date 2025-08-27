@@ -1,4 +1,5 @@
 from typing import Optional
+
 """Typing speed behavioral indicator for tilt detection."""
 from __future__ import annotations
 
@@ -30,7 +31,7 @@ class TypingSpeedIndicator:
         slow_threshold_wpm: int = 20
     ):
         """Initialize typing speed indicator.
-        
+
         Args:
             window_size: Number of keystroke events to track
             burst_threshold_wpm: Words per minute threshold for burst detection
@@ -57,12 +58,12 @@ class TypingSpeedIndicator:
         timestamp: Optional[datetime] = None
     ) -> dict:
         """Record a keystroke event and analyze patterns.
-        
+
         Args:
             key_count: Number of keys pressed
             duration_ms: Time taken for the keystrokes
             timestamp: Event timestamp
-            
+
         Returns:
             Analysis of typing patterns
         """
@@ -98,7 +99,7 @@ class TypingSpeedIndicator:
 
     def analyze_typing_patterns(self) -> dict:
         """Analyze typing patterns for anomalies.
-        
+
         Returns:
             Dictionary with typing pattern analysis
         """
@@ -176,11 +177,11 @@ class TypingSpeedIndicator:
 
     def _calculate_wpm(self, key_count: int, duration_ms: float) -> float:
         """Calculate words per minute from keystroke data.
-        
+
         Args:
             key_count: Number of keys pressed
             duration_ms: Duration in milliseconds
-            
+
         Returns:
             Words per minute
         """
@@ -208,13 +209,13 @@ class TypingSpeedIndicator:
         erratic: bool
     ) -> int:
         """Calculate anomaly score for typing patterns.
-        
+
         Args:
             avg_wpm: Average words per minute
             std_dev: Standard deviation of speeds
             burst_detected: Whether burst typing was detected
             erratic: Whether typing is erratic
-            
+
         Returns:
             Anomaly score from 0 to 100
         """
@@ -246,7 +247,7 @@ class TypingSpeedIndicator:
 
     def detect_stress_typing(self) -> Optional[dict]:
         """Detect stress-induced typing patterns.
-        
+
         Returns:
             Stress detection result if found, None otherwise
         """

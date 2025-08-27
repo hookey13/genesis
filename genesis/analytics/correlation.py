@@ -1,7 +1,8 @@
-from typing import Optional
 """Portfolio correlation monitoring and analysis module."""
 
 from __future__ import annotations
+
+from typing import Optional
 
 import logging
 from dataclasses import dataclass
@@ -81,7 +82,7 @@ class CorrelationMonitor:
 
     def __init__(self, event_bus: Optional[EventBus] = None, config: Optional[dict] = None):
         """Initialize correlation monitor.
-        
+
         Args:
             event_bus: Event bus for publishing alerts
             config: Configuration dictionary from trading_rules.yaml
@@ -117,10 +118,10 @@ class CorrelationMonitor:
     @with_timeout(500)  # 500ms timeout for correlation calculation
     async def calculate_correlation_matrix(self, positions: list[Position]) -> np.ndarray:
         """Calculate correlation matrix for positions.
-        
+
         Args:
             positions: List of active positions
-            
+
         Returns:
             Correlation matrix as numpy array
         """
@@ -162,11 +163,11 @@ class CorrelationMonitor:
     @requires_tier(TradingTier.HUNTER)
     async def track_correlation_history(self, positions: list[Position], window_days: int = 30) -> dict:
         """Track historical correlation over specified window.
-        
+
         Args:
             positions: List of positions to analyze
             window_days: Historical window in days
-            
+
         Returns:
             Dictionary with historical correlation data
         """
@@ -200,11 +201,11 @@ class CorrelationMonitor:
     @requires_tier(TradingTier.HUNTER)
     async def analyze_by_market_regime(self, positions: list[Position], market_state: MarketState) -> dict:
         """Analyze correlation by market regime.
-        
+
         Args:
             positions: List of positions
             market_state: Current market regime
-            
+
         Returns:
             Correlation analysis by market regime
         """
@@ -236,10 +237,10 @@ class CorrelationMonitor:
     @requires_tier(TradingTier.HUNTER)
     async def check_correlation_thresholds(self, positions: list[Position]) -> list[CorrelationAlert]:
         """Check correlation thresholds and generate alerts.
-        
+
         Args:
             positions: List of positions to check
-            
+
         Returns:
             List of correlation alerts
         """
@@ -308,10 +309,10 @@ class CorrelationMonitor:
     @requires_tier(TradingTier.HUNTER)
     async def suggest_decorrelation_trades(self, current_positions: list[Position]) -> list[TradeSuggestion]:
         """Suggest trades to reduce portfolio correlation.
-        
+
         Args:
             current_positions: Current portfolio positions
-            
+
         Returns:
             List of decorrelation trade suggestions
         """
@@ -349,11 +350,11 @@ class CorrelationMonitor:
     @requires_tier(TradingTier.HUNTER)
     async def calculate_correlation_impact(self, new_position: Position, existing_positions: list[Position]) -> CorrelationImpact:
         """Calculate correlation impact of new position.
-        
+
         Args:
             new_position: Proposed new position
             existing_positions: Existing portfolio positions
-            
+
         Returns:
             Correlation impact analysis
         """
@@ -399,11 +400,11 @@ class CorrelationMonitor:
     @requires_tier(TradingTier.HUNTER)
     async def run_stress_test(self, positions: list[Position], correlation_spike: float = 0.8) -> StressTestResult:
         """Run correlation stress test.
-        
+
         Args:
             positions: Positions to stress test
             correlation_spike: Correlation level to simulate
-            
+
         Returns:
             Stress test results
         """

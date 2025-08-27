@@ -81,7 +81,7 @@ class CorrelationAlert:
 class CorrelationMonitor:
     """
     Monitors real-time correlations between strategies and positions.
-    
+
     Tracks rolling correlations and generates alerts when thresholds are breached.
     """
 
@@ -94,7 +94,7 @@ class CorrelationMonitor:
     ):
         """
         Initialize correlation monitor.
-        
+
         Args:
             event_bus: Event bus for publishing alerts
             window_size: Rolling window size for correlation calculation
@@ -141,7 +141,7 @@ class CorrelationMonitor:
     ) -> None:
         """
         Add strategy return observations.
-        
+
         Args:
             timestamp: Observation timestamp
             returns: Dictionary of strategy_id -> return percentage
@@ -158,7 +158,7 @@ class CorrelationMonitor:
     ) -> None:
         """
         Add position return observations.
-        
+
         Args:
             timestamp: Observation timestamp
             returns: Dictionary of position_id -> return percentage
@@ -192,7 +192,7 @@ class CorrelationMonitor:
     async def _check_correlation_alerts(self, corr_matrix: pd.DataFrame) -> None:
         """
         Check correlation matrix for threshold breaches.
-        
+
         Args:
             corr_matrix: Correlation matrix to check
         """
@@ -285,10 +285,10 @@ class CorrelationMonitor:
     ) -> list[PositionCorrelation]:
         """
         Calculate correlations between positions.
-        
+
         Args:
             positions: List of position dictionaries with historical data
-            
+
         Returns:
             List of PositionCorrelation objects
         """
@@ -333,7 +333,7 @@ class CorrelationMonitor:
     def get_correlation_matrix(self) -> pd.DataFrame | None:
         """
         Get current correlation matrix.
-        
+
         Returns:
             Current correlation matrix or None
         """
@@ -342,7 +342,7 @@ class CorrelationMonitor:
     def get_correlation_summary(self) -> dict:
         """
         Get summary of current correlations.
-        
+
         Returns:
             Summary dictionary
         """
@@ -383,10 +383,10 @@ class CorrelationMonitor:
     ) -> list[tuple[str, str, Decimal]]:
         """
         Get pairs with high correlations.
-        
+
         Args:
             threshold: Correlation threshold (uses warning threshold if not specified)
-            
+
         Returns:
             List of (entity1, entity2, correlation) tuples
         """

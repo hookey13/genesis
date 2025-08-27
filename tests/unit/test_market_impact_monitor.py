@@ -1,22 +1,21 @@
 """Unit tests for the Market Impact Monitor."""
 
-import pytest
-import asyncio
-from decimal import Decimal
 from datetime import datetime, timedelta
-from unittest.mock import Mock, AsyncMock, patch
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
+import pytest
+
 from genesis.analytics.market_impact_monitor import (
-    MarketImpactMonitor,
+    ImpactSeverity,
     MarketImpactMetric,
-    ImpactAnalysis,
-    ImpactSeverity
+    MarketImpactMonitor,
 )
-from genesis.engine.executor.base import Order, OrderSide, OrderType, OrderStatus
 from genesis.core.models import TradingTier
-from genesis.exchange.models import OrderBook, Ticker
 from genesis.data.repository import Repository
+from genesis.engine.executor.base import Order, OrderSide, OrderStatus, OrderType
+from genesis.exchange.models import OrderBook, Ticker
 
 
 @pytest.fixture
@@ -103,7 +102,7 @@ def sample_order():
 
 class TestMarketImpactMonitor:
     """Test suite for MarketImpactMonitor."""
-    
+
     def test_initialization(self, mock_gateway, mock_repository):
         """Test monitor initialization."""
         monitor = MarketImpactMonitor(
@@ -111,13 +110,13 @@ class TestMarketImpactMonitor:
             repository=mock_repository,
             tier=TradingTier.HUNTER
         )
-        
+
         assert monitor.gateway == mock_gateway
         assert monitor.repository == mock_repository
         assert monitor.tier == TradingTier.HUNTER
         assert len(monitor.active_monitors) == 0
         assert len(monitor.pre_execution_prices) == 0
-    
+
     @pytest.mark.asyncio
     async def test_measure_pre_execution_state(
         self, impact_monitor, mock_gateway, sample_ticker, sample_order_book
@@ -125,21 +124,21 @@ class TestMarketImpactMonitor:
         """Test capturing pre-execution market state."""
         execution_id = "test_exec_123"
         symbol = "BTCUSDT"
-        
+
         mock_gateway.get_ticker.return_value = sample_ticker
         mock_gateway.get_order_book.return_value = sample_order_book
-        
+
         bid, ask, order_book = await impact_monitor.measure_pre_execution_state(
             symbol, execution_id
         )
-        
+
         assert bid == sample_ticker.bid_price
         assert ask == sample_ticker.ask_price
         assert order_book == sample_order_book
         assert execution_id in impact_monitor.pre_execution_prices
         assert execution_id in impact_monitor.execution_start_times
         assert execution_id in impact_monitor.active_monitors
-    
+
     @pytest.mark.asyncio
     async def test_measure_slice_impact(
         self, impact_monitor, mock_gateway, sample_order, sample_ticker, sample_order_book
@@ -148,19 +147,19 @@ class TestMarketImpactMonitor:
         execution_id = "test_exec_123"
         pre_price = Decimal("40000")
         volume = Decimal("4000")  # 0.1 BTC * $40000
-        
+
         # Set up post-execution state (slight price increase)
         post_ticker = Mock(spec=Ticker)
         post_ticker.bid_price = Decimal("40005")
         post_ticker.ask_price = Decimal("40010")  # Price moved up
-        
+
         mock_gateway.get_ticker.return_value = post_ticker
         mock_gateway.get_order_book.return_value = sample_order_book
-        
+
         metric = await impact_monitor.measure_slice_impact(
             execution_id, sample_order, pre_price, volume
         )
-        
+
         assert metric.execution_id == execution_id
         assert metric.slice_id == sample_order.order_id
         assert metric.pre_price == pre_price
@@ -170,7 +169,7 @@ class TestMarketImpactMonitor:
         assert metric.severity in ImpactSeverity
         assert execution_id in impact_monitor.active_monitors
         assert metric in impact_monitor.active_monitors[execution_id]
-    
+
     def test_calculate_impact(self, impact_monitor):
         """Test impact percentage calculation."""
         # Test price increase (unfavorable for buy)
@@ -180,7 +179,7 @@ class TestMarketImpactMonitor:
             Decimal("1000")
         )
         assert impact == Decimal("1.0000")  # 1% increase
-        
+
         # Test price decrease (favorable for buy)
         impact = impact_monitor.calculate_impact(
             Decimal("100"),
@@ -188,7 +187,7 @@ class TestMarketImpactMonitor:
             Decimal("1000")
         )
         assert impact == Decimal("-1.0000")  # 1% decrease
-        
+
         # Test no change
         impact = impact_monitor.calculate_impact(
             Decimal("100"),
@@ -196,7 +195,7 @@ class TestMarketImpactMonitor:
             Decimal("1000")
         )
         assert impact == Decimal("0")
-        
+
         # Test zero pre-price
         impact = impact_monitor.calculate_impact(
             Decimal("0"),
@@ -204,7 +203,7 @@ class TestMarketImpactMonitor:
             Decimal("1000")
         )
         assert impact == Decimal("0")
-    
+
     def test_classify_impact_severity(self, impact_monitor):
         """Test impact severity classification."""
         assert impact_monitor._classify_impact_severity(Decimal("0.05")) == ImpactSeverity.NEGLIGIBLE
@@ -213,7 +212,7 @@ class TestMarketImpactMonitor:
         assert impact_monitor._classify_impact_severity(Decimal("0.7")) == ImpactSeverity.HIGH
         assert impact_monitor._classify_impact_severity(Decimal("1.5")) == ImpactSeverity.SEVERE
         assert impact_monitor._classify_impact_severity(Decimal("-0.4")) == ImpactSeverity.MODERATE  # Absolute value
-    
+
     @pytest.mark.asyncio
     async def test_analyze_execution_impact(self, impact_monitor):
         """Test comprehensive execution impact analysis."""
@@ -221,7 +220,7 @@ class TestMarketImpactMonitor:
         symbol = "BTCUSDT"
         total_volume = Decimal("12000")  # 0.3 BTC * $40000
         slice_count = 3
-        
+
         # Create mock metrics
         metrics = [
             MarketImpactMetric(
@@ -246,14 +245,14 @@ class TestMarketImpactMonitor:
             )
             for i in range(3)
         ]
-        
+
         impact_monitor.active_monitors[execution_id] = metrics
         impact_monitor.execution_start_times[execution_id] = datetime.now() - timedelta(seconds=10)
-        
+
         analysis = await impact_monitor.analyze_execution_impact(
             execution_id, symbol, total_volume, slice_count
         )
-        
+
         assert analysis.execution_id == execution_id
         assert analysis.symbol == symbol
         assert analysis.total_volume == total_volume
@@ -265,7 +264,7 @@ class TestMarketImpactMonitor:
         assert analysis.optimal_slice_size > 0
         assert analysis.recommended_delay_seconds > 0
         assert execution_id not in impact_monitor.active_monitors  # Cleaned up
-    
+
     @pytest.mark.asyncio
     async def test_analyze_execution_impact_no_metrics(self, impact_monitor):
         """Test analysis when no metrics are available."""
@@ -273,16 +272,16 @@ class TestMarketImpactMonitor:
         symbol = "BTCUSDT"
         total_volume = Decimal("10000")
         slice_count = 5
-        
+
         analysis = await impact_monitor.analyze_execution_impact(
             execution_id, symbol, total_volume, slice_count
         )
-        
+
         assert analysis.execution_id == execution_id
         assert analysis.total_impact_percent == Decimal("0")
         assert analysis.average_impact_per_slice == Decimal("0")
         assert all(count == 0 for count in analysis.severity_distribution.values())
-    
+
     def test_calculate_depth_at_level(self, impact_monitor, sample_order_book):
         """Test order book depth calculation at price levels."""
         # Test buy side (looking at asks)
@@ -292,7 +291,7 @@ class TestMarketImpactMonitor:
             OrderSide.BUY
         )
         assert depth > 0
-        
+
         # Test sell side (looking at bids)
         depth = impact_monitor._calculate_depth_at_level(
             sample_order_book,
@@ -300,7 +299,7 @@ class TestMarketImpactMonitor:
             OrderSide.SELL
         )
         assert depth > 0
-        
+
         # Test empty order book
         empty_book = OrderBook(
             symbol="EMPTY",
@@ -314,45 +313,45 @@ class TestMarketImpactMonitor:
             OrderSide.BUY
         )
         assert depth == Decimal("0")
-    
+
     def test_recommend_optimal_slice_size(self, impact_monitor):
         """Test optimal slice size recommendations."""
         total_volume = Decimal("10000")
         slice_count = 5
         current_size = total_volume / slice_count
-        
+
         # Very low impact - should increase size
         size = impact_monitor._recommend_optimal_slice_size(
             total_volume, slice_count, Decimal("0.05")
         )
         assert size > current_size
-        
+
         # Moderate impact - should maintain or slightly reduce
         size = impact_monitor._recommend_optimal_slice_size(
             total_volume, slice_count, Decimal("0.25")
         )
         assert size <= current_size
-        
+
         # High impact - should reduce significantly
         size = impact_monitor._recommend_optimal_slice_size(
             total_volume, slice_count, Decimal("0.8")
         )
         assert size < current_size * Decimal("0.8")
-    
+
     def test_recommend_delay(self, impact_monitor):
         """Test delay recommendations."""
         # Low impact, low volatility - short delay
         delay = impact_monitor._recommend_delay(Decimal("0.1"), Decimal("0.05"))
         assert delay == 2.0
-        
+
         # Moderate impact - medium delay
         delay = impact_monitor._recommend_delay(Decimal("0.3"), Decimal("0.1"))
         assert delay == 3.5
-        
+
         # High impact - maximum delay
         delay = impact_monitor._recommend_delay(Decimal("0.7"), Decimal("0.2"))
         assert delay == 5.0
-    
+
     def test_calculate_max_safe_volume(self, impact_monitor):
         """Test maximum safe volume calculation."""
         # Create metrics with varying impact
@@ -378,18 +377,18 @@ class TestMarketImpactMonitor:
             )
             for i in range(5)
         ]
-        
+
         # Metrics 0, 1, 2 have impact < 0.3%
         safe_volume = impact_monitor._calculate_max_safe_volume(metrics)
         assert safe_volume == Decimal("3000")  # Max of safe volumes
-        
+
         # No safe volumes
         for metric in metrics:
             metric.price_impact_percent = Decimal("0.5")
-        
+
         safe_volume = impact_monitor._calculate_max_safe_volume(metrics)
         assert safe_volume == Decimal("500")  # Half of minimum volume
-    
+
     @pytest.mark.asyncio
     async def test_create_impact_dashboard_widget(self, impact_monitor):
         """Test dashboard widget creation."""
@@ -414,17 +413,17 @@ class TestMarketImpactMonitor:
             severity=ImpactSeverity.NEGLIGIBLE,
             measured_at=datetime.now()
         )
-        
+
         impact_monitor.active_monitors[execution_id] = [metric]
-        
+
         widget_data = await impact_monitor.create_impact_dashboard_widget()
-        
+
         assert widget_data["type"] == "market_impact"
         assert len(widget_data["active_executions"]) == 1
         assert widget_data["active_executions"][0]["execution_id"] == execution_id
         assert widget_data["active_executions"][0]["symbol"] == "BTCUSDT"
         assert widget_data["active_executions"][0]["severity"] == "NEGLIGIBLE"
-    
+
     @pytest.mark.asyncio
     async def test_error_handling_in_measure_slice_impact(
         self, impact_monitor, mock_gateway, sample_order
@@ -433,44 +432,44 @@ class TestMarketImpactMonitor:
         execution_id = "test_exec"
         pre_price = Decimal("40000")
         volume = Decimal("4000")
-        
+
         # Make gateway raise an error
         mock_gateway.get_ticker.side_effect = Exception("Network error")
-        
+
         metric = await impact_monitor.measure_slice_impact(
             execution_id, sample_order, pre_price, volume
         )
-        
+
         # Should return default metric with zero impact
         assert metric.price_impact_percent == Decimal("0")
         assert metric.severity == ImpactSeverity.NEGLIGIBLE
         assert metric.notes == "Measurement failed"
-    
+
     @pytest.mark.asyncio
     async def test_monitor_price_recovery(self, impact_monitor, mock_gateway):
         """Test price recovery monitoring."""
         execution_id = "test_exec"
         symbol = "BTCUSDT"
-        
+
         # Set pre-execution prices
         impact_monitor.pre_execution_prices[execution_id] = (
             Decimal("40000"),  # bid
             Decimal("40001")   # ask
         )
-        
+
         # Mock ticker showing recovery
         recovered_ticker = Mock(spec=Ticker)
         recovered_ticker.bid_price = Decimal("39990")  # Within 0.99 * pre_bid
         recovered_ticker.ask_price = Decimal("40010")  # Within 1.01 * pre_ask
-        
+
         mock_gateway.get_ticker.return_value = recovered_ticker
-        
+
         # Use a short monitoring period for testing
         impact_monitor.RECOVERY_MONITORING_PERIOD = timedelta(seconds=1)
-        
+
         recovery_time = await impact_monitor._monitor_price_recovery(
             execution_id, symbol
         )
-        
+
         assert recovery_time is not None
         assert recovery_time >= 0
