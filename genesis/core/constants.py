@@ -5,6 +5,7 @@ from enum import Enum
 
 class TradingTier(Enum):
     """Trading tier levels with capital ranges."""
+
     SNIPER = "SNIPER"  # $500 - $2,000
     HUNTER = "HUNTER"  # $2,000 - $10,000
     STRATEGIST = "STRATEGIST"  # $10,000 - $50,000
@@ -13,12 +14,14 @@ class TradingTier(Enum):
 
 class OrderSide(Enum):
     """Order side."""
+
     BUY = "BUY"
     SELL = "SELL"
 
 
 class OrderType(Enum):
     """Order type."""
+
     MARKET = "MARKET"
     LIMIT = "LIMIT"
     STOP_LIMIT = "STOP_LIMIT"
@@ -26,6 +29,7 @@ class OrderType(Enum):
 
 class OrderStatus(Enum):
     """Order status."""
+
     PENDING = "PENDING"
     SUBMITTED = "SUBMITTED"
     PARTIALLY_FILLED = "PARTIALLY_FILLED"
@@ -37,12 +41,14 @@ class OrderStatus(Enum):
 
 class PositionSide(Enum):
     """Position side."""
+
     LONG = "LONG"
     SHORT = "SHORT"
 
 
 class TimeInForce(Enum):
     """Time in force for orders."""
+
     GTC = "GTC"  # Good Till Cancelled
     IOC = "IOC"  # Immediate or Cancel
     FOK = "FOK"  # Fill or Kill
@@ -51,6 +57,7 @@ class TimeInForce(Enum):
 
 class ConvictionLevel(Enum):
     """Trade conviction level for position sizing overrides."""
+
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"

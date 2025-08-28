@@ -17,6 +17,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class RecoveryAnalysis:
     """Recovery pattern analysis results."""
+
     account_id: str
     total_attempts: int
     successful_recoveries: int
@@ -44,10 +45,7 @@ class RecoveryPatternAnalyzer:
         """
         self.repository = repository
 
-    def analyze_recovery_patterns(
-        self,
-        account_id: str
-    ) -> RecoveryAnalysis:
+    def analyze_recovery_patterns(self, account_id: str) -> RecoveryAnalysis:
         """Analyze recovery patterns for an account.
 
         Args:
@@ -90,7 +88,9 @@ class RecoveryPatternAnalyzer:
                 recovery_durations.append(duration_days)
 
             if recovery_durations:
-                average_recovery_days = sum(recovery_durations) / len(recovery_durations)
+                average_recovery_days = sum(recovery_durations) / len(
+                    recovery_durations
+                )
                 best_recovery_days = min(recovery_durations)
                 worst_recovery_days = max(recovery_durations)
             else:
@@ -112,7 +112,7 @@ class RecoveryPatternAnalyzer:
                 successful_recoveries,
                 failed_recoveries,
                 average_recovery_days,
-                common_failure_patterns
+                common_failure_patterns,
             )
 
             return RecoveryAnalysis(
@@ -126,21 +126,18 @@ class RecoveryPatternAnalyzer:
                 most_effective_strategies=most_effective_strategies,
                 common_failure_patterns=common_failure_patterns,
                 current_recovery_progress=current_progress,
-                recommendations=recommendations
+                recommendations=recommendations,
             )
 
         except Exception as e:
             logger.error(
                 "Failed to analyze recovery patterns",
                 account_id=account_id,
-                error=str(e)
+                error=str(e),
             )
             return self._create_empty_analysis(account_id)
 
-    def _analyze_effective_strategies(
-        self,
-        protocols: list[dict]
-    ) -> list[str]:
+    def _analyze_effective_strategies(self, protocols: list[dict]) -> list[str]:
         """Analyze which strategies were most effective during recovery.
 
         Args:
@@ -168,7 +165,7 @@ class RecoveryPatternAnalyzer:
                     strategy_performance[strategy] = {
                         "total_pnl": Decimal("0"),
                         "trade_count": 0,
-                        "win_count": 0
+                        "win_count": 0,
                     }
 
                 pnl = Decimal(trade.get("profit_loss", "0"))
@@ -189,10 +186,7 @@ class RecoveryPatternAnalyzer:
 
         return [s[0] for s in ranked_strategies[:3]]  # Top 3 strategies
 
-    def _identify_failure_patterns(
-        self,
-        failed_protocols: list[dict]
-    ) -> list[str]:
+    def _identify_failure_patterns(self, failed_protocols: list[dict]) -> list[str]:
         """Identify common patterns in failed recovery attempts.
 
         Args:
@@ -210,7 +204,9 @@ class RecoveryPatternAnalyzer:
         quick_abandons = 0
         for protocol in failed_protocols:
             started = datetime.fromisoformat(protocol["initiated_at"])
-            last_update = datetime.fromisoformat(protocol.get("updated_at", protocol["initiated_at"]))
+            last_update = datetime.fromisoformat(
+                protocol.get("updated_at", protocol["initiated_at"])
+            )
             if (last_update - started).days < 3:
                 quick_abandons += 1
 
@@ -219,7 +215,10 @@ class RecoveryPatternAnalyzer:
 
         # Check for over-trading during recovery
         for protocol in failed_protocols:
-            if protocol.get("loss_trades_count", 0) > protocol.get("profitable_trades_count", 0) * 2:
+            if (
+                protocol.get("loss_trades_count", 0)
+                > protocol.get("profitable_trades_count", 0) * 2
+            ):
                 patterns.append("Over-trading during recovery periods")
                 break
 
@@ -233,10 +232,7 @@ class RecoveryPatternAnalyzer:
 
         return patterns
 
-    def _get_current_recovery_progress(
-        self,
-        account_id: str
-    ) -> Optional[float]:
+    def _get_current_recovery_progress(self, account_id: str) -> Optional[float]:
         """Get current recovery progress if actively recovering.
 
         Args:
@@ -261,11 +257,7 @@ class RecoveryPatternAnalyzer:
         return 0.0
 
     def _generate_recommendations(
-        self,
-        successful: int,
-        failed: int,
-        avg_days: float,
-        failure_patterns: list[str]
+        self, successful: int, failed: int, avg_days: float, failure_patterns: list[str]
     ) -> list[str]:
         """Generate personalized recovery recommendations.
 
@@ -282,7 +274,9 @@ class RecoveryPatternAnalyzer:
 
         # Success rate based recommendations
         if failed > successful:
-            recommendations.append("Consider more conservative position sizing during recovery")
+            recommendations.append(
+                "Consider more conservative position sizing during recovery"
+            )
             recommendations.append("Focus on fewer, higher-quality trades")
 
         # Duration based recommendations
@@ -293,7 +287,9 @@ class RecoveryPatternAnalyzer:
 
         # Pattern based recommendations
         if "abandon recovery too quickly" in str(failure_patterns):
-            recommendations.append("Commit to at least 7 days before evaluating recovery")
+            recommendations.append(
+                "Commit to at least 7 days before evaluating recovery"
+            )
 
         if "Over-trading" in str(failure_patterns):
             recommendations.append("Limit daily trade count during recovery")
@@ -308,10 +304,7 @@ class RecoveryPatternAnalyzer:
 
         return recommendations
 
-    def _create_empty_analysis(
-        self,
-        account_id: str
-    ) -> RecoveryAnalysis:
+    def _create_empty_analysis(self, account_id: str) -> RecoveryAnalysis:
         """Create empty analysis for accounts with no recovery history.
 
         Args:
@@ -331,14 +324,10 @@ class RecoveryPatternAnalyzer:
             most_effective_strategies=[],
             common_failure_patterns=[],
             current_recovery_progress=None,
-            recommendations=["No recovery history available"]
+            recommendations=["No recovery history available"],
         )
 
-    def track_recovery_attempt(
-        self,
-        protocol: RecoveryProtocol,
-        outcome: str
-    ) -> None:
+    def track_recovery_attempt(self, protocol: RecoveryProtocol, outcome: str) -> None:
         """Track a recovery attempt for future analysis.
 
         Args:
@@ -347,20 +336,18 @@ class RecoveryPatternAnalyzer:
         """
         try:
             self.repository.save_recovery_outcome(
-                protocol.protocol_id,
-                outcome,
-                datetime.now(UTC)
+                protocol.protocol_id, outcome, datetime.now(UTC)
             )
 
             logger.info(
                 "Recovery attempt tracked",
                 protocol_id=protocol.protocol_id,
-                outcome=outcome
+                outcome=outcome,
             )
 
         except Exception as e:
             logger.error(
                 "Failed to track recovery attempt",
                 protocol_id=protocol.protocol_id,
-                error=str(e)
+                error=str(e),
             )

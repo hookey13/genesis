@@ -34,7 +34,7 @@ def sample_order():
         maker_fee_paid=Decimal("0.00001"),  # 0.1% maker fee
         taker_fee_paid=Decimal("0"),
         created_at=datetime.now() - timedelta(seconds=2),
-        executed_at=datetime.now()
+        executed_at=datetime.now(),
     )
 
 
@@ -67,7 +67,7 @@ class TestExecutionScorer:
         slippage = scorer._calculate_slippage_bps(
             expected_price=Decimal("50000"),
             actual_price=Decimal("50100"),  # Paid more
-            side=OrderSide.BUY
+            side=OrderSide.BUY,
         )
         assert slippage == Decimal("20")  # 20 basis points unfavorable
 
@@ -76,7 +76,7 @@ class TestExecutionScorer:
         slippage = scorer._calculate_slippage_bps(
             expected_price=Decimal("50000"),
             actual_price=Decimal("49900"),  # Paid less
-            side=OrderSide.BUY
+            side=OrderSide.BUY,
         )
         assert slippage == Decimal("-20")  # 20 basis points favorable
 
@@ -85,7 +85,7 @@ class TestExecutionScorer:
         slippage = scorer._calculate_slippage_bps(
             expected_price=Decimal("50000"),
             actual_price=Decimal("49900"),  # Sold for less
-            side=OrderSide.SELL
+            side=OrderSide.SELL,
         )
         assert slippage == Decimal("20")  # 20 basis points unfavorable
 
@@ -94,7 +94,7 @@ class TestExecutionScorer:
         slippage = scorer._calculate_slippage_bps(
             expected_price=Decimal("50000"),
             actual_price=Decimal("50100"),  # Sold for more
-            side=OrderSide.SELL
+            side=OrderSide.SELL,
         )
         assert slippage == Decimal("-20")  # 20 basis points favorable
 
@@ -104,7 +104,7 @@ class TestExecutionScorer:
             expected_price=Decimal("50000"),
             actual_price=Decimal("49950"),  # Bought below mid
             market_mid_price=Decimal("50000"),
-            side=OrderSide.BUY
+            side=OrderSide.BUY,
         )
         assert improvement == Decimal("10")  # 10 bps improvement
 
@@ -114,7 +114,7 @@ class TestExecutionScorer:
             expected_price=Decimal("50000"),
             actual_price=Decimal("50050"),  # Sold above mid
             market_mid_price=Decimal("50000"),
-            side=OrderSide.SELL
+            side=OrderSide.SELL,
         )
         assert improvement == Decimal("10")  # 10 bps improvement
 
@@ -174,7 +174,7 @@ class TestExecutionScorer:
             order=sample_order,
             actual_price=Decimal("50000"),  # No slippage
             time_to_fill_ms=50,  # Very fast
-            market_mid_price=Decimal("50000")
+            market_mid_price=Decimal("50000"),
         )
 
         assert score > 95  # Near perfect score
@@ -188,7 +188,7 @@ class TestExecutionScorer:
             order=sample_order,
             actual_price=Decimal("50200"),  # 40 bps slippage
             time_to_fill_ms=500,
-            market_mid_price=Decimal("50100")
+            market_mid_price=Decimal("50100"),
         )
 
         assert score < 80  # Lower score due to slippage
@@ -202,7 +202,7 @@ class TestExecutionScorer:
             order=sample_order,
             actual_price=Decimal("50000"),
             time_to_fill_ms=100,
-            market_mid_price=Decimal("50000")
+            market_mid_price=Decimal("50000"),
         )
 
         assert score < 90  # Lower due to high fees
@@ -219,7 +219,7 @@ class TestExecutionQualityTracker:
             order=sample_order,
             actual_price=Decimal("50000"),
             time_to_fill_ms=100,
-            market_mid_price=Decimal("50000")
+            market_mid_price=Decimal("50000"),
         )
 
         assert score > 0
@@ -240,18 +240,12 @@ class TestExecutionQualityTracker:
         """Test getting statistics with tracked executions."""
         # Track a few executions
         await tracker.track_execution(
-            sample_order,
-            Decimal("50000"),
-            100,
-            Decimal("50000")
+            sample_order, Decimal("50000"), 100, Decimal("50000")
         )
 
         sample_order.order_id = "test-order-2"
         await tracker.track_execution(
-            sample_order,
-            Decimal("50100"),  # Some slippage
-            200,
-            Decimal("50000")
+            sample_order, Decimal("50100"), 200, Decimal("50000")  # Some slippage
         )
 
         stats = await tracker.get_statistics("1h")
@@ -267,19 +261,13 @@ class TestExecutionQualityTracker:
         """Test filtering statistics by symbol."""
         # Track orders for different symbols
         await tracker.track_execution(
-            sample_order,
-            Decimal("50000"),
-            100,
-            Decimal("50000")
+            sample_order, Decimal("50000"), 100, Decimal("50000")
         )
 
         sample_order.order_id = "test-order-2"
         sample_order.symbol = "ETH/USDT"
         await tracker.track_execution(
-            sample_order,
-            Decimal("3000"),
-            150,
-            Decimal("3000")
+            sample_order, Decimal("3000"), 150, Decimal("3000")
         )
 
         # Get stats for BTC only
@@ -308,16 +296,13 @@ class TestExecutionQualityTracker:
             fill_rate=Decimal("100"),
             price_improvement_bps=Decimal("5"),
             execution_score=85.0,
-            market_conditions=None
+            market_conditions=None,
         )
         tracker._quality_cache.append(old_quality)
 
         # Track a recent execution
         await tracker.track_execution(
-            sample_order,
-            Decimal("50000"),
-            100,
-            Decimal("50000")
+            sample_order, Decimal("50000"), 100, Decimal("50000")
         )
 
         # Get 24h stats - should only include recent
@@ -345,7 +330,7 @@ class TestExecutionQualityTracker:
             worst_execution_score=45.0,
             rejection_rate=Decimal("2"),
             orders_by_type={"LIMIT": 60, "MARKET": 30, "POST_ONLY": 10},
-            orders_by_routing={"SMART": 70, "DIRECT": 30}
+            orders_by_routing={"SMART": 70, "DIRECT": 30},
         )
 
         report = tracker.generate_report(stats)
@@ -376,7 +361,7 @@ class TestExecutionQuality:
             fill_rate=Decimal("100"),
             price_improvement_bps=Decimal("5"),
             execution_score=85.0,
-            market_conditions='{"spread": 0.001}'
+            market_conditions='{"spread": 0.001}',
         )
 
         assert quality.order_id == "test-1"
@@ -405,14 +390,14 @@ class TestIntegrationScenarios:
             taker_fee_paid=Decimal("0.0001"),  # Always taker
             maker_fee_paid=Decimal("0"),
             created_at=datetime.now() - timedelta(milliseconds=150),
-            executed_at=datetime.now()
+            executed_at=datetime.now(),
         )
 
         score = await tracker.track_execution(
             market_order,
             actual_price=Decimal("50100"),  # Some slippage expected
             time_to_fill_ms=150,
-            market_mid_price=Decimal("50000")
+            market_mid_price=Decimal("50000"),
         )
 
         assert score > 0
@@ -435,14 +420,14 @@ class TestIntegrationScenarios:
             maker_fee_paid=Decimal("0.00005"),  # Always maker
             taker_fee_paid=Decimal("0"),
             created_at=datetime.now() - timedelta(seconds=5),
-            executed_at=datetime.now()
+            executed_at=datetime.now(),
         )
 
         score = await tracker.track_execution(
             post_only_order,
             actual_price=Decimal("50100"),  # Executed at limit price
             time_to_fill_ms=5000,  # Slower but expected for post-only
-            market_mid_price=Decimal("50000")
+            market_mid_price=Decimal("50000"),
         )
 
         assert score > 70  # Good score despite slower execution

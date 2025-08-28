@@ -37,11 +37,11 @@ def mock_exchange_gateway():
         order.filled_quantity = order.quantity
         order.executed_at = datetime.now(UTC)
         return {
-            'order_id': order.order_id,
-            'exchange_order_id': f'binance_{order.order_id}',
-            'status': 'FILLED',
-            'filled_quantity': str(order.quantity),
-            'average_price': '100.00'
+            "order_id": order.order_id,
+            "exchange_order_id": f"binance_{order.order_id}",
+            "status": "FILLED",
+            "filled_quantity": str(order.quantity),
+            "average_price": "100.00",
         }
 
     gateway.place_order = AsyncMock(side_effect=mock_place_order)
@@ -56,11 +56,11 @@ def mock_exchange_gateway():
 def integration_config():
     """Create integration test configuration."""
     return {
-        'vwap_participation_rate_percent': 10.0,
-        'vwap_min_slice_size_usd': 50.00,
-        'vwap_max_slices': 10,  # Smaller for testing
-        'vwap_time_window_minutes': 60,  # Shorter for testing
-        'vwap_aggressive_threshold_percent': 5.0
+        "vwap_participation_rate_percent": 10.0,
+        "vwap_min_slice_size_usd": 50.00,
+        "vwap_max_slices": 10,  # Smaller for testing
+        "vwap_time_window_minutes": 60,  # Shorter for testing
+        "vwap_aggressive_threshold_percent": 5.0,
     }
 
 
@@ -79,18 +79,18 @@ async def vwap_system(mock_exchange_gateway, integration_config):
         volume_analyzer=volume_analyzer,
         vwap_tracker=vwap_tracker,
         event_bus=event_bus,
-        config=integration_config
+        config=integration_config,
     )
 
     # Start tracker
     await vwap_tracker.start()
 
     yield {
-        'executor': executor,
-        'tracker': vwap_tracker,
-        'analyzer': volume_analyzer,
-        'event_bus': event_bus,
-        'gateway': mock_exchange_gateway
+        "executor": executor,
+        "tracker": vwap_tracker,
+        "analyzer": volume_analyzer,
+        "event_bus": event_bus,
+        "gateway": mock_exchange_gateway,
     }
 
     # Cleanup
@@ -101,66 +101,76 @@ class TestVWAPWorkflowIntegration:
     """Test complete VWAP execution workflow."""
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_end_to_end_vwap_execution(self, vwap_system):
         """Test complete VWAP execution from order to completion."""
-        executor = vwap_system['executor']
-        tracker = vwap_system['tracker']
-        analyzer = vwap_system['analyzer']
-        gateway = vwap_system['gateway']
+        executor = vwap_system["executor"]
+        tracker = vwap_system["tracker"]
+        analyzer = vwap_system["analyzer"]
+        gateway = vwap_system["gateway"]
 
         # Setup mock historical data
         mock_klines = []
         base_time = datetime.now(UTC) - timedelta(days=7)
         for i in range(336):  # 7 days * 48 half-hour buckets
-            mock_klines.append([
-                int((base_time + timedelta(minutes=i*30)).timestamp() * 1000),
-                100, 101, 99, 100.5,
-                1000 + (i % 48) * 100,  # Volume pattern
-                0, 0, 0, 0, 0, 0
-            ])
+            mock_klines.append(
+                [
+                    int((base_time + timedelta(minutes=i * 30)).timestamp() * 1000),
+                    100,
+                    101,
+                    99,
+                    100.5,
+                    1000 + (i % 48) * 100,  # Volume pattern
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ]
+            )
         gateway.get_klines.return_value = mock_klines
 
         # Create order
         order = Order(
-            order_id='integration_test_order',
-            position_id='pos_123',
-            client_order_id='client_123',
-            symbol='BTC/USDT',
+            order_id="integration_test_order",
+            position_id="pos_123",
+            client_order_id="client_123",
+            symbol="BTC/USDT",
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal('500'),  # Smaller for testing
-            filled_quantity=Decimal('0'),
-            status=OrderStatus.PENDING
+            quantity=Decimal("500"),  # Smaller for testing
+            filled_quantity=Decimal("0"),
+            status=OrderStatus.PENDING,
         )
 
         # Add some market trades to tracker
-        symbol = Symbol('BTC/USDT')
+        symbol = Symbol("BTC/USDT")
         for i in range(10):
             trade = Trade(
                 timestamp=datetime.now(UTC) - timedelta(minutes=i),
-                price=Decimal('100') + Decimal(str(i * 0.1)),
-                volume=Decimal('50')
+                price=Decimal("100") + Decimal(str(i * 0.1)),
+                volume=Decimal("50"),
             )
             tracker.add_trade(symbol, trade)
 
         # Execute VWAP order with shorter time horizon
-        with patch.object(executor, '_execute_slices') as mock_execute:
+        with patch.object(executor, "_execute_slices") as mock_execute:
             # Mock successful slice execution
             mock_execute.return_value = ExecutionResult(
                 success=True,
                 order=order,
                 message="VWAP execution completed",
-                actual_price=Decimal('100.25'),
-                slippage_percent=Decimal('0.25')
+                actual_price=Decimal("100.25"),
+                slippage_percent=Decimal("0.25"),
             )
 
             result = await executor.execute_vwap(
                 order,
                 mode=ExecutionMode.NORMAL,
                 time_horizon_minutes=30,  # Short for testing
-                participation_rate=Decimal('0.1')
+                participation_rate=Decimal("0.1"),
             )
 
             # Verify execution succeeded
@@ -175,15 +185,15 @@ class TestVWAPWorkflowIntegration:
 
             # Verify total slice quantity matches order
             total_quantity = sum(s.quantity for s in slices)
-            assert abs(total_quantity - order.quantity) < Decimal('1')
+            assert abs(total_quantity - order.quantity) < Decimal("1")
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_vwap_with_volume_spike_detection(self, vwap_system):
         """Test VWAP execution with volume spike detection and adaptation."""
-        executor = vwap_system['executor']
-        analyzer = vwap_system['analyzer']
-        gateway = vwap_system['gateway']
+        executor = vwap_system["executor"]
+        analyzer = vwap_system["analyzer"]
+        gateway = vwap_system["gateway"]
 
         # Setup normal volume profile
         normal_volume = 1000
@@ -193,43 +203,47 @@ class TestVWAPWorkflowIntegration:
         base_time = datetime.now(UTC) - timedelta(hours=2)
         for i in range(4):  # 2 hours of 30-min data
             volume = spike_volume if i == 2 else normal_volume  # Spike in 3rd bucket
-            mock_klines.append([
-                int((base_time + timedelta(minutes=i*30)).timestamp() * 1000),
-                100, 101, 99, 100.5,
-                volume,
-                0, 0, 0, 0, 0, 0
-            ])
+            mock_klines.append(
+                [
+                    int((base_time + timedelta(minutes=i * 30)).timestamp() * 1000),
+                    100,
+                    101,
+                    99,
+                    100.5,
+                    volume,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                ]
+            )
         gateway.get_klines.return_value = mock_klines
 
         # Create order
         order = Order(
-            order_id='spike_test_order',
-            position_id='pos_456',
-            client_order_id='client_456',
-            symbol='BTC/USDT',
+            order_id="spike_test_order",
+            position_id="pos_456",
+            client_order_id="client_456",
+            symbol="BTC/USDT",
             type=OrderType.MARKET,
             side=OrderSide.SELL,
             price=None,
-            quantity=Decimal('200'),
-            filled_quantity=Decimal('0'),
-            status=OrderStatus.PENDING
+            quantity=Decimal("200"),
+            filled_quantity=Decimal("0"),
+            status=OrderStatus.PENDING,
         )
 
         # Get volume prediction
-        symbol = Symbol('BTC/USDT')
+        symbol = Symbol("BTC/USDT")
         prediction = await analyzer.predict_intraday_volume(
-            symbol,
-            datetime.now(UTC),
-            horizon_hours=1
+            symbol, datetime.now(UTC), horizon_hours=1
         )
 
         # Calculate slices
         slices = await executor._calculate_slices(
-            order,
-            prediction,
-            Decimal('0.1'),
-            ExecutionMode.NORMAL,
-            60
+            order, prediction, Decimal("0.1"), ExecutionMode.NORMAL, 60
         )
 
         # Verify slices adapt to volume pattern
@@ -237,53 +251,52 @@ class TestVWAPWorkflowIntegration:
 
         # Check for volume spike
         is_spike, deviation = await analyzer.analyze_volume_spike(
-            symbol,
-            Decimal(str(spike_volume)),
-            30
+            symbol, Decimal(str(spike_volume)), 30
         )
 
         # Should detect spike
         assert is_spike is True
-        assert deviation > Decimal('2')
+        assert deviation > Decimal("2")
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_vwap_execution_mode_switching(self, vwap_system):
         """Test dynamic switching between execution modes."""
-        executor = vwap_system['executor']
+        executor = vwap_system["executor"]
 
         # Create order
         order = Order(
-            order_id='mode_test_order',
-            position_id='pos_789',
-            client_order_id='client_789',
-            symbol='BTC/USDT',
+            order_id="mode_test_order",
+            position_id="pos_789",
+            client_order_id="client_789",
+            symbol="BTC/USDT",
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal('1000'),
-            filled_quantity=Decimal('200'),  # 20% filled
-            status=OrderStatus.PARTIAL
+            quantity=Decimal("1000"),
+            filled_quantity=Decimal("200"),  # 20% filled
+            status=OrderStatus.PARTIAL,
         )
 
         # Create slices with varied completion
         from genesis.engine.executor.vwap import VWAPSlice
+
         slices = []
         for i in range(5):
             slice_obj = VWAPSlice(
-                slice_id=f'slice_{i}',
+                slice_id=f"slice_{i}",
                 parent_order_id=order.order_id,
-                symbol=Symbol('BTC/USDT'),
+                symbol=Symbol("BTC/USDT"),
                 side=OrderSide.BUY,
-                quantity=Decimal('200'),
+                quantity=Decimal("200"),
                 target_price=None,
-                scheduled_time=datetime.now(UTC) + timedelta(minutes=i*10),
-                bucket_minute=i * 30
+                scheduled_time=datetime.now(UTC) + timedelta(minutes=i * 10),
+                bucket_minute=i * 30,
             )
             # First two slices are filled
             if i < 2:
                 slice_obj.status = OrderStatus.FILLED
-                slice_obj.executed_quantity = Decimal('100')
+                slice_obj.executed_quantity = Decimal("100")
             else:
                 slice_obj.status = OrderStatus.PENDING
             slices.append(slice_obj)
@@ -294,28 +307,28 @@ class TestVWAPWorkflowIntegration:
         assert should_switch is True
 
         # Update to better progress
-        order.filled_quantity = Decimal('450')  # 45% filled
+        order.filled_quantity = Decimal("450")  # 45% filled
         should_switch = await executor._should_switch_to_aggressive(order, slices)
         assert should_switch is False
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_vwap_performance_tracking(self, vwap_system):
         """Test VWAP execution performance tracking and reporting."""
-        executor = vwap_system['executor']
-        tracker = vwap_system['tracker']
+        executor = vwap_system["executor"]
+        tracker = vwap_system["tracker"]
 
         # Start execution tracking
-        symbol = Symbol('BTC/USDT')
-        execution_id = 'perf_test_exec'
-        target_volume = Decimal('1000')
+        symbol = Symbol("BTC/USDT")
+        execution_id = "perf_test_exec"
+        target_volume = Decimal("1000")
 
         # Add market trades for VWAP calculation
         for i in range(20):
             trade = Trade(
                 timestamp=datetime.now(UTC) - timedelta(minutes=i),
-                price=Decimal('100') + Decimal(str(i * 0.05)),
-                volume=Decimal('100')
+                price=Decimal("100") + Decimal(str(i * 0.05)),
+                volume=Decimal("100"),
             )
             tracker.add_trade(symbol, trade)
 
@@ -326,10 +339,10 @@ class TestVWAPWorkflowIntegration:
 
         # Simulate execution fills
         fills = [
-            (Decimal('100.10'), Decimal('200')),
-            (Decimal('100.20'), Decimal('300')),
-            (Decimal('100.15'), Decimal('250')),
-            (Decimal('100.25'), Decimal('250'))
+            (Decimal("100.10"), Decimal("200")),
+            (Decimal("100.20"), Decimal("300")),
+            (Decimal("100.15"), Decimal("250")),
+            (Decimal("100.25"), Decimal("250")),
         ]
 
         for price, volume in fills:
@@ -339,59 +352,60 @@ class TestVWAPWorkflowIntegration:
         final_performance = tracker.complete_execution(execution_id, target_volume)
 
         assert final_performance is not None
-        assert final_performance.executed_volume == Decimal('1000')
-        assert final_performance.fill_rate == Decimal('100')
+        assert final_performance.executed_volume == Decimal("1000")
+        assert final_performance.fill_rate == Decimal("100")
         assert final_performance.trades_executed == 4
 
         # Calculate expected execution VWAP
         total_value = sum(p * v for p, v in fills)
-        expected_vwap = total_value / Decimal('1000')
-        assert abs(final_performance.execution_vwap - expected_vwap) < Decimal('0.01')
+        expected_vwap = total_value / Decimal("1000")
+        assert abs(final_performance.execution_vwap - expected_vwap) < Decimal("0.01")
 
         # Get performance statistics
         stats = tracker.get_performance_stats(symbol=symbol, hours=1)
-        assert stats['executions'] == 1
-        assert stats['total_volume'] == '1000'
+        assert stats["executions"] == 1
+        assert stats["total_volume"] == "1000"
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_vwap_with_iceberg_orders(self, vwap_system):
         """Test VWAP execution using iceberg orders for dark pool simulation."""
-        executor = vwap_system['executor']
+        executor = vwap_system["executor"]
 
         order = Order(
-            order_id='iceberg_test_order',
-            position_id='pos_ice',
-            client_order_id='client_ice',
-            symbol='BTC/USDT',
+            order_id="iceberg_test_order",
+            position_id="pos_ice",
+            client_order_id="client_ice",
+            symbol="BTC/USDT",
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal('500'),
-            filled_quantity=Decimal('0'),
-            status=OrderStatus.PENDING
+            quantity=Decimal("500"),
+            filled_quantity=Decimal("0"),
+            status=OrderStatus.PENDING,
         )
 
         # Mock iceberg execution
-        with patch.object(executor, '_execute_iceberg_slice') as mock_iceberg:
+        with patch.object(executor, "_execute_iceberg_slice") as mock_iceberg:
             mock_iceberg.return_value = ExecutionResult(
                 success=True,
-                order=Mock(filled_quantity=Decimal('100')),
+                order=Mock(filled_quantity=Decimal("100")),
                 message="Iceberg executed",
-                actual_price=Decimal('100')
+                actual_price=Decimal("100"),
             )
 
             # Create a slice
             from genesis.engine.executor.vwap import VWAPSlice
+
             slice_obj = VWAPSlice(
-                slice_id='slice_1',
+                slice_id="slice_1",
                 parent_order_id=order.order_id,
-                symbol=Symbol('BTC/USDT'),
+                symbol=Symbol("BTC/USDT"),
                 side=OrderSide.BUY,
-                quantity=Decimal('100'),
+                quantity=Decimal("100"),
                 target_price=None,
                 scheduled_time=datetime.now(UTC),
-                bucket_minute=0
+                bucket_minute=0,
             )
 
             # Execute with iceberg
@@ -403,14 +417,15 @@ class TestVWAPWorkflowIntegration:
             mock_iceberg.assert_called()
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_vwap_error_recovery(self, vwap_system):
         """Test VWAP execution error handling and recovery."""
-        executor = vwap_system['executor']
-        gateway = vwap_system['gateway']
+        executor = vwap_system["executor"]
+        gateway = vwap_system["gateway"]
 
         # Setup to fail first attempt, succeed on retry
         call_count = 0
+
         async def mock_place_with_retry(order):
             nonlocal call_count
             call_count += 1
@@ -419,21 +434,21 @@ class TestVWAPWorkflowIntegration:
             # Success on retry
             order.status = OrderStatus.FILLED
             order.filled_quantity = order.quantity
-            return {'status': 'FILLED'}
+            return {"status": "FILLED"}
 
         gateway.place_order = AsyncMock(side_effect=mock_place_with_retry)
 
         order = Order(
-            order_id='error_test_order',
-            position_id='pos_err',
-            client_order_id='client_err',
-            symbol='BTC/USDT',
+            order_id="error_test_order",
+            position_id="pos_err",
+            client_order_id="client_err",
+            symbol="BTC/USDT",
             type=OrderType.MARKET,
             side=OrderSide.SELL,
             price=None,
-            quantity=Decimal('100'),
-            filled_quantity=Decimal('0'),
-            status=OrderStatus.PENDING
+            quantity=Decimal("100"),
+            filled_quantity=Decimal("0"),
+            status=OrderStatus.PENDING,
         )
 
         # Execute market order with retry logic
@@ -443,52 +458,61 @@ class TestVWAPWorkflowIntegration:
         assert result.success is True
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_vwap_concurrent_executions(self, vwap_system):
         """Test handling multiple concurrent VWAP executions."""
-        executor = vwap_system['executor']
+        executor = vwap_system["executor"]
 
         # Create multiple orders
         orders = []
         for i in range(3):
             order = Order(
-                order_id=f'concurrent_order_{i}',
-                position_id=f'pos_{i}',
-                client_order_id=f'client_{i}',
-                symbol='BTC/USDT' if i < 2 else 'ETH/USDT',
+                order_id=f"concurrent_order_{i}",
+                position_id=f"pos_{i}",
+                client_order_id=f"client_{i}",
+                symbol="BTC/USDT" if i < 2 else "ETH/USDT",
                 type=OrderType.MARKET,
                 side=OrderSide.BUY,
                 price=None,
-                quantity=Decimal('100'),
-                filled_quantity=Decimal('0'),
-                status=OrderStatus.PENDING
+                quantity=Decimal("100"),
+                filled_quantity=Decimal("0"),
+                status=OrderStatus.PENDING,
             )
             orders.append(order)
 
         # Mock volume predictions
         mock_prediction = VolumePrediction(
-            symbol=Symbol('BTC/USDT'),
+            symbol=Symbol("BTC/USDT"),
             prediction_time=datetime.now(UTC),
-            predicted_buckets={0: Decimal('10000')},
-            confidence_scores={0: Decimal('0.9')},
-            total_predicted=Decimal('10000'),
-            model_accuracy=Decimal('0.85')
+            predicted_buckets={0: Decimal("10000")},
+            confidence_scores={0: Decimal("0.9")},
+            total_predicted=Decimal("10000"),
+            model_accuracy=Decimal("0.85"),
         )
 
-        with patch.object(executor.volume_analyzer, 'predict_intraday_volume',
-                         return_value=mock_prediction):
-            with patch.object(executor.volume_analyzer, 'get_optimal_participation_rate',
-                            return_value={0: Decimal('0.1')}):
+        with patch.object(
+            executor.volume_analyzer,
+            "predict_intraday_volume",
+            return_value=mock_prediction,
+        ):
+            with patch.object(
+                executor.volume_analyzer,
+                "get_optimal_participation_rate",
+                return_value={0: Decimal("0.1")},
+            ):
                 # Start executions concurrently
                 tasks = []
                 for order in orders:
-                    with patch.object(executor, '_execute_slices',
-                                    return_value=ExecutionResult(
-                                        success=True,
-                                        order=order,
-                                        message="Completed",
-                                        actual_price=Decimal('100')
-                                    )):
+                    with patch.object(
+                        executor,
+                        "_execute_slices",
+                        return_value=ExecutionResult(
+                            success=True,
+                            order=order,
+                            message="Completed",
+                            actual_price=Decimal("100"),
+                        ),
+                    ):
                         task = asyncio.create_task(executor.execute_vwap(order))
                         tasks.append(task)
 
@@ -500,36 +524,37 @@ class TestVWAPWorkflowIntegration:
                 assert len(executor._active_executions) == 3
 
     @pytest.mark.asyncio
-    @patch.dict('os.environ', {'PYTEST_CURRENT_TEST': 'test'})
+    @patch.dict("os.environ", {"PYTEST_CURRENT_TEST": "test"})
     async def test_vwap_performance_requirements(self, vwap_system):
         """Test that VWAP calculations meet performance requirements."""
-        tracker = vwap_system['tracker']
+        tracker = vwap_system["tracker"]
 
         # Add 1000 trades (stress test)
-        symbol = Symbol('BTC/USDT')
+        symbol = Symbol("BTC/USDT")
         trades = []
         base_time = datetime.now(UTC)
 
         for i in range(1000):
             trade = Trade(
                 timestamp=base_time - timedelta(seconds=i),
-                price=Decimal('100') + Decimal(str(i * 0.001)),
-                volume=Decimal('10')
+                price=Decimal("100") + Decimal(str(i * 0.001)),
+                volume=Decimal("10"),
             )
             trades.append(trade)
 
         # Measure VWAP calculation time
         import time
+
         start = time.time()
         vwap = await tracker.calculate_real_time_vwap(trades)
         elapsed_ms = (time.time() - start) * 1000
 
         # Should complete within 100ms as per requirements
         assert elapsed_ms < 100
-        assert vwap > Decimal('0')
+        assert vwap > Decimal("0")
 
         # Calculate expected VWAP for verification
         total_value = sum(t.value for t in trades)
         total_volume = sum(t.volume for t in trades)
         expected_vwap = total_value / total_volume
-        assert abs(vwap - expected_vwap) < Decimal('0.01')
+        assert abs(vwap - expected_vwap) < Decimal("0.01")

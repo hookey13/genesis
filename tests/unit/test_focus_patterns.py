@@ -13,10 +13,7 @@ class TestFocusPatternDetector:
 
     def test_initialization(self):
         """Test detector initialization."""
-        detector = FocusPatternDetector(
-            rapid_switch_threshold_ms=2000,
-            window_size=50
-        )
+        detector = FocusPatternDetector(rapid_switch_threshold_ms=2000, window_size=50)
 
         assert detector.rapid_switch_threshold == timedelta(milliseconds=2000)
         assert detector.window_size == 50
@@ -59,7 +56,7 @@ class TestFocusPatternDetector:
 
         # Simulate focus changes
         detector.track_window_focus(False, 5000)  # Lost focus for 5s
-        detector.track_window_focus(True, 3000)   # Regained focus after 3s
+        detector.track_window_focus(True, 3000)  # Regained focus after 3s
         detector.track_window_focus(False, 8000)  # Lost focus for 8s
 
         assert len(detector.focus_durations) == 1
@@ -67,7 +64,7 @@ class TestFocusPatternDetector:
         assert len(detector.unfocus_durations) == 1
         assert detector.unfocus_durations[0] == 3.0  # 3 seconds
 
-    @patch('genesis.tilt.indicators.focus_patterns.logger')
+    @patch("genesis.tilt.indicators.focus_patterns.logger")
     def test_rapid_switching_detection(self, mock_logger):
         """Test detection of rapid focus switching."""
         detector = FocusPatternDetector(rapid_switch_threshold_ms=3000)
@@ -114,9 +111,24 @@ class TestFocusPatternDetector:
         # Add some focus events
         now = datetime.utcnow()
         events = [
-            {"timestamp": now - timedelta(minutes=3), "window_active": False, "duration_ms": 5000, "duration_seconds": 5.0},
-            {"timestamp": now - timedelta(minutes=2), "window_active": True, "duration_ms": 10000, "duration_seconds": 10.0},
-            {"timestamp": now - timedelta(minutes=1), "window_active": False, "duration_ms": 15000, "duration_seconds": 15.0},
+            {
+                "timestamp": now - timedelta(minutes=3),
+                "window_active": False,
+                "duration_ms": 5000,
+                "duration_seconds": 5.0,
+            },
+            {
+                "timestamp": now - timedelta(minutes=2),
+                "window_active": True,
+                "duration_ms": 10000,
+                "duration_seconds": 10.0,
+            },
+            {
+                "timestamp": now - timedelta(minutes=1),
+                "window_active": False,
+                "duration_ms": 15000,
+                "duration_seconds": 15.0,
+            },
         ]
         detector.focus_events = events
         detector.focus_durations = [10.0, 15.0, 20.0]
@@ -133,25 +145,19 @@ class TestFocusPatternDetector:
 
         # Test low distraction
         score = detector._calculate_distraction_score(
-            switch_frequency=0.5,
-            rapid_switches=0,
-            avg_focus_duration=60
+            switch_frequency=0.5, rapid_switches=0, avg_focus_duration=60
         )
         assert score == 0.0
 
         # Test moderate distraction
         score = detector._calculate_distraction_score(
-            switch_frequency=3.0,
-            rapid_switches=1,
-            avg_focus_duration=25
+            switch_frequency=3.0, rapid_switches=1, avg_focus_duration=25
         )
         assert score > 20 and score < 50
 
         # Test high distraction
         score = detector._calculate_distraction_score(
-            switch_frequency=5.0,
-            rapid_switches=4,
-            avg_focus_duration=10
+            switch_frequency=5.0, rapid_switches=4, avg_focus_duration=10
         )
         assert score > 50
 
@@ -162,7 +168,12 @@ class TestFocusPatternDetector:
         # Set up high distraction scenario
         now = datetime.utcnow()
         detector.focus_events = [
-            {"timestamp": now, "window_active": True, "duration_ms": 1000, "duration_seconds": 1.0}
+            {
+                "timestamp": now,
+                "window_active": True,
+                "duration_ms": 1000,
+                "duration_seconds": 1.0,
+            }
             for _ in range(10)  # Many switches
         ]
         detector.rapid_switches = [now] * 5  # Many rapid switches
@@ -177,8 +188,12 @@ class TestFocusPatternDetector:
         # Set up test data
         now = datetime.utcnow()
         detector.focus_events = [
-            {"timestamp": now - timedelta(minutes=i), "window_active": i % 2 == 0,
-             "duration_ms": 5000, "duration_seconds": 5.0}
+            {
+                "timestamp": now - timedelta(minutes=i),
+                "window_active": i % 2 == 0,
+                "duration_ms": 5000,
+                "duration_seconds": 5.0,
+            }
             for i in range(6)
         ]
         detector.focus_durations = [30.0, 40.0, 35.0]
@@ -189,8 +204,12 @@ class TestFocusPatternDetector:
         assert "distraction_score" in analysis
         assert "switch_frequency" in analysis
         assert "recommendation" in analysis
-        assert analysis["attention_state"] in ["focused", "slightly_distracted",
-                                               "moderately_distracted", "highly_distracted"]
+        assert analysis["attention_state"] in [
+            "focused",
+            "slightly_distracted",
+            "moderately_distracted",
+            "highly_distracted",
+        ]
 
     def test_recommendation_generation(self):
         """Test recommendation based on metrics."""
@@ -207,7 +226,7 @@ class TestFocusPatternDetector:
             longest_focus=20.0,
             shortest_focus=5.0,
             rapid_switch_count=5,
-            distraction_score=75.0
+            distraction_score=75.0,
         )
         recommendation = detector._get_recommendation(metrics)
         assert "Take a break" in recommendation
@@ -220,7 +239,7 @@ class TestFocusPatternDetector:
             longest_focus=60.0,
             shortest_focus=10.0,
             rapid_switch_count=4,
-            distraction_score=40.0
+            distraction_score=40.0,
         )
         recommendation = detector._get_recommendation(metrics)
         assert "Slow down" in recommendation
@@ -233,7 +252,7 @@ class TestFocusPatternDetector:
             longest_focus=20.0,
             shortest_focus=10.0,
             rapid_switch_count=0,
-            distraction_score=25.0
+            distraction_score=25.0,
         )
         recommendation = detector._get_recommendation(metrics)
         assert "Practice focus" in recommendation
@@ -246,7 +265,7 @@ class TestFocusPatternDetector:
             longest_focus=180.0,
             shortest_focus=60.0,
             rapid_switch_count=0,
-            distraction_score=5.0
+            distraction_score=5.0,
         )
         recommendation = detector._get_recommendation(metrics)
         assert "normal" in recommendation

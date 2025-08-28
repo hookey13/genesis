@@ -30,6 +30,7 @@ logger = structlog.get_logger(__name__)
 
 class Tier(Enum):
     """Trading tier levels."""
+
     SNIPER = "SNIPER"
     HUNTER = "HUNTER"
     STRATEGIST = "STRATEGIST"
@@ -46,6 +47,7 @@ GRACE_PERIOD_HOURS = 48
 
 class TransitionResult(Enum):
     """Result of tier transition attempt."""
+
     SUCCESS = "SUCCESS"
     BLOCKED_BY_PROTECTION = "BLOCKED_BY_PROTECTION"
     REQUIREMENTS_NOT_MET = "REQUIREMENTS_NOT_MET"
@@ -56,6 +58,7 @@ class TransitionResult(Enum):
 @dataclass
 class AchievementReport:
     """Report summarizing tier achievement."""
+
     account_id: str
     previous_tier: str
     new_tier: str
@@ -71,17 +74,17 @@ class AchievementReport:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'account_id': self.account_id,
-            'previous_tier': self.previous_tier,
-            'new_tier': self.new_tier,
-            'transition_date': self.transition_date.isoformat(),
-            'days_at_previous_tier': self.days_at_previous_tier,
-            'total_trades': self.total_trades,
-            'win_rate': float(self.win_rate),
-            'total_pnl': float(self.total_pnl),
-            'best_trade': float(self.best_trade),
-            'worst_trade': float(self.worst_trade),
-            'journey_summary': self.journey_summary
+            "account_id": self.account_id,
+            "previous_tier": self.previous_tier,
+            "new_tier": self.new_tier,
+            "transition_date": self.transition_date.isoformat(),
+            "days_at_previous_tier": self.days_at_previous_tier,
+            "total_trades": self.total_trades,
+            "win_rate": float(self.win_rate),
+            "total_pnl": float(self.total_pnl),
+            "best_trade": float(self.best_trade),
+            "worst_trade": float(self.worst_trade),
+            "journey_summary": self.journey_summary,
         }
 
 
@@ -94,29 +97,33 @@ def prevent_manual_tier_change(func: Callable) -> Callable:
     Returns:
         Wrapped function with protection
     """
+
     @functools.wraps(func)
     async def wrapper(self, *args, **kwargs):
         # Check if this is coming from an authorized source
         # In production, would check call stack or use authentication
-        if kwargs.get('manual_override'):
+        if kwargs.get("manual_override"):
             logger.error(
                 "Manual tier change blocked",
                 function=func.__name__,
                 args=args,
-                kwargs=kwargs
+                kwargs=kwargs,
             )
             raise ValidationError(
                 "Manual tier changes are prohibited. "
                 "All tier transitions must go through the state machine."
             )
         return await func(self, *args, **kwargs)
+
     return wrapper
 
 
 class TierStateMachine:
     """Manages tier transitions and progression."""
 
-    def __init__(self, session: Optional[Session] = None, event_bus: Optional[EventBus] = None):
+    def __init__(
+        self, session: Optional[Session] = None, event_bus: Optional[EventBus] = None
+    ):
         """Initialize tier state machine.
 
         Args:
@@ -136,9 +143,7 @@ class TierStateMachine:
         Returns:
             True if account tier >= required tier
         """
-        account = self.session.query(AccountDB).filter_by(
-            account_id=account_id
-        ).first()
+        account = self.session.query(AccountDB).filter_by(account_id=account_id).first()
 
         if not account:
             return False
@@ -155,7 +160,7 @@ class TierStateMachine:
                 "Invalid tier comparison",
                 account_id=account_id,
                 current=account.current_tier,
-                required=required.value
+                required=required.value,
             )
             return False
 
@@ -168,26 +173,22 @@ class TierStateMachine:
         Returns:
             TierTransition if progression available, None otherwise
         """
-        account = self.session.query(AccountDB).filter_by(
-            account_id=account_id
-        ).first()
+        account = self.session.query(AccountDB).filter_by(account_id=account_id).first()
 
         if not account:
             return None
 
         # Check for existing transition
-        existing = self.session.query(TierTransition).filter_by(
-            account_id=account_id,
-            transition_status='READY'
-        ).first()
+        existing = (
+            self.session.query(TierTransition)
+            .filter_by(account_id=account_id, transition_status="READY")
+            .first()
+        )
 
         return existing
 
     async def request_tier_change(
-        self,
-        account_id: str,
-        new_tier: str,
-        reason: str
+        self, account_id: str, new_tier: str, reason: str
     ) -> bool:
         """Request a tier change (promotion or demotion).
 
@@ -199,9 +200,7 @@ class TierStateMachine:
         Returns:
             True if change approved and executed
         """
-        account = self.session.query(AccountDB).filter_by(
-            account_id=account_id
-        ).first()
+        account = self.session.query(AccountDB).filter_by(account_id=account_id).first()
 
         if not account:
             raise ValidationError(f"Account not found: {account_id}")
@@ -220,34 +219,40 @@ class TierStateMachine:
 
         if is_promotion:
             # Check transition requirements are met
-            transition = self.session.query(TierTransition).filter_by(
-                account_id=account_id,
-                from_tier=current_tier.value,
-                to_tier=target_tier.value,
-                transition_status='READY'
-            ).first()
+            transition = (
+                self.session.query(TierTransition)
+                .filter_by(
+                    account_id=account_id,
+                    from_tier=current_tier.value,
+                    to_tier=target_tier.value,
+                    transition_status="READY",
+                )
+                .first()
+            )
 
             if not transition:
                 logger.warning(
                     "Tier promotion denied - requirements not met",
                     account_id=account_id,
                     current_tier=current_tier.value,
-                    target_tier=target_tier.value
+                    target_tier=target_tier.value,
                 )
                 return False
 
             # Check all prerequisites
-            if not all([
-                transition.checklist_completed,
-                transition.funeral_completed,
-                transition.paper_trading_completed
-            ]):
+            if not all(
+                [
+                    transition.checklist_completed,
+                    transition.funeral_completed,
+                    transition.paper_trading_completed,
+                ]
+            ):
                 logger.warning(
                     "Tier promotion denied - prerequisites incomplete",
                     account_id=account_id,
                     checklist=transition.checklist_completed,
                     funeral=transition.funeral_completed,
-                    paper_trading=transition.paper_trading_completed
+                    paper_trading=transition.paper_trading_completed,
                 )
                 return False
 
@@ -257,7 +262,7 @@ class TierStateMachine:
             account.tier_started_at = datetime.utcnow()
 
             # Update transition
-            transition.transition_status = 'COMPLETED'
+            transition.transition_status = "COMPLETED"
 
             self.session.commit()
 
@@ -270,7 +275,11 @@ class TierStateMachine:
                 from_tier=old_tier,
                 to_tier=target_tier.value,
                 reason=reason,
-                gates_passed=transition.gates_passed if hasattr(transition, 'gates_passed') else []
+                gates_passed=(
+                    transition.gates_passed
+                    if hasattr(transition, "gates_passed")
+                    else []
+                ),
             )
             await self.event_bus.publish(progression_event, EventPriority.HIGH)
 
@@ -279,7 +288,7 @@ class TierStateMachine:
                 account_id=account_id,
                 old_tier=old_tier,
                 new_tier=target_tier.value,
-                reason=reason
+                reason=reason,
             )
 
             return True
@@ -297,9 +306,7 @@ class TierStateMachine:
             new_tier: Target tier (must be lower)
             reason: Reason for demotion
         """
-        account = self.session.query(AccountDB).filter_by(
-            account_id=account_id
-        ).first()
+        account = self.session.query(AccountDB).filter_by(account_id=account_id).first()
 
         if not account:
             raise ValidationError(f"Account not found: {account_id}")
@@ -314,7 +321,7 @@ class TierStateMachine:
             account_id=account_id,
             from_tier=old_tier,
             to_tier=new_tier,
-            transition_status='COMPLETED'
+            transition_status="COMPLETED",
         )
 
         self.session.add(demotion)
@@ -326,7 +333,7 @@ class TierStateMachine:
             from_tier=old_tier,
             to_tier=new_tier,
             reason=reason,
-            triggers=[reason]  # Can be expanded to include multiple triggers
+            triggers=[reason],  # Can be expanded to include multiple triggers
         )
         await self.event_bus.publish(demotion_event, EventPriority.HIGH)
 
@@ -335,7 +342,7 @@ class TierStateMachine:
             account_id=account_id,
             old_tier=old_tier,
             new_tier=new_tier,
-            reason=reason
+            reason=reason,
         )
 
     async def celebrate_tier_achievement(self, account_id: str, new_tier: str) -> None:
@@ -356,7 +363,7 @@ class TierStateMachine:
                 new_tier=new_tier,
                 days_at_previous=report.days_at_previous_tier,
                 win_rate=float(report.win_rate),
-                total_pnl=float(report.total_pnl)
+                total_pnl=float(report.total_pnl),
             )
 
             # Create achievement message (no fanfare)
@@ -373,13 +380,11 @@ class TierStateMachine:
                 "Failed to celebrate achievement",
                 account_id=account_id,
                 new_tier=new_tier,
-                error=str(e)
+                error=str(e),
             )
 
     async def _generate_achievement_report(
-        self,
-        account_id: str,
-        new_tier: str
+        self, account_id: str, new_tier: str
     ) -> AchievementReport:
         """Generate achievement report for tier transition.
 
@@ -390,42 +395,43 @@ class TierStateMachine:
         Returns:
             AchievementReport with journey summary
         """
-        account = self.session.query(AccountDB).filter_by(
-            account_id=account_id
-        ).first()
+        account = self.session.query(AccountDB).filter_by(account_id=account_id).first()
 
         # Get most recent completed transition
-        transition = self.session.query(TierTransition).filter_by(
-            account_id=account_id,
-            to_tier=new_tier,
-            transition_status='COMPLETED'
-        ).order_by(TierTransition.updated_at.desc()).first()
+        transition = (
+            self.session.query(TierTransition)
+            .filter_by(
+                account_id=account_id, to_tier=new_tier, transition_status="COMPLETED"
+            )
+            .order_by(TierTransition.updated_at.desc())
+            .first()
+        )
 
         if not transition:
             # Fallback data
             return AchievementReport(
                 account_id=account_id,
-                previous_tier='UNKNOWN',
+                previous_tier="UNKNOWN",
                 new_tier=new_tier,
                 transition_date=datetime.utcnow(),
                 days_at_previous_tier=0,
                 total_trades=0,
-                win_rate=Decimal('0'),
-                total_pnl=Decimal('0'),
-                best_trade=Decimal('0'),
-                worst_trade=Decimal('0'),
-                journey_summary="Tier transition completed."
+                win_rate=Decimal("0"),
+                total_pnl=Decimal("0"),
+                best_trade=Decimal("0"),
+                worst_trade=Decimal("0"),
+                journey_summary="Tier transition completed.",
             )
 
         # Calculate metrics from trading history
         # (Simplified - would query Trade table in real implementation)
-        days_at_previous = (datetime.utcnow() - (account.tier_started_at or account.created_at)).days
+        days_at_previous = (
+            datetime.utcnow() - (account.tier_started_at or account.created_at)
+        ).days
 
         # Generate journey summary
         journey_summary = self._generate_journey_summary(
-            transition.from_tier,
-            new_tier,
-            days_at_previous
+            transition.from_tier, new_tier, days_at_previous
         )
 
         return AchievementReport(
@@ -435,11 +441,11 @@ class TierStateMachine:
             transition_date=datetime.utcnow(),
             days_at_previous_tier=days_at_previous,
             total_trades=100,  # Placeholder
-            win_rate=Decimal('0.65'),  # Placeholder
-            total_pnl=Decimal('5000'),  # Placeholder
-            best_trade=Decimal('500'),  # Placeholder
-            worst_trade=Decimal('-200'),  # Placeholder
-            journey_summary=journey_summary
+            win_rate=Decimal("0.65"),  # Placeholder
+            total_pnl=Decimal("5000"),  # Placeholder
+            best_trade=Decimal("500"),  # Placeholder
+            worst_trade=Decimal("-200"),  # Placeholder
+            journey_summary=journey_summary,
         )
 
     def _create_achievement_message(self, report: AchievementReport) -> str:
@@ -452,16 +458,13 @@ class TierStateMachine:
             Professional, muted message
         """
         tier_messages = {
-            'HUNTER': "Hunter tier unlocked. Iceberg orders now available.",
-            'STRATEGIST': "Strategist tier reached. Statistical arbitrage enabled.",
-            'ARCHITECT': "Architect tier achieved. Full strategy suite accessible.",
-            'EMPEROR': "Emperor tier attained. Maximum capabilities unlocked."
+            "HUNTER": "Hunter tier unlocked. Iceberg orders now available.",
+            "STRATEGIST": "Strategist tier reached. Statistical arbitrage enabled.",
+            "ARCHITECT": "Architect tier achieved. Full strategy suite accessible.",
+            "EMPEROR": "Emperor tier attained. Maximum capabilities unlocked.",
         }
 
-        message = tier_messages.get(
-            report.new_tier,
-            f"{report.new_tier} tier reached."
-        )
+        message = tier_messages.get(report.new_tier, f"{report.new_tier} tier reached.")
 
         # Add brief stats (no excessive celebration)
         message += f"\n{report.days_at_previous_tier} days at {report.previous_tier}. "
@@ -469,12 +472,7 @@ class TierStateMachine:
 
         return message
 
-    def _generate_journey_summary(
-        self,
-        from_tier: str,
-        to_tier: str,
-        days: int
-    ) -> str:
+    def _generate_journey_summary(self, from_tier: str, to_tier: str, days: int) -> str:
         """Generate journey summary text.
 
         Args:
@@ -490,11 +488,7 @@ class TierStateMachine:
             f"disciplined trading and successful completion of all transition requirements."
         )
 
-    async def _store_achievement(
-        self,
-        report: AchievementReport,
-        message: str
-    ) -> None:
+    async def _store_achievement(self, report: AchievementReport, message: str) -> None:
         """Store achievement record.
 
         Args:
@@ -506,7 +500,7 @@ class TierStateMachine:
             "Achievement stored",
             account_id=report.account_id,
             new_tier=report.new_tier,
-            message=message
+            message=message,
         )
 
     async def _update_tier_badge(self, account_id: str, new_tier: str) -> None:
@@ -517,11 +511,7 @@ class TierStateMachine:
             new_tier: New tier
         """
         # This would trigger UI update in real implementation
-        logger.debug(
-            "Tier badge updated",
-            account_id=account_id,
-            new_tier=new_tier
-        )
+        logger.debug("Tier badge updated", account_id=account_id, new_tier=new_tier)
 
     def get_next_tier(self, current_tier: str) -> Optional[str]:
         """Get the next tier in progression.
@@ -554,39 +544,37 @@ class TierStateMachine:
             Dictionary of requirements
         """
         requirements = {
-            'HUNTER': {
-                'min_balance': 2000,
-                'min_trades': 50,
-                'max_tilt_events': 2,
-                'paper_trading_required': True
+            "HUNTER": {
+                "min_balance": 2000,
+                "min_trades": 50,
+                "max_tilt_events": 2,
+                "paper_trading_required": True,
             },
-            'STRATEGIST': {
-                'min_balance': 10000,
-                'min_trades': 200,
-                'max_tilt_events': 1,
-                'paper_trading_required': True
+            "STRATEGIST": {
+                "min_balance": 10000,
+                "min_trades": 200,
+                "max_tilt_events": 1,
+                "paper_trading_required": True,
             },
-            'ARCHITECT': {
-                'min_balance': 50000,
-                'min_trades': 500,
-                'max_tilt_events': 0,
-                'paper_trading_required': True
+            "ARCHITECT": {
+                "min_balance": 50000,
+                "min_trades": 500,
+                "max_tilt_events": 0,
+                "paper_trading_required": True,
             },
-            'EMPEROR': {
-                'min_balance': 250000,
-                'min_trades': 1000,
-                'max_tilt_events': 0,
-                'paper_trading_required': False
-            }
+            "EMPEROR": {
+                "min_balance": 250000,
+                "min_trades": 1000,
+                "max_tilt_events": 0,
+                "paper_trading_required": False,
+            },
         }
 
         return requirements.get(tier, {})
 
     @prevent_manual_tier_change
     async def enforce_tier_transition(
-        self,
-        account: AccountDB,
-        new_tier: Tier
+        self, account: AccountDB, new_tier: Tier
     ) -> TransitionResult:
         """Enforce automatic tier transition with validation.
 
@@ -603,7 +591,7 @@ class TierStateMachine:
             logger.error(
                 "Invalid current tier",
                 account_id=account.account_id,
-                tier=account.current_tier
+                tier=account.current_tier,
             )
             return TransitionResult.FAILED
 
@@ -612,7 +600,7 @@ class TierStateMachine:
             logger.info(
                 "Account in grace period",
                 account_id=account.account_id,
-                tier=account.current_tier
+                tier=account.current_tier,
             )
             return TransitionResult.IN_GRACE_PERIOD
 
@@ -625,7 +613,7 @@ class TierStateMachine:
                 "Invalid tier jump attempted",
                 account_id=account.account_id,
                 current=current_tier.value,
-                target=new_tier.value
+                target=new_tier.value,
             )
             return TransitionResult.BLOCKED_BY_PROTECTION
 
@@ -645,7 +633,7 @@ class TierStateMachine:
             account_id=account.account_id,
             from_tier=old_tier,
             to_tier=new_tier.value,
-            transition_status='COMPLETED'
+            transition_status="COMPLETED",
         )
 
         self.session.add(transition)
@@ -659,7 +647,7 @@ class TierStateMachine:
                 from_tier=old_tier,
                 to_tier=new_tier.value,
                 reason="Automatic progression - all gates passed",
-                gates_passed=[]  # Would be populated from actual gate checks
+                gates_passed=[],  # Would be populated from actual gate checks
             )
             await self.celebrate_tier_achievement(account.account_id, new_tier.value)
         else:
@@ -669,7 +657,7 @@ class TierStateMachine:
                 from_tier=old_tier,
                 to_tier=new_tier.value,
                 reason="Automatic demotion - requirements not maintained",
-                triggers=[]  # Would be populated from actual trigger checks
+                triggers=[],  # Would be populated from actual trigger checks
             )
 
         await self.event_bus.publish(event, EventPriority.HIGH)
@@ -678,21 +666,21 @@ class TierStateMachine:
             "Automatic tier transition completed",
             account_id=account.account_id,
             old_tier=old_tier,
-            new_tier=new_tier.value
+            new_tier=new_tier.value,
         )
 
         return TransitionResult.SUCCESS
 
-    async def apply_grace_period(self, account_id: str, hours: int = GRACE_PERIOD_HOURS) -> None:
+    async def apply_grace_period(
+        self, account_id: str, hours: int = GRACE_PERIOD_HOURS
+    ) -> None:
         """Apply grace period after tier transition.
 
         Args:
             account_id: Account to apply grace period
             hours: Grace period duration in hours
         """
-        account = self.session.query(AccountDB).filter_by(
-            account_id=account_id
-        ).first()
+        account = self.session.query(AccountDB).filter_by(account_id=account_id).first()
 
         if not account:
             raise ValidationError(f"Account not found: {account_id}")
@@ -706,7 +694,7 @@ class TierStateMachine:
             account_id=account_id,
             tier=account.current_tier,
             grace_end=grace_end.isoformat(),
-            hours=hours
+            hours=hours,
         )
 
     async def is_in_grace_period(self, account: AccountDB) -> bool:
@@ -724,7 +712,9 @@ class TierStateMachine:
         grace_end = account.tier_started_at + timedelta(hours=GRACE_PERIOD_HOURS)
         return datetime.utcnow() < grace_end
 
-    async def validate_requirements(self, account: AccountDB, target_tier: Tier) -> bool:
+    async def validate_requirements(
+        self, account: AccountDB, target_tier: Tier
+    ) -> bool:
         """Validate all requirements for tier transition.
 
         Args:
@@ -740,39 +730,43 @@ class TierStateMachine:
             return False
 
         # Check minimum balance
-        if account.balance < requirements.get('min_balance', 0):
+        if account.balance < requirements.get("min_balance", 0):
             logger.debug(
                 "Balance requirement not met",
                 account_id=account.account_id,
                 balance=float(account.balance),
-                required=requirements.get('min_balance')
+                required=requirements.get("min_balance"),
             )
             return False
 
         # Check minimum trades
         # In production, would query trade history
-        min_trades = requirements.get('min_trades', 0)
+        min_trades = requirements.get("min_trades", 0)
         # Placeholder check
 
         # Check tilt events
         # In production, would query tilt history
-        max_tilt = requirements.get('max_tilt_events', float('inf'))
+        max_tilt = requirements.get("max_tilt_events", float("inf"))
         # Placeholder check
 
         # Check paper trading completion
-        if requirements.get('paper_trading_required', False):
+        if requirements.get("paper_trading_required", False):
             # Check if paper trading completed
-            transition = self.session.query(TierTransition).filter_by(
-                account_id=account.account_id,
-                to_tier=target_tier.value,
-                paper_trading_completed=True
-            ).first()
+            transition = (
+                self.session.query(TierTransition)
+                .filter_by(
+                    account_id=account.account_id,
+                    to_tier=target_tier.value,
+                    paper_trading_completed=True,
+                )
+                .first()
+            )
 
             if not transition:
                 logger.debug(
                     "Paper trading not completed",
                     account_id=account.account_id,
-                    target_tier=target_tier.value
+                    target_tier=target_tier.value,
                 )
                 return False
 
@@ -788,56 +782,47 @@ class TierStateMachine:
             List of available features
         """
         features_by_tier = {
-            'SNIPER': [
-                'market_orders',
-                'basic_analytics',
-                'single_pair_trading'
+            "SNIPER": ["market_orders", "basic_analytics", "single_pair_trading"],
+            "HUNTER": [
+                "market_orders",
+                "basic_analytics",
+                "single_pair_trading",
+                "iceberg_orders",
+                "multi_pair_trading",
+                "spread_analysis",
             ],
-            'HUNTER': [
-                'market_orders',
-                'basic_analytics',
-                'single_pair_trading',
-                'iceberg_orders',
-                'multi_pair_trading',
-                'spread_analysis'
+            "STRATEGIST": [
+                "market_orders",
+                "basic_analytics",
+                "single_pair_trading",
+                "iceberg_orders",
+                "multi_pair_trading",
+                "spread_analysis",
+                "twap_execution",
+                "statistical_arbitrage",
+                "advanced_analytics",
             ],
-            'STRATEGIST': [
-                'market_orders',
-                'basic_analytics',
-                'single_pair_trading',
-                'iceberg_orders',
-                'multi_pair_trading',
-                'spread_analysis',
-                'twap_execution',
-                'statistical_arbitrage',
-                'advanced_analytics'
+            "ARCHITECT": [
+                "market_orders",
+                "basic_analytics",
+                "single_pair_trading",
+                "iceberg_orders",
+                "multi_pair_trading",
+                "spread_analysis",
+                "twap_execution",
+                "statistical_arbitrage",
+                "advanced_analytics",
+                "market_making",
+                "custom_strategies",
+                "api_access",
             ],
-            'ARCHITECT': [
-                'market_orders',
-                'basic_analytics',
-                'single_pair_trading',
-                'iceberg_orders',
-                'multi_pair_trading',
-                'spread_analysis',
-                'twap_execution',
-                'statistical_arbitrage',
-                'advanced_analytics',
-                'market_making',
-                'custom_strategies',
-                'api_access'
-            ],
-            'EMPEROR': [
-                'all_features'
-            ]
+            "EMPEROR": ["all_features"],
         }
 
         return features_by_tier.get(tier, [])
 
     async def handle_gate_completion(
-        self,
-        account_id: str,
-        gate_name: str,
-        completion_value: Any
+        self, account_id: str, gate_name: str, completion_value: Any
     ) -> None:
         """Handle gate completion and check for tier eligibility.
 
@@ -846,9 +831,7 @@ class TierStateMachine:
             gate_name: Name of the completed gate
             completion_value: Value that satisfied the gate
         """
-        account = self.session.query(AccountDB).filter_by(
-            account_id=account_id
-        ).first()
+        account = self.session.query(AccountDB).filter_by(account_id=account_id).first()
 
         if not account:
             logger.error("Account not found", account_id=account_id)
@@ -866,7 +849,7 @@ class TierStateMachine:
             gate_name=gate_name,
             current_tier=current_tier,
             target_tier=next_tier,
-            completion_value=completion_value
+            completion_value=completion_value,
         )
         await self.event_bus.publish(gate_event, EventPriority.NORMAL)
 
@@ -883,12 +866,12 @@ class TierStateMachine:
                         account_id=account_id,
                         from_tier=current_tier,
                         to_tier=next_tier,
-                        trigger_gate=gate_name
+                        trigger_gate=gate_name,
                     )
         except Exception as e:
             logger.error(
                 "Error checking tier progression after gate completion",
                 account_id=account_id,
                 gate=gate_name,
-                error=str(e)
+                error=str(e),
             )

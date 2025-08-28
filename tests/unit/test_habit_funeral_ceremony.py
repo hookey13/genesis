@@ -29,12 +29,14 @@ class TestHabitFuneralCeremony:
     @pytest.fixture
     def ceremony(self, mock_session):
         """Create HabitFuneralCeremony instance with mocked dependencies."""
-        with patch('genesis.tilt.habit_funeral_ceremony.get_session', return_value=mock_session):
+        with patch(
+            "genesis.tilt.habit_funeral_ceremony.get_session", return_value=mock_session
+        ):
             return HabitFuneralCeremony(
                 account_id="test-account-123",
                 transition_id="trans-456",
                 from_tier="SNIPER",
-                to_tier="HUNTER"
+                to_tier="HUNTER",
             )
 
     @pytest.mark.asyncio
@@ -52,7 +54,7 @@ class TestHabitFuneralCeremony:
         old_habits = [
             "Revenge trading after losses",
             "Oversizing positions when confident",
-            "Checking PnL every minute"
+            "Checking PnL every minute",
         ]
 
         ceremony_record = await ceremony.conduct_funeral(old_habits)
@@ -98,11 +100,7 @@ class TestHabitFuneralCeremony:
     @pytest.mark.asyncio
     async def test_generate_certificate(self, ceremony):
         """Test certificate generation."""
-        old_habits = [
-            "Bad habit 1",
-            "Bad habit 2",
-            "Bad habit 3"
-        ]
+        old_habits = ["Bad habit 1", "Bad habit 2", "Bad habit 3"]
 
         ceremony_record = await ceremony.conduct_funeral(old_habits)
         certificate = await ceremony.generate_certificate(ceremony_record)
@@ -141,7 +139,10 @@ class TestHabitFuneralCeremony:
         )
 
         assert isinstance(commitment, HabitCommitment)
-        assert commitment.commitment_text == "I commit to using proper position sizing according to tier limits"
+        assert (
+            commitment.commitment_text
+            == "I commit to using proper position sizing according to tier limits"
+        )
         assert commitment.ceremony_id == ceremony_record.ceremony_id
         assert commitment.created_at is not None
 
@@ -220,19 +221,19 @@ class TestHabitFuneralCeremony:
     @pytest.mark.asyncio
     async def test_tier_specific_habits(self):
         """Test different tiers have different suggested bad habits."""
-        with patch('genesis.tilt.habit_funeral_ceremony.get_session'):
+        with patch("genesis.tilt.habit_funeral_ceremony.get_session"):
             sniper_ceremony = HabitFuneralCeremony(
                 account_id="test",
                 transition_id="trans1",
                 from_tier="SNIPER",
-                to_tier="HUNTER"
+                to_tier="HUNTER",
             )
 
             hunter_ceremony = HabitFuneralCeremony(
                 account_id="test",
                 transition_id="trans2",
                 from_tier="HUNTER",
-                to_tier="STRATEGIST"
+                to_tier="STRATEGIST",
             )
 
             sniper_suggestions = await sniper_ceremony.get_suggested_habits()
@@ -244,14 +245,14 @@ class TestHabitFuneralCeremony:
     @pytest.mark.asyncio
     async def test_concurrent_ceremonies(self):
         """Test handling multiple concurrent ceremonies."""
-        with patch('genesis.tilt.habit_funeral_ceremony.get_session'):
+        with patch("genesis.tilt.habit_funeral_ceremony.get_session"):
             ceremonies = []
             for i in range(3):
                 ceremony = HabitFuneralCeremony(
                     account_id=f"account-{i}",
                     transition_id=f"trans-{i}",
                     from_tier="SNIPER",
-                    to_tier="HUNTER"
+                    to_tier="HUNTER",
                 )
                 ceremonies.append(ceremony)
 

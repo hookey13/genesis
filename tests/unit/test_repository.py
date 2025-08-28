@@ -62,11 +62,13 @@ class MockRepository(Repository):
     async def get_position(self, position_id: str) -> Position:
         return self.positions.get(position_id)
 
-    async def get_positions_by_account(self, account_id: str, status: str = None) -> list[Position]:
+    async def get_positions_by_account(
+        self, account_id: str, status: str = None
+    ) -> list[Position]:
         positions = []
         for pos in self.positions.values():
             if pos.account_id == account_id:
-                if status is None or (hasattr(pos, 'status') and pos.status == status):
+                if status is None or (hasattr(pos, "status") and pos.status == status):
                     positions.append(pos)
         return positions
 
@@ -76,8 +78,8 @@ class MockRepository(Repository):
     async def close_position(self, position_id: str, final_pnl: Decimal) -> None:
         if position_id in self.positions:
             self.positions[position_id].pnl_dollars = final_pnl
-            if hasattr(self.positions[position_id], 'status'):
-                self.positions[position_id].status = 'CLOSED'
+            if hasattr(self.positions[position_id], "status"):
+                self.positions[position_id].status = "CLOSED"
 
     # Trading session methods
     async def create_session(self, session: TradingSession) -> str:
@@ -111,22 +113,30 @@ class MockRepository(Repository):
     async def save_risk_metrics(self, metrics: dict[str, Any]) -> None:
         pass
 
-    async def get_risk_metrics(self, account_id: str, start_time: datetime, end_time: datetime) -> list[dict[str, Any]]:
+    async def get_risk_metrics(
+        self, account_id: str, start_time: datetime, end_time: datetime
+    ) -> list[dict[str, Any]]:
         return []
 
     # Event store methods
-    async def save_event(self, event_type: str, aggregate_id: str, event_data: dict[str, Any]) -> str:
+    async def save_event(
+        self, event_type: str, aggregate_id: str, event_data: dict[str, Any]
+    ) -> str:
         event_id = f"event_{len(self.events)}"
-        self.events.append({
-            "event_id": event_id,
-            "event_type": event_type,
-            "aggregate_id": aggregate_id,
-            "event_data": event_data,
-            "created_at": datetime.utcnow()
-        })
+        self.events.append(
+            {
+                "event_id": event_id,
+                "event_type": event_type,
+                "aggregate_id": aggregate_id,
+                "event_data": event_data,
+                "created_at": datetime.utcnow(),
+            }
+        )
         return event_id
 
-    async def get_events(self, aggregate_id: str, event_type: str = None) -> list[dict[str, Any]]:
+    async def get_events(
+        self, aggregate_id: str, event_type: str = None
+    ) -> list[dict[str, Any]]:
         events = []
         for event in self.events:
             if event["aggregate_id"] == aggregate_id:
@@ -134,7 +144,9 @@ class MockRepository(Repository):
                     events.append(event)
         return events
 
-    async def get_events_by_type(self, event_type: str, start_time: datetime, end_time: datetime) -> list[dict[str, Any]]:
+    async def get_events_by_type(
+        self, event_type: str, start_time: datetime, end_time: datetime
+    ) -> list[dict[str, Any]]:
         events = []
         for event in self.events:
             if event["event_type"] == event_type:
@@ -158,7 +170,9 @@ class MockRepository(Repository):
                 orders.append(order)
         return orders
 
-    async def update_order_status(self, order_id: str, status: str, executed_at: datetime = None) -> None:
+    async def update_order_status(
+        self, order_id: str, status: str, executed_at: datetime = None
+    ) -> None:
         if order_id in self.orders:
             self.orders[order_id]["status"] = status
             if executed_at:
@@ -168,7 +182,9 @@ class MockRepository(Repository):
     async def load_open_positions(self, account_id: str) -> list[Position]:
         return await self.get_positions_by_account(account_id, status="OPEN")
 
-    async def reconcile_positions(self, exchange_positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def reconcile_positions(
+        self, exchange_positions: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         return []
 
     # Backup and restore methods
@@ -187,14 +203,20 @@ class MockRepository(Repository):
         pass
 
     # Export methods
-    async def export_trades_to_csv(self, account_id: str, start_date: date, end_date: date, output_path: Path) -> Path:
+    async def export_trades_to_csv(
+        self, account_id: str, start_date: date, end_date: date, output_path: Path
+    ) -> Path:
         return output_path
 
-    async def export_performance_report(self, account_id: str, output_path: Path) -> Path:
+    async def export_performance_report(
+        self, account_id: str, output_path: Path
+    ) -> Path:
         return output_path
 
     # Performance metrics methods
-    async def calculate_performance_metrics(self, account_id: str, session_id: str = None) -> dict[str, Any]:
+    async def calculate_performance_metrics(
+        self, account_id: str, session_id: str = None
+    ) -> dict[str, Any]:
         return {
             "total_trades": 10,
             "winning_trades": 6,
@@ -204,24 +226,29 @@ class MockRepository(Repository):
             "average_loss": "75.00",
             "average_r": "2.00",
             "profit_factor": "2.25",
-            "max_drawdown": "200.00"
+            "max_drawdown": "200.00",
         }
 
-    async def get_performance_report(self, account_id: str, start_date: date, end_date: date) -> dict[str, Any]:
+    async def get_performance_report(
+        self, account_id: str, start_date: date, end_date: date
+    ) -> dict[str, Any]:
         return {
             "account_id": account_id,
-            "period": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat()
-            },
+            "period": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "metrics": await self.calculate_performance_metrics(account_id),
             "daily_pnl": {},
-            "total_pnl": "500.00"
+            "total_pnl": "500.00",
         }
 
     # Tilt event methods
-    async def save_tilt_event(self, session_id: str, event_type: str, severity: str,
-                             indicator_values: dict[str, Any], intervention: str = None) -> str:
+    async def save_tilt_event(
+        self,
+        session_id: str,
+        event_type: str,
+        severity: str,
+        indicator_values: dict[str, Any],
+        intervention: str = None,
+    ) -> str:
         return f"tilt_{session_id}"
 
     async def get_tilt_events(self, session_id: str) -> list[dict[str, Any]]:
@@ -263,7 +290,7 @@ def sample_account():
         tier=TradingTier.SNIPER,
         locked_features=[],
         last_sync=datetime.utcnow(),
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -284,7 +311,7 @@ def sample_position():
         pnl_percent=Decimal("2.00"),
         priority_score=1,
         created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+        updated_at=datetime.utcnow(),
     )
 
 
@@ -304,7 +331,7 @@ def sample_session():
         max_drawdown=Decimal("20.00"),
         daily_loss_limit=Decimal("100.00"),
         is_active=True,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -373,7 +400,7 @@ class TestRepositoryInterface:
                 pnl_dollars=Decimal("0.00"),
                 pnl_percent=Decimal("0.00"),
                 priority_score=i,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             await repository.create_position(pos)
 
@@ -406,15 +433,11 @@ class TestRepositoryInterface:
         """Test event store operations."""
         # Save events
         event_id1 = await repository.save_event(
-            "OrderExecuted",
-            "order_123",
-            {"symbol": "BTC/USDT", "quantity": "0.01"}
+            "OrderExecuted", "order_123", {"symbol": "BTC/USDT", "quantity": "0.01"}
         )
 
         event_id2 = await repository.save_event(
-            "PositionOpened",
-            "order_123",
-            {"position_id": "pos_123"}
+            "PositionOpened", "order_123", {"position_id": "pos_123"}
         )
 
         # Get events by aggregate
@@ -438,7 +461,7 @@ class TestRepositoryInterface:
             "type": "MARKET",
             "side": "BUY",
             "quantity": Decimal("0.01"),
-            "status": "PENDING"
+            "status": "PENDING",
         }
 
         # Save
@@ -474,7 +497,7 @@ class TestRepositoryInterface:
                 pnl_dollars=Decimal("0.00"),
                 pnl_percent=Decimal("0.00"),
                 priority_score=i,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             pos.status = "OPEN"
             await repository.create_position(pos)
@@ -484,9 +507,7 @@ class TestRepositoryInterface:
         assert len(open_positions) == 2
 
         # Reconcile with exchange
-        exchange_positions = [
-            {"symbol": "TEST0/USDT", "quantity": "1.00"}
-        ]
+        exchange_positions = [{"symbol": "TEST0/USDT", "quantity": "1.00"}]
         orphaned = await repository.reconcile_positions(exchange_positions)
         assert isinstance(orphaned, list)
 
@@ -510,19 +531,13 @@ class TestRepositoryInterface:
         # Export trades to CSV
         csv_path = Path("/tmp/trades.csv")
         exported = await repository.export_trades_to_csv(
-            "test_account",
-            date.today() - timedelta(days=30),
-            date.today(),
-            csv_path
+            "test_account", date.today() - timedelta(days=30), date.today(), csv_path
         )
         assert exported == csv_path
 
         # Export performance report
         report_path = Path("/tmp/performance.txt")
-        report = await repository.export_performance_report(
-            "test_account",
-            report_path
-        )
+        report = await repository.export_performance_report("test_account", report_path)
         assert report == report_path
 
     @pytest.mark.asyncio
@@ -540,9 +555,7 @@ class TestRepositoryInterface:
 
         # Get performance report
         report = await repository.get_performance_report(
-            "test_account",
-            date.today() - timedelta(days=30),
-            date.today()
+            "test_account", date.today() - timedelta(days=30), date.today()
         )
 
         assert "account_id" in report
@@ -559,7 +572,7 @@ class TestRepositoryInterface:
             "high_cancel_rate",
             "medium",
             {"cancel_rate": 0.75, "threshold": 0.5},
-            "reduce_position_size"
+            "reduce_position_size",
         )
         assert event_id is not None
 
@@ -578,7 +591,7 @@ class TestRepositoryInterface:
             balance_usdt=Decimal("1000.00"),
             tier=TradingTier.SNIPER,
             locked_features=[],
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         await repository.create_account(account)
 

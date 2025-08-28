@@ -1,4 +1,5 @@
 """Recovery protocol management for gradual position size restoration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -203,18 +204,29 @@ class RecoveryProtocolManager:
 
         # Check for milestone achievement (25%, 50%, 75% recovery)
         if protocol.is_drawdown_recovery:
-            current_recovery = (protocol.total_profit - protocol.total_loss) / protocol.initial_debt_amount
+            current_recovery = (
+                protocol.total_profit - protocol.total_loss
+            ) / protocol.initial_debt_amount
 
-            if current_recovery >= Decimal("0.25") and Decimal("0.25") not in protocol.recovery_milestones:
+            if (
+                current_recovery >= Decimal("0.25")
+                and Decimal("0.25") not in protocol.recovery_milestones
+            ):
                 protocol.recovery_milestones.append(Decimal("0.25"))
                 logger.info("Recovery milestone reached: 25%", protocol_id=protocol_id)
 
-            if current_recovery >= Decimal("0.50") and Decimal("0.50") not in protocol.recovery_milestones:
+            if (
+                current_recovery >= Decimal("0.50")
+                and Decimal("0.50") not in protocol.recovery_milestones
+            ):
                 protocol.recovery_milestones.append(Decimal("0.50"))
                 protocol.recovery_stage = RecoveryStage.STAGE_2
                 logger.info("Recovery milestone reached: 50%", protocol_id=protocol_id)
 
-            if current_recovery >= Decimal("0.75") and Decimal("0.75") not in protocol.recovery_milestones:
+            if (
+                current_recovery >= Decimal("0.75")
+                and Decimal("0.75") not in protocol.recovery_milestones
+            ):
                 protocol.recovery_milestones.append(Decimal("0.75"))
                 protocol.recovery_stage = RecoveryStage.STAGE_3
                 logger.info("Recovery milestone reached: 75%", protocol_id=protocol_id)
@@ -457,9 +469,7 @@ class RecoveryProtocolManager:
         Returns:
             True if requirements are met
         """
-        requirements = self.STAGE_ADVANCEMENT_REQUIREMENTS.get(
-            protocol.recovery_stage
-        )
+        requirements = self.STAGE_ADVANCEMENT_REQUIREMENTS.get(protocol.recovery_stage)
 
         if not requirements:
             return False
@@ -504,7 +514,10 @@ class RecoveryProtocolManager:
                     "profile_id": protocol.profile_id,
                     "protocol_id": protocol.protocol_id,
                     "total_duration_minutes": int(
-                        (protocol.recovery_completed_at - protocol.initiated_at).total_seconds() / 60
+                        (
+                            protocol.recovery_completed_at - protocol.initiated_at
+                        ).total_seconds()
+                        / 60
                     ),
                     "final_debt": str(protocol.current_debt_amount),
                     "total_profit": str(protocol.total_profit),
@@ -518,7 +531,8 @@ class RecoveryProtocolManager:
             profile_id=protocol.profile_id,
             protocol_id=protocol.protocol_id,
             duration_hours=round(
-                (protocol.recovery_completed_at - protocol.initiated_at).total_seconds() / 3600,
+                (protocol.recovery_completed_at - protocol.initiated_at).total_seconds()
+                / 3600,
                 2,
             ),
         )
@@ -568,7 +582,9 @@ class RecoveryProtocolManager:
             "initiated_at": protocol.initiated_at.isoformat(),
             "initial_debt": str(protocol.initial_debt_amount),
             "current_debt": str(protocol.current_debt_amount),
-            "debt_paid": str(protocol.initial_debt_amount - protocol.current_debt_amount),
+            "debt_paid": str(
+                protocol.initial_debt_amount - protocol.current_debt_amount
+            ),
             "profitable_trades": protocol.profitable_trades_count,
             "loss_trades": protocol.loss_trades_count,
             "total_profit": str(protocol.total_profit),
@@ -786,5 +802,7 @@ class RecoveryProtocolManager:
             is_active=data.get("is_active", True),
             is_drawdown_recovery=data.get("is_drawdown_recovery", False),
             drawdown_percentage=Decimal(data.get("drawdown_percentage", "0")),
-            recovery_milestones=[Decimal(m) for m in data.get("recovery_milestones", [])],
+            recovery_milestones=[
+                Decimal(m) for m in data.get("recovery_milestones", [])
+            ],
         )

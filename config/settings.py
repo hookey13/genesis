@@ -114,13 +114,14 @@ class TradingSettings(BaseSettings):
     take_profit_percentage: Decimal = Field(
         Decimal("3.0"), env="TAKE_PROFIT_PERCENTAGE", gt=0
     )
-    trading_pairs: list[str] = Field(["BTC/USDT"], env="TRADING_PAIRS")
+    trading_pairs: str | list[str] = Field("BTC/USDT", env="TRADING_PAIRS")
 
-    @field_validator("trading_pairs", mode="before")
+    @field_validator("trading_pairs", mode="after")
     @classmethod
     def parse_trading_pairs(cls, v):
         """Parse comma-separated trading pairs."""
         if isinstance(v, str):
+            # Handle comma-separated format
             return [pair.strip() for pair in v.split(",")]
         return v
 
@@ -144,16 +145,14 @@ class TradingSettings(BaseSettings):
 
 class RiskSettings(BaseSettings):
     """Risk management configuration."""
-    
+
     position_risk_percent: Decimal = Field(
         Decimal("5.0"), env="POSITION_RISK_PERCENT", gt=0, le=100
     )
     minimum_position_size: Decimal = Field(
         Decimal("10.0"), env="MINIMUM_POSITION_SIZE", gt=0
     )
-    account_sync_interval: int = Field(
-        60, env="ACCOUNT_SYNC_INTERVAL", gt=0
-    )
+    account_sync_interval: int = Field(60, env="ACCOUNT_SYNC_INTERVAL", gt=0)
     daily_loss_limit_sniper: Decimal = Field(
         Decimal("25.0"), env="DAILY_LOSS_LIMIT_SNIPER", gt=0
     )
@@ -169,20 +168,20 @@ class RiskSettings(BaseSettings):
     max_positions_sniper: int = Field(1, env="MAX_POSITIONS_SNIPER", gt=0)
     max_positions_hunter: int = Field(3, env="MAX_POSITIONS_HUNTER", gt=0)
     max_positions_strategist: int = Field(5, env="MAX_POSITIONS_STRATEGIST", gt=0)
-    
+
     @field_validator(
         "position_risk_percent",
         "minimum_position_size",
         "daily_loss_limit_sniper",
         "daily_loss_limit_hunter",
         "daily_loss_limit_strategist",
-        "correlation_alert_threshold"
+        "correlation_alert_threshold",
     )
     @classmethod
     def ensure_decimal(cls, v):
         """Ensure values are Decimal type."""
         return Decimal(str(v))
-    
+
     model_config = {
         "env_file": ".env",
         "case_sensitive": False,
@@ -390,10 +389,21 @@ class FeatureFlags(BaseSettings):
 class TimeSyncSettings(BaseSettings):
     """Time synchronization settings."""
 
-    ntp_server: str = Field("pool.ntp.org", env="NTP_SERVER")
-    time_sync_interval_seconds: int = Field(
-        3600, env="TIME_SYNC_INTERVAL_SECONDS", gt=0
+    max_clock_drift_ms: int = Field(1000, env="MAX_CLOCK_DRIFT_MS", gt=0)
+    sync_check_interval_seconds: int = Field(
+        300, env="SYNC_CHECK_INTERVAL_SECONDS", gt=0
     )
+    ntp_servers: str | list[str] = Field(
+        "time.google.com,pool.ntp.org", env="NTP_SERVERS"
+    )
+
+    @field_validator("ntp_servers", mode="after")
+    @classmethod
+    def parse_ntp_servers(cls, v):
+        """Parse comma-separated NTP servers."""
+        if isinstance(v, str):
+            return [server.strip() for server in v.split(",") if server.strip()]
+        return v
 
     model_config = {
         "env_file": ".env",
@@ -470,6 +480,60 @@ class Settings:
         elif tier == TradingTier.HUNTER:
             if self.features.enable_statistical_arb:
                 raise ValueError("Statistical arbitrage requires Strategist tier")
+
+    def redacted_dict(self) -> dict:
+        """Return configuration as dict with sensitive values redacted."""
+        import json
+        import re
+
+        def redact_sensitive(obj, parent_key=""):
+            """Recursively redact sensitive values in a dict."""
+            sensitive_patterns = re.compile(
+                r"(secret|token|password|key|credential|auth)", re.IGNORECASE
+            )
+
+            if isinstance(obj, dict):
+                result = {}
+                for key, value in obj.items():
+                    full_key = f"{parent_key}.{key}" if parent_key else key
+                    if sensitive_patterns.search(key):
+                        # Redact sensitive fields
+                        if isinstance(value, str) and value:
+                            result[key] = "***REDACTED***"
+                        else:
+                            result[key] = value
+                    else:
+                        result[key] = redact_sensitive(value, full_key)
+                return result
+            elif isinstance(obj, list):
+                return [redact_sensitive(item, parent_key) for item in obj]
+            elif hasattr(obj, "__dict__"):
+                # Handle Pydantic models and other objects
+                return redact_sensitive(obj.__dict__, parent_key)
+            else:
+                return obj
+
+        # Create dict representation of all settings
+        config_dict = {
+            "exchange": self.exchange.model_dump(),
+            "trading": self.trading.model_dump(),
+            "risk": self.risk.model_dump(),
+            "database": self.database.model_dump(),
+            "logging": self.logging.model_dump(),
+            "tilt": self.tilt.model_dump(),
+            "backup": self.backup.model_dump(),
+            "deployment": self.deployment.model_dump(),
+            "notifications": self.notifications.model_dump(),
+            "development": self.development.model_dump(),
+            "security": self.security.model_dump(),
+            "features": self.features.model_dump(),
+            "time_sync": self.time_sync.model_dump(),
+            "ui": self.ui.model_dump(),
+            "performance": self.performance.model_dump(),
+        }
+
+        # Redact sensitive values
+        return redact_sensitive(config_dict)
 
 
 _settings_instance: Optional[Settings] = None

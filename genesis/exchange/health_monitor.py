@@ -64,7 +64,7 @@ class HealthMonitor:
         window_size: int = 100,
         degraded_threshold: float = 0.95,
         unhealthy_threshold: float = 0.80,
-        response_time_threshold_ms: float = 1000
+        response_time_threshold_ms: float = 1000,
     ):
         """
         Initialize health monitor.
@@ -99,7 +99,7 @@ class HealthMonitor:
             "HealthMonitor initialized",
             check_interval=check_interval_seconds,
             degraded_threshold=degraded_threshold,
-            unhealthy_threshold=unhealthy_threshold
+            unhealthy_threshold=unhealthy_threshold,
         )
 
     def register_component(self, name: str, check_func: callable) -> None:
@@ -240,7 +240,7 @@ class HealthMonitor:
                 last_check=time.time(),
                 success_rate=0.0,
                 avg_response_time_ms=0.0,
-                error_count=0
+                error_count=0,
             )
 
         # Calculate success rate
@@ -249,7 +249,9 @@ class HealthMonitor:
 
         # Calculate average response time
         response_times = [m.response_time_ms for m in metrics if m.response_time_ms]
-        avg_response_time = sum(response_times) / len(response_times) if response_times else 0
+        avg_response_time = (
+            sum(response_times) / len(response_times) if response_times else 0
+        )
 
         # Count errors
         error_count = len(metrics) - successful
@@ -264,7 +266,10 @@ class HealthMonitor:
         # Determine health status
         if success_rate < self.unhealthy_threshold:
             status = HealthStatus.UNHEALTHY
-        elif success_rate < self.degraded_threshold or avg_response_time > self.response_time_threshold_ms:
+        elif (
+            success_rate < self.degraded_threshold
+            or avg_response_time > self.response_time_threshold_ms
+        ):
             status = HealthStatus.DEGRADED
         else:
             status = HealthStatus.HEALTHY
@@ -280,8 +285,8 @@ class HealthMonitor:
             details={
                 "total_checks": len(metrics),
                 "successful_checks": successful,
-                "window_size": self.window_size
-            }
+                "window_size": self.window_size,
+            },
         )
 
     def _check_health_change(self, name: str, health: ComponentHealth) -> None:
@@ -302,7 +307,7 @@ class HealthMonitor:
                 f"Health status changed for {name}",
                 previous=previous_status,
                 current=health.status,
-                success_rate=health.success_rate
+                success_rate=health.success_rate,
             )
 
             # Notify callbacks
@@ -336,10 +341,7 @@ class HealthMonitor:
         Returns:
             Dictionary of all component health statuses
         """
-        return {
-            name: self._calculate_health(name)
-            for name in self.metrics.keys()
-        }
+        return {name: self._calculate_health(name) for name in self.metrics.keys()}
 
     def is_healthy(self) -> bool:
         """
@@ -350,8 +352,7 @@ class HealthMonitor:
         """
         all_health = self.get_all_health()
         return all(
-            health.status == HealthStatus.HEALTHY
-            for health in all_health.values()
+            health.status == HealthStatus.HEALTHY for health in all_health.values()
         )
 
     def get_statistics(self) -> dict:
@@ -363,9 +364,15 @@ class HealthMonitor:
         """
         all_health = self.get_all_health()
 
-        healthy_count = sum(1 for h in all_health.values() if h.status == HealthStatus.HEALTHY)
-        degraded_count = sum(1 for h in all_health.values() if h.status == HealthStatus.DEGRADED)
-        unhealthy_count = sum(1 for h in all_health.values() if h.status == HealthStatus.UNHEALTHY)
+        healthy_count = sum(
+            1 for h in all_health.values() if h.status == HealthStatus.HEALTHY
+        )
+        degraded_count = sum(
+            1 for h in all_health.values() if h.status == HealthStatus.DEGRADED
+        )
+        unhealthy_count = sum(
+            1 for h in all_health.values() if h.status == HealthStatus.UNHEALTHY
+        )
 
         return {
             "monitoring": self._monitoring,
@@ -379,10 +386,10 @@ class HealthMonitor:
                     "status": health.status,
                     "success_rate": health.success_rate,
                     "avg_response_time_ms": health.avg_response_time_ms,
-                    "error_count": health.error_count
+                    "error_count": health.error_count,
                 }
                 for name, health in all_health.items()
-            }
+            },
         }
 
     def _get_overall_status(self) -> HealthStatus:

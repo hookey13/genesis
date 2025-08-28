@@ -29,6 +29,7 @@ logger = structlog.get_logger(__name__)
 
 class SessionStatus(Enum):
     """Paper trading session status."""
+
     ACTIVE = "ACTIVE"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -37,36 +38,37 @@ class SessionStatus(Enum):
 
 # Minimum requirements for paper trading by strategy
 PAPER_TRADING_REQUIREMENTS = {
-    'iceberg_orders': {
-        'min_duration_hours': 24,
-        'min_trades': 20,
-        'min_success_rate': 0.70,
-        'min_profitable_ratio': 0.55
+    "iceberg_orders": {
+        "min_duration_hours": 24,
+        "min_trades": 20,
+        "min_success_rate": 0.70,
+        "min_profitable_ratio": 0.55,
     },
-    'vwap_execution': {
-        'min_duration_hours': 48,
-        'min_trades': 30,
-        'min_success_rate': 0.75,
-        'min_profitable_ratio': 0.60
+    "vwap_execution": {
+        "min_duration_hours": 48,
+        "min_trades": 30,
+        "min_success_rate": 0.75,
+        "min_profitable_ratio": 0.60,
     },
-    'market_making': {
-        'min_duration_hours': 72,
-        'min_trades': 50,
-        'min_success_rate': 0.80,
-        'min_profitable_ratio': 0.65
+    "market_making": {
+        "min_duration_hours": 72,
+        "min_trades": 50,
+        "min_success_rate": 0.80,
+        "min_profitable_ratio": 0.65,
     },
-    'statistical_arbitrage': {
-        'min_duration_hours': 48,
-        'min_trades': 40,
-        'min_success_rate': 0.75,
-        'min_profitable_ratio': 0.60
-    }
+    "statistical_arbitrage": {
+        "min_duration_hours": 48,
+        "min_trades": 40,
+        "min_success_rate": 0.75,
+        "min_profitable_ratio": 0.60,
+    },
 }
 
 
 @dataclass
 class PaperTrade:
     """Represents a single paper trade."""
+
     trade_id: str
     session_id: str
     symbol: str
@@ -94,6 +96,7 @@ class PaperTrade:
 @dataclass
 class SessionMetrics:
     """Metrics for a paper trading session."""
+
     session_id: str
     total_trades: int
     profitable_trades: int
@@ -109,10 +112,10 @@ class SessionMetrics:
     def meets_requirements(self) -> dict[str, bool]:
         """Check which requirements are met."""
         return {
-            'trades': self.total_trades >= 20,
-            'success_rate': self.success_rate >= Decimal('0.70'),
-            'profitable_ratio': self.profitable_ratio >= Decimal('0.55'),
-            'duration': self.duration_hours >= 24
+            "trades": self.total_trades >= 20,
+            "success_rate": self.success_rate >= Decimal("0.70"),
+            "profitable_ratio": self.profitable_ratio >= Decimal("0.55"),
+            "duration": self.duration_hours >= 24,
         }
 
 
@@ -134,7 +137,7 @@ class PaperTradingEnforcer:
         account_id: str,
         strategy: str,
         duration_hours: int,
-        transition_id: Optional[str] = None
+        transition_id: Optional[str] = None,
     ) -> str:
         """Create and enforce paper trading requirement.
 
@@ -156,7 +159,7 @@ class PaperTradingEnforcer:
 
         # Get requirements
         requirements = PAPER_TRADING_REQUIREMENTS[strategy]
-        actual_duration = max(duration_hours, requirements['min_duration_hours'])
+        actual_duration = max(duration_hours, requirements["min_duration_hours"])
 
         # Create paper trading session
         session_id = str(uuid.uuid4())
@@ -167,7 +170,7 @@ class PaperTradingEnforcer:
             strategy_name=strategy,
             required_duration_hours=actual_duration,
             status=SessionStatus.ACTIVE.value,
-            started_at=datetime.utcnow()
+            started_at=datetime.utcnow(),
         )
 
         try:
@@ -188,7 +191,7 @@ class PaperTradingEnforcer:
                 session_id=session_id,
                 account_id=account_id,
                 strategy=strategy,
-                duration_hours=actual_duration
+                duration_hours=actual_duration,
             )
 
             return session_id
@@ -198,16 +201,12 @@ class PaperTradingEnforcer:
                 "Failed to create paper trading session",
                 account_id=account_id,
                 strategy=strategy,
-                error=str(e)
+                error=str(e),
             )
             self.session.rollback()
             raise
 
-    async def record_paper_trade(
-        self,
-        session_id: str,
-        trade: PaperTrade
-    ) -> None:
+    async def record_paper_trade(self, session_id: str, trade: PaperTrade) -> None:
         """Record a paper trade in the session.
 
         Args:
@@ -227,7 +226,7 @@ class PaperTradingEnforcer:
             "Paper trade recorded",
             session_id=session_id,
             trade_id=trade.trade_id,
-            pnl=float(trade.pnl) if trade.pnl else None
+            pnl=float(trade.pnl) if trade.pnl else None,
         )
 
     async def close_paper_trade(
@@ -235,7 +234,7 @@ class PaperTradingEnforcer:
         session_id: str,
         trade_id: str,
         exit_price: Decimal,
-        closed_at: Optional[datetime] = None
+        closed_at: Optional[datetime] = None,
     ) -> PaperTrade:
         """Close a paper trade and calculate P&L.
 
@@ -268,7 +267,7 @@ class PaperTradingEnforcer:
         trade.exit_price = exit_price
         trade.closed_at = closed_at or datetime.utcnow()
 
-        if trade.side == 'BUY':
+        if trade.side == "BUY":
             trade.pnl = (exit_price - trade.entry_price) * trade.quantity
         else:  # SELL
             trade.pnl = (trade.entry_price - exit_price) * trade.quantity
@@ -281,7 +280,7 @@ class PaperTradingEnforcer:
             session_id=session_id,
             trade_id=trade_id,
             pnl=float(trade.pnl),
-            is_profitable=trade.is_profitable
+            is_profitable=trade.is_profitable,
         )
 
         return trade
@@ -296,9 +295,11 @@ class PaperTradingEnforcer:
             SessionMetrics with current performance
         """
         # Get session from database
-        paper_session = self.session.query(PaperTradingSession).filter_by(
-            session_id=session_id
-        ).first()
+        paper_session = (
+            self.session.query(PaperTradingSession)
+            .filter_by(session_id=session_id)
+            .first()
+        )
 
         if not paper_session:
             raise ValidationError(f"Session not found: {session_id}")
@@ -309,18 +310,20 @@ class PaperTradingEnforcer:
 
         if not closed_trades:
             # No closed trades yet
-            duration = (datetime.utcnow() - paper_session.started_at).total_seconds() / 3600
+            duration = (
+                datetime.utcnow() - paper_session.started_at
+            ).total_seconds() / 3600
             return SessionMetrics(
                 session_id=session_id,
                 total_trades=0,
                 profitable_trades=0,
-                total_pnl=Decimal('0'),
-                success_rate=Decimal('0'),
-                profitable_ratio=Decimal('0'),
-                average_pnl=Decimal('0'),
-                max_drawdown=Decimal('0'),
+                total_pnl=Decimal("0"),
+                success_rate=Decimal("0"),
+                profitable_ratio=Decimal("0"),
+                average_pnl=Decimal("0"),
+                max_drawdown=Decimal("0"),
                 duration_hours=Decimal(str(duration)),
-                trades_per_hour=Decimal('0')
+                trades_per_hour=Decimal("0"),
             )
 
         # Calculate metrics
@@ -333,9 +336,9 @@ class PaperTradingEnforcer:
         average_pnl = total_pnl / Decimal(total_trades)
 
         # Calculate max drawdown
-        cumulative_pnl = Decimal('0')
-        peak = Decimal('0')
-        max_drawdown = Decimal('0')
+        cumulative_pnl = Decimal("0")
+        peak = Decimal("0")
+        max_drawdown = Decimal("0")
 
         for trade in sorted(closed_trades, key=lambda t: t.closed_at):
             cumulative_pnl += trade.pnl
@@ -347,7 +350,11 @@ class PaperTradingEnforcer:
 
         # Calculate duration
         duration = (datetime.utcnow() - paper_session.started_at).total_seconds() / 3600
-        trades_per_hour = Decimal(total_trades) / Decimal(str(duration)) if duration > 0 else Decimal('0')
+        trades_per_hour = (
+            Decimal(total_trades) / Decimal(str(duration))
+            if duration > 0
+            else Decimal("0")
+        )
 
         return SessionMetrics(
             session_id=session_id,
@@ -359,7 +366,7 @@ class PaperTradingEnforcer:
             average_pnl=average_pnl,
             max_drawdown=max_drawdown,
             duration_hours=Decimal(str(duration)),
-            trades_per_hour=trades_per_hour
+            trades_per_hour=trades_per_hour,
         )
 
     async def check_session_completion(self, session_id: str) -> tuple[bool, list[str]]:
@@ -372,17 +379,17 @@ class PaperTradingEnforcer:
             Tuple of (is_complete, failure_reasons)
         """
         # Get session
-        paper_session = self.session.query(PaperTradingSession).filter_by(
-            session_id=session_id
-        ).first()
+        paper_session = (
+            self.session.query(PaperTradingSession)
+            .filter_by(session_id=session_id)
+            .first()
+        )
 
         if not paper_session:
             raise ValidationError(f"Session not found: {session_id}")
 
         # Get requirements
-        requirements = PAPER_TRADING_REQUIREMENTS.get(
-            paper_session.strategy_name, {}
-        )
+        requirements = PAPER_TRADING_REQUIREMENTS.get(paper_session.strategy_name, {})
 
         # Get metrics
         metrics = await self.get_session_metrics(session_id)
@@ -390,21 +397,21 @@ class PaperTradingEnforcer:
         failure_reasons = []
 
         # Check duration
-        if metrics.duration_hours < requirements.get('min_duration_hours', 0):
+        if metrics.duration_hours < requirements.get("min_duration_hours", 0):
             failure_reasons.append(
                 f"Insufficient duration: {float(metrics.duration_hours):.1f} hours "
                 f"(required: {requirements['min_duration_hours']})"
             )
 
         # Check trade count
-        if metrics.total_trades < requirements.get('min_trades', 0):
+        if metrics.total_trades < requirements.get("min_trades", 0):
             failure_reasons.append(
                 f"Insufficient trades: {metrics.total_trades} "
                 f"(required: {requirements['min_trades']})"
             )
 
         # Check success rate
-        min_success = Decimal(str(requirements.get('min_success_rate', 0)))
+        min_success = Decimal(str(requirements.get("min_success_rate", 0)))
         if metrics.success_rate < min_success:
             failure_reasons.append(
                 f"Success rate too low: {float(metrics.success_rate):.2%} "
@@ -412,7 +419,7 @@ class PaperTradingEnforcer:
             )
 
         # Check profitability ratio
-        min_profitable = Decimal(str(requirements.get('min_profitable_ratio', 0)))
+        min_profitable = Decimal(str(requirements.get("min_profitable_ratio", 0)))
         if metrics.profitable_ratio < min_profitable:
             failure_reasons.append(
                 f"Profitability ratio too low: {float(metrics.profitable_ratio):.2%} "
@@ -424,9 +431,7 @@ class PaperTradingEnforcer:
         return is_complete, failure_reasons
 
     async def complete_session(
-        self,
-        session_id: str,
-        force: bool = False
+        self, session_id: str, force: bool = False
     ) -> SessionMetrics:
         """Complete a paper trading session.
 
@@ -452,9 +457,11 @@ class PaperTradingEnforcer:
         metrics = await self.get_session_metrics(session_id)
 
         # Update database
-        paper_session = self.session.query(PaperTradingSession).filter_by(
-            session_id=session_id
-        ).first()
+        paper_session = (
+            self.session.query(PaperTradingSession)
+            .filter_by(session_id=session_id)
+            .first()
+        )
 
         if paper_session:
             paper_session.completed_at = datetime.utcnow()
@@ -462,13 +469,19 @@ class PaperTradingEnforcer:
             paper_session.success_rate = metrics.success_rate
             paper_session.total_trades = metrics.total_trades
             paper_session.profitable_trades = metrics.profitable_trades
-            paper_session.status = SessionStatus.COMPLETED.value if is_complete else SessionStatus.FAILED.value
+            paper_session.status = (
+                SessionStatus.COMPLETED.value
+                if is_complete
+                else SessionStatus.FAILED.value
+            )
 
             # Update transition if linked
             if paper_session.transition_id:
-                transition = self.session.query(TierTransition).filter_by(
-                    transition_id=paper_session.transition_id
-                ).first()
+                transition = (
+                    self.session.query(TierTransition)
+                    .filter_by(transition_id=paper_session.transition_id)
+                    .first()
+                )
 
                 if transition and is_complete:
                     transition.paper_trading_completed = True
@@ -481,7 +494,7 @@ class PaperTradingEnforcer:
                 session_id=session_id,
                 success=is_complete,
                 total_trades=metrics.total_trades,
-                success_rate=float(metrics.success_rate)
+                success_rate=float(metrics.success_rate),
             )
 
         # Clean up in-memory tracking
@@ -502,9 +515,11 @@ class PaperTradingEnforcer:
             session_id: Session to cancel
             reason: Reason for cancellation
         """
-        paper_session = self.session.query(PaperTradingSession).filter_by(
-            session_id=session_id
-        ).first()
+        paper_session = (
+            self.session.query(PaperTradingSession)
+            .filter_by(session_id=session_id)
+            .first()
+        )
 
         if paper_session:
             paper_session.status = SessionStatus.CANCELLED.value
@@ -520,16 +535,10 @@ class PaperTradingEnforcer:
             del self._session_tasks[session_id]
 
         logger.info(
-            "Paper trading session cancelled",
-            session_id=session_id,
-            reason=reason
+            "Paper trading session cancelled", session_id=session_id, reason=reason
         )
 
-    async def _monitor_session(
-        self,
-        session_id: str,
-        duration_hours: int
-    ) -> None:
+    async def _monitor_session(self, session_id: str, duration_hours: int) -> None:
         """Monitor paper trading session for timeout.
 
         Args:
@@ -556,7 +565,7 @@ class PaperTradingEnforcer:
             logger.error(
                 "Error monitoring paper trading session",
                 session_id=session_id,
-                error=str(e)
+                error=str(e),
             )
 
     async def _update_session_metrics(self, session_id: str) -> None:
@@ -568,9 +577,11 @@ class PaperTradingEnforcer:
         try:
             metrics = await self.get_session_metrics(session_id)
 
-            paper_session = self.session.query(PaperTradingSession).filter_by(
-                session_id=session_id
-            ).first()
+            paper_session = (
+                self.session.query(PaperTradingSession)
+                .filter_by(session_id=session_id)
+                .first()
+            )
 
             if paper_session:
                 paper_session.total_trades = metrics.total_trades
@@ -582,9 +593,7 @@ class PaperTradingEnforcer:
 
         except Exception as e:
             logger.error(
-                "Failed to update session metrics",
-                session_id=session_id,
-                error=str(e)
+                "Failed to update session metrics", session_id=session_id, error=str(e)
             )
             self.session.rollback()
 

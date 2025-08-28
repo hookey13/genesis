@@ -31,18 +31,21 @@ class Symbol(str):
 
 class Side(str, Enum):
     """Trade/Order side."""
+
     BUY = "BUY"
     SELL = "SELL"
 
 
 class PositionSide(str, Enum):
     """Position direction."""
+
     LONG = "LONG"
     SHORT = "SHORT"
 
 
 class TaxMethod(str, Enum):
     """Tax lot accounting methods."""
+
     FIFO = "FIFO"  # First In First Out
     LIFO = "LIFO"  # Last In First Out
     HIFO = "HIFO"  # Highest In First Out
@@ -64,7 +67,9 @@ class Position(BaseModel):
     pnl_dollars: Decimal = Decimal("0")
     pnl_percent: Decimal = Decimal("0")
     priority_score: int = 0
-    close_reason: str | None = None  # e.g., "stop_loss", "take_profit", "manual", "tilt_intervention"
+    close_reason: str | None = (
+        None  # e.g., "stop_loss", "take_profit", "manual", "tilt_intervention"
+    )
     # Tax lot tracking fields
     tax_lot_id: str | None = Field(default=None)
     acquisition_date: datetime | None = None  # For holding period calculations
@@ -73,8 +78,17 @@ class Position(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime | None = None
 
-    @field_validator("entry_price", "current_price", "quantity", "dollar_value",
-                    "stop_loss", "pnl_dollars", "pnl_percent", "cost_basis", mode="before")
+    @field_validator(
+        "entry_price",
+        "current_price",
+        "quantity",
+        "dollar_value",
+        "stop_loss",
+        "pnl_dollars",
+        "pnl_percent",
+        "cost_basis",
+        mode="before",
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""
@@ -98,6 +112,7 @@ class Position(BaseModel):
 
 class AccountType(str, Enum):
     """Account type classification."""
+
     MASTER = "MASTER"
     SUB = "SUB"
     PAPER = "PAPER"
@@ -150,8 +165,14 @@ class TradingSession(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime | None = None
 
-    @field_validator("starting_balance", "current_balance", "realized_pnl",
-                    "max_drawdown", "daily_loss_limit", mode="before")
+    @field_validator(
+        "starting_balance",
+        "current_balance",
+        "realized_pnl",
+        "max_drawdown",
+        "daily_loss_limit",
+        mode="before",
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""
@@ -206,6 +227,7 @@ class PositionCorrelation(BaseModel):
 
 class OrderType(str, Enum):
     """Order types."""
+
     MARKET = "MARKET"
     LIMIT = "LIMIT"
     STOP_LOSS = "STOP_LOSS"
@@ -217,12 +239,14 @@ class OrderType(str, Enum):
 
 class OrderSide(str, Enum):
     """Order side."""
+
     BUY = "BUY"
     SELL = "SELL"
 
 
 class OrderStatus(str, Enum):
     """Order status states."""
+
     PENDING = "PENDING"
     PARTIAL = "PARTIAL"
     FILLED = "FILLED"
@@ -256,7 +280,15 @@ class Order(BaseModel):
     taker_fee_paid: Decimal | None = None
     execution_score: float | None = None
 
-    @field_validator("price", "quantity", "filled_quantity", "slippage_percent", "maker_fee_paid", "taker_fee_paid", mode="before")
+    @field_validator(
+        "price",
+        "quantity",
+        "filled_quantity",
+        "slippage_percent",
+        "maker_fee_paid",
+        "taker_fee_paid",
+        mode="before",
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""
@@ -267,6 +299,7 @@ class Order(BaseModel):
 
 class SignalType(str, Enum):
     """Signal types for trading decisions."""
+
     BUY = "BUY"
     SELL = "SELL"
     HOLD = "HOLD"
@@ -290,7 +323,14 @@ class Signal(BaseModel):
     metadata: dict = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
 
-    @field_validator("confidence", "price_target", "stop_loss", "take_profit", "quantity", mode="before")
+    @field_validator(
+        "confidence",
+        "price_target",
+        "stop_loss",
+        "take_profit",
+        "quantity",
+        mode="before",
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""
@@ -333,7 +373,14 @@ class Trade(BaseModel):
     pnl_percent: Decimal
     timestamp: datetime = Field(default_factory=datetime.now)
 
-    @field_validator("entry_price", "exit_price", "quantity", "pnl_dollars", "pnl_percent", mode="before")
+    @field_validator(
+        "entry_price",
+        "exit_price",
+        "quantity",
+        "pnl_dollars",
+        "pnl_percent",
+        mode="before",
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""

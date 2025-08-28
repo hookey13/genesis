@@ -68,17 +68,21 @@ def orchestrator(event_bus, mock_risk_engine, mock_strategy_loader):
     orchestrator = StrategyOrchestrator(
         event_bus=event_bus,
         risk_engine=mock_risk_engine,
-        total_capital=Decimal("10000")
+        total_capital=Decimal("10000"),
     )
 
     # Mock the internal components to match the expected interface
     orchestrator.registry = StrategyRegistry(event_bus, mock_strategy_loader)
     orchestrator.allocator = CapitalAllocator(event_bus, total_capital=Decimal("10000"))
-    orchestrator.correlation_monitor = CorrelationMonitor(event_bus, warning_threshold=Decimal("0.6"))
+    orchestrator.correlation_monitor = CorrelationMonitor(
+        event_bus, warning_threshold=Decimal("0.6")
+    )
     orchestrator.performance_tracker = StrategyPerformanceTracker(event_bus)
     orchestrator.conflict_resolver = ConflictResolver(event_bus)
     orchestrator.regime_detector = MarketRegimeDetector(event_bus)
-    orchestrator.ab_test_framework = ABTestFramework(event_bus, orchestrator.performance_tracker)
+    orchestrator.ab_test_framework = ABTestFramework(
+        event_bus, orchestrator.performance_tracker
+    )
 
     # Mock methods that might be missing
     orchestrator.register_strategy = AsyncMock()
@@ -105,7 +109,10 @@ class TestMultiStrategyWorkflow:
 
         # Verify strategies registered
         assert len(orchestrator.registry.strategies) == 3
-        assert all(s.state == StrategyState.RUNNING for s in orchestrator.registry.strategies.values())
+        assert all(
+            s.state == StrategyState.RUNNING
+            for s in orchestrator.registry.strategies.values()
+        )
 
         # Verify capital allocation
         allocations = orchestrator.allocator.allocations
@@ -119,7 +126,10 @@ class TestMultiStrategyWorkflow:
         await orchestrator.stop()
 
         # Verify cleanup
-        assert all(s.state == StrategyState.STOPPED for s in orchestrator.registry.strategies.values())
+        assert all(
+            s.state == StrategyState.STOPPED
+            for s in orchestrator.registry.strategies.values()
+        )
 
     @pytest.mark.asyncio
     async def test_capital_reallocation_on_performance(self, orchestrator, event_bus):
@@ -134,26 +144,32 @@ class TestMultiStrategyWorkflow:
         assert initial_allocations["momentum"] == initial_allocations["mean_reversion"]
 
         # Simulate performance difference
-        await event_bus.publish(Event(
-            event_type=EventType.POSITION_CLOSED,
-            event_data={
-                "strategy_id": "momentum",
-                "pnl_usdt": Decimal("500"),
-                "timestamp": datetime.now(UTC)
-            }
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.POSITION_CLOSED,
+                event_data={
+                    "strategy_id": "momentum",
+                    "pnl_usdt": Decimal("500"),
+                    "timestamp": datetime.now(UTC),
+                },
+            )
+        )
 
-        await event_bus.publish(Event(
-            event_type=EventType.POSITION_CLOSED,
-            event_data={
-                "strategy_id": "mean_reversion",
-                "pnl_usdt": Decimal("-200"),
-                "timestamp": datetime.now(UTC)
-            }
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.POSITION_CLOSED,
+                event_data={
+                    "strategy_id": "mean_reversion",
+                    "pnl_usdt": Decimal("-200"),
+                    "timestamp": datetime.now(UTC),
+                },
+            )
+        )
 
         # Trigger reallocation
-        await orchestrator.allocator.rebalance(method=AllocationMethod.PERFORMANCE_WEIGHTED)
+        await orchestrator.allocator.rebalance(
+            method=AllocationMethod.PERFORMANCE_WEIGHTED
+        )
 
         # Verify reallocation favors better performer
         new_allocations = orchestrator.allocator.allocations
@@ -177,15 +193,15 @@ class TestMultiStrategyWorkflow:
                 strategy_id="momentum",
                 symbol="BTC/USDT",
                 quantity=Decimal("1"),
-                entry_price=Decimal("50000")
+                entry_price=Decimal("50000"),
             ),
             Position(
                 position_id="pos2",
                 strategy_id="mean_reversion",
                 symbol="ETH/USDT",
                 quantity=Decimal("10"),
-                entry_price=Decimal("3000")
-            )
+                entry_price=Decimal("3000"),
+            ),
         ]
 
         # Add price updates to create correlation
@@ -193,16 +209,25 @@ class TestMultiStrategyWorkflow:
             price_btc = Decimal(str(50000 + np.random.normal(0, 100)))
             price_eth = Decimal(str(3000 + np.random.normal(0, 50)))
 
-            await orchestrator.correlation_monitor.update_position_price("pos1", price_btc)
-            await orchestrator.correlation_monitor.update_position_price("pos2", price_eth)
+            await orchestrator.correlation_monitor.update_position_price(
+                "pos1", price_btc
+            )
+            await orchestrator.correlation_monitor.update_position_price(
+                "pos2", price_eth
+            )
 
         # Calculate correlation
-        correlation = await orchestrator.correlation_monitor.calculate_correlation("pos1", "pos2")
+        correlation = await orchestrator.correlation_monitor.calculate_correlation(
+            "pos1", "pos2"
+        )
         assert correlation is not None
 
         # Test high correlation alert
-        with patch.object(orchestrator.correlation_monitor, 'calculate_correlation',
-                         return_value=Decimal("0.85")):
+        with patch.object(
+            orchestrator.correlation_monitor,
+            "calculate_correlation",
+            return_value=Decimal("0.85"),
+        ):
             alert_event = None
 
             async def capture_event(event):
@@ -231,18 +256,25 @@ class TestMultiStrategyWorkflow:
         await orchestrator.register_strategy("mean_reversion", {"regime": "bear"})
 
         # Initial state - all running
-        assert orchestrator.registry.strategies["momentum"].state == StrategyState.RUNNING
-        assert orchestrator.registry.strategies["mean_reversion"].state == StrategyState.RUNNING
+        assert (
+            orchestrator.registry.strategies["momentum"].state == StrategyState.RUNNING
+        )
+        assert (
+            orchestrator.registry.strategies["mean_reversion"].state
+            == StrategyState.RUNNING
+        )
 
         # Simulate market regime change to BEAR
         orchestrator.regime_detector.current_regime = MarketRegime.BEAR
-        await event_bus.publish(Event(
-            event_type=EventType.GLOBAL_MARKET_STATE_CHANGE,
-            event_data={
-                "regime": MarketRegime.BEAR.value,
-                "timestamp": datetime.now(UTC)
-            }
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.GLOBAL_MARKET_STATE_CHANGE,
+                event_data={
+                    "regime": MarketRegime.BEAR.value,
+                    "timestamp": datetime.now(UTC),
+                },
+            )
+        )
 
         # Process regime change
         await orchestrator._handle_regime_change(MarketRegime.BEAR)
@@ -254,7 +286,9 @@ class TestMultiStrategyWorkflow:
         await orchestrator.stop()
 
     @pytest.mark.asyncio
-    async def test_conflict_resolution_between_strategies(self, orchestrator, event_bus):
+    async def test_conflict_resolution_between_strategies(
+        self, orchestrator, event_bus
+    ):
         """Test conflict resolution when strategies generate conflicting signals"""
         await orchestrator.start()
 
@@ -268,7 +302,7 @@ class TestMultiStrategyWorkflow:
             "symbol": "BTC/USDT",
             "action": "buy",
             "quantity": Decimal("1"),
-            "timestamp": datetime.now(UTC)
+            "timestamp": datetime.now(UTC),
         }
 
         signal2 = {
@@ -276,7 +310,7 @@ class TestMultiStrategyWorkflow:
             "symbol": "BTC/USDT",
             "action": "sell",
             "quantity": Decimal("1"),
-            "timestamp": datetime.now(UTC)
+            "timestamp": datetime.now(UTC),
         }
 
         # Resolve conflict
@@ -289,7 +323,9 @@ class TestMultiStrategyWorkflow:
         await orchestrator.stop()
 
     @pytest.mark.asyncio
-    async def test_aggregate_risk_management(self, orchestrator, event_bus, mock_risk_engine):
+    async def test_aggregate_risk_management(
+        self, orchestrator, event_bus, mock_risk_engine
+    ):
         """Test aggregate risk limits across all strategies"""
         await orchestrator.start()
 
@@ -300,17 +336,21 @@ class TestMultiStrategyWorkflow:
 
         # Simulate risk limit breach
         mock_risk_engine.check_portfolio_risk.return_value = False
-        mock_risk_engine.calculate_portfolio_var.return_value = Decimal("5000")  # 50% of capital
+        mock_risk_engine.calculate_portfolio_var.return_value = Decimal(
+            "5000"
+        )  # 50% of capital
 
         # Publish risk event
-        await event_bus.publish(Event(
-            event_type=EventType.RISK_LIMIT_BREACH,
-            event_data={
-                "var_usdt": Decimal("5000"),
-                "limit_usdt": Decimal("2000"),
-                "timestamp": datetime.now(UTC)
-            }
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.RISK_LIMIT_BREACH,
+                event_data={
+                    "var_usdt": Decimal("5000"),
+                    "limit_usdt": Decimal("2000"),
+                    "timestamp": datetime.now(UTC),
+                },
+            )
+        )
 
         # Allow event processing
         await asyncio.sleep(0.1)
@@ -329,13 +369,13 @@ class TestMultiStrategyWorkflow:
         variant_a = TestVariant(
             variant_id="momentum_v1",
             strategy_name="momentum",
-            strategy_params={"lookback": 20, "threshold": 1.5}
+            strategy_params={"lookback": 20, "threshold": 1.5},
         )
 
         variant_b = TestVariant(
             variant_id="momentum_v2",
             strategy_name="momentum",
-            strategy_params={"lookback": 30, "threshold": 2.0}
+            strategy_params={"lookback": 30, "threshold": 2.0},
         )
 
         # Create A/B test
@@ -347,7 +387,7 @@ class TestMultiStrategyWorkflow:
             variant_b=variant_b,
             min_trades=10,
             confidence_level=Decimal("0.95"),
-            allocation_method=ABAllocationMethod.ROUND_ROBIN
+            allocation_method=ABAllocationMethod.ROUND_ROBIN,
         )
 
         # Start test
@@ -359,14 +399,13 @@ class TestMultiStrategyWorkflow:
             pnl = Decimal(str(np.random.normal(10, 20)))
 
             await orchestrator.ab_test_framework.record_trade_result(
-                "momentum_test",
-                variant,
-                pnl,
-                datetime.now(UTC)
+                "momentum_test", variant, pnl, datetime.now(UTC)
             )
 
         # Check test status
-        test_result = await orchestrator.ab_test_framework.get_test_results("momentum_test")
+        test_result = await orchestrator.ab_test_framework.get_test_results(
+            "momentum_test"
+        )
         assert test_result is not None
         assert test_result.variant_a.trades_executed > 0
         assert test_result.variant_b.trades_executed > 0
@@ -374,7 +413,9 @@ class TestMultiStrategyWorkflow:
         await orchestrator.stop()
 
     @pytest.mark.asyncio
-    async def test_strategy_health_monitoring_and_recovery(self, orchestrator, event_bus):
+    async def test_strategy_health_monitoring_and_recovery(
+        self, orchestrator, event_bus
+    ):
         """Test strategy health monitoring and automatic recovery"""
         await orchestrator.start()
 
@@ -410,28 +451,32 @@ class TestMultiStrategyWorkflow:
         # Simulate correlated losses
         loss_events = []
         for strategy_id in ["momentum", "mean_reversion", "arbitrage"]:
-            loss_events.append(Event(
-                event_type=EventType.POSITION_CLOSED,
-                event_data={
-                    "strategy_id": strategy_id,
-                    "pnl_usdt": Decimal("-500"),
-                    "timestamp": datetime.now(UTC)
-                }
-            ))
+            loss_events.append(
+                Event(
+                    event_type=EventType.POSITION_CLOSED,
+                    event_data={
+                        "strategy_id": strategy_id,
+                        "pnl_usdt": Decimal("-500"),
+                        "timestamp": datetime.now(UTC),
+                    },
+                )
+            )
 
         # Publish loss events
         for event in loss_events:
             await event_bus.publish(event)
 
         # Trigger daily loss limit
-        await event_bus.publish(Event(
-            event_type=EventType.DAILY_LOSS_LIMIT_REACHED,
-            event_data={
-                "total_loss_usdt": Decimal("-1500"),
-                "limit_usdt": Decimal("-1000"),
-                "timestamp": datetime.now(UTC)
-            }
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.DAILY_LOSS_LIMIT_REACHED,
+                event_data={
+                    "total_loss_usdt": Decimal("-1500"),
+                    "limit_usdt": Decimal("-1000"),
+                    "timestamp": datetime.now(UTC),
+                },
+            )
+        )
 
         # Allow event processing
         await asyncio.sleep(0.1)
@@ -454,14 +499,16 @@ class TestMultiStrategyWorkflow:
 
         # Simulate poor performance
         for _ in range(10):
-            await event_bus.publish(Event(
-                event_type=EventType.POSITION_CLOSED,
-                event_data={
-                    "strategy_id": "momentum",
-                    "pnl_usdt": Decimal("-50"),
-                    "timestamp": datetime.now(UTC)
-                }
-            ))
+            await event_bus.publish(
+                Event(
+                    event_type=EventType.POSITION_CLOSED,
+                    event_data={
+                        "strategy_id": "momentum",
+                        "pnl_usdt": Decimal("-50"),
+                        "timestamp": datetime.now(UTC),
+                    },
+                )
+            )
 
         # Trigger performance review
         await orchestrator.performance_tracker.calculate_metrics("momentum")
@@ -514,8 +561,12 @@ class TestMultiStrategyWorkflow:
             events_captured.append(event.type)
 
         # Subscribe to strategy events
-        for event_type in [EventType.STRATEGY_REGISTERED, EventType.STRATEGY_STARTED,
-                           EventType.STRATEGY_STOPPED, EventType.STRATEGY_UNREGISTERED]:
+        for event_type in [
+            EventType.STRATEGY_REGISTERED,
+            EventType.STRATEGY_STARTED,
+            EventType.STRATEGY_STOPPED,
+            EventType.STRATEGY_UNREGISTERED,
+        ]:
             event_bus.subscribe(event_type, capture_events)
 
         await orchestrator.start()
@@ -546,7 +597,9 @@ class TestMultiStrategyWorkflow:
         # Test equal weight allocation
         await orchestrator.allocator.rebalance(AllocationMethod.EQUAL_WEIGHT)
         allocations = orchestrator.allocator.allocations
-        assert all(abs(a - Decimal("3333.33")) < Decimal("1") for a in allocations.values())
+        assert all(
+            abs(a - Decimal("3333.33")) < Decimal("1") for a in allocations.values()
+        )
 
         # Test risk parity allocation
         await orchestrator.allocator.rebalance(AllocationMethod.RISK_PARITY)
@@ -576,7 +629,10 @@ class TestMultiStrategyWorkflow:
 
         # Verify clean shutdown
         assert orchestrator.is_running is False
-        assert all(s.state == StrategyState.STOPPED for s in orchestrator.registry.strategies.values())
+        assert all(
+            s.state == StrategyState.STOPPED
+            for s in orchestrator.registry.strategies.values()
+        )
         assert len(orchestrator._background_tasks) == 0
 
         # Verify no pending tasks

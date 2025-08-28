@@ -33,7 +33,7 @@ class TestBinanceIntegration:
                 type="limit",
                 quantity=Decimal("0.001"),
                 price=Decimal("49000"),
-                client_order_id="integration_test_001"
+                client_order_id="integration_test_001",
             )
 
             order_response = await gateway.place_order(order_request)
@@ -46,7 +46,9 @@ class TestBinanceIntegration:
 
             # Cancel order (if still open)
             if status.status == "open":
-                cancelled = await gateway.cancel_order(order_response.order_id, "BTC/USDT")
+                cancelled = await gateway.cancel_order(
+                    order_response.order_id, "BTC/USDT"
+                )
                 assert cancelled is True
 
             await gateway.close()
@@ -54,18 +56,23 @@ class TestBinanceIntegration:
     @pytest.mark.asyncio
     async def test_websocket_reconnection(self, mock_settings):
         """Test WebSocket automatic reconnection."""
-        with patch("genesis.exchange.websocket_manager.get_settings", return_value=mock_settings):
+        with patch(
+            "genesis.exchange.websocket_manager.get_settings",
+            return_value=mock_settings,
+        ):
             manager = WebSocketManager()
 
             # Mock WebSocket connection with controlled behavior
-            with patch("genesis.exchange.websocket_manager.websockets.connect") as mock_connect:
+            with patch(
+                "genesis.exchange.websocket_manager.websockets.connect"
+            ) as mock_connect:
                 mock_ws = AsyncMock()
 
                 # Create a controlled message sequence
                 message_sequence = [
                     '{"stream": "btcusdt@trade", "data": {"price": "50000"}}',
                     '{"stream": "btcusdt@depth20@100ms", "data": {"bids": [], "asks": []}}',
-                    asyncio.CancelledError()  # Simulate disconnect after a few messages
+                    asyncio.CancelledError(),  # Simulate disconnect after a few messages
                 ]
                 mock_ws.recv = AsyncMock(side_effect=message_sequence)
                 mock_ws.send = AsyncMock()
@@ -96,7 +103,9 @@ class TestBinanceIntegration:
 
                     except asyncio.TimeoutError:
                         # If timeout occurs, it means connections are hanging - this is the bug we're fixing
-                        pytest.fail("WebSocketManager.start() timed out - connections are hanging")
+                        pytest.fail(
+                            "WebSocketManager.start() timed out - connections are hanging"
+                        )
                     finally:
                         # Ensure cleanup happens even if test times out
                         try:
@@ -105,7 +114,10 @@ class TestBinanceIntegration:
                             # Force cleanup of any remaining tasks
                             for conn in manager.connections.values():
                                 conn.state = "closed"
-                                for task in [conn.heartbeat_task, conn.message_handler_task]:
+                                for task in [
+                                    conn.heartbeat_task,
+                                    conn.message_handler_task,
+                                ]:
                                     if task and not task.done():
                                         task.cancel()
 
@@ -134,6 +146,7 @@ class TestBinanceIntegration:
 
             # Next call should be rejected immediately
             from genesis.exchange.circuit_breaker import CircuitOpenError
+
             with pytest.raises(CircuitOpenError):
                 await api_breaker.call(failing_api_call)
 
@@ -153,7 +166,7 @@ class TestBinanceIntegration:
                     symbol="BTC/USDT",
                     side="buy",
                     type="market",
-                    quantity=Decimal("0.001")
+                    quantity=Decimal("0.001"),
                 )
                 tasks.append(gateway.place_order(order_request))
 
@@ -165,7 +178,9 @@ class TestBinanceIntegration:
             # Check rate limiter statistics
             stats = gateway.rate_limiter.get_statistics()
             assert stats["total_requests"] >= 5
-            assert stats["current_utilization_percent"] < 80  # Should stay below threshold
+            assert (
+                stats["current_utilization_percent"] < 80
+            )  # Should stay below threshold
 
             await gateway.close()
 
@@ -231,18 +246,23 @@ class TestBinanceIntegration:
     @pytest.mark.asyncio
     async def test_failover_between_websocket_connections(self, mock_settings):
         """Test failover between WebSocket connection pools."""
-        with patch("genesis.exchange.websocket_manager.get_settings", return_value=mock_settings):
+        with patch(
+            "genesis.exchange.websocket_manager.get_settings",
+            return_value=mock_settings,
+        ):
             manager = WebSocketManager()
 
             # Mock WebSocket connections
-            with patch("genesis.exchange.websocket_manager.websockets.connect") as mock_connect:
+            with patch(
+                "genesis.exchange.websocket_manager.websockets.connect"
+            ) as mock_connect:
                 mock_ws = AsyncMock()
 
                 # Create a message sequence that doesn't immediately fail
                 message_sequence = [
                     '{"stream": "btcusdt@trade", "data": {"price": "50000"}}',
                     '{"stream": "ethusdt@ticker", "data": {"price": "3000"}}',
-                    asyncio.CancelledError()  # Eventually disconnect
+                    asyncio.CancelledError(),  # Eventually disconnect
                 ]
                 mock_ws.recv = AsyncMock(side_effect=message_sequence)
                 mock_ws.send = AsyncMock()
@@ -275,10 +295,17 @@ class TestBinanceIntegration:
 
                         # Verify connections are in expected states
                         for conn_name, state in states.items():
-                            assert state in ["connected", "connecting", "disconnected", "reconnecting"]
+                            assert state in [
+                                "connected",
+                                "connecting",
+                                "disconnected",
+                                "reconnecting",
+                            ]
 
                     except asyncio.TimeoutError:
-                        pytest.fail("WebSocketManager.start() timed out - connections are hanging")
+                        pytest.fail(
+                            "WebSocketManager.start() timed out - connections are hanging"
+                        )
                     finally:
                         # Ensure cleanup happens even if test times out
                         try:
@@ -287,7 +314,10 @@ class TestBinanceIntegration:
                             # Force cleanup of any remaining tasks
                             for conn in manager.connections.values():
                                 conn.state = "closed"
-                                for task in [conn.heartbeat_task, conn.message_handler_task]:
+                                for task in [
+                                    conn.heartbeat_task,
+                                    conn.message_handler_task,
+                                ]:
                                     if task and not task.done():
                                         task.cancel()
 
@@ -323,7 +353,7 @@ class TestBinanceIntegration:
                 side="buy",
                 type="limit",
                 quantity=Decimal("0.001"),
-                price=Decimal("49000")
+                price=Decimal("49000"),
             )
             response = await gateway.place_order(order)
             assert response.order_id is not None

@@ -98,9 +98,7 @@ class TestRecoveryWorkflowIntegration:
 
         # Update recovery progress
         trade_result = {"profit_loss": Decimal("50")}
-        protocol_manager.update_recovery_progress(
-            protocol.protocol_id, trade_result
-        )
+        protocol_manager.update_recovery_progress(protocol.protocol_id, trade_result)
 
         assert protocol.profitable_trades_count == 1
         assert protocol.total_profit == Decimal("50")

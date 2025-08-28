@@ -11,11 +11,17 @@ Features:
     - Signal handling for clean termination
 """
 
+import asyncio
 import signal
 import sys
 import traceback
 from pathlib import Path
 from typing import Any, Optional
+
+import aiohttp
+from alembic import command
+from alembic.config import Config as AlembicConfig
+from sqlalchemy import create_engine, text
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -23,6 +29,7 @@ sys.path.insert(0, str(project_root))
 
 from config.settings import get_settings, validate_configuration
 from genesis.utils.logger import LoggerType, get_logger, setup_logging
+from genesis.utils.time_sync import check_clock_drift_ms
 
 
 class GenesisApplication:
@@ -53,17 +60,26 @@ class GenesisApplication:
 
     def initialize(self) -> bool:
         """
-        Initialize the application.
+        Initialize the application with full bootstrap sequence.
+
+        Bootstrap order:
+        1. Load & validate settings
+        2. Initialize structured logging
+        3. Database connection test & migrations
+        4. REST API ping (exchange connectivity)
+        5. Clock drift check (hard fail if exceeded)
+        6. WebSocket probe (warn only)
 
         Returns:
             bool: True if initialization successful, False otherwise
         """
         try:
-            # Load configuration first
+            # Step 1: Load configuration
             print("📋 Loading configuration...")
             self.settings = get_settings()
+            print("✅ Configuration loaded successfully")
 
-            # Setup logging based on configuration
+            # Step 2: Setup logging
             setup_logging(
                 log_level=self.settings.logging.log_level.value,
                 log_dir=self.settings.logging.log_file_path.parent,
@@ -71,21 +87,63 @@ class GenesisApplication:
                 max_bytes=self.settings.logging.log_max_bytes,
                 backup_count=self.settings.logging.log_backup_count,
             )
-
-            # Get logger after setup
             self.logger = get_logger(__name__, LoggerType.SYSTEM)
+            print("✅ Logging initialized")
+
+            # Log redacted configuration
             self.logger.info(
-                "genesis_initializing",
-                version="1.0.0",
-                tier=self.settings.trading.trading_tier,
-                environment=self.settings.deployment.deployment_env,
-                testnet=self.settings.exchange.binance_testnet,
+                "configuration_loaded", config=self.settings.redacted_dict()
             )
 
-            # Validate configuration
-            print("✓ Configuration loaded successfully")
-            validation_report = validate_configuration()
+            # Step 3: Database smoke test & migrations
+            print("🗄️  Testing database connection...")
+            if not self._test_database_connection():
+                return False
+            print("✅ Database connection successful")
 
+            print("🔄 Running database migrations...")
+            if not self._run_migrations():
+                return False
+            print("✅ Database migrations complete")
+
+            # Step 4: REST API ping
+            print("🌐 Testing exchange REST connectivity...")
+            if not asyncio.run(self._test_rest_connectivity()):
+                return False
+            print("✅ REST API connection successful")
+
+            # Step 5: Clock drift check (hard fail)
+            print("⏰ Checking clock synchronization...")
+            drift_result = asyncio.run(
+                check_clock_drift_ms(self.settings.time_sync.max_clock_drift_ms)
+            )
+            if not drift_result.is_acceptable:
+                self.logger.error(
+                    "clock_drift_exceeded",
+                    drift_ms=drift_result.drift_ms,
+                    max_ms=self.settings.time_sync.max_clock_drift_ms,
+                    source=drift_result.source,
+                )
+                print(f"❌ Clock drift too high: {drift_result.drift_ms}ms")
+                print(
+                    f"   Maximum allowed: {self.settings.time_sync.max_clock_drift_ms}ms"
+                )
+                print("   Please sync your system time and try again.")
+                return False
+            print(f"✅ Clock synchronized (drift: {drift_result.drift_ms}ms)")
+
+            # Step 6: WebSocket probe (warn only)
+            print("🔌 Testing WebSocket connectivity...")
+            ws_result = asyncio.run(self._test_websocket_connectivity())
+            if not ws_result:
+                self.logger.warning("websocket_connectivity_degraded")
+                print("⚠️  WebSocket connection failed - service degraded")
+                print("   Live data feeds may not be available")
+            else:
+                print("✅ WebSocket connection successful")
+
+            # Validate configuration
+            validation_report = validate_configuration()
             if not validation_report["valid"]:
                 self.logger.error(
                     "configuration_invalid", error=validation_report.get("error")
@@ -100,7 +158,14 @@ class GenesisApplication:
             # Setup signal handlers
             self.setup_signal_handlers()
 
-            self.logger.info("genesis_initialized_successfully")
+            self.logger.info(
+                "startup.complete",
+                version="1.0.0",
+                tier=self.settings.trading.trading_tier,
+                environment=self.settings.deployment.deployment_env,
+                testnet=self.settings.exchange.binance_testnet,
+            )
+            print("\n✅ All preflight checks passed - system ready")
             return True
 
         except FileNotFoundError as e:
@@ -175,6 +240,71 @@ class GenesisApplication:
 
         finally:
             self.shutdown()
+
+    def _test_database_connection(self) -> bool:
+        """Test database connectivity."""
+        try:
+            engine = create_engine(self.settings.database.database_url)
+            with engine.connect() as conn:
+                result = conn.execute(text("SELECT 1"))
+                result.fetchone()
+            engine.dispose()
+            return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error("database_connection_failed", error=str(e))
+            else:
+                print(f"❌ Database connection failed: {e}")
+            return False
+
+    def _run_migrations(self) -> bool:
+        """Run Alembic migrations programmatically."""
+        try:
+            alembic_cfg = AlembicConfig(str(project_root / "alembic.ini"))
+            alembic_cfg.set_main_option(
+                "sqlalchemy.url", self.settings.database.database_url
+            )
+            command.upgrade(alembic_cfg, "head")
+            return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error("migration_failed", error=str(e))
+            else:
+                print(f"❌ Migration failed: {e}")
+            return False
+
+    async def _test_rest_connectivity(self) -> bool:
+        """Test REST API connectivity to exchange."""
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = "https://testnet.binance.vision/api/v3/ping"
+                async with session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=10)
+                ) as response:
+                    return response.status == 200
+        except Exception as e:
+            if self.logger:
+                self.logger.error("rest_connectivity_failed", error=str(e))
+            else:
+                print(f"❌ REST connectivity failed: {e}")
+            return False
+
+    async def _test_websocket_connectivity(self) -> bool:
+        """Test WebSocket connectivity to exchange."""
+        try:
+            import websockets
+
+            ws_url = "wss://testnet.binance.vision/ws"
+            async with websockets.connect(
+                ws_url, timeout=10, close_timeout=1
+            ) as websocket:
+                # Send ping
+                await websocket.ping()
+                return True
+        except Exception as e:
+            if self.logger:
+                self.logger.warning("websocket_connectivity_failed", error=str(e))
+            return False
 
     def shutdown(self) -> None:
         """Perform graceful shutdown."""

@@ -28,11 +28,13 @@ class TestTransitionChecklist:
     @pytest.fixture
     def checklist(self, mock_session):
         """Create TransitionChecklist instance with mocked dependencies."""
-        with patch('genesis.tilt.transition_checklist.get_session', return_value=mock_session):
+        with patch(
+            "genesis.tilt.transition_checklist.get_session", return_value=mock_session
+        ):
             return TransitionChecklist(
                 account_id="test-account-123",
                 transition_id="trans-456",
-                target_tier="HUNTER"
+                target_tier="HUNTER",
             )
 
     @pytest.mark.asyncio
@@ -128,7 +130,7 @@ class TestTransitionChecklist:
         total = len(items)
 
         # Complete half the items
-        for i, item in enumerate(items[:total//2]):
+        for i, item in enumerate(items[: total // 2]):
             response = f"Response for {item.name} " + "x" * 50
             await checklist.complete_item(item.item_id, response)
 
@@ -155,17 +157,13 @@ class TestTransitionChecklist:
     @pytest.mark.asyncio
     async def test_tier_specific_checklists(self):
         """Test different tiers have different checklist items."""
-        with patch('genesis.tilt.transition_checklist.get_session'):
+        with patch("genesis.tilt.transition_checklist.get_session"):
             hunter_checklist = TransitionChecklist(
-                account_id="test",
-                transition_id="trans1",
-                target_tier="HUNTER"
+                account_id="test", transition_id="trans1", target_tier="HUNTER"
             )
 
             strategist_checklist = TransitionChecklist(
-                account_id="test",
-                transition_id="trans2",
-                target_tier="STRATEGIST"
+                account_id="test", transition_id="trans2", target_tier="STRATEGIST"
             )
 
             hunter_items = await hunter_checklist.get_checklist_items()
@@ -223,5 +221,7 @@ class TestTransitionChecklist:
 
         # Verify items are completed
         updated_items = await checklist.get_checklist_items()
-        completed_count = sum(1 for i in updated_items if i.status == ChecklistStatus.COMPLETED)
+        completed_count = sum(
+            1 for i in updated_items if i.status == ChecklistStatus.COMPLETED
+        )
         assert completed_count == 3

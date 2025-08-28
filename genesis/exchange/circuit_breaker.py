@@ -52,7 +52,7 @@ class CircuitBreaker:
         recovery_timeout_seconds: int = 60,
         success_threshold: int = 2,
         backoff_multiplier: float = 2.0,
-        max_backoff_seconds: int = 30
+        max_backoff_seconds: int = 30,
     ):
         """
         Initialize the circuit breaker.
@@ -92,7 +92,7 @@ class CircuitBreaker:
         logger.info(
             f"CircuitBreaker {name} initialized",
             failure_threshold=failure_threshold,
-            recovery_timeout=recovery_timeout_seconds
+            recovery_timeout=recovery_timeout_seconds,
         )
 
     def _clean_old_failures(self) -> None:
@@ -100,10 +100,7 @@ class CircuitBreaker:
         current_time = time.time()
         cutoff_time = current_time - self.failure_window_seconds
 
-        self.failures = [
-            f for f in self.failures
-            if f.timestamp >= cutoff_time
-        ]
+        self.failures = [f for f in self.failures if f.timestamp >= cutoff_time]
 
     def _change_state(self, new_state: CircuitState) -> None:
         """Change circuit state."""
@@ -112,11 +109,9 @@ class CircuitBreaker:
         self.state_changed_at = time.time()
 
         # Record state change
-        self.state_changes.append({
-            "timestamp": self.state_changed_at,
-            "from": old_state,
-            "to": new_state
-        })
+        self.state_changes.append(
+            {"timestamp": self.state_changed_at, "from": old_state, "to": new_state}
+        )
 
         # Reset backoff when closing
         if new_state == CircuitState.CLOSED:
@@ -127,7 +122,7 @@ class CircuitBreaker:
             f"CircuitBreaker {self.name} state changed",
             from_state=old_state,
             to_state=new_state,
-            failures_count=len(self.failures)
+            failures_count=len(self.failures),
         )
 
     def _should_attempt_reset(self) -> bool:
@@ -166,7 +161,11 @@ class CircuitBreaker:
             raise CircuitOpenError(
                 f"Circuit breaker {self.name} is OPEN",
                 recovery_timeout=self.recovery_timeout_seconds,
-                time_since_failure=time.time() - self.last_failure_time if self.last_failure_time else 0
+                time_since_failure=(
+                    time.time() - self.last_failure_time
+                    if self.last_failure_time
+                    else 0
+                ),
             )
 
         try:
@@ -197,7 +196,7 @@ class CircuitBreaker:
                 self._change_state(CircuitState.CLOSED)
                 logger.info(
                     f"CircuitBreaker {self.name} recovered",
-                    consecutive_successes=self.consecutive_successes
+                    consecutive_successes=self.consecutive_successes,
                 )
 
         # Clear old failures on success in closed state
@@ -210,11 +209,11 @@ class CircuitBreaker:
         self.last_failure_time = time.time()
 
         # Record failure
-        self.failures.append(FailureRecord(
-            timestamp=self.last_failure_time,
-            error=error,
-            endpoint=endpoint
-        ))
+        self.failures.append(
+            FailureRecord(
+                timestamp=self.last_failure_time, error=error, endpoint=endpoint
+            )
+        )
 
         # Clean old failures
         self._clean_old_failures()
@@ -225,14 +224,13 @@ class CircuitBreaker:
             self._change_state(CircuitState.OPEN)
             # Apply exponential backoff
             self.current_backoff = min(
-                self.current_backoff * self.backoff_multiplier,
-                self.max_backoff_seconds
+                self.current_backoff * self.backoff_multiplier, self.max_backoff_seconds
             )
             self.recovery_timeout_seconds = int(self.current_backoff)
 
             logger.warning(
                 f"CircuitBreaker {self.name} tripped again",
-                backoff_seconds=self.recovery_timeout_seconds
+                backoff_seconds=self.recovery_timeout_seconds,
             )
 
         elif self.state == CircuitState.CLOSED:
@@ -242,7 +240,7 @@ class CircuitBreaker:
                 logger.warning(
                     f"CircuitBreaker {self.name} tripped",
                     failures_count=len(self.failures),
-                    failure_threshold=self.failure_threshold
+                    failure_threshold=self.failure_threshold,
                 )
 
     def get_state(self) -> CircuitState:
@@ -273,7 +271,8 @@ class CircuitBreaker:
 
         success_rate = (
             (self.successful_calls / self.total_calls * 100)
-            if self.total_calls > 0 else 0
+            if self.total_calls > 0
+            else 0
         )
 
         return {
@@ -290,7 +289,7 @@ class CircuitBreaker:
             "last_failure_time": self.last_failure_time,
             "state_changed_at": self.state_changed_at,
             "current_backoff": self.current_backoff,
-            "state_changes": self.state_changes[-10:]  # Last 10 state changes
+            "state_changes": self.state_changes[-10:],  # Last 10 state changes
         }
 
 
@@ -328,7 +327,7 @@ class CircuitBreakerManager:
             name="api",
             failure_threshold=5,
             failure_window_seconds=30,
-            recovery_timeout_seconds=60
+            recovery_timeout_seconds=60,
         )
 
         # WebSocket circuit breaker
@@ -336,7 +335,7 @@ class CircuitBreakerManager:
             name="websocket",
             failure_threshold=3,
             failure_window_seconds=20,
-            recovery_timeout_seconds=30
+            recovery_timeout_seconds=30,
         )
 
         # Order execution circuit breaker
@@ -344,7 +343,7 @@ class CircuitBreakerManager:
             name="orders",
             failure_threshold=3,
             failure_window_seconds=10,
-            recovery_timeout_seconds=20
+            recovery_timeout_seconds=20,
         )
 
     def get_breaker(self, name: str) -> CircuitBreaker:
@@ -365,16 +364,12 @@ class CircuitBreakerManager:
 
     def get_all_states(self) -> dict[str, str]:
         """Get states of all circuit breakers."""
-        return {
-            name: breaker.state
-            for name, breaker in self.breakers.items()
-        }
+        return {name: breaker.state for name, breaker in self.breakers.items()}
 
     def get_all_statistics(self) -> dict[str, dict]:
         """Get statistics for all circuit breakers."""
         return {
-            name: breaker.get_statistics()
-            for name, breaker in self.breakers.items()
+            name: breaker.get_statistics() for name, breaker in self.breakers.items()
         }
 
     def reset_all(self) -> None:
@@ -391,7 +386,4 @@ class CircuitBreakerManager:
         Returns:
             Dictionary mapping breaker names to health status
         """
-        return {
-            name: breaker.is_closed()
-            for name, breaker in self.breakers.items()
-        }
+        return {name: breaker.is_closed() for name, breaker in self.breakers.items()}

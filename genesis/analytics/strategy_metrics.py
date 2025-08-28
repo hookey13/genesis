@@ -4,6 +4,7 @@ Strategy performance metrics tracking.
 Tracks per-strategy performance for Kelly Criterion calculations
 and optimal position sizing.
 """
+
 import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -106,8 +107,9 @@ class StrategyPerformanceTracker:
         if len(self._trade_history[strategy_id]) > 1000:
             self._trade_history[strategy_id] = self._trade_history[strategy_id][-1000:]
 
-        logger.debug("Recorded trade for strategy %s: PnL=%s",
-                    strategy_id, trade.pnl_dollars)
+        logger.debug(
+            "Recorded trade for strategy %s: PnL=%s", strategy_id, trade.pnl_dollars
+        )
 
     def get_strategy_metrics(self, strategy_id: str) -> Optional[StrategyMetrics]:
         """
@@ -121,11 +123,7 @@ class StrategyPerformanceTracker:
         """
         return self._metrics.get(strategy_id)
 
-    def get_recent_trades(
-        self,
-        strategy_id: str,
-        window_days: int = 30
-    ) -> list[Trade]:
+    def get_recent_trades(self, strategy_id: str, window_days: int = 30) -> list[Trade]:
         """
         Get recent trades for a strategy.
 
@@ -142,14 +140,13 @@ class StrategyPerformanceTracker:
         cutoff = datetime.now(UTC) - timedelta(days=window_days)
 
         return [
-            trade for trade in self._trade_history[strategy_id]
+            trade
+            for trade in self._trade_history[strategy_id]
             if trade.timestamp >= cutoff
         ]
 
     def calculate_strategy_edge(
-        self,
-        strategy_id: str,
-        window_days: int = 30
+        self, strategy_id: str, window_days: int = 30
     ) -> dict[str, Decimal]:
         """
         Calculate trading edge for a strategy.
@@ -170,9 +167,12 @@ class StrategyPerformanceTracker:
                 if metrics:
                     return {
                         "win_rate": metrics.win_rate,
-                        "win_loss_ratio": metrics.average_win / metrics.average_loss
-                                        if metrics.average_loss > 0 else Decimal("0"),
-                        "sample_size": metrics.total_trades
+                        "win_loss_ratio": (
+                            metrics.average_win / metrics.average_loss
+                            if metrics.average_loss > 0
+                            else Decimal("0")
+                        ),
+                        "sample_size": metrics.total_trades,
                     }
 
         # Get recent trades
@@ -182,17 +182,25 @@ class StrategyPerformanceTracker:
             return {
                 "win_rate": Decimal("0"),
                 "win_loss_ratio": Decimal("0"),
-                "sample_size": 0
+                "sample_size": 0,
             }
 
         # Calculate metrics
         wins = [t for t in recent_trades if t.pnl_dollars > 0]
         losses = [t for t in recent_trades if t.pnl_dollars < 0]
 
-        win_rate = Decimal(str(len(wins) / len(recent_trades))) if recent_trades else Decimal("0")
+        win_rate = (
+            Decimal(str(len(wins) / len(recent_trades)))
+            if recent_trades
+            else Decimal("0")
+        )
 
         avg_win = sum(t.pnl_dollars for t in wins) / len(wins) if wins else Decimal("0")
-        avg_loss = sum(abs(t.pnl_dollars) for t in losses) / len(losses) if losses else Decimal("1")
+        avg_loss = (
+            sum(abs(t.pnl_dollars) for t in losses) / len(losses)
+            if losses
+            else Decimal("1")
+        )
 
         win_loss_ratio = avg_win / avg_loss if avg_loss > 0 else Decimal("0")
 
@@ -202,13 +210,11 @@ class StrategyPerformanceTracker:
         return {
             "win_rate": win_rate.quantize(Decimal("0.0001")),
             "win_loss_ratio": win_loss_ratio.quantize(Decimal("0.01")),
-            "sample_size": len(recent_trades)
+            "sample_size": len(recent_trades),
         }
 
     def calculate_drawdown(
-        self,
-        strategy_id: str,
-        window_days: Optional[int] = None
+        self, strategy_id: str, window_days: Optional[int] = None
     ) -> Decimal:
         """
         Calculate maximum drawdown for a strategy.

@@ -42,7 +42,7 @@ class TimeSync:
         logger.info(
             "TimeSync initialized",
             sync_interval=self.sync_interval,
-            recv_window=self.recv_window
+            recv_window=self.recv_window,
         )
 
     async def start(self, gateway=None) -> None:
@@ -124,7 +124,7 @@ class TimeSync:
                 "Time synchronized with server",
                 offset_ms=self.time_offset,
                 round_trip_ms=round_trip_time,
-                sync_count=self.sync_count
+                sync_count=self.sync_count,
             )
 
             # Warn if offset is large
@@ -132,7 +132,7 @@ class TimeSync:
                 logger.warning(
                     "Large time offset detected",
                     offset_ms=self.time_offset,
-                    recommendation="Consider syncing system time with NTP"
+                    recommendation="Consider syncing system time with NTP",
                 )
 
         except Exception as e:
@@ -200,7 +200,7 @@ class TimeSync:
             "recv_window_ms": self.recv_window,
             "time_since_last_sync": (
                 time.time() - self.last_sync_time if self.last_sync_time else None
-            )
+            ),
         }
 
     async def ensure_synchronized(self) -> None:

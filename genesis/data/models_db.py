@@ -55,16 +55,23 @@ class AccountDB(Base):
 
     account_id = Column(String(36), primary_key=True)
     balance_usdt = Column(String, nullable=False)  # Decimal as string
-    tier = Column(SQLEnum("SNIPER", "HUNTER", "STRATEGIST", "ARCHITECT", name="trading_tier"),
-                  nullable=False, default="SNIPER")
+    tier = Column(
+        SQLEnum("SNIPER", "HUNTER", "STRATEGIST", "ARCHITECT", name="trading_tier"),
+        nullable=False,
+        default="SNIPER",
+    )
     locked_features = Column(JSON, default=list)
     last_sync = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=True)
 
     # Relationships
-    positions = relationship("PositionDB", back_populates="account", cascade="all, delete-orphan")
-    sessions = relationship("TradingSessionDB", back_populates="account", cascade="all, delete-orphan")
+    positions = relationship(
+        "PositionDB", back_populates="account", cascade="all, delete-orphan"
+    )
+    sessions = relationship(
+        "TradingSessionDB", back_populates="account", cascade="all, delete-orphan"
+    )
 
     # Constraints
     __table_args__ = (
@@ -91,8 +98,11 @@ class PositionDB(Base):
     pnl_dollars = Column(String, nullable=False, default="0")  # Decimal as string
     pnl_percent = Column(String, nullable=False, default="0")  # Decimal as string
     priority_score = Column(Integer, default=0)
-    status = Column(SQLEnum("OPEN", "CLOSED", "PENDING", name="position_status"),
-                   nullable=False, default="OPEN")
+    status = Column(
+        SQLEnum("OPEN", "CLOSED", "PENDING", name="position_status"),
+        nullable=False,
+        default="OPEN",
+    )
     close_reason = Column(String, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=True)
@@ -107,7 +117,7 @@ class PositionDB(Base):
         CheckConstraint(
             "close_reason IN ('stop_loss', 'take_profit', 'manual', "
             "'tilt_intervention', 'emergency') OR close_reason IS NULL",
-            name="check_close_reason"
+            name="check_close_reason",
         ),
         Index("idx_position_account", "account_id"),
         Index("idx_position_symbol", "symbol"),
@@ -131,7 +141,9 @@ class TradingSessionDB(Base):
     total_trades = Column(Integer, nullable=False, default=0)
     winning_trades = Column(Integer, nullable=False, default=0)
     losing_trades = Column(Integer, nullable=False, default=0)
-    win_rate = Column(String, nullable=True)  # Store as string for precision  # Stored as float for easy queries
+    win_rate = Column(
+        String, nullable=True
+    )  # Store as string for precision  # Stored as float for easy queries
     average_r = Column(String, nullable=True)  # Decimal as string
     max_drawdown = Column(String, nullable=False, default="0")  # Decimal as string
     daily_loss_limit = Column(String, nullable=False)  # Decimal as string
@@ -148,7 +160,9 @@ class TradingSessionDB(Base):
     # Constraints
     __table_args__ = (
         CheckConstraint("total_trades >= 0", name="check_total_trades_non_negative"),
-        CheckConstraint("winning_trades >= 0", name="check_winning_trades_non_negative"),
+        CheckConstraint(
+            "winning_trades >= 0", name="check_winning_trades_non_negative"
+        ),
         CheckConstraint("losing_trades >= 0", name="check_losing_trades_non_negative"),
         Index("idx_session_account", "account_id"),
         Index("idx_session_date", "session_date"),
@@ -161,18 +175,19 @@ class PositionCorrelationDB(Base):
 
     __tablename__ = "position_correlations"
 
-    position_a_id = Column(String(36), ForeignKey("positions.position_id"), primary_key=True)
-    position_b_id = Column(String(36), ForeignKey("positions.position_id"), primary_key=True)
+    position_a_id = Column(
+        String(36), ForeignKey("positions.position_id"), primary_key=True
+    )
+    position_b_id = Column(
+        String(36), ForeignKey("positions.position_id"), primary_key=True
+    )
     correlation_coefficient = Column(String, nullable=False)  # Decimal as string
     alert_triggered = Column(Boolean, nullable=False, default=False)
     calculated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # Constraints
     __table_args__ = (
-        CheckConstraint(
-            "position_a_id < position_b_id",
-            name="check_position_order"
-        ),
+        CheckConstraint("position_a_id < position_b_id", name="check_position_order"),
         Index("idx_correlation_alert", "alert_triggered"),
     )
 
@@ -189,13 +204,25 @@ class OrderDB(Base):
     exchange_order_id = Column(String(64), nullable=True, unique=True)
     symbol = Column(String(20), nullable=False)
     side = Column(SQLEnum("BUY", "SELL", name="order_side"), nullable=False)
-    type = Column(SQLEnum("MARKET", "LIMIT", "STOP_LIMIT", name="order_type"), nullable=False)
+    type = Column(
+        SQLEnum("MARKET", "LIMIT", "STOP_LIMIT", name="order_type"), nullable=False
+    )
     quantity = Column(String, nullable=False)  # Decimal as string
     price = Column(String, nullable=True)  # Decimal as string
     executed_price = Column(String, nullable=True)  # Decimal as string
     executed_quantity = Column(String, nullable=False, default="0")  # Decimal as string
-    status = Column(SQLEnum("PENDING", "FILLED", "PARTIALLY_FILLED", "CANCELLED", "REJECTED",
-                           name="order_status"), nullable=False, default="PENDING")
+    status = Column(
+        SQLEnum(
+            "PENDING",
+            "FILLED",
+            "PARTIALLY_FILLED",
+            "CANCELLED",
+            "REJECTED",
+            name="order_status",
+        ),
+        nullable=False,
+        default="PENDING",
+    )
     slice_number = Column(Integer, nullable=True)
     total_slices = Column(Integer, nullable=True)
     latency_ms = Column(Integer, nullable=True)
@@ -231,7 +258,9 @@ class RiskMetricsDB(Base):
 
     # Constraints
     __table_args__ = (
-        CheckConstraint("position_count >= 0", name="check_position_count_non_negative"),
+        CheckConstraint(
+            "position_count >= 0", name="check_position_count_non_negative"
+        ),
         Index("idx_risk_account", "account_id"),
         Index("idx_risk_timestamp", "timestamp"),
     )
@@ -243,13 +272,18 @@ class TiltProfileDB(Base):
     __tablename__ = "tilt_profiles"
 
     profile_id = Column(String(36), primary_key=True)
-    account_id = Column(String(36), ForeignKey("accounts.account_id"), nullable=False, unique=True)
+    account_id = Column(
+        String(36), ForeignKey("accounts.account_id"), nullable=False, unique=True
+    )
     baseline_trades_per_hour = Column(String, nullable=True)  # Decimal as string
     baseline_click_latency_ms = Column(Integer, nullable=True)
     baseline_cancel_rate = Column(String, nullable=True)  # Decimal as string
     current_tilt_score = Column(Integer, nullable=False, default=0)
-    tilt_level = Column(SQLEnum("NORMAL", "LEVEL1", "LEVEL2", "LEVEL3",
-                               name="tilt_level"), nullable=False, default="NORMAL")
+    tilt_level = Column(
+        SQLEnum("NORMAL", "LEVEL1", "LEVEL2", "LEVEL3", name="tilt_level"),
+        nullable=False,
+        default="NORMAL",
+    )
     consecutive_losses = Column(Integer, nullable=False, default=0)
     last_intervention_at = Column(DateTime, nullable=True)
     recovery_required = Column(Boolean, nullable=False, default=False)
@@ -264,7 +298,9 @@ class TiltProfileDB(Base):
     updated_at = Column(DateTime, nullable=True)
 
     # Relationships
-    behavioral_metrics = relationship("BehavioralMetricsDB", back_populates="profile", cascade="all, delete-orphan")
+    behavioral_metrics = relationship(
+        "BehavioralMetricsDB", back_populates="profile", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint("current_tilt_score >= 0 AND current_tilt_score <= 100"),
@@ -279,8 +315,12 @@ class BehavioralMetricsDB(Base):
     __tablename__ = "behavioral_metrics"
 
     metric_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
-    session_id = Column(String(36), ForeignKey("trading_sessions.session_id"), nullable=True)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
+    session_id = Column(
+        String(36), ForeignKey("trading_sessions.session_id"), nullable=True
+    )
     metric_type = Column(String(50), nullable=False)  # Extended types for Story 3.4
     metric_value = Column(String, nullable=False)  # Decimal as string
     metrics_metadata = Column(Text, nullable=True)  # JSON for additional context
@@ -297,12 +337,21 @@ class BehavioralMetricsDB(Base):
             "metric_type IN ('click_speed', 'click_latency', 'order_frequency', 'order_modification', "
             "'position_size_variance', 'cancel_rate', 'tab_switches', 'inactivity_period', "
             "'session_duration', 'config_change', 'focus_duration', 'distraction_score')",
-            name="check_metric_type_extended"
+            name="check_metric_type_extended",
         ),
-        CheckConstraint("session_context IN ('tired', 'alert', 'stressed') OR session_context IS NULL"),
-        CheckConstraint("time_of_day_bucket >= 0 AND time_of_day_bucket <= 23 OR time_of_day_bucket IS NULL"),
+        CheckConstraint(
+            "session_context IN ('tired', 'alert', 'stressed') OR session_context IS NULL"
+        ),
+        CheckConstraint(
+            "time_of_day_bucket >= 0 AND time_of_day_bucket <= 23 OR time_of_day_bucket IS NULL"
+        ),
         Index("idx_behavioral_metrics_profile", "profile_id", "timestamp"),
-        Index("idx_behavioral_metrics_analysis", "profile_id", "metric_type", "time_of_day_bucket"),
+        Index(
+            "idx_behavioral_metrics_analysis",
+            "profile_id",
+            "metric_type",
+            "time_of_day_bucket",
+        ),
         Index("idx_behavioral_metrics_session", "session_id"),
     )
 
@@ -313,7 +362,9 @@ class TiltEventDB(Base):
     __tablename__ = "tilt_events"
 
     event_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
     event_type = Column(String(50), nullable=False)
     tilt_indicators = Column(Text, nullable=False)  # JSON array
     tilt_score_before = Column(Integer, nullable=False)
@@ -337,8 +388,12 @@ class MarketStateDB(Base):
 
     state_id = Column(String(36), primary_key=True)
     symbol = Column(String(20), nullable=False)
-    state = Column(SQLEnum("DEAD", "NORMAL", "VOLATILE", "PANIC", "MAINTENANCE",
-                          name="market_state"), nullable=False)
+    state = Column(
+        SQLEnum(
+            "DEAD", "NORMAL", "VOLATILE", "PANIC", "MAINTENANCE", name="market_state"
+        ),
+        nullable=False,
+    )
     volatility_atr = Column(String, nullable=True)  # Decimal as string
     spread_basis_points = Column(Integer, nullable=True)
     volume_24h = Column(String, nullable=True)  # Decimal as string
@@ -349,7 +404,9 @@ class MarketStateDB(Base):
     __table_args__ = (
         Index("idx_market_states_symbol", "symbol", "detected_at"),
         Index("idx_market_states_current", "symbol", "state_id"),
-        CheckConstraint("state IN ('DEAD', 'NORMAL', 'VOLATILE', 'PANIC', 'MAINTENANCE')"),
+        CheckConstraint(
+            "state IN ('DEAD', 'NORMAL', 'VOLATILE', 'PANIC', 'MAINTENANCE')"
+        ),
     )
 
 
@@ -363,14 +420,21 @@ class GlobalMarketStateDB(Base):
     total_market_cap = Column(String, nullable=True)  # Decimal as string
     fear_greed_index = Column(Integer, nullable=True)
     correlation_spike = Column(Boolean, nullable=False, default=False)
-    state = Column(SQLEnum("BULL", "BEAR", "CRAB", "CRASH", "RECOVERY",
-                          name="global_market_state"), nullable=False)
+    state = Column(
+        SQLEnum(
+            "BULL", "BEAR", "CRAB", "CRASH", "RECOVERY", name="global_market_state"
+        ),
+        nullable=False,
+    )
     vix_crypto = Column(String, nullable=True)  # Decimal as string
     detected_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
         CheckConstraint("state IN ('BULL', 'BEAR', 'CRAB', 'CRASH', 'RECOVERY')"),
-        CheckConstraint("fear_greed_index >= 0 AND fear_greed_index <= 100", name="check_fear_greed_range"),
+        CheckConstraint(
+            "fear_greed_index >= 0 AND fear_greed_index <= 100",
+            name="check_fear_greed_range",
+        ),
         Index("idx_global_market_states_time", "detected_at"),
     )
 
@@ -414,7 +478,10 @@ class ArbitrageSignalDB(Base):
 
     __table_args__ = (
         CheckConstraint("signal_type IN ('ENTRY', 'EXIT')", name="check_signal_type"),
-        CheckConstraint("confidence_score >= 0 AND confidence_score <= 1", name="check_confidence_range"),
+        CheckConstraint(
+            "confidence_score >= 0 AND confidence_score <= 1",
+            name="check_confidence_range",
+        ),
         Index("idx_arbitrage_signals_pairs", "pair1_symbol", "pair2_symbol"),
         Index("idx_arbitrage_signals_created", "created_at"),
     )
@@ -457,8 +524,12 @@ class SymbolSpreadHistoryDB(Base):
     __table_args__ = (
         Index("idx_symbol_spread_history_symbol", "symbol", "timestamp"),
         Index("idx_symbol_spread_patterns", "symbol", "hour_of_day", "day_of_week"),
-        CheckConstraint("hour_of_day >= 0 AND hour_of_day <= 23", name="check_spread_hour_range"),
-        CheckConstraint("day_of_week >= 0 AND day_of_week <= 6", name="check_spread_day_range"),
+        CheckConstraint(
+            "hour_of_day >= 0 AND hour_of_day <= 23", name="check_spread_hour_range"
+        ),
+        CheckConstraint(
+            "day_of_week >= 0 AND day_of_week <= 6", name="check_spread_day_range"
+        ),
     )
 
 
@@ -470,15 +541,21 @@ class LiquiditySnapshotDB(Base):
     snapshot_id = Column(String(36), primary_key=True)
     symbol = Column(String(20), nullable=False)
     volume_24h = Column(String, nullable=False)  # Decimal as string
-    liquidity_tier = Column(SQLEnum("LOW", "MEDIUM", "HIGH", name="liquidity_tier"), nullable=False)
+    liquidity_tier = Column(
+        SQLEnum("LOW", "MEDIUM", "HIGH", name="liquidity_tier"), nullable=False
+    )
     spread_basis_points = Column(Integer, nullable=False)
     bid_depth_10 = Column(String, nullable=False)  # Decimal as string
     ask_depth_10 = Column(String, nullable=False)  # Decimal as string
-    spread_persistence_score = Column(String, nullable=False)  # Decimal as string (0-100)
+    spread_persistence_score = Column(
+        String, nullable=False
+    )  # Decimal as string (0-100)
     scanned_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("liquidity_tier IN ('LOW', 'MEDIUM', 'HIGH')", name="check_liquidity_tier"),
+        CheckConstraint(
+            "liquidity_tier IN ('LOW', 'MEDIUM', 'HIGH')", name="check_liquidity_tier"
+        ),
         CheckConstraint("spread_basis_points >= 0", name="check_spread_non_negative"),
         Index("idx_liquidity_symbol", "symbol", "scanned_at"),
         Index("idx_liquidity_volume", "volume_24h"),
@@ -509,14 +586,20 @@ class TierRecommendationDB(Base):
     __tablename__ = "tier_recommendations"
 
     recommendation_id = Column(String(36), primary_key=True)
-    tier = Column(SQLEnum("SNIPER", "HUNTER", "STRATEGIST", name="trading_tier_rec"), nullable=False)
+    tier = Column(
+        SQLEnum("SNIPER", "HUNTER", "STRATEGIST", name="trading_tier_rec"),
+        nullable=False,
+    )
     symbol = Column(String(20), nullable=False)
     volume_24h = Column(String, nullable=False)  # Decimal as string
     liquidity_score = Column(String, nullable=False)  # Decimal as string
     recommended_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("tier IN ('SNIPER', 'HUNTER', 'STRATEGIST')", name="check_tier_recommendation"),
+        CheckConstraint(
+            "tier IN ('SNIPER', 'HUNTER', 'STRATEGIST')",
+            name="check_tier_recommendation",
+        ),
         Index("idx_recommendations_tier", "tier", "recommended_at"),
     )
 
@@ -537,7 +620,9 @@ class RecoveryProtocolDB(Base):
     __tablename__ = "recovery_protocols"
 
     protocol_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
     initiated_at = Column(DateTime, nullable=False)
     lockout_duration_minutes = Column(Integer, nullable=False)
     initial_debt_amount = Column(String, nullable=False)  # Decimal as string
@@ -552,7 +637,9 @@ class RecoveryProtocolDB(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("recovery_stage >= 0 AND recovery_stage <= 3", name="check_recovery_stage"),
+        CheckConstraint(
+            "recovery_stage >= 0 AND recovery_stage <= 3", name="check_recovery_stage"
+        ),
         CheckConstraint("lockout_duration_minutes > 0", name="check_lockout_positive"),
         Index("idx_recovery_protocols_profile", "profile_id", "initiated_at"),
         Index("idx_recovery_protocols_active", "is_active", "profile_id"),
@@ -565,7 +652,9 @@ class JournalEntryDB(Base):
     __tablename__ = "journal_entries"
 
     entry_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
     content = Column(Text, nullable=False)
     word_count = Column(Integer, nullable=False)
     trigger_analysis = Column(Text, nullable=True)
@@ -585,8 +674,13 @@ class TiltDebtLedgerDB(Base):
     __tablename__ = "tilt_debt_ledger"
 
     ledger_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
-    transaction_type = Column(SQLEnum("DEBT_ADDED", "DEBT_REDUCED", name="debt_transaction_type"), nullable=False)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
+    transaction_type = Column(
+        SQLEnum("DEBT_ADDED", "DEBT_REDUCED", name="debt_transaction_type"),
+        nullable=False,
+    )
     amount = Column(String, nullable=False)  # Decimal as string
     balance_after = Column(String, nullable=False)  # Decimal as string
     reason = Column(String(255), nullable=True)
@@ -594,7 +688,10 @@ class TiltDebtLedgerDB(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("transaction_type IN ('DEBT_ADDED', 'DEBT_REDUCED')", name="check_debt_transaction_type"),
+        CheckConstraint(
+            "transaction_type IN ('DEBT_ADDED', 'DEBT_REDUCED')",
+            name="check_debt_transaction_type",
+        ),
         Index("idx_tilt_debt_profile", "profile_id", "timestamp"),
     )
 
@@ -605,7 +702,9 @@ class RecoveryChecklistDB(Base):
     __tablename__ = "recovery_checklists"
 
     checklist_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
     checklist_items = Column(Text, nullable=False)  # JSON array of items
     is_complete = Column(Boolean, nullable=False, default=False)
     completed_at = Column(DateTime, nullable=True)
@@ -624,7 +723,9 @@ class ConfigChangeDB(Base):
     __tablename__ = "config_changes"
 
     change_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
     setting_name = Column(String(100), nullable=False)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
@@ -643,7 +744,9 @@ class BehaviorCorrelationDB(Base):
     __tablename__ = "behavior_correlations"
 
     correlation_id = Column(String(36), primary_key=True)
-    profile_id = Column(String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False)
+    profile_id = Column(
+        String(36), ForeignKey("tilt_profiles.profile_id"), nullable=False
+    )
     behavior_type = Column(String(50), nullable=False)
     correlation_coefficient = Column(String, nullable=False)  # Decimal as string
     p_value = Column(String, nullable=False)  # Decimal as string
@@ -654,9 +757,14 @@ class BehaviorCorrelationDB(Base):
 
     __table_args__ = (
         Index("idx_behavior_correlations_profile", "profile_id", "calculated_at"),
-        Index("idx_behavior_correlations_type", "behavior_type", "correlation_coefficient"),
+        Index(
+            "idx_behavior_correlations_type", "behavior_type", "correlation_coefficient"
+        ),
         CheckConstraint("p_value >= 0 AND p_value <= 1", name="check_p_value_range"),
-        CheckConstraint("correlation_coefficient >= -1 AND correlation_coefficient <= 1", name="check_correlation_range"),
+        CheckConstraint(
+            "correlation_coefficient >= -1 AND correlation_coefficient <= 1",
+            name="check_correlation_range",
+        ),
     )
 
 
@@ -679,8 +787,10 @@ class TierTransition(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (
-        CheckConstraint("transition_status IN ('APPROACHING', 'READY', 'IN_PROGRESS', 'COMPLETED')",
-                       name="check_transition_status"),
+        CheckConstraint(
+            "transition_status IN ('APPROACHING', 'READY', 'IN_PROGRESS', 'COMPLETED')",
+            name="check_transition_status",
+        ),
         Index("idx_tier_transitions_account", "account_id", "created_at"),
     )
 
@@ -712,7 +822,9 @@ class TransitionChecklist(Base):
     __tablename__ = "transition_checklists"
 
     checklist_id = Column(String(36), primary_key=True)
-    transition_id = Column(String(36), ForeignKey("tier_transitions.transition_id"), nullable=False)
+    transition_id = Column(
+        String(36), ForeignKey("tier_transitions.transition_id"), nullable=False
+    )
     item_name = Column(String(200), nullable=False)
     item_response = Column(Text, nullable=True)
     completed_at = Column(DateTime, nullable=True)
@@ -730,7 +842,9 @@ class HabitFuneralRecord(Base):
 
     ceremony_id = Column(String(36), primary_key=True)
     account_id = Column(String(36), ForeignKey("accounts.account_id"), nullable=False)
-    transition_id = Column(String(36), ForeignKey("tier_transitions.transition_id"), nullable=False)
+    transition_id = Column(
+        String(36), ForeignKey("tier_transitions.transition_id"), nullable=False
+    )
     buried_habits = Column(Text, nullable=False)  # JSON array
     commitments = Column(Text, nullable=True)  # JSON array
     certificate_hash = Column(String(64), nullable=False)
@@ -760,8 +874,10 @@ class AdjustmentPeriod(Base):
     updated_at = Column(DateTime, nullable=True)
 
     __table_args__ = (
-        CheckConstraint("current_phase IN ('INITIAL', 'EARLY', 'MID', 'FINAL')",
-                       name="check_adjustment_phase"),
+        CheckConstraint(
+            "current_phase IN ('INITIAL', 'EARLY', 'MID', 'FINAL')",
+            name="check_adjustment_phase",
+        ),
         Index("idx_adjustment_period_account", "account_id", "is_active"),
     )
 
@@ -780,13 +896,12 @@ class Trade(Base):
     pnl = Column(String, nullable=True)  # Decimal as string
     executed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
-    __table_args__ = (
-        Index("idx_trades_account", "account_id", "executed_at"),
-    )
+    __table_args__ = (Index("idx_trades_account", "account_id", "executed_at"),)
 
 
 class TiltProfile(Base):
     """Alias for TiltProfileDB for backward compatibility."""
+
     __table__ = TiltProfileDB.__table__
 
 

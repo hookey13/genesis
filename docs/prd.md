@@ -10,6 +10,37 @@
 - Enforce systematic discipline during emotional moments and drawdowns through automated guardrails
 - Maintain 99.5% system uptime during market hours with robust infrastructure
 
+### Phase 0: Trading Foundation (Pre-Tier Entry Gate)
+
+**Purpose:** Establish core trading capability before tier progression begins
+
+**Success Criteria:**
+- Execute ONE successful round-trip trade (buy + sell)
+- Maintain 10 consecutive paper trades without system failure
+- Demonstrate 24-hour autonomous operation
+- Achieve 95% uptime during market hours
+- Complete full order lifecycle: Connect → Price → Signal → Risk Check → Execute → Track → Exit → P&L
+
+**Timeline:** 2 weeks from implementation start
+
+**MVP Definition (Revised):**
+- **Previous:** Tier progression system with $500→$2k capability
+- **New:** Execute a single successful trade end-to-end with:
+  1. Connect to Binance testnet ✓
+  2. Receive live prices via WebSocket
+  3. Place market buy order
+  4. Track position in database
+  5. Place market sell order
+  6. Calculate and log P&L
+  7. Display in terminal UI
+
+**Entry Gate to Sniper Tier:**
+- Phase 0 MVP operational for 72 hours
+- Zero manual interventions required
+- All core components communicating via Event Bus
+- Risk engine validating all trades
+- Audit log capturing all events
+
 **Tier Transition Success Gates:**
 
 **Sniper Tier ($500-$2,000) → Hunter Tier Gate Requirements:**

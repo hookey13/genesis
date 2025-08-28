@@ -25,6 +25,7 @@ logger = structlog.get_logger(__name__)
 
 class ExtendedOrderType(str, Enum):
     """Extended order types for smart routing."""
+
     MARKET = "MARKET"
     LIMIT = "LIMIT"
     STOP_LOSS = "STOP_LOSS"
@@ -36,6 +37,7 @@ class ExtendedOrderType(str, Enum):
 
 class LiquidityLevel(str, Enum):
     """Liquidity depth assessment levels."""
+
     DEEP = "DEEP"  # > 100x order size available
     NORMAL = "NORMAL"  # 10-100x order size available
     SHALLOW = "SHALLOW"  # 2-10x order size available
@@ -44,6 +46,7 @@ class LiquidityLevel(str, Enum):
 
 class TimeFactor(str, Enum):
     """Time of day trading factors."""
+
     ASIA_OPEN = "ASIA_OPEN"  # 00:00-08:00 UTC
     EUROPE_OPEN = "EUROPE_OPEN"  # 08:00-14:00 UTC
     US_OPEN = "US_OPEN"  # 14:00-21:00 UTC
@@ -52,6 +55,7 @@ class TimeFactor(str, Enum):
 
 class UrgencyLevel(str, Enum):
     """Order urgency levels."""
+
     HIGH = "HIGH"  # Execute immediately
     NORMAL = "NORMAL"  # Can wait for better price
     LOW = "LOW"  # Passive execution preferred
@@ -60,6 +64,7 @@ class UrgencyLevel(str, Enum):
 @dataclass
 class MarketConditions:
     """Current market conditions assessment."""
+
     spread_percent: Decimal
     bid_liquidity: Decimal
     ask_liquidity: Decimal
@@ -73,6 +78,7 @@ class MarketConditions:
 @dataclass
 class RoutedOrder:
     """Order with routing decision metadata."""
+
     order: Order
     selected_type: ExtendedOrderType
     routing_reason: str
@@ -84,6 +90,7 @@ class RoutedOrder:
 @dataclass
 class OrderBook:
     """Simplified order book representation."""
+
     symbol: str
     bids: list[tuple[Decimal, Decimal]]  # [(price, quantity), ...]
     asks: list[tuple[Decimal, Decimal]]  # [(price, quantity), ...]
@@ -140,8 +147,9 @@ class SmartRouter:
             conditions, cached_at = self._conditions_cache[symbol]
             age = (datetime.now(UTC) - cached_at).total_seconds()
             if age < self.CACHE_TTL_SECONDS:
-                logger.debug("Using cached market conditions",
-                           symbol=symbol, age_seconds=age)
+                logger.debug(
+                    "Using cached market conditions", symbol=symbol, age_seconds=age
+                )
                 return conditions
 
         try:
@@ -150,8 +158,16 @@ class SmartRouter:
             ticker = await self.exchange_gateway.get_ticker(symbol)
 
             # Calculate spread
-            best_bid = Decimal(str(order_book['bids'][0][0])) if order_book['bids'] else Decimal("0")
-            best_ask = Decimal(str(order_book['asks'][0][0])) if order_book['asks'] else Decimal("0")
+            best_bid = (
+                Decimal(str(order_book["bids"][0][0]))
+                if order_book["bids"]
+                else Decimal("0")
+            )
+            best_ask = (
+                Decimal(str(order_book["asks"][0][0]))
+                if order_book["asks"]
+                else Decimal("0")
+            )
             mid_price = (best_bid + best_ask) / Decimal("2")
 
             spread_percent = Decimal("0")
@@ -159,8 +175,8 @@ class SmartRouter:
                 spread_percent = ((best_ask - best_bid) / mid_price) * Decimal("100")
 
             # Calculate liquidity depth
-            bid_liquidity = sum(Decimal(str(bid[1])) for bid in order_book['bids'][:20])
-            ask_liquidity = sum(Decimal(str(ask[1])) for ask in order_book['asks'][:20])
+            bid_liquidity = sum(Decimal(str(bid[1])) for bid in order_book["bids"][:20])
+            ask_liquidity = sum(Decimal(str(ask[1])) for ask in order_book["asks"][:20])
 
             # Assess liquidity level (simplified)
             total_liquidity = bid_liquidity + ask_liquidity
@@ -172,10 +188,14 @@ class SmartRouter:
             # Calculate order book imbalance
             imbalance = Decimal("0")
             if bid_liquidity + ask_liquidity > 0:
-                imbalance = (bid_liquidity - ask_liquidity) / (bid_liquidity + ask_liquidity)
+                imbalance = (bid_liquidity - ask_liquidity) / (
+                    bid_liquidity + ask_liquidity
+                )
 
             # Get volatility from ticker
-            volatility = Decimal(str(ticker.get('priceChangePercent', 0))) / Decimal("100")
+            volatility = Decimal(str(ticker.get("priceChangePercent", 0))) / Decimal(
+                "100"
+            )
 
             conditions = MarketConditions(
                 spread_percent=spread_percent,
@@ -185,23 +205,26 @@ class SmartRouter:
                 time_factor=time_factor,
                 volatility=abs(volatility),
                 order_book_imbalance=imbalance,
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             )
 
             # Cache the conditions
             self._conditions_cache[symbol] = (conditions, datetime.now(UTC))
 
-            logger.info("Market conditions analyzed",
-                       symbol=symbol,
-                       spread_percent=float(spread_percent),
-                       liquidity_level=liquidity_level.value,
-                       volatility=float(volatility))
+            logger.info(
+                "Market conditions analyzed",
+                symbol=symbol,
+                spread_percent=float(spread_percent),
+                liquidity_level=liquidity_level.value,
+                volatility=float(volatility),
+            )
 
             return conditions
 
         except Exception as e:
-            logger.error("Failed to analyze market conditions",
-                        symbol=symbol, error=str(e))
+            logger.error(
+                "Failed to analyze market conditions", symbol=symbol, error=str(e)
+            )
             # Return conservative defaults on error
             return MarketConditions(
                 spread_percent=Decimal("0.001"),
@@ -211,7 +234,7 @@ class SmartRouter:
                 time_factor=self._get_time_factor(),
                 volatility=Decimal("0.01"),
                 order_book_imbalance=Decimal("0"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             )
 
     @requires_tier(TradingTier.HUNTER)
@@ -219,7 +242,7 @@ class SmartRouter:
         self,
         order: Order,
         conditions: MarketConditions,
-        urgency: UrgencyLevel = UrgencyLevel.NORMAL
+        urgency: UrgencyLevel = UrgencyLevel.NORMAL,
     ) -> ExtendedOrderType:
         """
         Select the most appropriate order type based on conditions.
@@ -234,64 +257,80 @@ class SmartRouter:
         """
         # High urgency always uses market orders
         if urgency == UrgencyLevel.HIGH:
-            logger.debug("High urgency - selecting MARKET order",
-                        order_id=order.order_id)
+            logger.debug(
+                "High urgency - selecting MARKET order", order_id=order.order_id
+            )
             return ExtendedOrderType.MARKET
 
         # Check spread conditions
         if conditions.spread_percent <= self.TIGHT_SPREAD_THRESHOLD:
             # Tight spread - market orders are acceptable
-            if conditions.liquidity_level in [LiquidityLevel.DEEP, LiquidityLevel.NORMAL]:
-                logger.debug("Tight spread with good liquidity - MARKET order",
-                           order_id=order.order_id)
+            if conditions.liquidity_level in [
+                LiquidityLevel.DEEP,
+                LiquidityLevel.NORMAL,
+            ]:
+                logger.debug(
+                    "Tight spread with good liquidity - MARKET order",
+                    order_id=order.order_id,
+                )
                 return ExtendedOrderType.MARKET
             else:
                 # Low liquidity - use IOC to avoid slippage
-                logger.debug("Tight spread but low liquidity - IOC order",
-                           order_id=order.order_id)
+                logger.debug(
+                    "Tight spread but low liquidity - IOC order",
+                    order_id=order.order_id,
+                )
                 return ExtendedOrderType.IOC
 
         elif conditions.spread_percent >= self.WIDE_SPREAD_THRESHOLD:
             # Wide spread - try to capture spread with post-only
             if urgency == UrgencyLevel.LOW:
-                logger.debug("Wide spread, low urgency - POST_ONLY order",
-                           order_id=order.order_id)
+                logger.debug(
+                    "Wide spread, low urgency - POST_ONLY order",
+                    order_id=order.order_id,
+                )
                 return ExtendedOrderType.POST_ONLY
             else:
                 # Normal urgency with wide spread - use limit order
-                logger.debug("Wide spread, normal urgency - LIMIT order",
-                           order_id=order.order_id)
+                logger.debug(
+                    "Wide spread, normal urgency - LIMIT order", order_id=order.order_id
+                )
                 return ExtendedOrderType.LIMIT
 
         # Medium spread - decision based on other factors
         if conditions.volatility > self.HIGH_VOLATILITY_THRESHOLD:
             # High volatility - use FOK to ensure full fill or nothing
             if conditions.liquidity_level == LiquidityLevel.THIN:
-                logger.debug("High volatility, thin liquidity - FOK order",
-                           order_id=order.order_id)
+                logger.debug(
+                    "High volatility, thin liquidity - FOK order",
+                    order_id=order.order_id,
+                )
                 return ExtendedOrderType.FOK
             else:
                 # Good liquidity - IOC acceptable
-                logger.debug("High volatility, good liquidity - IOC order",
-                           order_id=order.order_id)
+                logger.debug(
+                    "High volatility, good liquidity - IOC order",
+                    order_id=order.order_id,
+                )
                 return ExtendedOrderType.IOC
 
         # Default case - optimize for fees
-        if urgency == UrgencyLevel.LOW and conditions.spread_percent > self.POST_ONLY_SPREAD_MIN:
-            logger.debug("Low urgency, optimizing fees - POST_ONLY order",
-                       order_id=order.order_id)
+        if (
+            urgency == UrgencyLevel.LOW
+            and conditions.spread_percent > self.POST_ONLY_SPREAD_MIN
+        ):
+            logger.debug(
+                "Low urgency, optimizing fees - POST_ONLY order",
+                order_id=order.order_id,
+            )
             return ExtendedOrderType.POST_ONLY
 
-        logger.debug("Default selection - LIMIT order",
-                   order_id=order.order_id)
+        logger.debug("Default selection - LIMIT order", order_id=order.order_id)
         return ExtendedOrderType.LIMIT
 
     @requires_tier(TradingTier.HUNTER)
     def calculate_execution_score(
-        self,
-        order: Order,
-        result: ExecutionResult,
-        market_conditions: MarketConditions
+        self, order: Order, result: ExecutionResult, market_conditions: MarketConditions
     ) -> float:
         """
         Calculate execution quality score (0-100).
@@ -312,11 +351,11 @@ class SmartRouter:
             score -= slippage_penalty
 
         # Penalize for high fees (max -20 points)
-        if hasattr(order, 'taker_fee_paid') and order.taker_fee_paid:
+        if hasattr(order, "taker_fee_paid") and order.taker_fee_paid:
             # Taker fee paid - penalize
             fee_penalty = float(order.taker_fee_paid / order.quantity) * 2000
             score -= min(fee_penalty, 20)
-        elif hasattr(order, 'maker_fee_paid') and order.maker_fee_paid:
+        elif hasattr(order, "maker_fee_paid") and order.maker_fee_paid:
             # Maker fee paid - smaller penalty
             fee_penalty = float(order.maker_fee_paid / order.quantity) * 1000
             score -= min(fee_penalty, 10)
@@ -337,17 +376,15 @@ class SmartRouter:
                 score += 10
 
         # Bonus for successful post-only execution (+5 points)
-        if hasattr(order, 'routing_method') and order.routing_method == 'POST_ONLY':
-            if result.success and not hasattr(order, 'taker_fee_paid'):
+        if hasattr(order, "routing_method") and order.routing_method == "POST_ONLY":
+            if result.success and not hasattr(order, "taker_fee_paid"):
                 score += 5
 
         return max(0.0, min(100.0, score))
 
     @requires_tier(TradingTier.HUNTER)
     async def route_order(
-        self,
-        order: Order,
-        urgency: UrgencyLevel = UrgencyLevel.NORMAL
+        self, order: Order, urgency: UrgencyLevel = UrgencyLevel.NORMAL
     ) -> RoutedOrder:
         """
         Route an order with intelligent type selection.
@@ -367,7 +404,10 @@ class SmartRouter:
 
         # Determine expected fees
         expected_fee_rate = self.TAKER_FEE_RATE
-        if selected_type in [ExtendedOrderType.POST_ONLY, ExtendedOrderType.LIMIT_MAKER]:
+        if selected_type in [
+            ExtendedOrderType.POST_ONLY,
+            ExtendedOrderType.LIMIT_MAKER,
+        ]:
             expected_fee_rate = self.MAKER_FEE_RATE
         elif selected_type == ExtendedOrderType.LIMIT:
             # Limit orders might become maker or taker
@@ -387,14 +427,16 @@ class SmartRouter:
             selected_type=selected_type,
             routing_reason=routing_reason,
             expected_fee_rate=expected_fee_rate,
-            market_conditions=conditions
+            market_conditions=conditions,
         )
 
-        logger.info("Order routed",
-                   order_id=order.order_id,
-                   selected_type=selected_type.value,
-                   reason=routing_reason,
-                   expected_fee_rate=float(expected_fee_rate))
+        logger.info(
+            "Order routed",
+            order_id=order.order_id,
+            selected_type=selected_type.value,
+            reason=routing_reason,
+            expected_fee_rate=float(expected_fee_rate),
+        )
 
         return routed_order
 
@@ -424,9 +466,7 @@ class SmartRouter:
         return spread_percent.quantize(Decimal("0.0001"))
 
     def assess_liquidity_depth(
-        self,
-        order_book: OrderBook,
-        size: Decimal
+        self, order_book: OrderBook, size: Decimal
     ) -> LiquidityLevel:
         """
         Assess liquidity depth relative to order size.
@@ -476,9 +516,7 @@ class SmartRouter:
             return TimeFactor.QUIET
 
     def estimate_market_impact(
-        self,
-        size: Decimal,
-        liquidity: LiquidityLevel
+        self, size: Decimal, liquidity: LiquidityLevel
     ) -> Decimal:
         """
         Estimate market impact of an order.
@@ -537,7 +575,7 @@ class SmartRouter:
         self,
         selected_type: ExtendedOrderType,
         conditions: MarketConditions,
-        urgency: UrgencyLevel
+        urgency: UrgencyLevel,
     ) -> str:
         """
         Generate human-readable routing reason.
@@ -570,7 +608,10 @@ class SmartRouter:
         if conditions.volatility > self.HIGH_VOLATILITY_THRESHOLD:
             reasons.append("high volatility")
 
-        if selected_type in [ExtendedOrderType.POST_ONLY, ExtendedOrderType.LIMIT_MAKER]:
+        if selected_type in [
+            ExtendedOrderType.POST_ONLY,
+            ExtendedOrderType.LIMIT_MAKER,
+        ]:
             reasons.append("optimizing maker fees")
 
         return f"{selected_type.value} selected due to: {', '.join(reasons)}"
@@ -600,5 +641,5 @@ class SmartRouter:
             message=f"Order executed via {routed.selected_type.value}",
             actual_price=order.price,
             slippage_percent=Decimal("0"),
-            latency_ms=100
+            latency_ms=100,
         )

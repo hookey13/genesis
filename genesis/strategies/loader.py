@@ -19,6 +19,7 @@ logger = structlog.get_logger(__name__)
 
 class StrategyStatus(Enum):
     """Strategy availability status."""
+
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
     LOCKED = "LOCKED"  # Tier-locked
@@ -27,53 +28,50 @@ class StrategyStatus(Enum):
 
 # Strategy availability by tier
 TIER_STRATEGIES = {
-    'SNIPER': [
-        'simple_arbitrage',
-        'spread_capture',
-        'market_orders_only'
+    "SNIPER": ["simple_arbitrage", "spread_capture", "market_orders_only"],
+    "HUNTER": [
+        "simple_arbitrage",
+        "spread_capture",
+        "market_orders_only",
+        "iceberg_orders",
+        "multi_pair_trading",
+        "mean_reversion",
     ],
-    'HUNTER': [
-        'simple_arbitrage',
-        'spread_capture',
-        'market_orders_only',
-        'iceberg_orders',
-        'multi_pair_trading',
-        'mean_reversion'
+    "STRATEGIST": [
+        "simple_arbitrage",
+        "spread_capture",
+        "market_orders_only",
+        "iceberg_orders",
+        "multi_pair_trading",
+        "mean_reversion",
+        "statistical_arbitrage",
+        "vwap_execution",
+        "market_making",
     ],
-    'STRATEGIST': [
-        'simple_arbitrage',
-        'spread_capture',
-        'market_orders_only',
-        'iceberg_orders',
-        'multi_pair_trading',
-        'mean_reversion',
-        'statistical_arbitrage',
-        'vwap_execution',
-        'market_making'
-    ],
-    'ARCHITECT': [
+    "ARCHITECT": [
         # All previous strategies plus:
-        'cross_exchange_arbitrage',
-        'options_strategies',
-        'complex_portfolio_management'
+        "cross_exchange_arbitrage",
+        "options_strategies",
+        "complex_portfolio_management",
     ],
-    'EMPEROR': [
+    "EMPEROR": [
         # All strategies available
-        'unlimited_strategy_access'
-    ]
+        "unlimited_strategy_access"
+    ],
 }
 
 # Position size adjustments during migration
 MIGRATION_POSITION_MULTIPLIERS = {
-    'new_strategy': Decimal('0.25'),  # Start at 25% for new strategies
-    'existing_strategy': Decimal('0.75'),  # Reduce to 75% for existing
-    'adjustment_period': Decimal('0.50')  # 50% during adjustment period
+    "new_strategy": Decimal("0.25"),  # Start at 25% for new strategies
+    "existing_strategy": Decimal("0.75"),  # Reduce to 75% for existing
+    "adjustment_period": Decimal("0.50"),  # 50% during adjustment period
 }
 
 
 @dataclass
 class TierStrategy:
     """Strategy configuration tied to a specific tier."""
+
     name: str
     tier: str
     enabled: bool = True
@@ -82,6 +80,7 @@ class TierStrategy:
 @dataclass
 class StrategyConfig:
     """Configuration for a strategy."""
+
     name: str
     tier_required: str
     status: StrategyStatus
@@ -94,20 +93,21 @@ class StrategyConfig:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'name': self.name,
-            'tier_required': self.tier_required,
-            'status': self.status.value,
-            'position_multiplier': float(self.position_multiplier),
-            'max_position_usdt': float(self.max_position_usdt),
-            'enabled_at': self.enabled_at.isoformat() if self.enabled_at else None,
-            'disabled_at': self.disabled_at.isoformat() if self.disabled_at else None,
-            'migration_notes': self.migration_notes
+            "name": self.name,
+            "tier_required": self.tier_required,
+            "status": self.status.value,
+            "position_multiplier": float(self.position_multiplier),
+            "max_position_usdt": float(self.max_position_usdt),
+            "enabled_at": self.enabled_at.isoformat() if self.enabled_at else None,
+            "disabled_at": self.disabled_at.isoformat() if self.disabled_at else None,
+            "migration_notes": self.migration_notes,
         }
 
 
 @dataclass
 class MigrationPlan:
     """Plan for strategy migration during tier transition."""
+
     account_id: str
     old_tier: str
     new_tier: str
@@ -120,14 +120,14 @@ class MigrationPlan:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'account_id': self.account_id,
-            'old_tier': self.old_tier,
-            'new_tier': self.new_tier,
-            'strategies_to_disable': self.strategies_to_disable,
-            'strategies_to_enable': self.strategies_to_enable,
-            'strategies_to_adjust': self.strategies_to_adjust,
-            'migration_timestamp': self.migration_timestamp.isoformat(),
-            'rollback_available': self.rollback_available
+            "account_id": self.account_id,
+            "old_tier": self.old_tier,
+            "new_tier": self.new_tier,
+            "strategies_to_disable": self.strategies_to_disable,
+            "strategies_to_enable": self.strategies_to_enable,
+            "strategies_to_adjust": self.strategies_to_adjust,
+            "migration_timestamp": self.migration_timestamp.isoformat(),
+            "rollback_available": self.rollback_available,
         }
 
 
@@ -168,30 +168,25 @@ class StrategyLoader:
                 account_id=account_id,
                 strategy_name=strategy_name,
                 tier=tier,
-                adjustment_period=adjustment_period
+                adjustment_period=adjustment_period,
             )
             configs.append(config)
 
         # Store active configs
-        self._active_configs[account_id] = {
-            config.name: config for config in configs
-        }
+        self._active_configs[account_id] = {config.name: config for config in configs}
 
         logger.info(
             "Strategies loaded for tier",
             account_id=account_id,
             tier=tier,
             strategy_count=len(configs),
-            in_adjustment=adjustment_period is not None
+            in_adjustment=adjustment_period is not None,
         )
 
         return configs
 
     async def migrate_strategies(
-        self,
-        account_id: str,
-        old_tier: str,
-        new_tier: str
+        self, account_id: str, old_tier: str, new_tier: str
     ) -> MigrationPlan:
         """Migrate strategies during tier transition.
 
@@ -211,7 +206,11 @@ class StrategyLoader:
         new_strategies = set(self._get_tier_strategies(new_tier))
 
         # Determine changes
-        strategies_to_disable = list(old_strategies - new_strategies) if len(old_strategies) > len(new_strategies) else []
+        strategies_to_disable = (
+            list(old_strategies - new_strategies)
+            if len(old_strategies) > len(new_strategies)
+            else []
+        )
         strategies_to_enable = list(new_strategies - old_strategies)
         strategies_to_adjust = list(old_strategies & new_strategies)
 
@@ -224,7 +223,7 @@ class StrategyLoader:
             strategies_to_enable=strategies_to_enable,
             strategies_to_adjust=strategies_to_adjust,
             migration_timestamp=datetime.utcnow(),
-            rollback_available=True
+            rollback_available=True,
         )
 
         # Execute migration
@@ -240,15 +239,12 @@ class StrategyLoader:
             new_tier=new_tier,
             disabled=len(strategies_to_disable),
             enabled=len(strategies_to_enable),
-            adjusted=len(strategies_to_adjust)
+            adjusted=len(strategies_to_adjust),
         )
 
         return plan
 
-    async def rollback_migration(
-        self,
-        account_id: str
-    ) -> bool:
+    async def rollback_migration(self, account_id: str) -> bool:
         """Rollback the last strategy migration.
 
         Args:
@@ -259,15 +255,11 @@ class StrategyLoader:
         """
         # Find last migration for account
         account_migrations = [
-            m for m in self._migration_history
-            if m.account_id == account_id
+            m for m in self._migration_history if m.account_id == account_id
         ]
 
         if not account_migrations:
-            logger.warning(
-                "No migrations to rollback",
-                account_id=account_id
-            )
+            logger.warning("No migrations to rollback", account_id=account_id)
             return False
 
         last_migration = account_migrations[-1]
@@ -276,7 +268,7 @@ class StrategyLoader:
             logger.warning(
                 "Rollback not available",
                 account_id=account_id,
-                reason="Rollback window expired or already used"
+                reason="Rollback window expired or already used",
             )
             return False
 
@@ -289,7 +281,7 @@ class StrategyLoader:
             strategies_to_enable=last_migration.strategies_to_disable,
             strategies_to_adjust=last_migration.strategies_to_adjust,
             migration_timestamp=datetime.utcnow(),
-            rollback_available=False
+            rollback_available=False,
         )
 
         await self._execute_migration(account_id, reverse_plan)
@@ -301,15 +293,13 @@ class StrategyLoader:
             "Strategy migration rolled back",
             account_id=account_id,
             from_tier=last_migration.new_tier,
-            to_tier=last_migration.old_tier
+            to_tier=last_migration.old_tier,
         )
 
         return True
 
     def get_strategy_config(
-        self,
-        account_id: str,
-        strategy_name: str
+        self, account_id: str, strategy_name: str
     ) -> Optional[StrategyConfig]:
         """Get configuration for a specific strategy.
 
@@ -323,11 +313,7 @@ class StrategyLoader:
         account_configs = self._active_configs.get(account_id, {})
         return account_configs.get(strategy_name)
 
-    def is_strategy_enabled(
-        self,
-        account_id: str,
-        strategy_name: str
-    ) -> bool:
+    def is_strategy_enabled(self, account_id: str, strategy_name: str) -> bool:
         """Check if a strategy is enabled for an account.
 
         Args:
@@ -340,11 +326,7 @@ class StrategyLoader:
         config = self.get_strategy_config(account_id, strategy_name)
         return config is not None and config.status == StrategyStatus.ENABLED
 
-    def get_position_multiplier(
-        self,
-        account_id: str,
-        strategy_name: str
-    ) -> Decimal:
+    def get_position_multiplier(self, account_id: str, strategy_name: str) -> Decimal:
         """Get position size multiplier for a strategy.
 
         Args:
@@ -357,7 +339,7 @@ class StrategyLoader:
         config = self.get_strategy_config(account_id, strategy_name)
         if config:
             return config.position_multiplier
-        return Decimal('0')
+        return Decimal("0")
 
     def _get_tier_strategies(self, tier: str) -> list[str]:
         """Get available strategies for a tier.
@@ -371,14 +353,14 @@ class StrategyLoader:
         strategies = TIER_STRATEGIES.get(tier, [])
 
         # Higher tiers include all lower tier strategies
-        if tier == 'ARCHITECT':
+        if tier == "ARCHITECT":
             strategies = (
-                TIER_STRATEGIES['SNIPER'] +
-                TIER_STRATEGIES['HUNTER'] +
-                TIER_STRATEGIES['STRATEGIST'] +
-                TIER_STRATEGIES.get('ARCHITECT', [])
+                TIER_STRATEGIES["SNIPER"]
+                + TIER_STRATEGIES["HUNTER"]
+                + TIER_STRATEGIES["STRATEGIST"]
+                + TIER_STRATEGIES.get("ARCHITECT", [])
             )
-        elif tier == 'EMPEROR':
+        elif tier == "EMPEROR":
             # All strategies available
             all_strategies = []
             for tier_strats in TIER_STRATEGIES.values():
@@ -392,7 +374,7 @@ class StrategyLoader:
         account_id: str,
         strategy_name: str,
         tier: str,
-        adjustment_period: Optional[Any]
+        adjustment_period: Optional[Any],
     ) -> StrategyConfig:
         """Create strategy configuration.
 
@@ -406,32 +388,32 @@ class StrategyLoader:
             StrategyConfig
         """
         # Determine tier requirement
-        tier_required = 'SNIPER'  # Default
+        tier_required = "SNIPER"  # Default
         for t, strategies in TIER_STRATEGIES.items():
             if strategy_name in strategies:
                 tier_required = t
                 break
 
         # Determine position multiplier
-        position_multiplier = Decimal('1.0')
+        position_multiplier = Decimal("1.0")
 
         if adjustment_period:
             # During adjustment period
-            position_multiplier = MIGRATION_POSITION_MULTIPLIERS['adjustment_period']
+            position_multiplier = MIGRATION_POSITION_MULTIPLIERS["adjustment_period"]
         elif strategy_name in TIER_STRATEGIES.get(tier, [])[:3]:
             # New strategy for this tier
-            position_multiplier = MIGRATION_POSITION_MULTIPLIERS['new_strategy']
+            position_multiplier = MIGRATION_POSITION_MULTIPLIERS["new_strategy"]
 
         # Determine max position based on tier
         max_positions = {
-            'SNIPER': Decimal('500'),
-            'HUNTER': Decimal('2000'),
-            'STRATEGIST': Decimal('10000'),
-            'ARCHITECT': Decimal('50000'),
-            'EMPEROR': Decimal('250000')
+            "SNIPER": Decimal("500"),
+            "HUNTER": Decimal("2000"),
+            "STRATEGIST": Decimal("10000"),
+            "ARCHITECT": Decimal("50000"),
+            "EMPEROR": Decimal("250000"),
         }
 
-        max_position = max_positions.get(tier, Decimal('500'))
+        max_position = max_positions.get(tier, Decimal("500"))
 
         return StrategyConfig(
             name=strategy_name,
@@ -439,14 +421,10 @@ class StrategyLoader:
             status=StrategyStatus.ENABLED,
             position_multiplier=position_multiplier,
             max_position_usdt=max_position * position_multiplier,
-            enabled_at=datetime.utcnow()
+            enabled_at=datetime.utcnow(),
         )
 
-    async def _execute_migration(
-        self,
-        account_id: str,
-        plan: MigrationPlan
-    ) -> None:
+    async def _execute_migration(self, account_id: str, plan: MigrationPlan) -> None:
         """Execute a strategy migration plan.
 
         Args:
@@ -461,7 +439,9 @@ class StrategyLoader:
                 config = current_configs[strategy_name]
                 config.status = StrategyStatus.DISABLED
                 config.disabled_at = datetime.utcnow()
-                config.migration_notes = f"Disabled during {plan.old_tier} to {plan.new_tier} migration"
+                config.migration_notes = (
+                    f"Disabled during {plan.old_tier} to {plan.new_tier} migration"
+                )
 
         # Enable new strategies with reduced position sizes
         for strategy_name in plan.strategies_to_enable:
@@ -469,19 +449,25 @@ class StrategyLoader:
                 account_id=account_id,
                 strategy_name=strategy_name,
                 tier=plan.new_tier,
-                adjustment_period=self._get_active_adjustment_period(account_id)
+                adjustment_period=self._get_active_adjustment_period(account_id),
             )
-            config.position_multiplier = MIGRATION_POSITION_MULTIPLIERS['new_strategy']
-            config.migration_notes = f"Enabled during {plan.old_tier} to {plan.new_tier} migration"
+            config.position_multiplier = MIGRATION_POSITION_MULTIPLIERS["new_strategy"]
+            config.migration_notes = (
+                f"Enabled during {plan.old_tier} to {plan.new_tier} migration"
+            )
             current_configs[strategy_name] = config
 
         # Adjust existing strategies
         for strategy_name in plan.strategies_to_adjust:
             if strategy_name in current_configs:
                 config = current_configs[strategy_name]
-                config.position_multiplier = MIGRATION_POSITION_MULTIPLIERS['existing_strategy']
+                config.position_multiplier = MIGRATION_POSITION_MULTIPLIERS[
+                    "existing_strategy"
+                ]
                 config.status = StrategyStatus.MIGRATION
-                config.migration_notes = f"Adjusted during {plan.old_tier} to {plan.new_tier} migration"
+                config.migration_notes = (
+                    f"Adjusted during {plan.old_tier} to {plan.new_tier} migration"
+                )
 
         # Update active configs
         self._active_configs[account_id] = current_configs
@@ -490,9 +476,7 @@ class StrategyLoader:
         await self._store_migration_audit(account_id, plan)
 
     async def _store_migration_audit(
-        self,
-        account_id: str,
-        plan: MigrationPlan
+        self, account_id: str, plan: MigrationPlan
     ) -> None:
         """Store migration audit trail.
 
@@ -504,12 +488,11 @@ class StrategyLoader:
         logger.debug(
             "Migration audit stored",
             account_id=account_id,
-            migration_id=datetime.utcnow().isoformat()
+            migration_id=datetime.utcnow().isoformat(),
         )
 
     def _get_active_adjustment_period(
-        self,
-        account_id: str
+        self, account_id: str
     ) -> Optional[AdjustmentPeriod]:
         """Get active adjustment period for account.
 
@@ -520,11 +503,15 @@ class StrategyLoader:
             AdjustmentPeriod or None
         """
         now = datetime.utcnow()
-        period = self.session.query(AdjustmentPeriod).filter(
-            AdjustmentPeriod.account_id == account_id,
-            AdjustmentPeriod.start_time <= now,
-            AdjustmentPeriod.end_time > now
-        ).first()
+        period = (
+            self.session.query(AdjustmentPeriod)
+            .filter(
+                AdjustmentPeriod.account_id == account_id,
+                AdjustmentPeriod.start_time <= now,
+                AdjustmentPeriod.end_time > now,
+            )
+            .first()
+        )
 
         return period
 
@@ -539,16 +526,17 @@ class StrategyLoader:
         """
         # Check for recent migration
         recent_migrations = [
-            m for m in self._migration_history
-            if m.account_id == account_id and
-            (datetime.utcnow() - m.migration_timestamp).total_seconds() < 3600
+            m
+            for m in self._migration_history
+            if m.account_id == account_id
+            and (datetime.utcnow() - m.migration_timestamp).total_seconds() < 3600
         ]
 
         if recent_migrations:
             logger.warning(
                 "Manual strategy override prevented",
                 account_id=account_id,
-                reason="Recent automatic migration in progress"
+                reason="Recent automatic migration in progress",
             )
             return True
 

@@ -78,7 +78,7 @@ class LiquidityMonitor:
         depth_window_minutes: int = 5,
         volume_window_minutes: int = 30,
         crisis_threshold: Decimal = Decimal("0.30"),  # Below 30% normal liquidity
-        spread_alert_bps: int = 50  # Alert if spread > 50 basis points
+        spread_alert_bps: int = 50,  # Alert if spread > 50 basis points
     ):
         """
         Initialize liquidity monitor.
@@ -120,7 +120,7 @@ class LiquidityMonitor:
             "LiquidityMonitor initialized",
             depth_window=depth_window_minutes,
             volume_window=volume_window_minutes,
-            crisis_threshold=float(crisis_threshold)
+            crisis_threshold=float(crisis_threshold),
         )
 
     def process_order_book(
@@ -128,7 +128,7 @@ class LiquidityMonitor:
         symbol: str,
         bids: list[tuple[Decimal, Decimal]],  # [(price, volume), ...]
         asks: list[tuple[Decimal, Decimal]],
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> OrderBookSnapshot:
         """
         Process order book data and calculate liquidity metrics.
@@ -150,7 +150,7 @@ class LiquidityMonitor:
                 "Empty order book received",
                 symbol=symbol,
                 has_bids=bool(bids),
-                has_asks=bool(asks)
+                has_asks=bool(asks),
             )
             # Return minimal snapshot
             return OrderBookSnapshot(
@@ -164,7 +164,7 @@ class LiquidityMonitor:
                 ask_depth_1pct=Decimal("0"),
                 total_bid_volume=Decimal("0"),
                 total_ask_volume=Decimal("0"),
-                imbalance_ratio=Decimal("0")
+                imbalance_ratio=Decimal("0"),
             )
 
         # Calculate basic metrics
@@ -219,7 +219,7 @@ class LiquidityMonitor:
             ask_depth_1pct=ask_depth_1pct,
             total_bid_volume=total_bid_volume,
             total_ask_volume=total_ask_volume,
-            imbalance_ratio=imbalance_ratio
+            imbalance_ratio=imbalance_ratio,
         )
 
         # Store in history
@@ -256,16 +256,16 @@ class LiquidityMonitor:
         else:
             # Update with EMA
             self.baseline_depth[symbol] = (
-                alpha * total_depth +
-                (Decimal("1") - alpha) * self.baseline_depth[symbol]
+                alpha * total_depth
+                + (Decimal("1") - alpha) * self.baseline_depth[symbol]
             )
             self.baseline_volume[symbol] = (
-                alpha * total_volume +
-                (Decimal("1") - alpha) * self.baseline_volume[symbol]
+                alpha * total_volume
+                + (Decimal("1") - alpha) * self.baseline_volume[symbol]
             )
             self.baseline_spread[symbol] = int(
-                float(alpha) * snapshot.spread_bps +
-                (1 - float(alpha)) * self.baseline_spread[symbol]
+                float(alpha) * snapshot.spread_bps
+                + (1 - float(alpha)) * self.baseline_spread[symbol]
             )
 
     async def calculate_liquidity_score(self, symbol: str) -> Decimal:
@@ -295,7 +295,7 @@ class LiquidityMonitor:
         if self.baseline_spread.get(symbol, 0) > 0:
             spread_ratio = min(
                 Decimal(str(self.baseline_spread[symbol] / max(1, latest.spread_bps))),
-                Decimal("1.0")
+                Decimal("1.0"),
             )
         else:
             spread_ratio = Decimal("0.5") if latest.spread_bps < 100 else Decimal("0.2")
@@ -305,7 +305,9 @@ class LiquidityMonitor:
         # Component 2: Order book depth
         if symbol in self.baseline_depth and self.baseline_depth[symbol] > 0:
             current_depth = latest.bid_depth_1pct + latest.ask_depth_1pct
-            depth_ratio = min(current_depth / self.baseline_depth[symbol], Decimal("1.0"))
+            depth_ratio = min(
+                current_depth / self.baseline_depth[symbol], Decimal("1.0")
+            )
         else:
             depth_ratio = Decimal("0.5")  # No baseline
 
@@ -314,7 +316,9 @@ class LiquidityMonitor:
         # Component 3: Volume consistency
         if symbol in self.baseline_volume and self.baseline_volume[symbol] > 0:
             current_volume = latest.total_bid_volume + latest.total_ask_volume
-            volume_ratio = min(current_volume / self.baseline_volume[symbol], Decimal("1.0"))
+            volume_ratio = min(
+                current_volume / self.baseline_volume[symbol], Decimal("1.0")
+            )
         else:
             volume_ratio = Decimal("0.5")
 
@@ -352,10 +356,7 @@ class LiquidityMonitor:
         return liquidity_score
 
     async def _check_for_crisis(
-        self,
-        symbol: str,
-        liquidity_score: Decimal,
-        snapshot: OrderBookSnapshot
+        self, symbol: str, liquidity_score: Decimal, snapshot: OrderBookSnapshot
     ) -> None:
         """
         Check if liquidity crisis conditions are met.
@@ -392,15 +393,15 @@ class LiquidityMonitor:
             if symbol in self.baseline_depth and self.baseline_depth[symbol] > 0:
                 current_depth = snapshot.bid_depth_1pct + snapshot.ask_depth_1pct
                 depth_reduction = (
-                    (self.baseline_depth[symbol] - current_depth) /
-                    self.baseline_depth[symbol]
+                    (self.baseline_depth[symbol] - current_depth)
+                    / self.baseline_depth[symbol]
                 ) * Decimal("100")
 
             if symbol in self.baseline_volume and self.baseline_volume[symbol] > 0:
                 current_volume = snapshot.total_bid_volume + snapshot.total_ask_volume
                 volume_reduction = (
-                    (self.baseline_volume[symbol] - current_volume) /
-                    self.baseline_volume[symbol]
+                    (self.baseline_volume[symbol] - current_volume)
+                    / self.baseline_volume[symbol]
                 ) * Decimal("100")
 
             crisis = LiquidityCrisis(
@@ -411,11 +412,14 @@ class LiquidityMonitor:
                 depth_reduction_pct=max(depth_reduction, Decimal("0")),
                 volume_reduction_pct=max(volume_reduction, Decimal("0")),
                 detected_at=datetime.now(UTC),
-                severity=severity
+                severity=severity,
             )
 
             # Store or update crisis
-            if symbol not in self.active_crises or crisis.severity != self.active_crises[symbol].severity:
+            if (
+                symbol not in self.active_crises
+                or crisis.severity != self.active_crises[symbol].severity
+            ):
                 self.active_crises[symbol] = crisis
                 self.crises_detected += 1
 
@@ -435,10 +439,10 @@ class LiquidityMonitor:
                         "state": "liquidity_recovered",
                         "symbol": symbol,
                         "liquidity_score": float(liquidity_score),
-                        "spread_bps": snapshot.spread_bps
-                    }
+                        "spread_bps": snapshot.spread_bps,
+                    },
                 ),
-                priority=EventPriority.HIGH
+                priority=EventPriority.HIGH,
             )
 
     async def _publish_crisis_alert(self, crisis: LiquidityCrisis) -> None:
@@ -453,7 +457,7 @@ class LiquidityMonitor:
             symbol=crisis.symbol,
             state=crisis.state.value,
             liquidity_score=float(crisis.liquidity_score),
-            severity=crisis.severity
+            severity=crisis.severity,
         )
 
         await self.event_bus.publish(
@@ -469,10 +473,10 @@ class LiquidityMonitor:
                     "depth_reduction_pct": float(crisis.depth_reduction_pct),
                     "volume_reduction_pct": float(crisis.volume_reduction_pct),
                     "severity": crisis.severity,
-                    "recommendation": self._get_recommendation(crisis)
-                }
+                    "recommendation": self._get_recommendation(crisis),
+                },
             ),
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
     def _get_recommendation(self, crisis: LiquidityCrisis) -> str:
@@ -502,17 +506,20 @@ class LiquidityMonitor:
             Summary dictionary
         """
         healthy_count = sum(
-            1 for state in self.liquidity_states.values()
+            1
+            for state in self.liquidity_states.values()
             if state == LiquidityState.HEALTHY
         )
 
         degraded_count = sum(
-            1 for state in self.liquidity_states.values()
+            1
+            for state in self.liquidity_states.values()
             if state == LiquidityState.DEGRADED
         )
 
         crisis_count = sum(
-            1 for state in self.liquidity_states.values()
+            1
+            for state in self.liquidity_states.values()
             if state in [LiquidityState.CRISIS, LiquidityState.FROZEN]
         )
 
@@ -523,11 +530,13 @@ class LiquidityMonitor:
             "crisis_symbols": crisis_count,
             "active_crises": len(self.active_crises),
             "worst_liquidity_score": float(self.worst_liquidity_score),
-            "average_liquidity_score": float(
-                sum(self.liquidity_scores.values()) / len(self.liquidity_scores)
-            ) if self.liquidity_scores else 1.0,
+            "average_liquidity_score": (
+                float(sum(self.liquidity_scores.values()) / len(self.liquidity_scores))
+                if self.liquidity_scores
+                else 1.0
+            ),
             "snapshots_processed": self.snapshots_processed,
-            "crises_detected": self.crises_detected
+            "crises_detected": self.crises_detected,
         }
 
     def get_symbol_status(self, symbol: str) -> dict[str, Any]:
@@ -544,29 +553,33 @@ class LiquidityMonitor:
             "symbol": symbol,
             "state": self.liquidity_states.get(symbol, LiquidityState.HEALTHY).value,
             "liquidity_score": float(self.liquidity_scores.get(symbol, Decimal("1.0"))),
-            "has_crisis": symbol in self.active_crises
+            "has_crisis": symbol in self.active_crises,
         }
 
         if symbol in self.active_crises:
             crisis = self.active_crises[symbol]
-            status.update({
-                "crisis_severity": crisis.severity,
-                "spread_bps": crisis.spread_bps,
-                "depth_reduction_pct": float(crisis.depth_reduction_pct),
-                "volume_reduction_pct": float(crisis.volume_reduction_pct),
-                "crisis_duration_seconds": (
-                    datetime.now(UTC) - crisis.detected_at
-                ).total_seconds()
-            })
+            status.update(
+                {
+                    "crisis_severity": crisis.severity,
+                    "spread_bps": crisis.spread_bps,
+                    "depth_reduction_pct": float(crisis.depth_reduction_pct),
+                    "volume_reduction_pct": float(crisis.volume_reduction_pct),
+                    "crisis_duration_seconds": (
+                        datetime.now(UTC) - crisis.detected_at
+                    ).total_seconds(),
+                }
+            )
 
         if self.order_book_history.get(symbol):
             latest = self.order_book_history[symbol][-1]
-            status.update({
-                "latest_spread_bps": latest.spread_bps,
-                "imbalance_ratio": float(latest.imbalance_ratio),
-                "bid_depth": float(latest.bid_depth_1pct),
-                "ask_depth": float(latest.ask_depth_1pct)
-            })
+            status.update(
+                {
+                    "latest_spread_bps": latest.spread_bps,
+                    "imbalance_ratio": float(latest.imbalance_ratio),
+                    "bid_depth": float(latest.bid_depth_1pct),
+                    "ask_depth": float(latest.ask_depth_1pct),
+                }
+            )
 
         return status
 

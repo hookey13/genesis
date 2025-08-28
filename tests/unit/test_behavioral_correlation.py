@@ -31,12 +31,12 @@ class TestBehavioralCorrelation:
             recovery_time_hours=Decimal("48"),
             behavioral_patterns=[
                 "High tilt correlated with increased losses",
-                "Performance improves after meditation"
+                "Performance improves after meditation",
             ],
             intervention_effectiveness={
                 "meditation": Decimal("0.8"),
-                "forced_break": Decimal("0.6")
-            }
+                "forced_break": Decimal("0.6"),
+            },
         )
 
         assert correlation.tilt_score_correlation == Decimal("0.75")
@@ -56,7 +56,7 @@ class TestBehavioralCorrelation:
             improvement_after_journal=Decimal("0.3"),
             recovery_time_hours=Decimal("24"),
             behavioral_patterns=["Pattern 1"],
-            intervention_effectiveness={"break": Decimal("0.7")}
+            intervention_effectiveness={"break": Decimal("0.7")},
         )
 
         result = correlation.to_dict()
@@ -80,7 +80,7 @@ class TestInterventionEffect:
             tilt_after=Decimal("45"),
             performance_change=Decimal("0.3"),
             time_to_recovery_hours=Decimal("2.5"),
-            subsequent_win_rate=Decimal("0.65")
+            subsequent_win_rate=Decimal("0.65"),
         )
 
         assert effect.intervention_type == "meditation"
@@ -98,7 +98,7 @@ class TestInterventionEffect:
             tilt_after=Decimal("50"),
             performance_change=Decimal("0.25"),
             time_to_recovery_hours=Decimal("3"),
-            subsequent_win_rate=Decimal("0.6")
+            subsequent_win_rate=Decimal("0.6"),
         )
 
         result = effect.to_dict()
@@ -120,7 +120,7 @@ class TestBehavioralCorrelationAnalyzer:
         mock_intervention_logger = MagicMock()
         return BehavioralCorrelationAnalyzer(
             tilt_detector=mock_tilt_detector,
-            intervention_logger=mock_intervention_logger
+            intervention_logger=mock_intervention_logger,
         )
 
     @pytest.fixture
@@ -130,19 +130,21 @@ class TestBehavioralCorrelationAnalyzer:
         trades = []
 
         for i in range(10):
-            trades.append(Trade(
-                trade_id=f"trade_{i}",
-                order_id=f"order_{i}",
-                strategy_id="test_strategy",
-                symbol="BTC/USDT",
-                side="BUY",
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000") if i % 2 == 0 else Decimal("49000"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=Decimal("100") if i % 2 == 0 else Decimal("-50"),
-                pnl_percent=Decimal("2") if i % 2 == 0 else Decimal("-1"),
-                timestamp=base_time + timedelta(hours=i)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"trade_{i}",
+                    order_id=f"order_{i}",
+                    strategy_id="test_strategy",
+                    symbol="BTC/USDT",
+                    side="BUY",
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000") if i % 2 == 0 else Decimal("49000"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=Decimal("100") if i % 2 == 0 else Decimal("-50"),
+                    pnl_percent=Decimal("2") if i % 2 == 0 else Decimal("-1"),
+                    timestamp=base_time + timedelta(hours=i),
+                )
+            )
 
         return trades
 
@@ -151,11 +153,31 @@ class TestBehavioralCorrelationAnalyzer:
         """Create sample tilt events."""
         base_time = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
         return [
-            {"timestamp": base_time, "tilt_score": 30, "indicators": {"revenge_trading": 0.2}},
-            {"timestamp": base_time + timedelta(hours=2), "tilt_score": 60, "indicators": {"revenge_trading": 0.6}},
-            {"timestamp": base_time + timedelta(hours=4), "tilt_score": 80, "indicators": {"revenge_trading": 0.8}},
-            {"timestamp": base_time + timedelta(hours=6), "tilt_score": 45, "indicators": {"revenge_trading": 0.4}},
-            {"timestamp": base_time + timedelta(hours=8), "tilt_score": 25, "indicators": {"revenge_trading": 0.2}}
+            {
+                "timestamp": base_time,
+                "tilt_score": 30,
+                "indicators": {"revenge_trading": 0.2},
+            },
+            {
+                "timestamp": base_time + timedelta(hours=2),
+                "tilt_score": 60,
+                "indicators": {"revenge_trading": 0.6},
+            },
+            {
+                "timestamp": base_time + timedelta(hours=4),
+                "tilt_score": 80,
+                "indicators": {"revenge_trading": 0.8},
+            },
+            {
+                "timestamp": base_time + timedelta(hours=6),
+                "tilt_score": 45,
+                "indicators": {"revenge_trading": 0.4},
+            },
+            {
+                "timestamp": base_time + timedelta(hours=8),
+                "tilt_score": 25,
+                "indicators": {"revenge_trading": 0.2},
+            },
         ]
 
     @pytest.fixture
@@ -168,15 +190,15 @@ class TestBehavioralCorrelationAnalyzer:
                 "timestamp": base_time + timedelta(hours=4, minutes=30),
                 "duration_minutes": 10,
                 "tilt_before": 80,
-                "tilt_after": 45
+                "tilt_after": 45,
             },
             {
                 "type": "journal_entry",
                 "timestamp": base_time + timedelta(hours=7),
                 "content": "Reflected on losses",
                 "tilt_before": 45,
-                "tilt_after": 25
-            }
+                "tilt_after": 25,
+            },
         ]
 
     async def test_analyze_correlation_no_data(self, analyzer):
@@ -187,30 +209,39 @@ class TestBehavioralCorrelationAnalyzer:
         result = await analyzer.analyze_correlation(
             trades=[],
             start_date=datetime(2024, 1, 1, tzinfo=UTC),
-            end_date=datetime(2024, 1, 31, tzinfo=UTC)
+            end_date=datetime(2024, 1, 31, tzinfo=UTC),
         )
 
         assert result.tilt_score_correlation == Decimal("0")
         assert result.performance_after_intervention == Decimal("0")
         assert len(result.behavioral_patterns) == 0
 
-    async def test_calculate_tilt_correlation(self, analyzer, sample_trades, sample_tilt_events):
+    async def test_calculate_tilt_correlation(
+        self, analyzer, sample_trades, sample_tilt_events
+    ):
         """Test tilt score correlation calculation."""
-        analyzer.tilt_detector.get_tilt_events = AsyncMock(return_value=sample_tilt_events)
+        analyzer.tilt_detector.get_tilt_events = AsyncMock(
+            return_value=sample_tilt_events
+        )
 
-        correlation = analyzer._calculate_tilt_correlation(sample_trades, sample_tilt_events)
+        correlation = analyzer._calculate_tilt_correlation(
+            sample_trades, sample_tilt_events
+        )
 
         # Correlation should be negative (higher tilt = worse performance)
         assert correlation < Decimal("0")
         assert abs(correlation) <= Decimal("1")
 
-    async def test_analyze_intervention_effects(self, analyzer, sample_trades, sample_interventions):
+    async def test_analyze_intervention_effects(
+        self, analyzer, sample_trades, sample_interventions
+    ):
         """Test intervention effect analysis."""
-        analyzer.intervention_logger.get_interventions = AsyncMock(return_value=sample_interventions)
+        analyzer.intervention_logger.get_interventions = AsyncMock(
+            return_value=sample_interventions
+        )
 
         effects = analyzer._analyze_intervention_effects(
-            sample_trades,
-            sample_interventions
+            sample_trades, sample_interventions
         )
 
         assert len(effects) == 2
@@ -228,34 +259,35 @@ class TestBehavioralCorrelationAnalyzer:
         for i, event in enumerate(sample_tilt_events):
             pnl = Decimal("-100") if event["tilt_score"] > 60 else Decimal("50")
 
-            trades.append(Trade(
-                trade_id=f"trade_{i}",
-                order_id=f"order_{i}",
-                strategy_id="test",
-                symbol="BTC/USDT",
-                side="BUY",
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=pnl,
-                pnl_percent=Decimal("1"),
-                timestamp=event["timestamp"]
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"trade_{i}",
+                    order_id=f"order_{i}",
+                    strategy_id="test",
+                    symbol="BTC/USDT",
+                    side="BUY",
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=pnl,
+                    pnl_percent=Decimal("1"),
+                    timestamp=event["timestamp"],
+                )
+            )
 
         patterns = analyzer._identify_behavioral_patterns(
-            trades,
-            sample_tilt_events,
-            []
+            trades, sample_tilt_events, []
         )
 
         assert len(patterns) > 0
         assert any("tilt > 70" in p for p in patterns)
 
-    async def test_calculate_performance_metrics(self, analyzer, sample_trades, sample_tilt_events):
+    async def test_calculate_performance_metrics(
+        self, analyzer, sample_trades, sample_tilt_events
+    ):
         """Test performance metrics calculation."""
         metrics = analyzer._calculate_performance_metrics(
-            sample_trades,
-            sample_tilt_events
+            sample_trades, sample_tilt_events
         )
 
         assert "average_loss_with_high_tilt" in metrics
@@ -270,27 +302,30 @@ class TestBehavioralCorrelationAnalyzer:
             {
                 "timestamp": datetime(2024, 1, 1, 14, 0, tzinfo=UTC),
                 "content": "Reflected on morning losses",
-                "mood": "calm"
+                "mood": "calm",
             }
         ]
 
-        improvement = analyzer._analyze_journal_impact(
-            sample_trades,
-            journal_entries
-        )
+        improvement = analyzer._analyze_journal_impact(sample_trades, journal_entries)
 
         assert improvement >= Decimal("0")
         assert improvement <= Decimal("1")
 
-    async def test_full_correlation_analysis(self, analyzer, sample_trades, sample_tilt_events, sample_interventions):
+    async def test_full_correlation_analysis(
+        self, analyzer, sample_trades, sample_tilt_events, sample_interventions
+    ):
         """Test complete correlation analysis workflow."""
-        analyzer.tilt_detector.get_tilt_events = AsyncMock(return_value=sample_tilt_events)
-        analyzer.intervention_logger.get_interventions = AsyncMock(return_value=sample_interventions)
+        analyzer.tilt_detector.get_tilt_events = AsyncMock(
+            return_value=sample_tilt_events
+        )
+        analyzer.intervention_logger.get_interventions = AsyncMock(
+            return_value=sample_interventions
+        )
 
         result = await analyzer.analyze_correlation(
             trades=sample_trades,
             start_date=datetime(2024, 1, 1, tzinfo=UTC),
-            end_date=datetime(2024, 1, 31, tzinfo=UTC)
+            end_date=datetime(2024, 1, 31, tzinfo=UTC),
         )
 
         assert isinstance(result, BehavioralCorrelation)
@@ -300,25 +335,29 @@ class TestBehavioralCorrelationAnalyzer:
 
     async def test_edge_case_single_trade(self, analyzer):
         """Test with only one trade."""
-        single_trade = [Trade(
-            trade_id="single",
-            order_id="order_1",
-            strategy_id="test",
-            symbol="BTC/USDT",
-            side="BUY",
-            entry_price=Decimal("50000"),
-            exit_price=Decimal("51000"),
-            quantity=Decimal("0.1"),
-            pnl_dollars=Decimal("100"),
-            pnl_percent=Decimal("2"),
-            timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
-        )]
+        single_trade = [
+            Trade(
+                trade_id="single",
+                order_id="order_1",
+                strategy_id="test",
+                symbol="BTC/USDT",
+                side="BUY",
+                entry_price=Decimal("50000"),
+                exit_price=Decimal("51000"),
+                quantity=Decimal("0.1"),
+                pnl_dollars=Decimal("100"),
+                pnl_percent=Decimal("2"),
+                timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
 
-        tilt_event = [{
-            "timestamp": datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
-            "tilt_score": 50,
-            "indicators": {}
-        }]
+        tilt_event = [
+            {
+                "timestamp": datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
+                "tilt_score": 50,
+                "indicators": {},
+            }
+        ]
 
         analyzer.tilt_detector.get_tilt_events = AsyncMock(return_value=tilt_event)
         analyzer.intervention_logger.get_interventions = AsyncMock(return_value=[])
@@ -326,21 +365,25 @@ class TestBehavioralCorrelationAnalyzer:
         result = await analyzer.analyze_correlation(
             trades=single_trade,
             start_date=datetime(2024, 1, 1, tzinfo=UTC),
-            end_date=datetime(2024, 1, 31, tzinfo=UTC)
+            end_date=datetime(2024, 1, 31, tzinfo=UTC),
         )
 
         # With single data point, correlation should be 0 or 1
         assert abs(result.tilt_score_correlation) <= Decimal("1")
 
-    async def test_no_interventions_scenario(self, analyzer, sample_trades, sample_tilt_events):
+    async def test_no_interventions_scenario(
+        self, analyzer, sample_trades, sample_tilt_events
+    ):
         """Test scenario with no interventions."""
-        analyzer.tilt_detector.get_tilt_events = AsyncMock(return_value=sample_tilt_events)
+        analyzer.tilt_detector.get_tilt_events = AsyncMock(
+            return_value=sample_tilt_events
+        )
         analyzer.intervention_logger.get_interventions = AsyncMock(return_value=[])
 
         result = await analyzer.analyze_correlation(
             trades=sample_trades,
             start_date=datetime(2024, 1, 1, tzinfo=UTC),
-            end_date=datetime(2024, 1, 31, tzinfo=UTC)
+            end_date=datetime(2024, 1, 31, tzinfo=UTC),
         )
 
         assert result.performance_after_intervention == Decimal("0")

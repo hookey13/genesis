@@ -40,9 +40,9 @@ class TestPaperTradingWorkflow:
         # Step 1: Create paper trading requirement
         session_id = await enforcer.require_paper_trading(
             account_id=account_id,
-            strategy='iceberg_orders',
+            strategy="iceberg_orders",
             duration_hours=24,
-            transition_id=transition_id
+            transition_id=transition_id,
         )
 
         assert session_id is not None
@@ -56,11 +56,11 @@ class TestPaperTradingWorkflow:
             trade = PaperTrade(
                 trade_id=str(uuid.uuid4()),
                 session_id=session_id,
-                symbol='BTC/USDT',
-                side='BUY' if i % 2 == 0 else 'SELL',
-                quantity=Decimal('0.01'),
-                entry_price=Decimal('50000') + Decimal(i * 10),
-                execution_method='iceberg'
+                symbol="BTC/USDT",
+                side="BUY" if i % 2 == 0 else "SELL",
+                quantity=Decimal("0.01"),
+                entry_price=Decimal("50000") + Decimal(i * 10),
+                execution_method="iceberg",
             )
             trades.append(trade)
             await enforcer.record_paper_trade(session_id, trade)
@@ -69,14 +69,20 @@ class TestPaperTradingWorkflow:
         for i, trade in enumerate(trades):
             # Make 75% profitable (exceeds 70% requirement)
             if i < 19:  # 19 out of 25 = 76% profitable
-                exit_price = trade.entry_price + Decimal('100') if trade.side == 'BUY' else trade.entry_price - Decimal('100')
+                exit_price = (
+                    trade.entry_price + Decimal("100")
+                    if trade.side == "BUY"
+                    else trade.entry_price - Decimal("100")
+                )
             else:
-                exit_price = trade.entry_price - Decimal('50') if trade.side == 'BUY' else trade.entry_price + Decimal('50')
+                exit_price = (
+                    trade.entry_price - Decimal("50")
+                    if trade.side == "BUY"
+                    else trade.entry_price + Decimal("50")
+                )
 
             await enforcer.close_paper_trade(
-                session_id=session_id,
-                trade_id=trade.trade_id,
-                exit_price=exit_price
+                session_id=session_id, trade_id=trade.trade_id, exit_price=exit_price
             )
 
         # Step 4: Get metrics
@@ -84,8 +90,8 @@ class TestPaperTradingWorkflow:
 
         assert metrics.total_trades == 25
         assert metrics.profitable_trades >= 18
-        assert metrics.success_rate >= Decimal('0.70')
-        assert metrics.profitable_ratio >= Decimal('0.70')
+        assert metrics.success_rate >= Decimal("0.70")
+        assert metrics.profitable_ratio >= Decimal("0.70")
 
         # Step 5: Check completion requirements
         is_complete, failures = await enforcer.check_session_completion(session_id)
@@ -98,10 +104,12 @@ class TestPaperTradingWorkflow:
         # Mock the session query to return a session with proper duration
         mock_paper_session = MagicMock()
         mock_paper_session.session_id = session_id
-        mock_paper_session.strategy_name = 'iceberg_orders'
+        mock_paper_session.strategy_name = "iceberg_orders"
         mock_paper_session.started_at = datetime.utcnow() - timedelta(hours=25)
         mock_paper_session.transition_id = transition_id
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_paper_session
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_paper_session
+        )
 
         final_metrics = await enforcer.complete_session(session_id, force=True)
 
@@ -116,9 +124,7 @@ class TestPaperTradingWorkflow:
 
         # Create session
         session_id = await enforcer.require_paper_trading(
-            account_id=account_id,
-            strategy='vwap_execution',
-            duration_hours=48
+            account_id=account_id, strategy="vwap_execution", duration_hours=48
         )
 
         # Execute trades with poor performance
@@ -127,11 +133,11 @@ class TestPaperTradingWorkflow:
             trade = PaperTrade(
                 trade_id=str(uuid.uuid4()),
                 session_id=session_id,
-                symbol='ETH/USDT',
-                side='BUY',
-                quantity=Decimal('0.1'),
-                entry_price=Decimal('3000'),
-                execution_method='vwap'
+                symbol="ETH/USDT",
+                side="BUY",
+                quantity=Decimal("0.1"),
+                entry_price=Decimal("3000"),
+                execution_method="vwap",
             )
             trades.append(trade)
             await enforcer.record_paper_trade(session_id, trade)
@@ -139,21 +145,19 @@ class TestPaperTradingWorkflow:
         # Close trades with mostly losses (40% profitable, below 60% requirement)
         for i, trade in enumerate(trades):
             if i < 4:  # Only 4 out of 10 profitable
-                exit_price = Decimal('3100')
+                exit_price = Decimal("3100")
             else:
-                exit_price = Decimal('2900')
+                exit_price = Decimal("2900")
 
             await enforcer.close_paper_trade(
-                session_id=session_id,
-                trade_id=trade.trade_id,
-                exit_price=exit_price
+                session_id=session_id, trade_id=trade.trade_id, exit_price=exit_price
             )
 
         # Check metrics
         metrics = await enforcer.get_session_metrics(session_id)
         assert metrics.total_trades == 10
         assert metrics.profitable_trades == 4
-        assert metrics.success_rate == Decimal('0.40')
+        assert metrics.success_rate == Decimal("0.40")
 
         # Check completion - should fail
         is_complete, failures = await enforcer.check_session_completion(session_id)
@@ -167,10 +171,12 @@ class TestPaperTradingWorkflow:
         # Force completion
         mock_paper_session = MagicMock()
         mock_paper_session.session_id = session_id
-        mock_paper_session.strategy_name = 'vwap_execution'
+        mock_paper_session.strategy_name = "vwap_execution"
         mock_paper_session.started_at = datetime.utcnow() - timedelta(hours=1)
         mock_paper_session.transition_id = None
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_paper_session
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_paper_session
+        )
 
         await enforcer.complete_session(session_id, force=True)
         assert mock_paper_session.status == SessionStatus.FAILED.value
@@ -182,11 +188,9 @@ class TestPaperTradingWorkflow:
 
         # Create multiple sessions for different strategies
         sessions = []
-        for strategy in ['iceberg_orders', 'vwap_execution']:
+        for strategy in ["iceberg_orders", "vwap_execution"]:
             session_id = await enforcer.require_paper_trading(
-                account_id=account_id,
-                strategy=strategy,
-                duration_hours=24
+                account_id=account_id, strategy=strategy, duration_hours=24
             )
             sessions.append(session_id)
 
@@ -198,16 +202,18 @@ class TestPaperTradingWorkflow:
                 trade = PaperTrade(
                     trade_id=str(uuid.uuid4()),
                     session_id=session_id,
-                    symbol='BTC/USDT',
-                    side='BUY',
-                    quantity=Decimal('0.01'),
-                    entry_price=Decimal('50000')
+                    symbol="BTC/USDT",
+                    side="BUY",
+                    quantity=Decimal("0.01"),
+                    entry_price=Decimal("50000"),
                 )
                 await enforcer.record_paper_trade(session_id, trade)
 
         # Get active sessions for account
         mock_sessions = [MagicMock(session_id=sid) for sid in sessions]
-        mock_session.query.return_value.filter_by.return_value.all.return_value = mock_sessions
+        mock_session.query.return_value.filter_by.return_value.all.return_value = (
+            mock_sessions
+        )
 
         active = enforcer.get_active_sessions(account_id)
         assert len(active) == 2
@@ -219,20 +225,18 @@ class TestPaperTradingWorkflow:
 
         # Create session
         session_id = await enforcer.require_paper_trading(
-            account_id=account_id,
-            strategy='iceberg_orders',
-            duration_hours=24
+            account_id=account_id, strategy="iceberg_orders", duration_hours=24
         )
 
         # Create and record trade
         trade = PaperTrade(
-            trade_id='test-trade-1',
+            trade_id="test-trade-1",
             session_id=session_id,
-            symbol='BTC/USDT',
-            side='BUY',
-            quantity=Decimal('0.01'),
-            entry_price=Decimal('50000'),
-            execution_method='iceberg'
+            symbol="BTC/USDT",
+            side="BUY",
+            quantity=Decimal("0.01"),
+            entry_price=Decimal("50000"),
+            execution_method="iceberg",
         )
 
         await enforcer.record_paper_trade(session_id, trade)
@@ -243,23 +247,21 @@ class TestPaperTradingWorkflow:
 
         # Close trade with profit
         updated_trade = await enforcer.close_paper_trade(
-            session_id=session_id,
-            trade_id='test-trade-1',
-            exit_price=Decimal('51000')
+            session_id=session_id, trade_id="test-trade-1", exit_price=Decimal("51000")
         )
 
         # Verify trade is closed
         assert updated_trade.is_closed is True
-        assert updated_trade.exit_price == Decimal('51000')
-        assert updated_trade.pnl == Decimal('10')  # (51000 - 50000) * 0.01
+        assert updated_trade.exit_price == Decimal("51000")
+        assert updated_trade.pnl == Decimal("10")  # (51000 - 50000) * 0.01
         assert updated_trade.is_profitable is True
 
         # Try to close again - should fail
         with pytest.raises(StateError):
             await enforcer.close_paper_trade(
                 session_id=session_id,
-                trade_id='test-trade-1',
-                exit_price=Decimal('52000')
+                trade_id="test-trade-1",
+                exit_price=Decimal("52000"),
             )
 
     @pytest.mark.asyncio
@@ -269,9 +271,7 @@ class TestPaperTradingWorkflow:
 
         # Create session
         session_id = await enforcer.require_paper_trading(
-            account_id=account_id,
-            strategy='market_making',
-            duration_hours=72
+            account_id=account_id, strategy="market_making", duration_hours=72
         )
 
         assert session_id in enforcer._active_sessions
@@ -279,7 +279,9 @@ class TestPaperTradingWorkflow:
         # Cancel session
         mock_paper_session = MagicMock()
         mock_paper_session.session_id = session_id
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_paper_session
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_paper_session
+        )
 
         await enforcer.cancel_session(session_id, "User requested cancellation")
 
@@ -294,41 +296,39 @@ class TestPaperTradingWorkflow:
 
         # Create session
         session_id = await enforcer.require_paper_trading(
-            account_id=account_id,
-            strategy='statistical_arbitrage',
-            duration_hours=48
+            account_id=account_id, strategy="statistical_arbitrage", duration_hours=48
         )
 
         # Mock session for metrics
         mock_paper_session = MagicMock()
         mock_paper_session.session_id = session_id
         mock_paper_session.started_at = datetime.utcnow() - timedelta(hours=2)
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_paper_session
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_paper_session
+        )
 
         # Execute specific trades to test metrics
         trades_data = [
-            ('BUY', Decimal('50000'), Decimal('51000'), Decimal('10')),  # +10
-            ('BUY', Decimal('51000'), Decimal('51500'), Decimal('5')),   # +5
-            ('SELL', Decimal('52000'), Decimal('51500'), Decimal('5')),  # +5
-            ('BUY', Decimal('51000'), Decimal('50500'), Decimal('-5')),  # -5
-            ('SELL', Decimal('50000'), Decimal('50500'), Decimal('-5')), # -5
+            ("BUY", Decimal("50000"), Decimal("51000"), Decimal("10")),  # +10
+            ("BUY", Decimal("51000"), Decimal("51500"), Decimal("5")),  # +5
+            ("SELL", Decimal("52000"), Decimal("51500"), Decimal("5")),  # +5
+            ("BUY", Decimal("51000"), Decimal("50500"), Decimal("-5")),  # -5
+            ("SELL", Decimal("50000"), Decimal("50500"), Decimal("-5")),  # -5
         ]
 
         for i, (side, entry, exit, expected_pnl) in enumerate(trades_data):
             trade = PaperTrade(
-                trade_id=f'trade-{i}',
+                trade_id=f"trade-{i}",
                 session_id=session_id,
-                symbol='BTC/USDT',
+                symbol="BTC/USDT",
                 side=side,
-                quantity=Decimal('0.01'),
-                entry_price=entry
+                quantity=Decimal("0.01"),
+                entry_price=entry,
             )
             await enforcer.record_paper_trade(session_id, trade)
 
             await enforcer.close_paper_trade(
-                session_id=session_id,
-                trade_id=f'trade-{i}',
-                exit_price=exit
+                session_id=session_id, trade_id=f"trade-{i}", exit_price=exit
             )
 
         # Get metrics
@@ -336,10 +336,10 @@ class TestPaperTradingWorkflow:
 
         assert metrics.total_trades == 5
         assert metrics.profitable_trades == 3
-        assert metrics.total_pnl == Decimal('10')  # 10 + 5 + 5 - 5 - 5
-        assert metrics.success_rate == Decimal('0.6')  # 3/5
-        assert metrics.average_pnl == Decimal('2')  # 10/5
-        assert metrics.max_drawdown == Decimal('10')  # Peak was 20, dropped to 10
+        assert metrics.total_pnl == Decimal("10")  # 10 + 5 + 5 - 5 - 5
+        assert metrics.success_rate == Decimal("0.6")  # 3/5
+        assert metrics.average_pnl == Decimal("2")  # 10/5
+        assert metrics.max_drawdown == Decimal("10")  # Peak was 20, dropped to 10
 
     @pytest.mark.asyncio
     async def test_invalid_strategy_rejection(self, enforcer):
@@ -348,9 +348,7 @@ class TestPaperTradingWorkflow:
 
         with pytest.raises(ValidationError, match="Unknown strategy"):
             await enforcer.require_paper_trading(
-                account_id=account_id,
-                strategy='invalid_strategy',
-                duration_hours=24
+                account_id=account_id, strategy="invalid_strategy", duration_hours=24
             )
 
     @pytest.mark.asyncio
@@ -361,8 +359,8 @@ class TestPaperTradingWorkflow:
         for i in range(3):
             session_id = await enforcer.require_paper_trading(
                 account_id=str(uuid.uuid4()),
-                strategy='iceberg_orders',
-                duration_hours=24
+                strategy="iceberg_orders",
+                duration_hours=24,
             )
             sessions.append(session_id)
 
@@ -376,5 +374,5 @@ class TestPaperTradingWorkflow:
         assert len(enforcer._session_tasks) == 0
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

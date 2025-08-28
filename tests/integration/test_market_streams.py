@@ -56,12 +56,14 @@ class TestMarketDataIntegration:
             event_types={
                 EventType.MARKET_DATA_UPDATED,
                 EventType.SPREAD_ALERT,
-                EventType.VOLUME_ANOMALY
-            }
+                EventType.VOLUME_ANOMALY,
+            },
         )
 
         # Start service
-        with patch.object(market_data_service.websocket_manager, "start", new_callable=AsyncMock):
+        with patch.object(
+            market_data_service.websocket_manager, "start", new_callable=AsyncMock
+        ):
             await market_data_service.start()
 
         # Simulate trade data
@@ -72,8 +74,8 @@ class TestMarketDataIntegration:
                 "p": "50000.00",
                 "q": "0.1",
                 "T": int(datetime.now().timestamp() * 1000),
-                "m": False
-            }
+                "m": False,
+            },
         }
 
         await market_data_service._handle_trade(trade_data)
@@ -99,8 +101,7 @@ class TestMarketDataIntegration:
                 received_alerts.append(event)
 
         event_bus.subscribe(
-            callback=alert_handler,
-            event_types={EventType.SPREAD_ALERT}
+            callback=alert_handler, event_types={EventType.SPREAD_ALERT}
         )
 
         # Simulate tight spread
@@ -109,8 +110,8 @@ class TestMarketDataIntegration:
             "data": {
                 "lastUpdateId": 12345,
                 "bids": [["49998.00", "10.0"]],  # Very tight spread
-                "asks": [["50000.00", "10.0"]]
-            }
+                "asks": [["50000.00", "10.0"]],
+            },
         }
 
         await market_data_service._handle_depth(depth_data)
@@ -136,8 +137,7 @@ class TestMarketDataIntegration:
                 received_anomalies.append(event)
 
         event_bus.subscribe(
-            callback=anomaly_handler,
-            event_types={EventType.VOLUME_ANOMALY}
+            callback=anomaly_handler, event_types={EventType.VOLUME_ANOMALY}
         )
 
         # Set up normal volume profile
@@ -145,6 +145,7 @@ class TestMarketDataIntegration:
         profile = market_data_service.volume_profiles.get(symbol)
         if not profile:
             from genesis.data.market_data_service import VolumeProfile
+
             profile = VolumeProfile(symbol=symbol)
             market_data_service.volume_profiles[symbol] = profile
 
@@ -189,8 +190,8 @@ class TestMarketDataIntegration:
                     "p": trade["p"],
                     "q": trade["q"],
                     "T": base_time + i * 100,
-                    "m": False
-                }
+                    "m": False,
+                },
             }
             await market_data_service._handle_trade(trade_data)
 
@@ -211,6 +212,7 @@ class TestMarketDataIntegration:
 
         # Add candles with normal volatility
         from genesis.data.market_data_service import Candle
+
         for i in range(25):
             candle = Candle(
                 symbol=symbol,
@@ -219,12 +221,13 @@ class TestMarketDataIntegration:
                 low=Decimal("49900"),
                 close=Decimal("50050"),
                 volume=Decimal("1000"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
             market_data_service.candles[symbol].append(candle)
 
         # Add normal volume profile
         from genesis.data.market_data_service import VolumeProfile
+
         profile = VolumeProfile(symbol=symbol)
         profile.rolling_24h_volume = Decimal("100000")
         market_data_service.volume_profiles[symbol] = profile
@@ -242,7 +245,7 @@ class TestMarketDataIntegration:
                 low=Decimal("48000"),
                 close=Decimal("51000"),
                 volume=Decimal("5000"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
             market_data_service.candles[symbol].append(candle)
 
@@ -264,8 +267,8 @@ class TestMarketDataIntegration:
                 "p": "50000.00",
                 "q": "0.1",
                 "T": int(datetime.now().timestamp() * 1000),
-                "m": False
-            }
+                "m": False,
+            },
         }
         tasks.append(market_data_service._handle_trade(trade_data))
 
@@ -275,8 +278,8 @@ class TestMarketDataIntegration:
             "data": {
                 "lastUpdateId": 12345,
                 "bids": [["49900.00", "1.0"]],
-                "asks": [["50000.00", "0.5"]]
-            }
+                "asks": [["50000.00", "0.5"]],
+            },
         }
         tasks.append(market_data_service._handle_depth(depth_data))
 
@@ -292,7 +295,7 @@ class TestMarketDataIntegration:
                     "v": "100.0",
                     "t": int(datetime.now().timestamp() * 1000),
                     "n": 500,
-                    "x": True
+                    "x": True,
                 }
             }
         }
@@ -301,10 +304,7 @@ class TestMarketDataIntegration:
         # Ticker stream
         ticker_data = {
             "stream": "btcusdt@ticker",
-            "data": {
-                "s": "BTCUSDT",
-                "v": "10000.0"
-            }
+            "data": {"s": "BTCUSDT", "v": "10000.0"},
         }
         tasks.append(market_data_service._handle_ticker(ticker_data))
 
@@ -325,12 +325,13 @@ class TestMarketDataIntegration:
         # Add more than maxlen ticks
         for i in range(1500):
             from genesis.data.market_data_service import Tick
+
             tick = Tick(
                 symbol=symbol,
                 price=Decimal(f"{50000 + i}"),
                 quantity=Decimal("0.1"),
                 timestamp=float(i),
-                is_buyer_maker=True
+                is_buyer_maker=True,
             )
             market_data_service.ticks[symbol].append(tick)
 
@@ -339,6 +340,7 @@ class TestMarketDataIntegration:
 
         # Add more than maxlen candles
         from genesis.data.market_data_service import Candle
+
         for i in range(1500):
             candle = Candle(
                 symbol=symbol,
@@ -347,7 +349,7 @@ class TestMarketDataIntegration:
                 low=Decimal("49900"),
                 close=Decimal("50050"),
                 volume=Decimal("100"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
             market_data_service.candles[symbol].append(candle)
 
@@ -395,12 +397,13 @@ class TestMarketDataIntegration:
 
         # Add initial tick
         from genesis.data.market_data_service import Tick
+
         tick1 = Tick(
             symbol=symbol,
             price=Decimal("50000"),
             quantity=Decimal("0.1"),
             timestamp=1234567890.0,
-            is_buyer_maker=True
+            is_buyer_maker=True,
         )
         market_data_service.ticks[symbol].append(tick1)
 
@@ -417,7 +420,7 @@ class TestMarketDataIntegration:
             price=Decimal("50100"),
             quantity=Decimal("0.2"),
             timestamp=1234567891.0,
-            is_buyer_maker=False
+            is_buyer_maker=False,
         )
         market_data_service.ticks[symbol].append(tick2)
 

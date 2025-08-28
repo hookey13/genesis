@@ -42,7 +42,9 @@ MIN_DURATION_MINUTES = 5
 MAX_DURATION_MINUTES = 30
 DEFAULT_DURATION_MINUTES = 15
 MAX_PARTICIPATION_RATE = Decimal("0.10")  # 10% max volume participation
-EARLY_COMPLETION_THRESHOLD = Decimal("0.002")  # 0.2% better price triggers early completion
+EARLY_COMPLETION_THRESHOLD = Decimal(
+    "0.002"
+)  # 0.2% better price triggers early completion
 MIN_SLICE_INTERVAL_SECONDS = 30
 MAX_SLICE_INTERVAL_SECONDS = 300
 SLICE_TIME_JITTER = 0.2  # ±20% timing variation
@@ -51,6 +53,7 @@ SLICE_TIME_JITTER = 0.2  # ±20% timing variation
 @dataclass
 class TimeSlice:
     """Individual time slice for TWAP execution."""
+
     slice_number: int
     target_time: datetime
     target_quantity: Decimal
@@ -61,6 +64,7 @@ class TimeSlice:
 @dataclass
 class TwapExecution:
     """TWAP execution tracking."""
+
     execution_id: str
     symbol: str
     side: OrderSide
@@ -139,14 +143,12 @@ class TwapExecutor(OrderExecutor):
         logger.info(
             "TWAP executor initialized",
             account_id=account.account_id,
-            tier=account.tier.value
+            tier=account.tier.value,
         )
 
     @requires_tier(TradingTier.STRATEGIST)
     async def execute_twap(
-        self,
-        order: Order,
-        duration_minutes: int = DEFAULT_DURATION_MINUTES
+        self, order: Order, duration_minutes: int = DEFAULT_DURATION_MINUTES
     ) -> ExecutionResult:
         """
         Execute an order using TWAP strategy.
@@ -177,17 +179,17 @@ class TwapExecutor(OrderExecutor):
                 side=order.side.value,
                 quantity=str(order.quantity),
                 duration_minutes=duration_minutes,
-                arrival_price=str(arrival_price)
+                arrival_price=str(arrival_price),
             )
 
             # Get volume profile for adaptive timing
-            volume_profile = await self.market_data_service.get_volume_profile(order.symbol)
+            volume_profile = await self.market_data_service.get_volume_profile(
+                order.symbol
+            )
 
             # Calculate time slices with adaptive timing
             time_slices = await self.calculate_time_slices(
-                duration_minutes,
-                volume_profile,
-                order.quantity
+                duration_minutes, volume_profile, order.quantity
             )
 
             # Create TWAP execution tracker
@@ -201,7 +203,7 @@ class TwapExecutor(OrderExecutor):
                 slices=time_slices,
                 arrival_price=arrival_price,
                 remaining_quantity=order.quantity,
-                started_at=datetime.now()
+                started_at=datetime.now(),
             )
 
             self.active_executions[execution_id] = execution
@@ -218,10 +220,10 @@ class TwapExecutor(OrderExecutor):
                         "type": "TWAP_STARTED",
                         "symbol": order.symbol,
                         "quantity": str(order.quantity),
-                        "duration_minutes": duration_minutes
-                    }
+                        "duration_minutes": duration_minutes,
+                    },
                 ),
-                priority=EventPriority.HIGH
+                priority=EventPriority.HIGH,
             )
 
             # Start background task for execution
@@ -233,11 +235,16 @@ class TwapExecutor(OrderExecutor):
             await execution.background_task
 
             # Calculate final metrics
-            execution_time = (execution.completed_at - execution.started_at).total_seconds()
-            implementation_shortfall = self.calculate_implementation_shortfall(
-                execution.arrival_price,
-                execution.twap_price
-            ) if execution.twap_price else None
+            execution_time = (
+                execution.completed_at - execution.started_at
+            ).total_seconds()
+            implementation_shortfall = (
+                self.calculate_implementation_shortfall(
+                    execution.arrival_price, execution.twap_price
+                )
+                if execution.twap_price
+                else None
+            )
 
             logger.info(
                 "TWAP execution completed",
@@ -248,13 +255,14 @@ class TwapExecutor(OrderExecutor):
                 twap_price=str(execution.twap_price),
                 implementation_shortfall=str(implementation_shortfall),
                 early_completion=execution.early_completion,
-                execution_time_seconds=execution_time
+                execution_time_seconds=execution_time,
             )
 
             # Update original order
             order.filled_quantity = execution.executed_quantity
             order.status = (
-                OrderStatus.FILLED if execution.executed_quantity == order.quantity
+                OrderStatus.FILLED
+                if execution.executed_quantity == order.quantity
                 else OrderStatus.PARTIAL
             )
 
@@ -265,21 +273,22 @@ class TwapExecutor(OrderExecutor):
                 actual_price=execution.average_price,
                 slippage_percent=implementation_shortfall,
                 latency_ms=int(execution_time * 1000),
-                error=execution.early_completion_reason if not execution.early_completion else None
+                error=(
+                    execution.early_completion_reason
+                    if not execution.early_completion
+                    else None
+                ),
             )
 
         except Exception as e:
-            logger.error(
-                "TWAP execution failed",
-                order_id=order.order_id,
-                error=str(e)
-            )
+            logger.error("TWAP execution failed", order_id=order.order_id, error=str(e))
             raise OrderExecutionError(
-                f"Failed to execute TWAP order: {e!s}",
-                order_id=order.order_id
+                f"Failed to execute TWAP order: {e!s}", order_id=order.order_id
             )
 
-    async def _execute_slices(self, execution: TwapExecution, original_order: Order) -> None:
+    async def _execute_slices(
+        self, execution: TwapExecution, original_order: Order
+    ) -> None:
         """
         Execute time slices in background.
 
@@ -312,9 +321,7 @@ class TwapExecutor(OrderExecutor):
 
                 # Check for early completion opportunity
                 if await self.check_early_completion(
-                    execution.symbol,
-                    execution.side,
-                    execution.arrival_price
+                    execution.symbol, execution.side, execution.arrival_price
                 ):
                     # Execute remaining quantity
                     slice_info.target_quantity = execution.remaining_quantity
@@ -323,29 +330,31 @@ class TwapExecutor(OrderExecutor):
                     logger.info(
                         "Early completion triggered",
                         execution_id=execution.execution_id,
-                        remaining_quantity=str(execution.remaining_quantity)
+                        remaining_quantity=str(execution.remaining_quantity),
                     )
 
                 # Apply participation rate limit
                 adjusted_quantity = await self.enforce_participation_limit(
                     slice_info.target_quantity,
                     execution.symbol,
-                    slice_info.participation_rate
+                    slice_info.participation_rate,
                 )
 
                 # Validate with risk engine before execution
-                risk_decision = await self.risk_engine.check_risk_limits({
-                    "symbol": execution.symbol,
-                    "side": execution.side,
-                    "quantity": adjusted_quantity
-                })
+                risk_decision = await self.risk_engine.check_risk_limits(
+                    {
+                        "symbol": execution.symbol,
+                        "side": execution.side,
+                        "quantity": adjusted_quantity,
+                    }
+                )
 
                 if not risk_decision.approved:
                     logger.warning(
                         "Slice rejected by risk engine",
                         execution_id=execution.execution_id,
                         slice_number=slice_info.slice_number,
-                        reason=risk_decision.reason
+                        reason=risk_decision.reason,
                     )
                     continue
 
@@ -361,13 +370,12 @@ class TwapExecutor(OrderExecutor):
                     quantity=adjusted_quantity,
                     slice_number=slice_info.slice_number,
                     total_slices=len(execution.slices),
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
 
                 # Execute slice
                 slice_result = await self.market_executor.execute_market_order(
-                    slice_order,
-                    confirmation_required=False
+                    slice_order, confirmation_required=False
                 )
 
                 if slice_result.success:
@@ -379,8 +387,14 @@ class TwapExecutor(OrderExecutor):
                     cumulative_value += executed_quantity * execution_price
 
                     execution.executed_quantity = cumulative_quantity
-                    execution.remaining_quantity = execution.total_quantity - cumulative_quantity
-                    execution.average_price = cumulative_value / cumulative_quantity if cumulative_quantity > 0 else Decimal("0")
+                    execution.remaining_quantity = (
+                        execution.total_quantity - cumulative_quantity
+                    )
+                    execution.average_price = (
+                        cumulative_value / cumulative_quantity
+                        if cumulative_quantity > 0
+                        else Decimal("0")
+                    )
 
                     # Track slice execution
                     slice_data = {
@@ -390,11 +404,17 @@ class TwapExecutor(OrderExecutor):
                         "target_quantity": str(slice_info.target_quantity),
                         "executed_quantity": str(executed_quantity),
                         "execution_price": str(execution_price),
-                        "market_price": str(execution_price),  # For TWAP, these are the same
-                        "slippage_bps": str(slice_result.slippage_percent * 100) if slice_result.slippage_percent else "0",
+                        "market_price": str(
+                            execution_price
+                        ),  # For TWAP, these are the same
+                        "slippage_bps": (
+                            str(slice_result.slippage_percent * 100)
+                            if slice_result.slippage_percent
+                            else "0"
+                        ),
                         "participation_rate": str(slice_info.participation_rate * 100),
                         "status": "EXECUTED",
-                        "executed_at": datetime.now().isoformat()
+                        "executed_at": datetime.now().isoformat(),
                     }
                     execution.executed_slices.append(slice_data)
 
@@ -410,10 +430,10 @@ class TwapExecutor(OrderExecutor):
                                 "type": "TWAP_SLICE_EXECUTED",
                                 "slice_number": slice_info.slice_number,
                                 "quantity": str(executed_quantity),
-                                "price": str(execution_price)
-                            }
+                                "price": str(execution_price),
+                            },
                         ),
-                        priority=EventPriority.NORMAL
+                        priority=EventPriority.NORMAL,
                     )
 
                     # Check for early completion
@@ -425,21 +445,24 @@ class TwapExecutor(OrderExecutor):
                         "Slice execution failed",
                         execution_id=execution.execution_id,
                         slice_number=slice_info.slice_number,
-                        error=slice_result.error
+                        error=slice_result.error,
                     )
 
             # Finalize execution
             execution.completed_at = datetime.now()
-            execution.status = "COMPLETED" if execution.executed_quantity > 0 else "FAILED"
+            execution.status = (
+                "COMPLETED" if execution.executed_quantity > 0 else "FAILED"
+            )
 
             # Calculate TWAP price
             execution.twap_price = self.calculate_twap_price(execution.executed_slices)
 
             # Calculate implementation shortfall
             if execution.twap_price:
-                execution.implementation_shortfall = self.calculate_implementation_shortfall(
-                    execution.arrival_price,
-                    execution.twap_price
+                execution.implementation_shortfall = (
+                    self.calculate_implementation_shortfall(
+                        execution.arrival_price, execution.twap_price
+                    )
                 )
 
             # Update database
@@ -455,10 +478,12 @@ class TwapExecutor(OrderExecutor):
                         "status": execution.status,
                         "executed_quantity": str(execution.executed_quantity),
                         "twap_price": str(execution.twap_price),
-                        "implementation_shortfall": str(execution.implementation_shortfall)
-                    }
+                        "implementation_shortfall": str(
+                            execution.implementation_shortfall
+                        ),
+                    },
                 ),
-                priority=EventPriority.HIGH
+                priority=EventPriority.HIGH,
             )
 
             # Remove from active executions
@@ -468,7 +493,7 @@ class TwapExecutor(OrderExecutor):
             logger.error(
                 "Error executing TWAP slices",
                 execution_id=execution.execution_id,
-                error=str(e)
+                error=str(e),
             )
             execution.status = "FAILED"
             execution.completed_at = datetime.now()
@@ -478,7 +503,7 @@ class TwapExecutor(OrderExecutor):
         self,
         duration_minutes: int,
         volume_profile: VolumeProfile,
-        total_quantity: Decimal
+        total_quantity: Decimal,
     ) -> list[TimeSlice]:
         """
         Calculate time slices with adaptive timing based on volume patterns.
@@ -497,7 +522,7 @@ class TwapExecutor(OrderExecutor):
         # Calculate number of slices based on duration
         interval_seconds = min(
             MAX_SLICE_INTERVAL_SECONDS,
-            max(MIN_SLICE_INTERVAL_SECONDS, (duration_minutes * 60) / 10)
+            max(MIN_SLICE_INTERVAL_SECONDS, (duration_minutes * 60) / 10),
         )
         slice_count = int((duration_minutes * 60) / interval_seconds)
 
@@ -516,21 +541,29 @@ class TwapExecutor(OrderExecutor):
             # Get volume weight for this time
             hour = target_time.hour
             volume_weight = hourly_volumes.get(hour, Decimal("1.0"))
-            normalized_weight = volume_weight / total_volume_weight if total_volume_weight > 0 else Decimal("1.0")
+            normalized_weight = (
+                volume_weight / total_volume_weight
+                if total_volume_weight > 0
+                else Decimal("1.0")
+            )
 
             # Adjust quantity based on volume weight
-            adjusted_quantity = base_quantity * (Decimal("0.8") + normalized_weight * Decimal("0.4"))
+            adjusted_quantity = base_quantity * (
+                Decimal("0.8") + normalized_weight * Decimal("0.4")
+            )
 
             # Calculate participation rate (lower during low volume)
             participation_rate = MAX_PARTICIPATION_RATE * normalized_weight
 
-            slices.append(TimeSlice(
-                slice_number=i + 1,
-                target_time=target_time,
-                target_quantity=adjusted_quantity,
-                volume_weight=normalized_weight,
-                participation_rate=participation_rate
-            ))
+            slices.append(
+                TimeSlice(
+                    slice_number=i + 1,
+                    target_time=target_time,
+                    target_quantity=adjusted_quantity,
+                    volume_weight=normalized_weight,
+                    participation_rate=participation_rate,
+                )
+            )
 
         # Adjust last slice to ensure total quantity matches
         total_allocated = sum(s.target_quantity for s in slices[:-1])
@@ -540,16 +573,13 @@ class TwapExecutor(OrderExecutor):
             "Calculated TWAP time slices",
             slice_count=len(slices),
             duration_minutes=duration_minutes,
-            interval_seconds=interval_seconds
+            interval_seconds=interval_seconds,
         )
 
         return slices
 
     async def check_early_completion(
-        self,
-        symbol: str,
-        side: OrderSide,
-        target_price: Decimal
+        self, symbol: str, side: OrderSide, target_price: Decimal
     ) -> bool:
         """
         Check if current price is favorable for early completion.
@@ -576,9 +606,7 @@ class TwapExecutor(OrderExecutor):
 
         except Exception as e:
             logger.warning(
-                "Failed to check early completion",
-                symbol=symbol,
-                error=str(e)
+                "Failed to check early completion", symbol=symbol, error=str(e)
             )
             return False
 
@@ -598,17 +626,16 @@ class TwapExecutor(OrderExecutor):
         execution = self.active_executions[execution_id]
 
         if execution.status != "ACTIVE":
-            raise ValidationError(f"Cannot pause execution in {execution.status} status")
+            raise ValidationError(
+                f"Cannot pause execution in {execution.status} status"
+            )
 
         execution.status = "PAUSED"
         execution.paused_at = datetime.now()
 
         await self._update_execution_in_db(execution)
 
-        logger.info(
-            "TWAP execution paused",
-            execution_id=execution_id
-        )
+        logger.info("TWAP execution paused", execution_id=execution_id)
 
         return True
 
@@ -628,17 +655,16 @@ class TwapExecutor(OrderExecutor):
         execution = self.active_executions[execution_id]
 
         if execution.status != "PAUSED":
-            raise ValidationError(f"Cannot resume execution in {execution.status} status")
+            raise ValidationError(
+                f"Cannot resume execution in {execution.status} status"
+            )
 
         execution.status = "ACTIVE"
         execution.resumed_at = datetime.now()
 
         await self._update_execution_in_db(execution)
 
-        logger.info(
-            "TWAP execution resumed",
-            execution_id=execution_id
-        )
+        logger.info("TWAP execution resumed", execution_id=execution_id)
 
         return True
 
@@ -679,9 +705,7 @@ class TwapExecutor(OrderExecutor):
         return total_value / total_quantity if total_quantity > 0 else Decimal("0")
 
     def calculate_implementation_shortfall(
-        self,
-        arrival_price: Decimal,
-        execution_price: Decimal
+        self, arrival_price: Decimal, execution_price: Decimal
     ) -> Decimal:
         """
         Calculate implementation shortfall (slippage from arrival price).
@@ -700,10 +724,7 @@ class TwapExecutor(OrderExecutor):
         return shortfall.quantize(Decimal("0.0001"))
 
     async def enforce_participation_limit(
-        self,
-        slice_size: Decimal,
-        symbol: str,
-        max_participation: Decimal
+        self, slice_size: Decimal, symbol: str, max_participation: Decimal
     ) -> Decimal:
         """
         Enforce participation rate limit based on current volume.
@@ -735,16 +756,14 @@ class TwapExecutor(OrderExecutor):
                     "Volume anomaly detected, reducing participation",
                     symbol=symbol,
                     original_max=str(volume_per_minute * max_participation),
-                    reduced_max=str(max_allowed)
+                    reduced_max=str(max_allowed),
                 )
 
             return min(slice_size, max_allowed)
 
         except Exception as e:
             logger.warning(
-                "Failed to enforce participation limit",
-                symbol=symbol,
-                error=str(e)
+                "Failed to enforce participation limit", symbol=symbol, error=str(e)
             )
             # Conservative fallback
             return slice_size * Decimal("0.5")
@@ -787,9 +806,7 @@ class TwapExecutor(OrderExecutor):
     # Implement required abstract methods from OrderExecutor
 
     async def execute_market_order(
-        self,
-        order: Order,
-        confirmation_required: bool = True
+        self, order: Order, confirmation_required: bool = True
     ) -> ExecutionResult:
         """
         Execute a market order using TWAP strategy.

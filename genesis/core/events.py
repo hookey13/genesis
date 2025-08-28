@@ -56,11 +56,15 @@ class EventType(str, Enum):
     INTERVENTION_APPLIED = "intervention_applied"  # Intervention action taken
 
     # Recovery Protocol Events
-    RECOVERY_PROTOCOL_INITIATED = "recovery_protocol_initiated"  # Start recovery process
+    RECOVERY_PROTOCOL_INITIATED = (
+        "recovery_protocol_initiated"  # Start recovery process
+    )
     TRADING_LOCKOUT = "trading_lockout"  # Trading lockout enforced
     LOCKOUT_EXPIRED = "lockout_expired"  # Trading lockout period ended
     JOURNAL_ENTRY_SUBMITTED = "journal_entry_submitted"  # Journal requirement completed
-    RECOVERY_CHECKLIST_UPDATED = "recovery_checklist_updated"  # Checklist progress changed
+    RECOVERY_CHECKLIST_UPDATED = (
+        "recovery_checklist_updated"  # Checklist progress changed
+    )
     RECOVERY_STAGE_ADVANCED = "recovery_stage_advanced"  # Position size increased
     TILT_DEBT_ADDED = "tilt_debt_added"  # Debt added to ledger
     TILT_DEBT_REDUCED = "tilt_debt_reduced"  # Debt paid down
@@ -68,7 +72,9 @@ class EventType(str, Enum):
 
     # Drawdown Recovery Events
     DRAWDOWN_DETECTED = "drawdown_detected"  # Significant drawdown detected
-    DRAWDOWN_RECOVERY_INITIATED = "drawdown_recovery_initiated"  # Drawdown recovery started
+    DRAWDOWN_RECOVERY_INITIATED = (
+        "drawdown_recovery_initiated"  # Drawdown recovery started
+    )
     FORCED_BREAK_INITIATED = "forced_break_initiated"  # Forced trading break started
     FORCED_BREAK_CLEARED = "forced_break_cleared"  # Forced break cleared
 
@@ -153,7 +159,7 @@ class Event:
             "created_at": self.created_at.isoformat(),
             "sequence_number": self.sequence_number,
             "correlation_id": self.correlation_id,
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
     @classmethod
@@ -164,10 +170,12 @@ class Event:
             event_type=EventType(data.get("event_type", "system_startup")),
             aggregate_id=data.get("aggregate_id", ""),
             event_data=data.get("event_data", {}),
-            created_at=datetime.fromisoformat(data.get("created_at", datetime.now().isoformat())),
+            created_at=datetime.fromisoformat(
+                data.get("created_at", datetime.now().isoformat())
+            ),
             sequence_number=data.get("sequence_number"),
             correlation_id=data.get("correlation_id"),
-            metadata=data.get("metadata", {})
+            metadata=data.get("metadata", {}),
         )
 
 
@@ -175,14 +183,16 @@ class Event:
 class ArbitrageSignalEvent(Event):
     """Event for arbitrage signal detection."""
 
-    def __init__(self,
-                 pair1_symbol: str,
-                 pair2_symbol: str,
-                 zscore: Decimal,
-                 threshold_sigma: Decimal,
-                 signal_type: str,
-                 confidence_score: Decimal,
-                 **kwargs):
+    def __init__(
+        self,
+        pair1_symbol: str,
+        pair2_symbol: str,
+        zscore: Decimal,
+        threshold_sigma: Decimal,
+        signal_type: str,
+        confidence_score: Decimal,
+        **kwargs,
+    ):
         """
         Initialize arbitrage signal event.
 
@@ -202,9 +212,9 @@ class ArbitrageSignalEvent(Event):
                 "zscore": str(zscore),
                 "threshold_sigma": str(threshold_sigma),
                 "signal_type": signal_type,
-                "confidence_score": str(confidence_score)
+                "confidence_score": str(confidence_score),
             },
-            **kwargs
+            **kwargs,
         )
 
 
@@ -212,12 +222,14 @@ class ArbitrageSignalEvent(Event):
 class TierGraduationEvent(Event):
     """Event for tier graduation eligibility."""
 
-    def __init__(self,
-                 current_tier: str,
-                 recommended_tier: str,
-                 current_capital: Decimal,
-                 message: str,
-                 **kwargs):
+    def __init__(
+        self,
+        current_tier: str,
+        recommended_tier: str,
+        current_capital: Decimal,
+        message: str,
+        **kwargs,
+    ):
         """
         Initialize tier graduation event.
 
@@ -233,9 +245,9 @@ class TierGraduationEvent(Event):
                 "current_tier": current_tier,
                 "recommended_tier": recommended_tier,
                 "current_capital": str(current_capital),
-                "message": message
+                "message": message,
             },
-            **kwargs
+            **kwargs,
         )
 
 
@@ -243,13 +255,15 @@ class TierGraduationEvent(Event):
 class TierProgressionEvent(Event):
     """Event for tier progression."""
 
-    def __init__(self,
-                 account_id: str,
-                 from_tier: str,
-                 to_tier: str,
-                 reason: str,
-                 gates_passed: list[str],
-                 **kwargs):
+    def __init__(
+        self,
+        account_id: str,
+        from_tier: str,
+        to_tier: str,
+        reason: str,
+        gates_passed: list[str],
+        **kwargs,
+    ):
         """
         Initialize tier progression event.
 
@@ -267,9 +281,9 @@ class TierProgressionEvent(Event):
                 "from_tier": from_tier,
                 "to_tier": to_tier,
                 "reason": reason,
-                "gates_passed": gates_passed
+                "gates_passed": gates_passed,
             },
-            **kwargs
+            **kwargs,
         )
 
 
@@ -277,13 +291,15 @@ class TierProgressionEvent(Event):
 class TierDemotionEvent(Event):
     """Event for tier demotion."""
 
-    def __init__(self,
-                 account_id: str,
-                 from_tier: str,
-                 to_tier: str,
-                 reason: str,
-                 triggers: list[str],
-                 **kwargs):
+    def __init__(
+        self,
+        account_id: str,
+        from_tier: str,
+        to_tier: str,
+        reason: str,
+        triggers: list[str],
+        **kwargs,
+    ):
         """
         Initialize tier demotion event.
 
@@ -301,9 +317,9 @@ class TierDemotionEvent(Event):
                 "from_tier": from_tier,
                 "to_tier": to_tier,
                 "reason": reason,
-                "triggers": triggers
+                "triggers": triggers,
             },
-            **kwargs
+            **kwargs,
         )
 
 
@@ -311,13 +327,15 @@ class TierDemotionEvent(Event):
 class GateCompletedEvent(Event):
     """Event for gate completion."""
 
-    def __init__(self,
-                 account_id: str,
-                 gate_name: str,
-                 current_tier: str,
-                 target_tier: str,
-                 completion_value: Any,
-                 **kwargs):
+    def __init__(
+        self,
+        account_id: str,
+        gate_name: str,
+        current_tier: str,
+        target_tier: str,
+        completion_value: Any,
+        **kwargs,
+    ):
         """
         Initialize gate completed event.
 
@@ -335,7 +353,7 @@ class GateCompletedEvent(Event):
                 "gate_name": gate_name,
                 "current_tier": current_tier,
                 "target_tier": target_tier,
-                "completion_value": str(completion_value)
+                "completion_value": str(completion_value),
             },
-            **kwargs
+            **kwargs,
         )

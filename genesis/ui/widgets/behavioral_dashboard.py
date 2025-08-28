@@ -30,11 +30,7 @@ class BehavioralDashboard(Widget):
     baseline_status = reactive("Not Established")
     current_context = reactive("normal")
 
-    def __init__(
-        self,
-        profile_manager=None,
-        **kwargs
-    ):
+    def __init__(self, profile_manager=None, **kwargs):
         """
         Initialize the behavioral dashboard.
 
@@ -107,14 +103,21 @@ class BehavioralDashboard(Widget):
             profile = self.profile_manager.active_profiles.get(self.profile_id)
             if profile:
                 table.add_row("Profile ID", self.profile_id[:8] + "...")
-                table.add_row("Learning Started", profile.learning_start_date.strftime("%Y-%m-%d %H:%M"))
-                table.add_row("Maturity Status", "✓ Mature" if profile.is_mature else "⚠ Learning")
+                table.add_row(
+                    "Learning Started",
+                    profile.learning_start_date.strftime("%Y-%m-%d %H:%M"),
+                )
+                table.add_row(
+                    "Maturity Status", "✓ Mature" if profile.is_mature else "⚠ Learning"
+                )
                 table.add_row("Total Samples", str(profile.total_samples))
                 table.add_row("Context", profile.context.capitalize())
 
                 if profile.last_updated:
                     time_ago = datetime.now(UTC) - profile.last_updated
-                    table.add_row("Last Updated", f"{int(time_ago.total_seconds() / 60)} min ago")
+                    table.add_row(
+                        "Last Updated", f"{int(time_ago.total_seconds() / 60)} min ago"
+                    )
             else:
                 table.add_row("Status", "No profile loaded")
         else:
@@ -138,7 +141,7 @@ class BehavioralDashboard(Widget):
             "click_speed": ("Click Speed", "ms"),
             "order_frequency": ("Orders/Hour", ""),
             "position_size_variance": ("Size Variance", "%"),
-            "cancel_rate": ("Cancel Rate", "%")
+            "cancel_rate": ("Cancel Rate", "%"),
         }
 
         for metric_type, (display_name, unit) in metrics_info.items():
@@ -198,19 +201,14 @@ class BehavioralDashboard(Widget):
         progress_group = []
 
         # Mock data for demonstration - would come from actual patterns
-        hourly_data = {
-            "00-06": 20,
-            "06-12": 60,
-            "12-18": 80,
-            "18-24": 40
-        }
+        hourly_data = {"00-06": 20, "06-12": 60, "12-18": 80, "18-24": 40}
 
         for time_range, activity_level in hourly_data.items():
             progress = Progress(
                 TextColumn(f"[cyan]{time_range}[/cyan]"),
                 BarColumn(bar_width=20),
                 TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                expand=False
+                expand=False,
             )
 
             task = progress.add_task(time_range, total=100, completed=activity_level)
@@ -255,7 +253,8 @@ class BehavioralDashboard(Widget):
             export_path = f"baseline_export_{self.profile_id[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
 
             import json
-            with open(export_path, 'w') as f:
+
+            with open(export_path, "w") as f:
                 json.dump(export_data, f, indent=2, default=str)
 
             logger.info("Baseline data exported", path=export_path)
@@ -271,8 +270,7 @@ class BehavioralDashboard(Widget):
         if self.profile_manager and self.profile_id:
             # Switch context
             await self.profile_manager.switch_profile_context(
-                self.profile_id,
-                new_context
+                self.profile_id, new_context
             )
 
             # Update display

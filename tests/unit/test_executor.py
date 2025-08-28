@@ -25,9 +25,7 @@ from genesis.exchange.models import MarketTicker, OrderResponse
 def mock_account():
     """Create a mock account."""
     return Account(
-        account_id=str(uuid4()),
-        balance_usdt=Decimal("1000"),
-        tier=TradingTier.SNIPER
+        account_id=str(uuid4()), balance_usdt=Decimal("1000"), tier=TradingTier.SNIPER
     )
 
 
@@ -38,45 +36,51 @@ def mock_gateway():
     gateway.mock_mode = True
 
     # Mock ticker response
-    gateway.get_ticker = AsyncMock(return_value=MarketTicker(
-        symbol="BTC/USDT",
-        last_price=Decimal("50000"),
-        bid_price=Decimal("49999"),
-        ask_price=Decimal("50001"),
-        volume_24h=Decimal("1000"),
-        quote_volume_24h=Decimal("50000000"),
-        price_change_percent=Decimal("2.5"),
-        high_24h=Decimal("51000"),
-        low_24h=Decimal("49000")
-    ))
+    gateway.get_ticker = AsyncMock(
+        return_value=MarketTicker(
+            symbol="BTC/USDT",
+            last_price=Decimal("50000"),
+            bid_price=Decimal("49999"),
+            ask_price=Decimal("50001"),
+            volume_24h=Decimal("1000"),
+            quote_volume_24h=Decimal("50000000"),
+            price_change_percent=Decimal("2.5"),
+            high_24h=Decimal("51000"),
+            low_24h=Decimal("49000"),
+        )
+    )
 
     # Mock order placement
-    gateway.place_order = AsyncMock(return_value=OrderResponse(
-        order_id="exchange_123",
-        client_order_id="client_456",
-        symbol="BTC/USDT",
-        side="buy",
-        type="market",
-        status="filled",
-        price=Decimal("50001"),
-        quantity=Decimal("0.001"),
-        filled_quantity=Decimal("0.001"),
-        created_at=datetime.now()
-    ))
+    gateway.place_order = AsyncMock(
+        return_value=OrderResponse(
+            order_id="exchange_123",
+            client_order_id="client_456",
+            symbol="BTC/USDT",
+            side="buy",
+            type="market",
+            status="filled",
+            price=Decimal("50001"),
+            quantity=Decimal("0.001"),
+            filled_quantity=Decimal("0.001"),
+            created_at=datetime.now(),
+        )
+    )
 
     # Mock order status
-    gateway.get_order_status = AsyncMock(return_value=OrderResponse(
-        order_id="exchange_123",
-        client_order_id="client_456",
-        symbol="BTC/USDT",
-        side="buy",
-        type="market",
-        status="filled",
-        price=Decimal("50001"),
-        quantity=Decimal("0.001"),
-        filled_quantity=Decimal("0.001"),
-        created_at=datetime.now()
-    ))
+    gateway.get_order_status = AsyncMock(
+        return_value=OrderResponse(
+            order_id="exchange_123",
+            client_order_id="client_456",
+            symbol="BTC/USDT",
+            side="buy",
+            type="market",
+            status="filled",
+            price=Decimal("50001"),
+            quantity=Decimal("0.001"),
+            filled_quantity=Decimal("0.001"),
+            created_at=datetime.now(),
+        )
+    )
 
     # Mock open orders
     gateway.get_open_orders = AsyncMock(return_value=[])
@@ -114,7 +118,7 @@ def executor(mock_gateway, mock_account, mock_risk_engine, mock_repository):
         account=mock_account,
         risk_engine=mock_risk_engine,
         repository=mock_repository,
-        confirmation_timeout=1
+        confirmation_timeout=1,
     )
 
 
@@ -129,7 +133,7 @@ def sample_order():
         type=OrderType.MARKET,
         side=OrderSide.BUY,
         price=None,
-        quantity=Decimal("0.001")
+        quantity=Decimal("0.001"),
     )
 
 
@@ -140,7 +144,9 @@ class TestMarketOrderExecutor:
     async def test_execute_market_order_success(self, executor, sample_order):
         """Test successful market order execution."""
         # Execute order without confirmation
-        result = await executor.execute_market_order(sample_order, confirmation_required=False)
+        result = await executor.execute_market_order(
+            sample_order, confirmation_required=False
+        )
 
         # Verify result
         assert result.success is True
@@ -162,7 +168,9 @@ class TestMarketOrderExecutor:
     async def test_execute_market_order_with_confirmation(self, executor, sample_order):
         """Test market order with confirmation."""
         # Mock confirmation (auto-confirm in mock mode)
-        result = await executor.execute_market_order(sample_order, confirmation_required=True)
+        result = await executor.execute_market_order(
+            sample_order, confirmation_required=True
+        )
 
         assert result.success is True
         assert result.order.status == OrderStatus.FILLED
@@ -171,8 +179,10 @@ class TestMarketOrderExecutor:
     async def test_execute_market_order_cancelled(self, executor, sample_order):
         """Test order cancellation during confirmation."""
         # Mock confirmation decline
-        with patch.object(executor, '_get_confirmation', return_value=False):
-            result = await executor.execute_market_order(sample_order, confirmation_required=True)
+        with patch.object(executor, "_get_confirmation", return_value=False):
+            result = await executor.execute_market_order(
+                sample_order, confirmation_required=True
+            )
 
         assert result.success is False
         assert result.order.status == OrderStatus.CANCELLED
@@ -197,10 +207,12 @@ class TestMarketOrderExecutor:
             price=Decimal("50151"),  # 0.3% slippage from 50001
             quantity=Decimal("0.001"),
             filled_quantity=Decimal("0.001"),
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
-        result = await executor.execute_market_order(sample_order, confirmation_required=False)
+        result = await executor.execute_market_order(
+            sample_order, confirmation_required=False
+        )
 
         assert result.success is True
         assert result.slippage_percent == Decimal("0.3000")
@@ -219,12 +231,14 @@ class TestMarketOrderExecutor:
             price=Decimal("50501"),  # 1% slippage from 50001
             quantity=Decimal("0.001"),
             filled_quantity=Decimal("0.001"),
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # The SlippageAlert is raised but caught and handled by _verify_execution
         # The order should still be executed
-        result = await executor.execute_market_order(sample_order, confirmation_required=False)
+        result = await executor.execute_market_order(
+            sample_order, confirmation_required=False
+        )
 
         # Since verification catches the exception, it returns a default result
         assert result.success is True
@@ -235,7 +249,9 @@ class TestMarketOrderExecutor:
     async def test_automatic_stop_loss_placement(self, executor, sample_order):
         """Test automatic stop-loss placement after buy order."""
         # Execute buy order
-        result = await executor.execute_market_order(sample_order, confirmation_required=False)
+        result = await executor.execute_market_order(
+            sample_order, confirmation_required=False
+        )
 
         assert result.success is True
 
@@ -264,10 +280,12 @@ class TestMarketOrderExecutor:
             type=OrderType.MARKET,
             side=OrderSide.SELL,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
-        result = await executor.execute_market_order(sell_order, confirmation_required=False)
+        result = await executor.execute_market_order(
+            sell_order, confirmation_required=False
+        )
 
         assert result.success is True
         # Only one order should be placed (no stop-loss)
@@ -284,11 +302,13 @@ class TestMarketOrderExecutor:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0")  # Invalid: zero quantity
+            quantity=Decimal("0"),  # Invalid: zero quantity
         )
 
         with pytest.raises(OrderExecutionError) as exc_info:
-            await executor.execute_market_order(invalid_order, confirmation_required=False)
+            await executor.execute_market_order(
+                invalid_order, confirmation_required=False
+            )
 
         assert "quantity must be positive" in str(exc_info.value)
 
@@ -303,11 +323,13 @@ class TestMarketOrderExecutor:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         with pytest.raises(OrderExecutionError) as exc_info:
-            await executor.execute_market_order(invalid_order, confirmation_required=False)
+            await executor.execute_market_order(
+                invalid_order, confirmation_required=False
+            )
 
         assert "symbol is required" in str(exc_info.value)
 
@@ -343,7 +365,7 @@ class TestMarketOrderExecutor:
                 price=Decimal("49000"),
                 quantity=Decimal("0.001"),
                 filled_quantity=Decimal("0"),
-                created_at=datetime.now()
+                created_at=datetime.now(),
             ),
             OrderResponse(
                 order_id="order_2",
@@ -355,8 +377,8 @@ class TestMarketOrderExecutor:
                 price=Decimal("3000"),
                 quantity=Decimal("0.1"),
                 filled_quantity=Decimal("0"),
-                created_at=datetime.now()
-            )
+                created_at=datetime.now(),
+            ),
         ]
 
         count = await executor.cancel_all_orders()
@@ -379,7 +401,7 @@ class TestMarketOrderExecutor:
                 price=Decimal("49000"),
                 quantity=Decimal("0.001"),
                 filled_quantity=Decimal("0"),
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
         ]
 
@@ -408,7 +430,9 @@ class TestMarketOrderExecutor:
 
         assert order.exchange_order_id == "exchange_123"
         assert order.status == OrderStatus.FILLED
-        executor.gateway.get_order_status.assert_called_once_with("exchange_123", "BTC/USDT")
+        executor.gateway.get_order_status.assert_called_once_with(
+            "exchange_123", "BTC/USDT"
+        )
 
     @pytest.mark.asyncio
     async def test_slippage_calculation_buy_order(self, executor):
@@ -417,7 +441,7 @@ class TestMarketOrderExecutor:
         slippage = executor.calculate_slippage(
             expected_price=Decimal("50000"),
             actual_price=Decimal("50250"),  # 0.5% higher
-            side=OrderSide.BUY
+            side=OrderSide.BUY,
         )
 
         assert slippage == Decimal("0.5000")  # Positive = unfavorable
@@ -429,7 +453,7 @@ class TestMarketOrderExecutor:
         slippage = executor.calculate_slippage(
             expected_price=Decimal("50000"),
             actual_price=Decimal("49750"),  # 0.5% lower
-            side=OrderSide.SELL
+            side=OrderSide.SELL,
         )
 
         assert slippage == Decimal("0.5000")  # Positive = unfavorable
@@ -441,7 +465,7 @@ class TestMarketOrderExecutor:
         slippage = executor.calculate_slippage(
             expected_price=Decimal("50000"),
             actual_price=Decimal("49900"),  # 0.2% lower
-            side=OrderSide.BUY
+            side=OrderSide.BUY,
         )
 
         assert slippage == Decimal("-0.2000")  # Negative = favorable
@@ -452,7 +476,9 @@ class TestMarketOrderExecutor:
         executor.gateway.place_order.side_effect = Exception("Network timeout")
 
         with pytest.raises(OrderExecutionError) as exc_info:
-            await executor.execute_market_order(sample_order, confirmation_required=False)
+            await executor.execute_market_order(
+                sample_order, confirmation_required=False
+            )
 
         assert "Failed to execute market order" in str(exc_info.value)
         assert sample_order.status == OrderStatus.FAILED
@@ -472,7 +498,9 @@ class TestMarketOrderExecutor:
         """Test that tier requirements are enforced."""
         # MarketOrderExecutor requires SNIPER tier minimum
         # The account fixture already has SNIPER tier, so this should work
-        result = await executor.execute_market_order(sample_order, confirmation_required=False)
+        result = await executor.execute_market_order(
+            sample_order, confirmation_required=False
+        )
         assert result.success is True
 
     @pytest.mark.asyncio
@@ -507,14 +535,16 @@ class TestMarketOrderExecutor:
         assert updated_order.latency_ms is not None
 
     @pytest.mark.asyncio
-    async def test_execution_without_repository(self, mock_gateway, mock_account, mock_risk_engine):
+    async def test_execution_without_repository(
+        self, mock_gateway, mock_account, mock_risk_engine
+    ):
         """Test that executor works without repository."""
         # Create executor without repository
         executor = MarketOrderExecutor(
             gateway=mock_gateway,
             account=mock_account,
             risk_engine=mock_risk_engine,
-            repository=None
+            repository=None,
         )
 
         order = Order(
@@ -525,7 +555,7 @@ class TestMarketOrderExecutor:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         # Should work without repository

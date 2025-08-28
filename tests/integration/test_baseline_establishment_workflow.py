@@ -51,10 +51,13 @@ class TestBaselineEstablishmentWorkflow:
         account_id = "test_account_001"
 
         # First create an account (required for foreign key)
-        await profile_manager.repository.connection.execute("""
+        await profile_manager.repository.connection.execute(
+            """
             INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
             VALUES (?, '1000', 'SNIPER', datetime('now'))
-        """, (account_id,))
+        """,
+            (account_id,),
+        )
         await profile_manager.repository.connection.commit()
 
         # Create profile
@@ -71,47 +74,54 @@ class TestBaselineEstablishmentWorkflow:
             # Simulate daily trading patterns
             for hour in [9, 10, 11, 14, 15, 16]:  # Trading hours
                 # Click speed metrics
-                await profile_manager.repository.save_behavioral_metric({
-                    "profile_id": profile.profile_id,
-                    "metric_type": "click_speed",
-                    "value": Decimal(str(100 + hour * 5 + (day % 7) * 10)),
-                    "timestamp": timestamp.replace(hour=hour),
-                    "time_of_day_bucket": hour
-                })
+                await profile_manager.repository.save_behavioral_metric(
+                    {
+                        "profile_id": profile.profile_id,
+                        "metric_type": "click_speed",
+                        "value": Decimal(str(100 + hour * 5 + (day % 7) * 10)),
+                        "timestamp": timestamp.replace(hour=hour),
+                        "time_of_day_bucket": hour,
+                    }
+                )
 
                 # Order frequency
                 if hour % 3 == 0:
-                    await profile_manager.repository.save_behavioral_metric({
-                        "profile_id": profile.profile_id,
-                        "metric_type": "order_frequency",
-                        "value": Decimal(str(10 + day % 10)),
-                        "timestamp": timestamp.replace(hour=hour),
-                        "time_of_day_bucket": hour
-                    })
+                    await profile_manager.repository.save_behavioral_metric(
+                        {
+                            "profile_id": profile.profile_id,
+                            "metric_type": "order_frequency",
+                            "value": Decimal(str(10 + day % 10)),
+                            "timestamp": timestamp.replace(hour=hour),
+                            "time_of_day_bucket": hour,
+                        }
+                    )
 
                 # Cancel rate
                 if hour % 2 == 0:
-                    await profile_manager.repository.save_behavioral_metric({
-                        "profile_id": profile.profile_id,
-                        "metric_type": "cancel_rate",
-                        "value": Decimal(str(0.1 + (day % 5) * 0.05)),
-                        "timestamp": timestamp.replace(hour=hour),
-                        "time_of_day_bucket": hour
-                    })
+                    await profile_manager.repository.save_behavioral_metric(
+                        {
+                            "profile_id": profile.profile_id,
+                            "metric_type": "cancel_rate",
+                            "value": Decimal(str(0.1 + (day % 5) * 0.05)),
+                            "timestamp": timestamp.replace(hour=hour),
+                            "time_of_day_bucket": hour,
+                        }
+                    )
 
                 # Position sizing
-                await profile_manager.repository.save_behavioral_metric({
-                    "profile_id": profile.profile_id,
-                    "metric_type": "position_size_variance",
-                    "value": Decimal(str(0.2 + (hour % 3) * 0.1)),
-                    "timestamp": timestamp.replace(hour=hour),
-                    "time_of_day_bucket": hour
-                })
+                await profile_manager.repository.save_behavioral_metric(
+                    {
+                        "profile_id": profile.profile_id,
+                        "metric_type": "position_size_variance",
+                        "value": Decimal(str(0.2 + (hour % 3) * 0.1)),
+                        "timestamp": timestamp.replace(hour=hour),
+                        "time_of_day_bucket": hour,
+                    }
+                )
 
         # Update baseline from collected metrics
         updated_profile = await profile_manager.update_baseline_from_metrics(
-            profile.profile_id,
-            force_recalculation=True
+            profile.profile_id, force_recalculation=True
         )
 
         # Verify baseline is mature
@@ -129,8 +139,8 @@ class TestBaselineEstablishmentWorkflow:
             event_data={
                 "profile_id": profile.profile_id,
                 "is_mature": updated_profile.is_mature,
-                "total_samples": updated_profile.total_samples
-            }
+                "total_samples": updated_profile.total_samples,
+            },
         )
         await event_bus.publish(event)
 
@@ -139,10 +149,13 @@ class TestBaselineEstablishmentWorkflow:
         account_id = "test_account_002"
 
         # First create an account (required for foreign key)
-        await profile_manager.repository.connection.execute("""
+        await profile_manager.repository.connection.execute(
+            """
             INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
             VALUES (?, '1000', 'SNIPER', datetime('now'))
-        """, (account_id,))
+        """,
+            (account_id,),
+        )
         await profile_manager.repository.connection.commit()
 
         # Create profile
@@ -156,15 +169,14 @@ class TestBaselineEstablishmentWorkflow:
                 "metric_type": "click_speed",
                 "value": Decimal(str(100 + i * 10)),
                 "timestamp": datetime.now(UTC) - timedelta(hours=i),
-                "time_of_day_bucket": (12 + i) % 24
+                "time_of_day_bucket": (12 + i) % 24,
             }
             metric_id = await profile_manager.repository.save_behavioral_metric(metric)
             metrics_to_save.append(metric_id)
 
         # Retrieve metrics
         retrieved = await profile_manager.repository.get_metrics_for_baseline(
-            profile.profile_id,
-            days=1
+            profile.profile_id, days=1
         )
 
         assert len(retrieved) == 10
@@ -176,10 +188,13 @@ class TestBaselineEstablishmentWorkflow:
         account_id = "test_account_003"
 
         # First create an account (required for foreign key)
-        await profile_manager.repository.connection.execute("""
+        await profile_manager.repository.connection.execute(
+            """
             INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
             VALUES (?, '1000', 'SNIPER', datetime('now'))
-        """, (account_id,))
+        """,
+            (account_id,),
+        )
         await profile_manager.repository.connection.commit()
 
         # Create initial profile
@@ -191,8 +206,7 @@ class TestBaselineEstablishmentWorkflow:
 
         for context in contexts:
             updated = await profile_manager.switch_profile_context(
-                profile.profile_id,
-                context
+                profile.profile_id, context
             )
             assert updated.context == context
 
@@ -204,10 +218,13 @@ class TestBaselineEstablishmentWorkflow:
         account_id = "test_account_004"
 
         # First create an account (required for foreign key)
-        await profile_manager.repository.connection.execute("""
+        await profile_manager.repository.connection.execute(
+            """
             INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
             VALUES (?, '1000', 'SNIPER', datetime('now'))
-        """, (account_id,))
+        """,
+            (account_id,),
+        )
         await profile_manager.repository.connection.commit()
 
         # Create and populate profile
@@ -215,15 +232,19 @@ class TestBaselineEstablishmentWorkflow:
 
         # Add some metrics
         for i in range(50):
-            await profile_manager.repository.save_behavioral_metric({
-                "profile_id": profile.profile_id,
-                "metric_type": "order_frequency",
-                "value": Decimal(str(10 + i)),
-                "timestamp": datetime.now(UTC) - timedelta(hours=i)
-            })
+            await profile_manager.repository.save_behavioral_metric(
+                {
+                    "profile_id": profile.profile_id,
+                    "metric_type": "order_frequency",
+                    "value": Decimal(str(10 + i)),
+                    "timestamp": datetime.now(UTC) - timedelta(hours=i),
+                }
+            )
 
         # Calculate baseline
-        baseline = await profile_manager.update_baseline_from_metrics(profile.profile_id)
+        baseline = await profile_manager.update_baseline_from_metrics(
+            profile.profile_id
+        )
         assert len(baseline.metric_ranges) > 0
 
         # Reset baseline
@@ -238,10 +259,13 @@ class TestBaselineEstablishmentWorkflow:
         account_id = "test_account_005"
 
         # First create an account (required for foreign key)
-        await profile_manager.repository.connection.execute("""
+        await profile_manager.repository.connection.execute(
+            """
             INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
             VALUES (?, '1000', 'SNIPER', datetime('now'))
-        """, (account_id,))
+        """,
+            (account_id,),
+        )
         await profile_manager.repository.connection.commit()
 
         # Create profile
@@ -250,17 +274,21 @@ class TestBaselineEstablishmentWorkflow:
         # Add metrics
         for i in range(20):
             timestamp = datetime.now(UTC) - timedelta(hours=i)
-            await profile_manager.repository.save_behavioral_metric({
-                "profile_id": profile.profile_id,
-                "metric_type": "cancel_rate",
-                "value": Decimal(str(0.1 + i * 0.01)),
-                "timestamp": timestamp,
-                "session_context": "alert" if i % 2 == 0 else "tired",
-                "time_of_day_bucket": timestamp.hour
-            })
+            await profile_manager.repository.save_behavioral_metric(
+                {
+                    "profile_id": profile.profile_id,
+                    "metric_type": "cancel_rate",
+                    "value": Decimal(str(0.1 + i * 0.01)),
+                    "timestamp": timestamp,
+                    "session_context": "alert" if i % 2 == 0 else "tired",
+                    "time_of_day_bucket": timestamp.hour,
+                }
+            )
 
         # Export data
-        export_data = await profile_manager.repository.export_baseline_data(profile.profile_id)
+        export_data = await profile_manager.repository.export_baseline_data(
+            profile.profile_id
+        )
 
         assert "profile_id" in export_data
         assert "baseline" in export_data
@@ -287,21 +315,27 @@ class TestBaselineEstablishmentWorkflow:
         event_bus.subscribe(EventType.BASELINE_CALCULATION_COMPLETE, event_handler)
 
         # Simulate metric recording
-        await event_bus.publish(Event(
-            event_type=EventType.BEHAVIORAL_METRIC_RECORDED,
-            event_data={"metric_type": "click_speed", "value": "150"}
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.BEHAVIORAL_METRIC_RECORDED,
+                event_data={"metric_type": "click_speed", "value": "150"},
+            )
+        )
 
         # Simulate baseline calculation
-        await event_bus.publish(Event(
-            event_type=EventType.BASELINE_CALCULATION_STARTED,
-            event_data={"profile_id": "test"}
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.BASELINE_CALCULATION_STARTED,
+                event_data={"profile_id": "test"},
+            )
+        )
 
-        await event_bus.publish(Event(
-            event_type=EventType.BASELINE_CALCULATION_COMPLETE,
-            event_data={"profile_id": "test", "is_mature": True}
-        ))
+        await event_bus.publish(
+            Event(
+                event_type=EventType.BASELINE_CALCULATION_COMPLETE,
+                event_data={"profile_id": "test", "is_mature": True},
+            )
+        )
 
         # Allow events to process
         await asyncio.sleep(0.2)
@@ -319,10 +353,13 @@ class TestBaselineEstablishmentWorkflow:
         account_id = "test_account_006"
 
         # First create an account (required for foreign key)
-        await profile_manager.repository.connection.execute("""
+        await profile_manager.repository.connection.execute(
+            """
             INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
             VALUES (?, '1000', 'SNIPER', datetime('now'))
-        """, (account_id,))
+        """,
+            (account_id,),
+        )
         await profile_manager.repository.connection.commit()
 
         # Create profile
@@ -337,13 +374,20 @@ class TestBaselineEstablishmentWorkflow:
 
         # Add sufficient metrics
         for i in range(150):
-            for metric_type in ["click_speed", "order_frequency", "cancel_rate", "position_size_variance"]:
-                await profile_manager.repository.save_behavioral_metric({
-                    "profile_id": profile.profile_id,
-                    "metric_type": metric_type,
-                    "value": Decimal(str(10 + i)),
-                    "timestamp": datetime.now(UTC) - timedelta(days=35-i//10)
-                })
+            for metric_type in [
+                "click_speed",
+                "order_frequency",
+                "cancel_rate",
+                "position_size_variance",
+            ]:
+                await profile_manager.repository.save_behavioral_metric(
+                    {
+                        "profile_id": profile.profile_id,
+                        "metric_type": metric_type,
+                        "value": Decimal(str(10 + i)),
+                        "timestamp": datetime.now(UTC) - timedelta(days=35 - i // 10),
+                    }
+                )
 
         # Update baseline
         updated = await profile_manager.update_baseline_from_metrics(profile.profile_id)
@@ -352,7 +396,9 @@ class TestBaselineEstablishmentWorkflow:
         issues = profile_manager.validate_profile_consistency(updated)
 
         # Should have fewer or no issues now
-        assert len(issues) == 0 or not any("Insufficient samples" in issue for issue in issues)
+        assert len(issues) == 0 or not any(
+            "Insufficient samples" in issue for issue in issues
+        )
 
     async def test_multiple_profile_management(self, profile_manager):
         """Test managing multiple profiles simultaneously."""
@@ -362,10 +408,13 @@ class TestBaselineEstablishmentWorkflow:
         # Create accounts and profiles
         for account_id in accounts:
             # First create an account (required for foreign key)
-            await profile_manager.repository.connection.execute("""
+            await profile_manager.repository.connection.execute(
+                """
                 INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
                 VALUES (?, '1000', 'SNIPER', datetime('now'))
-            """, (account_id,))
+            """,
+                (account_id,),
+            )
             await profile_manager.repository.connection.commit()
 
             profile = await profile_manager.create_baseline_profile(account_id)
@@ -375,7 +424,9 @@ class TestBaselineEstablishmentWorkflow:
         assert len(profile_manager.active_profiles) >= len(accounts)
 
         # Export all profiles
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as temp_file:
             export_path = temp_file.name
 
         summary = await profile_manager.export_all_profiles(export_path)
@@ -397,10 +448,13 @@ class TestBaselineEstablishmentWorkflow:
         account_id = "test_account_performance"
 
         # First create an account (required for foreign key)
-        await profile_manager.repository.connection.execute("""
+        await profile_manager.repository.connection.execute(
+            """
             INSERT INTO accounts (account_id, balance_usdt, tier, created_at)
             VALUES (?, '1000', 'SNIPER', datetime('now'))
-        """, (account_id,))
+        """,
+            (account_id,),
+        )
         await profile_manager.repository.connection.commit()
 
         profile = await profile_manager.create_baseline_profile(account_id)
@@ -412,13 +466,15 @@ class TestBaselineEstablishmentWorkflow:
             if i % 1000 == 0:
                 print(f"Added {i} metrics...")
 
-            await profile_manager.repository.save_behavioral_metric({
-                "profile_id": profile.profile_id,
-                "metric_type": "click_speed",
-                "value": Decimal(str(100 + (i % 100))),
-                "timestamp": datetime.now(UTC) - timedelta(seconds=i),
-                "time_of_day_bucket": i % 24
-            })
+            await profile_manager.repository.save_behavioral_metric(
+                {
+                    "profile_id": profile.profile_id,
+                    "metric_type": "click_speed",
+                    "value": Decimal(str(100 + (i % 100))),
+                    "timestamp": datetime.now(UTC) - timedelta(seconds=i),
+                    "time_of_day_bucket": i % 24,
+                }
+            )
 
         # Calculate baseline
         baseline_start = datetime.now(UTC)

@@ -19,8 +19,7 @@ class TestBehaviorPnLCorrelator:
     def test_initialization(self):
         """Test correlator initialization."""
         correlator = BehaviorPnLCorrelator(
-            min_sample_size=20,
-            significance_threshold=0.01
+            min_sample_size=20, significance_threshold=0.01
         )
 
         assert correlator.min_sample_size == 20
@@ -33,12 +32,7 @@ class TestBehaviorPnLCorrelator:
         correlator = BehaviorPnLCorrelator()
 
         now = datetime.utcnow()
-        correlator.add_behavior_data(
-            "click_latency",
-            now,
-            150.5,
-            {"action": "buy"}
-        )
+        correlator.add_behavior_data("click_latency", now, 150.5, {"action": "buy"})
 
         assert "click_latency" in correlator.behavior_data
         assert len(correlator.behavior_data["click_latency"]) == 1
@@ -53,11 +47,7 @@ class TestBehaviorPnLCorrelator:
         correlator = BehaviorPnLCorrelator()
 
         now = datetime.utcnow()
-        correlator.add_pnl_data(
-            now,
-            Decimal("100.50"),
-            "position_123"
-        )
+        correlator.add_pnl_data(now, Decimal("100.50"), "position_123")
 
         assert len(correlator.pnl_data) == 1
 
@@ -111,17 +101,14 @@ class TestBehaviorPnLCorrelator:
         # Add behavior data
         for i in range(5):
             correlator.add_behavior_data(
-                "latency",
-                base_time - timedelta(minutes=i*10),
-                100 + i*10
+                "latency", base_time - timedelta(minutes=i * 10), 100 + i * 10
             )
 
         # Add P&L data
         for i in range(3):
-            correlator.pnl_data.append({
-                "timestamp": base_time - timedelta(minutes=i*10),
-                "pnl": 50 - i*10
-            })
+            correlator.pnl_data.append(
+                {"timestamp": base_time - timedelta(minutes=i * 10), "pnl": 50 - i * 10}
+            )
 
         # Align with 30 minute window
         aligned = correlator._align_time_series("latency", 30)
@@ -138,18 +125,15 @@ class TestBehaviorPnLCorrelator:
 
         # Add correlated data (high latency -> low P&L)
         for i in range(10):
-            latency = 100 + i*20
-            pnl = 100 - i*15
+            latency = 100 + i * 20
+            pnl = 100 - i * 15
 
             correlator.add_behavior_data(
-                "latency",
-                base_time - timedelta(minutes=i*5),
-                latency
+                "latency", base_time - timedelta(minutes=i * 5), latency
             )
 
             correlator.add_pnl_data(
-                base_time - timedelta(minutes=i*5),
-                Decimal(str(pnl))
+                base_time - timedelta(minutes=i * 5), Decimal(str(pnl))
             )
 
         # Calculate correlation
@@ -165,7 +149,7 @@ class TestBehaviorPnLCorrelator:
 
         # Strongly correlated data
         x = list(range(10))
-        y = [i*2 for i in range(10)]
+        y = [i * 2 for i in range(10)]
 
         p_value = correlator._calculate_p_value(x, y, n_permutations=100)
 
@@ -176,7 +160,9 @@ class TestBehaviorPnLCorrelator:
         x_random = list(range(10))
         y_random = np.random.random(10).tolist()
 
-        p_value_random = correlator._calculate_p_value(x_random, y_random, n_permutations=100)
+        p_value_random = correlator._calculate_p_value(
+            x_random, y_random, n_permutations=100
+        )
 
         # Should have higher p-value for random data
         assert p_value_random > p_value
@@ -200,16 +186,13 @@ class TestBehaviorPnLCorrelator:
         for behavior in ["latency", "cancel_rate", "switch_count"]:
             for i in range(5):
                 correlator.add_behavior_data(
-                    behavior,
-                    base_time - timedelta(minutes=i*5),
-                    100 + i*10
+                    behavior, base_time - timedelta(minutes=i * 5), 100 + i * 10
                 )
 
         # Add P&L data
         for i in range(5):
             correlator.add_pnl_data(
-                base_time - timedelta(minutes=i*5),
-                Decimal(str(50 + i*5))
+                base_time - timedelta(minutes=i * 5), Decimal(str(50 + i * 5))
             )
 
         # Get all correlations
@@ -233,7 +216,7 @@ class TestBehaviorPnLCorrelator:
                 p_value=0.01,
                 sample_size=50,
                 significance_level="high",
-                impact_direction="negative"
+                impact_direction="negative",
             ),
             "revenge_trading_30": CorrelationResult(
                 behavior_type="revenge_trading",
@@ -241,7 +224,7 @@ class TestBehaviorPnLCorrelator:
                 p_value=0.03,
                 sample_size=40,
                 significance_level="medium",
-                impact_direction="negative"
+                impact_direction="negative",
             ),
             "focus_30": CorrelationResult(
                 behavior_type="focus",
@@ -249,15 +232,15 @@ class TestBehaviorPnLCorrelator:
                 p_value=0.02,
                 sample_size=45,
                 significance_level="medium",
-                impact_direction="positive"
-            )
+                impact_direction="positive",
+            ),
         }
 
         # Mock behavior data to avoid validation errors
         correlator.behavior_data = {
             "high_latency": [{"timestamp": datetime.utcnow(), "value": 100}],
             "revenge_trading": [{"timestamp": datetime.utcnow(), "value": 100}],
-            "focus": [{"timestamp": datetime.utcnow(), "value": 100}]
+            "focus": [{"timestamp": datetime.utcnow(), "value": 100}],
         }
 
         correlator.pnl_data = [{"timestamp": datetime.utcnow(), "pnl": 100}]
@@ -279,19 +262,16 @@ class TestBehaviorPnLCorrelator:
             # High latency for first 10, low for next 10
             latency = 200 if i < 10 else 50
             correlator.add_behavior_data(
-                "latency",
-                base_time - timedelta(minutes=i),
-                latency
+                "latency", base_time - timedelta(minutes=i), latency
             )
 
             # Low P&L with high latency, high P&L with low latency
             pnl = -50 if i < 10 else 100
-            correlator.add_pnl_data(
-                base_time - timedelta(minutes=i),
-                Decimal(str(pnl))
-            )
+            correlator.add_pnl_data(base_time - timedelta(minutes=i), Decimal(str(pnl)))
 
-        impact = correlator.calculate_behavior_impact("latency", threshold_percentile=50)
+        impact = correlator.calculate_behavior_impact(
+            "latency", threshold_percentile=50
+        )
 
         assert impact.behavior == "latency"
         assert impact.average_pnl_with < impact.average_pnl_without
@@ -312,33 +292,25 @@ class TestBehaviorPnLCorrelator:
 
         # Critical loss pattern
         rec = correlator._generate_impact_recommendation(
-            "rapid_clicking",
-            Decimal("-150"),
-            15
+            "rapid_clicking", Decimal("-150"), 15
         )
         assert "Critical" in rec
 
         # Warning level
         rec = correlator._generate_impact_recommendation(
-            "high_cancel_rate",
-            Decimal("-75"),
-            8
+            "high_cancel_rate", Decimal("-75"), 8
         )
         assert "Warning" in rec
 
         # Positive pattern
         rec = correlator._generate_impact_recommendation(
-            "steady_pace",
-            Decimal("75"),
-            12
+            "steady_pace", Decimal("75"), 12
         )
         assert "Positive" in rec
 
         # Neutral
         rec = correlator._generate_impact_recommendation(
-            "some_metric",
-            Decimal("10"),
-            5
+            "some_metric", Decimal("10"), 5
         )
         assert "Neutral" in rec
 

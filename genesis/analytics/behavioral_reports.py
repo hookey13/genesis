@@ -352,7 +352,9 @@ class WeeklyBehavioralReportGenerator:
 
         return comparison
 
-    def _compare_to_baseline(self, current: WeeklyMetrics) -> Optional[dict[str, float]]:
+    def _compare_to_baseline(
+        self, current: WeeklyMetrics
+    ) -> Optional[dict[str, float]]:
         """
         Compare current week to baseline.
 

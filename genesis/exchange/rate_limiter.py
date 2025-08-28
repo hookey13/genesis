@@ -46,9 +46,13 @@ class RateLimiter:
         # Account endpoints
         ("GET", "/api/v3/account"): 10,
         ("GET", "/api/v3/myTrades"): 10,
-
         # Market data endpoints
-        ("GET", "/api/v3/depth"): {"limit <= 100": 1, "limit <= 500": 5, "limit <= 1000": 10, "limit > 1000": 50},
+        ("GET", "/api/v3/depth"): {
+            "limit <= 100": 1,
+            "limit <= 500": 5,
+            "limit <= 1000": 10,
+            "limit > 1000": 50,
+        },
         ("GET", "/api/v3/trades"): 1,
         ("GET", "/api/v3/historicalTrades"): 5,
         ("GET", "/api/v3/aggTrades"): 1,
@@ -56,7 +60,6 @@ class RateLimiter:
         ("GET", "/api/v3/ticker/24hr"): {"symbol": 1, "no symbol": 40},
         ("GET", "/api/v3/ticker/price"): {"symbol": 1, "no symbol": 2},
         ("GET", "/api/v3/ticker/bookTicker"): {"symbol": 1, "no symbol": 2},
-
         # Trading endpoints
         ("POST", "/api/v3/order"): 1,
         ("DELETE", "/api/v3/order"): 1,
@@ -64,14 +67,18 @@ class RateLimiter:
         ("DELETE", "/api/v3/openOrders"): 1,
         ("GET", "/api/v3/openOrders"): {"symbol": 3, "no symbol": 40},
         ("GET", "/api/v3/allOrders"): 10,
-
         # System endpoints
         ("GET", "/api/v3/ping"): 1,
         ("GET", "/api/v3/time"): 1,
         ("GET", "/api/v3/exchangeInfo"): 10,
     }
 
-    def __init__(self, max_weight: int = 1200, window_seconds: int = 60, threshold_percent: float = 80.0):
+    def __init__(
+        self,
+        max_weight: int = 1200,
+        window_seconds: int = 60,
+        threshold_percent: float = 80.0,
+    ):
         """
         Initialize the rate limiter.
 
@@ -102,7 +109,7 @@ class RateLimiter:
             "RateLimiter initialized",
             max_weight=self.max_weight,
             window_seconds=self.window_seconds,
-            threshold_weight=self.threshold_weight
+            threshold_weight=self.threshold_weight,
         )
 
     def _clean_old_weights(self) -> None:
@@ -114,7 +121,9 @@ class RateLimiter:
             old_weight = self.weight_history.popleft()
             self.current_weight -= old_weight.weight
 
-    def _get_endpoint_weight(self, method: str, endpoint: str, params: Optional[dict] = None) -> int:
+    def _get_endpoint_weight(
+        self, method: str, endpoint: str, params: Optional[dict] = None
+    ) -> int:
         """
         Get the weight for a specific endpoint.
 
@@ -150,7 +159,9 @@ class RateLimiter:
 
         return weight_config if isinstance(weight_config, int) else 1
 
-    async def check_and_wait(self, method: str, endpoint: str, params: Optional[dict] = None) -> None:
+    async def check_and_wait(
+        self, method: str, endpoint: str, params: Optional[dict] = None
+    ) -> None:
         """
         Check rate limit and wait if necessary.
 
@@ -173,7 +184,7 @@ class RateLimiter:
                 "Rate limiter in backoff",
                 wait_seconds=wait_time,
                 current_weight=self.current_weight,
-                max_weight=self.max_weight
+                max_weight=self.max_weight,
             )
             await asyncio.sleep(wait_time)
             self.backoff_until = None
@@ -184,7 +195,9 @@ class RateLimiter:
             self.consecutive_threshold_hits += 1
 
             # Calculate backoff time based on consecutive hits
-            backoff_seconds = min(2 ** self.consecutive_threshold_hits, 30)  # Max 30 seconds
+            backoff_seconds = min(
+                2**self.consecutive_threshold_hits, 30
+            )  # Max 30 seconds
 
             logger.warning(
                 "Rate limit threshold reached, applying backoff",
@@ -192,7 +205,7 @@ class RateLimiter:
                 threshold_weight=self.threshold_weight,
                 max_weight=self.max_weight,
                 backoff_seconds=backoff_seconds,
-                consecutive_hits=self.consecutive_threshold_hits
+                consecutive_hits=self.consecutive_threshold_hits,
             )
 
             self.backoff_until = current_time + backoff_seconds
@@ -202,7 +215,9 @@ class RateLimiter:
             self._clean_old_weights()
         else:
             # Reset consecutive hits if we're below threshold
-            if self.current_weight + weight < self.threshold_weight * 0.5:  # Below 50% of threshold
+            if (
+                self.current_weight + weight < self.threshold_weight * 0.5
+            ):  # Below 50% of threshold
                 self.consecutive_threshold_hits = 0
 
         # Add weight to history
@@ -219,7 +234,7 @@ class RateLimiter:
                 current_weight=self.current_weight,
                 max_weight=self.max_weight,
                 utilization_percent=utilization,
-                endpoint=endpoint
+                endpoint=endpoint,
             )
 
     def get_current_utilization(self) -> float:
@@ -268,5 +283,7 @@ class RateLimiter:
             "threshold_hits": self.threshold_hits,
             "consecutive_threshold_hits": self.consecutive_threshold_hits,
             "in_backoff": self.backoff_until is not None,
-            "backoff_remaining": max(0, self.backoff_until - time.time()) if self.backoff_until else 0
+            "backoff_remaining": (
+                max(0, self.backoff_until - time.time()) if self.backoff_until else 0
+            ),
         }

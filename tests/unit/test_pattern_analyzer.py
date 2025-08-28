@@ -36,7 +36,7 @@ class TestWinLossPattern:
             average_win_duration_hours=Decimal("24"),
             average_loss_duration_hours=Decimal("12"),
             median_win_duration_hours=Decimal("20"),
-            median_loss_duration_hours=Decimal("10")
+            median_loss_duration_hours=Decimal("10"),
         )
 
         assert pattern.total_trades == 100
@@ -65,7 +65,7 @@ class TestWinLossPattern:
             median_win_duration_hours=Decimal("16"),
             median_loss_duration_hours=Decimal("7"),
             win_rate_by_hour={12: Decimal("0.7"), 14: Decimal("0.5")},
-            close_reason_distribution={"stop_loss": 10, "take_profit": 20}
+            close_reason_distribution={"stop_loss": 10, "take_profit": 20},
         )
 
         result = pattern.to_dict()
@@ -95,19 +95,21 @@ class TestPatternAnalyzer:
         pnl_values = [100, 150, 120, -80, -60, 200, -100, 180, 90, -70]
 
         for i, pnl in enumerate(pnl_values):
-            trades.append(Trade(
-                trade_id=f"trade_{i}",
-                order_id=f"order_{i}",
-                strategy_id="test_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY if pnl > 0 else OrderSide.SELL,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000") if pnl > 0 else Decimal("49000"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=Decimal(str(pnl)),
-                pnl_percent=Decimal(str(pnl / 100)),
-                timestamp=base_time + timedelta(hours=i)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"trade_{i}",
+                    order_id=f"order_{i}",
+                    strategy_id="test_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY if pnl > 0 else OrderSide.SELL,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000") if pnl > 0 else Decimal("49000"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=Decimal(str(pnl)),
+                    pnl_percent=Decimal(str(pnl / 100)),
+                    timestamp=base_time + timedelta(hours=i),
+                )
+            )
 
         return trades
 
@@ -129,7 +131,7 @@ class TestPatternAnalyzer:
                 pnl_dollars=Decimal("100") if i % 2 == 0 else Decimal("-50"),
                 pnl_percent=Decimal("2") if i % 2 == 0 else Decimal("-1"),
                 created_at=base_time,
-                updated_at=base_time + timedelta(hours=24 if i % 2 == 0 else 12)
+                updated_at=base_time + timedelta(hours=24 if i % 2 == 0 else 12),
             )
             # Add close_reason attribute
             if i == 0:
@@ -192,7 +194,9 @@ class TestPatternAnalyzer:
         # Expectancy: (0.6 * 140) - (0.4 * 77.5) = 84 - 31 = 53
         assert abs(pattern.expectancy - Decimal("53")) < Decimal("1")
 
-    def test_analyze_durations_with_positions(self, analyzer, sample_trades, sample_positions):
+    def test_analyze_durations_with_positions(
+        self, analyzer, sample_trades, sample_positions
+    ):
         """Test duration analysis with position data."""
         pattern = analyzer.analyze_patterns(sample_trades, sample_positions)
 
@@ -218,35 +222,39 @@ class TestPatternAnalyzer:
 
         # Morning trades (9-11 AM): mostly wins
         for i in range(5):
-            trades.append(Trade(
-                trade_id=f"morning_{i}",
-                order_id=f"order_morning_{i}",
-                strategy_id="test",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=Decimal("100") if i < 4 else Decimal("-50"),
-                pnl_percent=Decimal("2"),
-                timestamp=base_date.replace(hour=9 + i % 3)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"morning_{i}",
+                    order_id=f"order_morning_{i}",
+                    strategy_id="test",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=Decimal("100") if i < 4 else Decimal("-50"),
+                    pnl_percent=Decimal("2"),
+                    timestamp=base_date.replace(hour=9 + i % 3),
+                )
+            )
 
         # Afternoon trades (14-16 PM): mostly losses
         for i in range(5):
-            trades.append(Trade(
-                trade_id=f"afternoon_{i}",
-                order_id=f"order_afternoon_{i}",
-                strategy_id="test",
-                symbol="BTC/USDT",
-                side=OrderSide.SELL,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("49000"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=Decimal("-50") if i < 4 else Decimal("100"),
-                pnl_percent=Decimal("-1"),
-                timestamp=base_date.replace(hour=14 + i % 3)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"afternoon_{i}",
+                    order_id=f"order_afternoon_{i}",
+                    strategy_id="test",
+                    symbol="BTC/USDT",
+                    side=OrderSide.SELL,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("49000"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=Decimal("-50") if i < 4 else Decimal("100"),
+                    pnl_percent=Decimal("-1"),
+                    timestamp=base_date.replace(hour=14 + i % 3),
+                )
+            )
 
         pattern = analyzer.analyze_patterns(trades)
 
@@ -255,10 +263,12 @@ class TestPatternAnalyzer:
         assert 14 in pattern.win_rate_by_hour
 
         # Morning hours should have higher win rate
-        morning_win_rates = [pattern.win_rate_by_hour.get(h, Decimal("0"))
-                            for h in [9, 10, 11]]
-        afternoon_win_rates = [pattern.win_rate_by_hour.get(h, Decimal("0"))
-                              for h in [14, 15, 16]]
+        morning_win_rates = [
+            pattern.win_rate_by_hour.get(h, Decimal("0")) for h in [9, 10, 11]
+        ]
+        afternoon_win_rates = [
+            pattern.win_rate_by_hour.get(h, Decimal("0")) for h in [14, 15, 16]
+        ]
 
         assert max(morning_win_rates) > max(afternoon_win_rates)
 
@@ -285,19 +295,21 @@ class TestPatternAnalyzer:
         pnl_sequence = [-100, 150, -80, 70, -50, 200]
 
         for i, pnl in enumerate(pnl_sequence):
-            trades.append(Trade(
-                trade_id=f"trade_{i}",
-                order_id=f"order_{i}",
-                strategy_id="test",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=Decimal(str(pnl)),
-                pnl_percent=Decimal("1"),
-                timestamp=base_time + timedelta(hours=i)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"trade_{i}",
+                    order_id=f"order_{i}",
+                    strategy_id="test",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=Decimal(str(pnl)),
+                    pnl_percent=Decimal("1"),
+                    timestamp=base_time + timedelta(hours=i),
+                )
+            )
 
         pattern = analyzer.analyze_patterns(trades)
 
@@ -332,15 +344,15 @@ class TestPatternAnalyzer:
                 11: Decimal("0.65"),
                 14: Decimal("0.35"),
                 15: Decimal("0.30"),
-                16: Decimal("0.40")
+                16: Decimal("0.40"),
             },
             win_rate_by_day_of_week={
                 0: Decimal("0.65"),  # Monday
                 1: Decimal("0.70"),  # Tuesday
                 2: Decimal("0.55"),  # Wednesday
                 3: Decimal("0.35"),  # Thursday
-                4: Decimal("0.45")   # Friday
-            }
+                4: Decimal("0.45"),  # Friday
+            },
         )
 
         best_times = analyzer.identify_best_trading_times(pattern)

@@ -55,21 +55,45 @@ class TestLiquidityScanner:
     def test_categorize_by_volume(self, liquidity_scanner):
         """Test volume categorization logic."""
         # Test LOW tier
-        assert liquidity_scanner.categorize_by_volume(Decimal("50000")) == LiquidityTier.LOW
-        assert liquidity_scanner.categorize_by_volume(Decimal("99999")) == LiquidityTier.LOW
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("50000"))
+            == LiquidityTier.LOW
+        )
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("99999"))
+            == LiquidityTier.LOW
+        )
 
         # Test MEDIUM tier
-        assert liquidity_scanner.categorize_by_volume(Decimal("100000")) == LiquidityTier.MEDIUM
-        assert liquidity_scanner.categorize_by_volume(Decimal("500000")) == LiquidityTier.MEDIUM
-        assert liquidity_scanner.categorize_by_volume(Decimal("999999")) == LiquidityTier.MEDIUM
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("100000"))
+            == LiquidityTier.MEDIUM
+        )
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("500000"))
+            == LiquidityTier.MEDIUM
+        )
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("999999"))
+            == LiquidityTier.MEDIUM
+        )
 
         # Test HIGH tier
-        assert liquidity_scanner.categorize_by_volume(Decimal("1000000")) == LiquidityTier.HIGH
-        assert liquidity_scanner.categorize_by_volume(Decimal("10000000")) == LiquidityTier.HIGH
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("1000000"))
+            == LiquidityTier.HIGH
+        )
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("10000000"))
+            == LiquidityTier.HIGH
+        )
 
         # Test edge cases
         assert liquidity_scanner.categorize_by_volume(Decimal("0")) == LiquidityTier.LOW
-        assert liquidity_scanner.categorize_by_volume(Decimal("-1000")) == LiquidityTier.LOW
+        assert (
+            liquidity_scanner.categorize_by_volume(Decimal("-1000"))
+            == LiquidityTier.LOW
+        )
 
     @pytest.mark.asyncio
     async def test_analyze_order_book_depth(self, liquidity_scanner, mock_session):
@@ -77,18 +101,12 @@ class TestLiquidityScanner:
         # Mock API response
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "bids": [
-                ["50000", "1.5"],
-                ["49999", "2.0"],
-                ["49998", "1.0"]
-            ],
-            "asks": [
-                ["50001", "1.2"],
-                ["50002", "1.8"],
-                ["50003", "2.5"]
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "bids": [["50000", "1.5"], ["49999", "2.0"], ["49998", "1.0"]],
+                "asks": [["50001", "1.2"], ["50002", "1.8"], ["50003", "2.5"]],
+            }
+        )
         mock_session.get.return_value.__aenter__.return_value = mock_response
 
         result = await liquidity_scanner.analyze_order_book_depth("BTCUSDT", levels=3)
@@ -99,18 +117,24 @@ class TestLiquidityScanner:
         assert result["levels"] == 3
 
         # Calculate expected depths
-        expected_bid_depth = (Decimal("50000") * Decimal("1.5") +
-                              Decimal("49999") * Decimal("2.0") +
-                              Decimal("49998") * Decimal("1.0"))
-        expected_ask_depth = (Decimal("50001") * Decimal("1.2") +
-                              Decimal("50002") * Decimal("1.8") +
-                              Decimal("50003") * Decimal("2.5"))
+        expected_bid_depth = (
+            Decimal("50000") * Decimal("1.5")
+            + Decimal("49999") * Decimal("2.0")
+            + Decimal("49998") * Decimal("1.0")
+        )
+        expected_ask_depth = (
+            Decimal("50001") * Decimal("1.2")
+            + Decimal("50002") * Decimal("1.8")
+            + Decimal("50003") * Decimal("2.5")
+        )
 
         assert result["bid_depth"] == expected_bid_depth
         assert result["ask_depth"] == expected_ask_depth
 
     @pytest.mark.asyncio
-    async def test_analyze_order_book_depth_error(self, liquidity_scanner, mock_session):
+    async def test_analyze_order_book_depth_error(
+        self, liquidity_scanner, mock_session
+    ):
         """Test order book depth analysis with API error."""
         # Mock API error response
         mock_response = AsyncMock()
@@ -130,32 +154,32 @@ class TestLiquidityScanner:
                 "symbol": "BTCUSDT",
                 "quoteVolume": "5000000",
                 "bidPrice": "50000",
-                "askPrice": "50010"
+                "askPrice": "50010",
             },
             {
                 "symbol": "ETHUSDT",
                 "quoteVolume": "2000000",
                 "bidPrice": "3000",
-                "askPrice": "3001"
+                "askPrice": "3001",
             },
             {
                 "symbol": "DOGEUSDT",
                 "quoteVolume": "50000",
                 "bidPrice": "0.10",
-                "askPrice": "0.1001"
+                "askPrice": "0.1001",
             },
             {
                 "symbol": "BTCETH",  # Non-USDT pair, should be skipped
                 "quoteVolume": "100000",
                 "bidPrice": "16",
-                "askPrice": "16.01"
+                "askPrice": "16.01",
             },
             {
                 "symbol": "SHIBUSDT",  # Low volume, should be skipped
                 "quoteVolume": "5000",
                 "bidPrice": "0.00001",
-                "askPrice": "0.000011"
-            }
+                "askPrice": "0.000011",
+            },
         ]
 
         # Mock ticker response
@@ -166,17 +190,16 @@ class TestLiquidityScanner:
         # Mock depth response
         depth_response = AsyncMock()
         depth_response.status = 200
-        depth_response.json = AsyncMock(return_value={
-            "bids": [["1", "100"]],
-            "asks": [["1.01", "100"]]
-        })
+        depth_response.json = AsyncMock(
+            return_value={"bids": [["1", "100"]], "asks": [["1.01", "100"]]}
+        )
 
         # Configure mock session
         mock_session.get.return_value.__aenter__.side_effect = [
             ticker_response,  # First call for ticker data
-            depth_response,    # Subsequent calls for depth
+            depth_response,  # Subsequent calls for depth
             depth_response,
-            depth_response
+            depth_response,
         ]
 
         results = await liquidity_scanner.scan_all_pairs()
@@ -237,7 +260,9 @@ class TestSpreadPersistenceTracker:
             spread_tracker.record_spread("BTCUSDT", 15, now + timedelta(minutes=i))
 
         score = spread_tracker.calculate_spread_persistence_score("BTCUSDT")
-        assert score > Decimal("50")  # Should be high due to consistent profitable spreads
+        assert score > Decimal(
+            "50"
+        )  # Should be high due to consistent profitable spreads
 
         # Add unprofitable spreads (< 10 bps)
         for i in range(10, 20):
@@ -275,7 +300,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("10000"),
                 tier=LiquidityTier.LOW,
                 depth_score=Decimal("80"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             ),
             "DOGEUSDT": LiquidityMetrics(
                 symbol="DOGEUSDT",
@@ -285,7 +310,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("15000"),
                 tier=LiquidityTier.LOW,
                 depth_score=Decimal("75"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             ),
             "MATICUSDT": LiquidityMetrics(
                 symbol="MATICUSDT",
@@ -295,7 +320,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.MEDIUM,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             ),
             "BTCUSDT": LiquidityMetrics(
                 symbol="BTCUSDT",
@@ -305,7 +330,7 @@ class TestPairRecommendationEngine:
                 ask_depth_10=Decimal("1000000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("100"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             ),
         }
 
@@ -376,7 +401,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("100000"),
             tier=LiquidityTier.HIGH,
             depth_score=Decimal("90"),
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
         historical = [
@@ -388,7 +413,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("95000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("88"),
-                timestamp=datetime.now(UTC) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i),
             )
             for i in range(1, 6)
         ]
@@ -406,7 +431,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("70000"),
             tier=LiquidityTier.HIGH,
             depth_score=Decimal("65"),  # 28% reduction
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
         historical = [
@@ -418,7 +443,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(UTC) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i),
             )
             for i in range(1, 6)
         ]
@@ -436,7 +461,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("40000"),
             tier=LiquidityTier.HIGH,
             depth_score=Decimal("40"),  # 55% reduction
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
         historical = [
@@ -448,7 +473,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(UTC) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i),
             )
             for i in range(1, 6)
         ]
@@ -466,7 +491,7 @@ class TestPairHealthMonitor:
             ask_depth_10=Decimal("10000"),
             tier=LiquidityTier.MEDIUM,
             depth_score=Decimal("20"),
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
         historical = [
@@ -478,7 +503,7 @@ class TestPairHealthMonitor:
                 ask_depth_10=Decimal("100000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now(UTC) - timedelta(hours=i)
+                timestamp=datetime.now(UTC) - timedelta(hours=i),
             )
             for i in range(1, 6)
         ]
@@ -500,7 +525,7 @@ class TestPairHealthMonitor:
             "reason": "test",
             "consecutive_losses": 5,
             "blacklisted_at": datetime.now(UTC) - timedelta(days=31),
-            "expires_at": datetime.now(UTC) - timedelta(days=1)  # Expired yesterday
+            "expires_at": datetime.now(UTC) - timedelta(days=1),  # Expired yesterday
         }
 
         # Should not be blacklisted (expired)

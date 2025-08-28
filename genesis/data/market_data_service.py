@@ -29,6 +29,7 @@ logger = structlog.get_logger(__name__)
 
 class MarketState(str, Enum):
     """Market state classification."""
+
     DEAD = "DEAD"  # Very low volume/activity
     NORMAL = "NORMAL"  # Regular trading conditions
     VOLATILE = "VOLATILE"  # High volatility detected
@@ -39,6 +40,7 @@ class MarketState(str, Enum):
 @dataclass
 class Tick:
     """Single price tick."""
+
     symbol: str
     price: Decimal
     quantity: Decimal
@@ -49,6 +51,7 @@ class Tick:
 @dataclass
 class Candle:
     """OHLCV candle data."""
+
     symbol: str
     open: Decimal
     high: Decimal
@@ -62,6 +65,7 @@ class Candle:
 @dataclass
 class OrderBookLevel:
     """Single order book level."""
+
     price: Decimal
     quantity: Decimal
 
@@ -73,6 +77,7 @@ class OrderBookLevel:
 @dataclass
 class OrderBook:
     """Order book with bid/ask levels."""
+
     symbol: str
     bids: list[OrderBookLevel] = field(default_factory=list)
     asks: list[OrderBookLevel] = field(default_factory=list)
@@ -117,6 +122,7 @@ class OrderBook:
 @dataclass
 class VolumeProfile:
     """Volume profile by time of day."""
+
     symbol: str
     hour_volumes: dict[int, Decimal] = field(default_factory=dict)
     rolling_24h_volume: Decimal = Decimal("0")
@@ -137,7 +143,9 @@ class VolumeProfile:
             self.rolling_24h_volume = total
             self.average_hourly_volume = total / Decimal(str(len(self.hour_volumes)))
 
-    def is_volume_anomaly(self, current_volume: Decimal, threshold: Decimal = Decimal("2")) -> bool:
+    def is_volume_anomaly(
+        self, current_volume: Decimal, threshold: Decimal = Decimal("2")
+    ) -> bool:
         """Check if current volume is anomalous."""
         if self.average_hourly_volume > 0:
             ratio = current_volume / self.average_hourly_volume
@@ -158,7 +166,7 @@ class MarketDataService:
         websocket_manager: Optional[WebSocketManager] = None,
         gateway: Optional[BinanceGateway] = None,
         event_bus: Optional[EventBus] = None,
-        repository: Optional['Repository'] = None
+        repository: Optional["Repository"] = None,
     ):
         """
         Initialize the Market Data Service.
@@ -329,7 +337,9 @@ class MarketDataService:
 
         # Check volume
         if volume_profile:
-            is_low_volume = volume_profile.rolling_24h_volume < Decimal("10000")  # Threshold
+            is_low_volume = volume_profile.rolling_24h_volume < Decimal(
+                "10000"
+            )  # Threshold
             is_volume_anomaly = volume_profile.is_volume_anomaly(
                 volume_profile.rolling_24h_volume
             )
@@ -366,7 +376,7 @@ class MarketDataService:
                 price=Decimal(trade_data.get("p", "0")),
                 quantity=Decimal(trade_data.get("q", "0")),
                 timestamp=trade_data.get("T", 0) / 1000.0,
-                is_buyer_maker=trade_data.get("m", False)
+                is_buyer_maker=trade_data.get("m", False),
             )
 
             # Update current price
@@ -387,8 +397,8 @@ class MarketDataService:
                         "symbol": symbol,
                         "price": str(tick.price),
                         "quantity": str(tick.quantity),
-                        "timestamp": tick.timestamp
-                    }
+                        "timestamp": tick.timestamp,
+                    },
                 )
                 await self.event_bus.publish(event, EventPriority.NORMAL)
 
@@ -410,17 +420,15 @@ class MarketDataService:
 
             # Parse bids
             for bid in depth_data.get("bids", [])[:5]:
-                order_book.bids.append(OrderBookLevel(
-                    price=Decimal(bid[0]),
-                    quantity=Decimal(bid[1])
-                ))
+                order_book.bids.append(
+                    OrderBookLevel(price=Decimal(bid[0]), quantity=Decimal(bid[1]))
+                )
 
             # Parse asks
             for ask in depth_data.get("asks", [])[:5]:
-                order_book.asks.append(OrderBookLevel(
-                    price=Decimal(ask[0]),
-                    quantity=Decimal(ask[1])
-                ))
+                order_book.asks.append(
+                    OrderBookLevel(price=Decimal(ask[0]), quantity=Decimal(ask[1]))
+                )
 
             # Store order book
             self.order_books[symbol] = order_book
@@ -429,8 +437,14 @@ class MarketDataService:
             if order_book.best_bid() and order_book.best_ask():
                 # Update spread tracker
                 orderbook_dict = {
-                    "bids": [[str(level.price), str(level.quantity)] for level in order_book.bids],
-                    "asks": [[str(level.price), str(level.quantity)] for level in order_book.asks]
+                    "bids": [
+                        [str(level.price), str(level.quantity)]
+                        for level in order_book.bids
+                    ],
+                    "asks": [
+                        [str(level.price), str(level.quantity)]
+                        for level in order_book.asks
+                    ],
                 }
 
                 await self.spread_tracker.track_pair_spread(symbol, orderbook_dict)
@@ -438,10 +452,9 @@ class MarketDataService:
             # Track spread history
             spread_bp = order_book.spread_basis_points()
             if spread_bp is not None:
-                self.spread_history[symbol].append({
-                    "timestamp": datetime.now(),
-                    "spread_bp": spread_bp
-                })
+                self.spread_history[symbol].append(
+                    {"timestamp": datetime.now(), "spread_bp": spread_bp}
+                )
 
                 # Check for spread compression
                 if spread_bp < 10:  # Less than 10 basis points
@@ -452,8 +465,8 @@ class MarketDataService:
                             event_data={
                                 "symbol": symbol,
                                 "spread_bp": spread_bp,
-                                "timestamp": datetime.now().isoformat()
-                            }
+                                "timestamp": datetime.now().isoformat(),
+                            },
                         )
                         await self.event_bus.publish(event, EventPriority.HIGH)
 
@@ -466,7 +479,9 @@ class MarketDataService:
             kline_data = data.get("data", {}).get("k", {})
             symbol = kline_data.get("s", "").upper()
 
-            if not symbol or not kline_data.get("x", False):  # Only process closed candles
+            if not symbol or not kline_data.get(
+                "x", False
+            ):  # Only process closed candles
                 return
 
             # Create candle
@@ -478,7 +493,7 @@ class MarketDataService:
                 close=Decimal(kline_data.get("c", "0")),
                 volume=Decimal(kline_data.get("v", "0")),
                 timestamp=datetime.fromtimestamp(kline_data.get("t", 0) / 1000),
-                trades=kline_data.get("n", 0)
+                trades=kline_data.get("n", 0),
             )
 
             # Store candle
@@ -524,7 +539,7 @@ class MarketDataService:
                 "close": tick.price,
                 "volume": tick.quantity,
                 "trades": 1,
-                "minute": minute_start
+                "minute": minute_start,
             }
         else:
             agg = self.candle_aggregators[symbol]
@@ -540,7 +555,7 @@ class MarketDataService:
                     close=agg["close"],
                     volume=agg["volume"],
                     timestamp=agg["minute"],
-                    trades=agg["trades"]
+                    trades=agg["trades"],
                 )
 
                 # Store candle
@@ -554,7 +569,7 @@ class MarketDataService:
                     "close": tick.price,
                     "volume": tick.quantity,
                     "trades": 1,
-                    "minute": minute_start
+                    "minute": minute_start,
                 }
             else:
                 # Update aggregator
@@ -585,7 +600,7 @@ class MarketDataService:
                             close=agg["close"],
                             volume=agg["volume"],
                             timestamp=agg["minute"],
-                            trades=agg["trades"]
+                            trades=agg["trades"],
                         )
 
                         # Store candle
@@ -621,7 +636,7 @@ class MarketDataService:
                                 "Persistent tight spread detected",
                                 symbol=symbol,
                                 avg_spread=avg_spread,
-                                range=max_spread - min_spread
+                                range=max_spread - min_spread,
                             )
 
             except Exception as e:
@@ -635,7 +650,9 @@ class MarketDataService:
 
                 for symbol, profile in self.volume_profiles.items():
                     current_hour = datetime.now().hour
-                    current_volume = profile.hour_volumes.get(current_hour, Decimal("0"))
+                    current_volume = profile.hour_volumes.get(
+                        current_hour, Decimal("0")
+                    )
 
                     # Check for anomalies
                     if profile.is_volume_anomaly(current_volume):
@@ -646,9 +663,11 @@ class MarketDataService:
                                 event_data={
                                     "symbol": symbol,
                                     "current_volume": str(current_volume),
-                                    "average_volume": str(profile.average_hourly_volume),
-                                    "timestamp": datetime.now().isoformat()
-                                }
+                                    "average_volume": str(
+                                        profile.average_hourly_volume
+                                    ),
+                                    "timestamp": datetime.now().isoformat(),
+                                },
                             )
                             await self.event_bus.publish(event, EventPriority.NORMAL)
 
@@ -659,7 +678,9 @@ class MarketDataService:
             except Exception as e:
                 logger.error("Error in volume analysis task", error=str(e))
 
-    async def _persist_volume_profile(self, symbol: str, profile: VolumeProfile) -> None:
+    async def _persist_volume_profile(
+        self, symbol: str, profile: VolumeProfile
+    ) -> None:
         """
         Persist volume profile to database.
 
@@ -680,32 +701,42 @@ class MarketDataService:
                 profile_id = str(uuid4())
 
                 # Calculate average trade size if possible
-                trade_count = len([t for t in self.ticks.get(symbol, [])
-                                  if datetime.fromtimestamp(t.timestamp).hour == hour])
+                trade_count = len(
+                    [
+                        t
+                        for t in self.ticks.get(symbol, [])
+                        if datetime.fromtimestamp(t.timestamp).hour == hour
+                    ]
+                )
                 avg_trade_size = str(volume / Decimal(str(max(trade_count, 1))))
 
                 # Insert or update volume profile
-                await self.repository.connection.execute("""
+                await self.repository.connection.execute(
+                    """
                     INSERT OR REPLACE INTO volume_profiles
                     (profile_id, symbol, hour, volume, trade_count, average_trade_size, date, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    profile_id,
-                    symbol,
-                    hour,
-                    str(volume),
-                    trade_count,
-                    avg_trade_size,
-                    current_date.isoformat(),
-                    datetime.now().isoformat(),
-                    datetime.now().isoformat()
-                ))
+                """,
+                    (
+                        profile_id,
+                        symbol,
+                        hour,
+                        str(volume),
+                        trade_count,
+                        avg_trade_size,
+                        current_date.isoformat(),
+                        datetime.now().isoformat(),
+                        datetime.now().isoformat(),
+                    ),
+                )
 
             await self.repository.connection.commit()
             logger.debug(f"Persisted volume profile for {symbol}")
 
         except Exception as e:
-            logger.error("Failed to persist volume profile", symbol=symbol, error=str(e))
+            logger.error(
+                "Failed to persist volume profile", symbol=symbol, error=str(e)
+            )
 
     def get_statistics(self) -> dict:
         """Get service statistics."""
@@ -714,15 +745,13 @@ class MarketDataService:
             "tracked_symbols": len(self.current_prices),
             "order_books": len(self.order_books),
             "candle_buffers": {
-                symbol: len(candles)
-                for symbol, candles in self.candles.items()
+                symbol: len(candles) for symbol, candles in self.candles.items()
             },
             "tick_buffers": {
-                symbol: len(ticks)
-                for symbol, ticks in self.ticks.items()
+                symbol: len(ticks) for symbol, ticks in self.ticks.items()
             },
             "market_states": dict(self.market_states),
-            "websocket_stats": self.websocket_manager.get_statistics()
+            "websocket_stats": self.websocket_manager.get_statistics(),
         }
 
     async def get_price_history(self, symbol: str, window_days: int) -> list[Decimal]:
@@ -752,9 +781,7 @@ class MarketDataService:
             # Fetch from exchange if not enough cached data
             if self.gateway:
                 klines = await self.gateway.get_historical_klines(
-                    symbol=symbol,
-                    interval='1m',
-                    limit=min(1000, window_days * 24 * 60)
+                    symbol=symbol, interval="1m", limit=min(1000, window_days * 24 * 60)
                 )
 
                 prices = []
@@ -789,7 +816,9 @@ class MarketDataService:
 
         logger.info(f"Subscribed to {len(symbols)} pairs for multi-pair monitoring")
 
-    def get_correlated_pairs_data(self, pairs: list[tuple[str, str]]) -> dict[str, list[Decimal]]:
+    def get_correlated_pairs_data(
+        self, pairs: list[tuple[str, str]]
+    ) -> dict[str, list[Decimal]]:
         """
         Get current price data for correlated pairs.
 
@@ -830,7 +859,9 @@ class MarketDataService:
 
         await self.subscribe_multi_pair(list(unique_symbols))
 
-        logger.info(f"Started correlation monitoring for {len(pairs)} pair combinations")
+        logger.info(
+            f"Started correlation monitoring for {len(pairs)} pair combinations"
+        )
 
     async def get_all_trading_pairs(self) -> list[str]:
         """
@@ -847,8 +878,10 @@ class MarketDataService:
                 # Filter for active USDT pairs
                 pairs = []
                 for symbol_info in exchange_info.get("symbols", []):
-                    if (symbol_info.get("status") == "TRADING" and
-                        symbol_info.get("quoteAsset") == "USDT"):
+                    if (
+                        symbol_info.get("status") == "TRADING"
+                        and symbol_info.get("quoteAsset") == "USDT"
+                    ):
                         pairs.append(symbol_info.get("symbol"))
 
                 logger.info(f"Retrieved {len(pairs)} active USDT trading pairs")
@@ -860,7 +893,9 @@ class MarketDataService:
             logger.error(f"Failed to get trading pairs: {e}")
             return []
 
-    async def get_order_book_snapshot(self, symbol: str, limit: int = 10) -> Optional[OrderBook]:
+    async def get_order_book_snapshot(
+        self, symbol: str, limit: int = 10
+    ) -> Optional[OrderBook]:
         """
         Get order book snapshot with specified depth.
 
@@ -882,17 +917,15 @@ class MarketDataService:
 
                 # Parse bids
                 for bid in depth_data.get("bids", []):
-                    order_book.bids.append(OrderBookLevel(
-                        price=Decimal(bid[0]),
-                        quantity=Decimal(bid[1])
-                    ))
+                    order_book.bids.append(
+                        OrderBookLevel(price=Decimal(bid[0]), quantity=Decimal(bid[1]))
+                    )
 
                 # Parse asks
                 for ask in depth_data.get("asks", []):
-                    order_book.asks.append(OrderBookLevel(
-                        price=Decimal(ask[0]),
-                        quantity=Decimal(ask[1])
-                    ))
+                    order_book.asks.append(
+                        OrderBookLevel(price=Decimal(ask[0]), quantity=Decimal(ask[1]))
+                    )
 
                 # Cache it
                 self.order_books[symbol] = order_book
@@ -907,10 +940,7 @@ class MarketDataService:
             return None
 
     async def get_historical_candles(
-        self,
-        symbol: str,
-        interval: str = "1m",
-        limit: int = 100
+        self, symbol: str, interval: str = "1m", limit: int = 100
     ) -> list[Candle]:
         """
         Get historical candles for volatility calculation.
@@ -941,7 +971,7 @@ class MarketDataService:
                     close=Decimal(str(kline[4])),
                     volume=Decimal(str(kline[5])),
                     timestamp=datetime.fromtimestamp(kline[0] / 1000),
-                    trades=int(kline[8]) if len(kline) > 8 else 0
+                    trades=int(kline[8]) if len(kline) > 8 else 0,
                 )
                 candles.append(candle)
 
@@ -959,9 +989,7 @@ class MarketDataService:
             return []
 
     async def get_volatility_data(
-        self,
-        symbol: str,
-        period: int = 14
+        self, symbol: str, period: int = 14
     ) -> dict[str, Decimal]:
         """
         Get volatility data for market state classification.
@@ -978,7 +1006,9 @@ class MarketDataService:
             candles = await self.get_historical_candles(symbol, "1h", period * 2)
 
             if len(candles) < period:
-                logger.warning(f"Insufficient data for volatility calculation: {len(candles)} < {period}")
+                logger.warning(
+                    f"Insufficient data for volatility calculation: {len(candles)} < {period}"
+                )
                 return {}
 
             # Extract price data
@@ -990,19 +1020,23 @@ class MarketDataService:
             true_ranges = []
             for i in range(1, len(candles)):
                 high_low = candles[i].high - candles[i].low
-                high_close = abs(candles[i].high - candles[i-1].close)
-                low_close = abs(candles[i].low - candles[i-1].close)
+                high_close = abs(candles[i].high - candles[i - 1].close)
+                low_close = abs(candles[i].low - candles[i - 1].close)
                 true_range = max(high_low, high_close, low_close)
                 true_ranges.append(true_range)
 
             # Simple ATR calculation
-            atr = sum(true_ranges[-period:]) / Decimal(period) if true_ranges else Decimal(0)
+            atr = (
+                sum(true_ranges[-period:]) / Decimal(period)
+                if true_ranges
+                else Decimal(0)
+            )
 
             # Calculate realized volatility (simplified)
             returns = []
             for i in range(1, len(close_prices)):
-                if close_prices[i-1] > 0:
-                    ret = (close_prices[i] - close_prices[i-1]) / close_prices[i-1]
+                if close_prices[i - 1] > 0:
+                    ret = (close_prices[i] - close_prices[i - 1]) / close_prices[i - 1]
                     returns.append(ret)
 
             if returns:
@@ -1015,7 +1049,7 @@ class MarketDataService:
             return {
                 "atr": atr,
                 "realized_volatility": realized_vol,
-                "current_price": close_prices[-1] if close_prices else Decimal(0)
+                "current_price": close_prices[-1] if close_prices else Decimal(0),
             }
 
         except Exception as e:
@@ -1023,10 +1057,7 @@ class MarketDataService:
             return {}
 
     async def update_market_state(
-        self,
-        symbol: str,
-        state: MarketState,
-        reason: str = ""
+        self, symbol: str, state: MarketState, reason: str = ""
     ) -> None:
         """
         Update market state for a symbol.
@@ -1049,13 +1080,19 @@ class MarketDataService:
                     "symbol": symbol,
                     "old_state": old_state.value if old_state else None,
                     "new_state": state.value,
-                    "reason": reason
+                    "reason": reason,
                 },
-                priority=EventPriority.HIGH if state == MarketState.PANIC else EventPriority.MEDIUM
+                priority=(
+                    EventPriority.HIGH
+                    if state == MarketState.PANIC
+                    else EventPriority.MEDIUM
+                ),
             )
             await self.event_bus.publish(event)
 
-        logger.info(f"Market state updated for {symbol}: {old_state} -> {state}, reason: {reason}")
+        logger.info(
+            f"Market state updated for {symbol}: {old_state} -> {state}, reason: {reason}"
+        )
 
     async def get_24h_ticker(self, symbol: str) -> dict[str, Decimal]:
         """
@@ -1076,10 +1113,12 @@ class MarketDataService:
             return {
                 "volume": Decimal(str(ticker.get("volume", 0))),
                 "quote_volume": Decimal(str(ticker.get("quoteVolume", 0))),
-                "price_change_percent": Decimal(str(ticker.get("priceChangePercent", 0))),
+                "price_change_percent": Decimal(
+                    str(ticker.get("priceChangePercent", 0))
+                ),
                 "high": Decimal(str(ticker.get("highPrice", 0))),
                 "low": Decimal(str(ticker.get("lowPrice", 0))),
-                "weighted_avg_price": Decimal(str(ticker.get("weightedAvgPrice", 0)))
+                "weighted_avg_price": Decimal(str(ticker.get("weightedAvgPrice", 0))),
             }
 
         except Exception as e:
@@ -1103,12 +1142,18 @@ class MarketDataService:
                     order_imbalance = Decimal("1.0")
                     if symbol in self.order_books:
                         orderbook_dict = {
-                            "bids": [[str(level.price), str(level.quantity)]
-                                    for level in self.order_books[symbol].bids],
-                            "asks": [[str(level.price), str(level.quantity)]
-                                    for level in self.order_books[symbol].asks]
+                            "bids": [
+                                [str(level.price), str(level.quantity)]
+                                for level in self.order_books[symbol].bids
+                            ],
+                            "asks": [
+                                [str(level.price), str(level.quantity)]
+                                for level in self.order_books[symbol].asks
+                            ],
                         }
-                        imbalance = self.spread_analyzer.calculate_order_imbalance(orderbook_dict)
+                        imbalance = self.spread_analyzer.calculate_order_imbalance(
+                            orderbook_dict
+                        )
                         order_imbalance = imbalance.ratio
 
                     # Prepare spread data for persistence
@@ -1120,7 +1165,7 @@ class MarketDataService:
                         "bid_volume": metrics.bid_volume,
                         "ask_volume": metrics.ask_volume,
                         "order_imbalance": order_imbalance,
-                        "timestamp": metrics.timestamp
+                        "timestamp": metrics.timestamp,
                     }
 
                     # Save to database
@@ -1149,5 +1194,7 @@ class MarketDataService:
             "current_metrics": metrics,
             "patterns": patterns,
             "compression_event": compression,
-            "compression_duration": self.spread_analyzer.get_compression_duration(symbol)
+            "compression_duration": self.spread_analyzer.get_compression_duration(
+                symbol
+            ),
         }

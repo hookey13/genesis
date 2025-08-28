@@ -79,7 +79,7 @@ class TestArbitrageSystemIntegration:
         # Create test data
         prices1 = [Decimal(str(100 + i * 0.1)) for i in range(50)]
         prices2 = [Decimal(str(99 + i * 0.1)) for i in range(50)]
-        timestamps = [datetime.now() - timedelta(minutes=50-i) for i in range(50)]
+        timestamps = [datetime.now() - timedelta(minutes=50 - i) for i in range(50)]
 
         # Calculate correlation
         correlation = arb_engine.calculate_correlation(
@@ -101,8 +101,7 @@ class TestArbitrageSystemIntegration:
         # Generate signal if threshold crossed
         if abs(zscore) >= Decimal("2"):
             signal = spread_analyzer.generate_signal(
-                zscore, Decimal("2"), "BTCUSDT", "ETHUSDT",
-                True, Decimal("0.8")
+                zscore, Decimal("2"), "BTCUSDT", "ETHUSDT", True, Decimal("0.8")
             )
 
             if signal:
@@ -113,7 +112,7 @@ class TestArbitrageSystemIntegration:
                     "zscore": signal.zscore,
                     "threshold_sigma": signal.threshold_sigma,
                     "signal_type": signal.signal_type,
-                    "confidence_score": signal.confidence_score
+                    "confidence_score": signal.confidence_score,
                 }
                 signal_id = await test_db.save_arbitrage_signal(signal_dict)
                 assert signal_id is not None
@@ -125,7 +124,7 @@ class TestArbitrageSystemIntegration:
                     zscore=signal.zscore,
                     threshold_sigma=signal.threshold_sigma,
                     signal_type=signal.signal_type,
-                    confidence_score=signal.confidence_score
+                    confidence_score=signal.confidence_score,
                 )
                 await event_bus.publish(event, EventPriority.HIGH)
 
@@ -146,7 +145,7 @@ class TestArbitrageSystemIntegration:
             "zscore": Decimal("2.5"),
             "threshold_sigma": Decimal("2.0"),
             "signal_type": "ENTRY",
-            "confidence_score": Decimal("0.85")
+            "confidence_score": Decimal("0.85"),
         }
 
         signal_id = await test_db.save_arbitrage_signal(signal_data)
@@ -162,14 +161,10 @@ class TestArbitrageSystemIntegration:
         assert signals[0]["confidence_score"] == Decimal("0.85")
 
         # Save spread history
-        await test_db.save_spread_history(
-            "BTCUSDT", "ETHUSDT", Decimal("0.01")
-        )
+        await test_db.save_spread_history("BTCUSDT", "ETHUSDT", Decimal("0.01"))
 
         # Retrieve spread history
-        history = await test_db.get_spread_history(
-            "BTCUSDT", "ETHUSDT", days_back=1
-        )
+        history = await test_db.get_spread_history("BTCUSDT", "ETHUSDT", days_back=1)
 
         assert len(history) == 1
         assert history[0]["spread_value"] == Decimal("0.01")
@@ -192,7 +187,7 @@ class TestArbitrageSystemIntegration:
             zscore=Decimal("2.5"),
             threshold_sigma=Decimal("2.0"),
             signal_type="ENTRY",
-            confidence_score=Decimal("0.85")
+            confidence_score=Decimal("0.85"),
         )
 
         await event_bus.publish(event, EventPriority.HIGH)
@@ -234,7 +229,7 @@ class TestArbitrageSystemIntegration:
             event = Event(
                 event_type=EventType.ARBITRAGE_THRESHOLD_BREACH,
                 aggregate_id=f"{alert['pair1']}:{alert['pair2']}",
-                event_data=alert
+                event_data=alert,
             )
             await event_bus.publish(event, EventPriority.HIGH)
 
@@ -259,7 +254,7 @@ class TestArbitrageSystemIntegration:
             gateway=mock_gateway,
             websocket_manager=mock_ws_manager,
             repository=mock_repo,
-            event_bus=mock_event_bus
+            event_bus=mock_event_bus,
         )
 
         # Mock historical data
@@ -289,7 +284,7 @@ class TestArbitrageSystemIntegration:
         engine = BacktestEngine(
             initial_capital=Decimal("10000"),
             position_size_percent=Decimal("0.1"),
-            transaction_cost_percent=Decimal("0.001")
+            transaction_cost_percent=Decimal("0.001"),
         )
 
         # Create strategy
@@ -297,16 +292,26 @@ class TestArbitrageSystemIntegration:
 
         # Prepare historical data
         historical_data = {}
-        timestamps = [datetime.now() - timedelta(hours=100-i) for i in range(100)]
+        timestamps = [datetime.now() - timedelta(hours=100 - i) for i in range(100)]
 
         # Create DataFrames for backtesting
         for symbol, prices in mock_market_data.items():
-            df = pd.DataFrame({
-                'timestamp': timestamps,
-                'price1': [float(p) for p in prices] if symbol == "BTCUSDT" else [100] * 100,
-                'price2': [100] * 100 if symbol == "BTCUSDT" else [float(p) for p in prices]
-            })
-            df.set_index('timestamp', inplace=True)
+            df = pd.DataFrame(
+                {
+                    "timestamp": timestamps,
+                    "price1": (
+                        [float(p) for p in prices]
+                        if symbol == "BTCUSDT"
+                        else [100] * 100
+                    ),
+                    "price2": (
+                        [100] * 100
+                        if symbol == "BTCUSDT"
+                        else [float(p) for p in prices]
+                    ),
+                }
+            )
+            df.set_index("timestamp", inplace=True)
             historical_data["BTCUSDT:ETHUSDT"] = df
 
         # Run backtest
@@ -319,7 +324,7 @@ class TestArbitrageSystemIntegration:
             start_date=start_date,
             end_date=end_date,
             entry_threshold=Decimal("2"),
-            exit_threshold=Decimal("0.5")
+            exit_threshold=Decimal("0.5"),
         )
 
         # Verify backtest results
@@ -346,7 +351,7 @@ class TestArbitrageSystemIntegration:
                 threshold_sigma=Decimal("2.0"),
                 signal_type="ENTRY",
                 confidence_score=Decimal("0.8"),
-                created_at=base_time - timedelta(minutes=5-i)
+                created_at=base_time - timedelta(minutes=5 - i),
             )
             signals.append(signal)
 
@@ -368,7 +373,7 @@ class TestArbitrageSystemIntegration:
                 threshold_sigma=Decimal("2.0"),
                 signal_type="EXIT",
                 confidence_score=Decimal("0.8"),
-                created_at=base_time
+                created_at=base_time,
             )
         )
 
@@ -412,12 +417,10 @@ class TestArbitrageSystemIntegration:
         price_data = {
             "PAIR1": prices1[-50:],
             "PAIR2": prices2[-50:],
-            "PAIR3": [Decimal(str(50 + i * 0.05)) for i in range(50)]
+            "PAIR3": [Decimal(str(50 + i * 0.05)) for i in range(50)],
         }
 
-        matrix = arb_engine.create_correlation_matrix(
-            symbols, price_data, 50
-        )
+        matrix = arb_engine.create_correlation_matrix(symbols, price_data, 50)
 
         assert matrix.shape == (3, 3)
         assert matrix.loc["PAIR1", "PAIR2"] > 0.8  # High correlation
@@ -433,8 +436,9 @@ class TestArbitrageSystemIntegration:
 
         # Simulated market data over time
         n_periods = 100
-        timestamps = [datetime.now() - timedelta(minutes=n_periods-i)
-                     for i in range(n_periods)]
+        timestamps = [
+            datetime.now() - timedelta(minutes=n_periods - i) for i in range(n_periods)
+        ]
 
         # Generate realistic price movements
         btc_prices = []
@@ -462,39 +466,51 @@ class TestArbitrageSystemIntegration:
 
             # Calculate metrics
             correlation = arb_engine.calculate_correlation(
-                "BTCUSDT", "ETHUSDT", window,
-                btc_prices[i-window:i], eth_prices[i-window:i]
+                "BTCUSDT",
+                "ETHUSDT",
+                window,
+                btc_prices[i - window : i],
+                eth_prices[i - window : i],
             )
 
             zscore = arb_engine.calculate_zscore(
-                btc_prices[i], eth_prices[i], window,
-                btc_prices[i-window:i], eth_prices[i-window:i]
+                btc_prices[i],
+                eth_prices[i],
+                window,
+                btc_prices[i - window : i],
+                eth_prices[i - window : i],
             )
 
             # Check for signal
             if abs(zscore) >= Decimal("2"):
                 is_cointegrated = arb_engine.test_cointegration(
-                    btc_prices[i-50:i] if i >= 50 else btc_prices[:i],
-                    eth_prices[i-50:i] if i >= 50 else eth_prices[:i]
+                    btc_prices[i - 50 : i] if i >= 50 else btc_prices[:i],
+                    eth_prices[i - 50 : i] if i >= 50 else eth_prices[:i],
                 )
 
                 signal = spread_analyzer.generate_signal(
-                    zscore, Decimal("2"), "BTCUSDT", "ETHUSDT",
-                    is_cointegrated, Decimal("0.7")
+                    zscore,
+                    Decimal("2"),
+                    "BTCUSDT",
+                    "ETHUSDT",
+                    is_cointegrated,
+                    Decimal("0.7"),
                 )
 
                 if signal:
                     signals_generated.append(signal)
 
                     # Save to database
-                    await test_db.save_arbitrage_signal({
-                        "pair1_symbol": signal.pair1_symbol,
-                        "pair2_symbol": signal.pair2_symbol,
-                        "zscore": signal.zscore,
-                        "threshold_sigma": signal.threshold_sigma,
-                        "signal_type": signal.signal_type,
-                        "confidence_score": signal.confidence_score
-                    })
+                    await test_db.save_arbitrage_signal(
+                        {
+                            "pair1_symbol": signal.pair1_symbol,
+                            "pair2_symbol": signal.pair2_symbol,
+                            "zscore": signal.zscore,
+                            "threshold_sigma": signal.threshold_sigma,
+                            "signal_type": signal.signal_type,
+                            "confidence_score": signal.confidence_score,
+                        }
+                    )
 
                     # Publish event
                     event = ArbitrageSignalEvent(
@@ -503,16 +519,14 @@ class TestArbitrageSystemIntegration:
                         zscore=signal.zscore,
                         threshold_sigma=signal.threshold_sigma,
                         signal_type=signal.signal_type,
-                        confidence_score=signal.confidence_score
+                        confidence_score=signal.confidence_score,
                     )
                     await event_bus.publish(event, EventPriority.HIGH)
 
             # Save spread history periodically
             if i % 10 == 0:
                 spread = (btc_prices[i] / base_btc) - (eth_prices[i] / base_eth)
-                await test_db.save_spread_history(
-                    "BTCUSDT", "ETHUSDT", spread
-                )
+                await test_db.save_spread_history("BTCUSDT", "ETHUSDT", spread)
 
         # Verify results
         assert len(signals_generated) > 0  # Should have generated some signals

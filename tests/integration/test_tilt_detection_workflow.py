@@ -1,4 +1,5 @@
 """Integration tests for complete tilt detection workflow."""
+
 import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -58,7 +59,7 @@ class TestTiltDetectionWorkflow:
             focus_detector=FocusPatternDetector(),
             inactivity_tracker=InactivityTracker(),
             session_analyzer=SessionAnalyzer(),
-            config_tracker=ConfigurationChangeTracker()
+            config_tracker=ConfigurationChangeTracker(),
         )
 
     @pytest.fixture
@@ -68,12 +69,7 @@ class TestTiltDetectionWorkflow:
 
     @pytest.mark.asyncio
     async def test_normal_behavior_workflow(
-        self,
-        repo,
-        event_bus,
-        profile_manager,
-        tilt_detector,
-        intervention_manager
+        self, repo, event_bus, profile_manager, tilt_detector, intervention_manager
     ):
         """Test workflow with normal behavioral metrics."""
         # Create account and profile
@@ -92,7 +88,7 @@ class TestTiltDetectionWorkflow:
                     metric_name="click_speed",
                     value=50.0 + i % 10 - 5,  # Values around 50
                     timestamp=datetime.now(UTC) - timedelta(hours=i),
-                    context={}
+                    context={},
                 )
             )
 
@@ -105,7 +101,7 @@ class TestTiltDetectionWorkflow:
                 metric_name="click_speed",
                 value=52.0,  # Close to baseline
                 timestamp=datetime.now(UTC),
-                context={}
+                context={},
             )
         ]
 
@@ -123,12 +119,7 @@ class TestTiltDetectionWorkflow:
 
     @pytest.mark.asyncio
     async def test_progressive_tilt_escalation(
-        self,
-        repo,
-        event_bus,
-        profile_manager,
-        tilt_detector,
-        intervention_manager
+        self, repo, event_bus, profile_manager, tilt_detector, intervention_manager
     ):
         """Test progressive escalation through tilt levels."""
         # Create account and profile
@@ -138,10 +129,10 @@ class TestTiltDetectionWorkflow:
         # Mock baseline for testing
         mock_baseline = MagicMock(spec=BehavioralBaseline)
         mock_baseline.get_metric_stats.return_value = {
-            'median': 50.0,
-            'iqr': 10.0,
-            'min': 30.0,
-            'max': 70.0
+            "median": 50.0,
+            "iqr": 10.0,
+            "min": 30.0,
+            "max": 70.0,
         }
 
         profile = MagicMock()
@@ -163,8 +154,8 @@ class TestTiltDetectionWorkflow:
         # Stage 1: Level 1 tilt (2-3 anomalies)
         metrics_level1 = [
             BehavioralMetric("metric_1", 100.0, datetime.now(UTC), {}),  # Anomaly
-            BehavioralMetric("metric_2", 5.0, datetime.now(UTC), {}),    # Anomaly
-            BehavioralMetric("metric_3", 52.0, datetime.now(UTC), {}),   # Normal
+            BehavioralMetric("metric_2", 5.0, datetime.now(UTC), {}),  # Anomaly
+            BehavioralMetric("metric_3", 52.0, datetime.now(UTC), {}),  # Normal
         ]
 
         result = await tilt_detector.detect_tilt_level(profile_id, metrics_level1)
@@ -173,14 +164,12 @@ class TestTiltDetectionWorkflow:
 
         # Apply Level 1 intervention
         await intervention_manager.apply_intervention(
-            profile_id,
-            TiltLevel.LEVEL1,
-            result.tilt_score
+            profile_id, TiltLevel.LEVEL1, result.tilt_score
         )
 
         # Stage 2: Level 2 tilt (4-5 anomalies)
         metrics_level2 = [
-            BehavioralMetric(f"metric_{i}", 100.0 + i*10, datetime.now(UTC), {})
+            BehavioralMetric(f"metric_{i}", 100.0 + i * 10, datetime.now(UTC), {})
             for i in range(4)
         ]
 
@@ -190,15 +179,13 @@ class TestTiltDetectionWorkflow:
 
         # Apply Level 2 intervention
         intervention = await intervention_manager.apply_intervention(
-            profile_id,
-            TiltLevel.LEVEL2,
-            result.tilt_score
+            profile_id, TiltLevel.LEVEL2, result.tilt_score
         )
         assert intervention.position_size_multiplier == Decimal("0.5")
 
         # Stage 3: Level 3 tilt (6+ anomalies)
         metrics_level3 = [
-            BehavioralMetric(f"metric_{i}", 100.0 + i*10, datetime.now(UTC), {})
+            BehavioralMetric(f"metric_{i}", 100.0 + i * 10, datetime.now(UTC), {})
             for i in range(6)
         ]
 
@@ -208,9 +195,7 @@ class TestTiltDetectionWorkflow:
 
         # Apply Level 3 intervention
         intervention = await intervention_manager.apply_intervention(
-            profile_id,
-            TiltLevel.LEVEL3,
-            result.tilt_score
+            profile_id, TiltLevel.LEVEL3, result.tilt_score
         )
         assert intervention.position_size_multiplier == Decimal("0")
         assert intervention_manager.is_trading_locked(profile_id)
@@ -227,12 +212,7 @@ class TestTiltDetectionWorkflow:
 
     @pytest.mark.asyncio
     async def test_tilt_recovery_workflow(
-        self,
-        repo,
-        event_bus,
-        profile_manager,
-        tilt_detector,
-        intervention_manager
+        self, repo, event_bus, profile_manager, tilt_detector, intervention_manager
     ):
         """Test recovery from tilt state."""
         # Create account and profile
@@ -240,16 +220,14 @@ class TestTiltDetectionWorkflow:
         profile_id = await repo.create_tilt_profile(account_id)
 
         # Apply Level 2 intervention
-        await intervention_manager.apply_intervention(
-            profile_id,
-            TiltLevel.LEVEL2,
-            60
-        )
+        await intervention_manager.apply_intervention(profile_id, TiltLevel.LEVEL2, 60)
 
         # Verify intervention is active
         assert len(intervention_manager.get_active_interventions(profile_id)) == 1
         assert not intervention_manager.is_trading_locked(profile_id)
-        assert intervention_manager.get_position_size_multiplier(profile_id) == Decimal("0.5")
+        assert intervention_manager.get_position_size_multiplier(profile_id) == Decimal(
+            "0.5"
+        )
 
         # Manually expire intervention
         for intervention in intervention_manager.active_interventions[profile_id]:
@@ -261,16 +239,13 @@ class TestTiltDetectionWorkflow:
 
         # Verify no active interventions
         assert len(intervention_manager.get_active_interventions(profile_id)) == 0
-        assert intervention_manager.get_position_size_multiplier(profile_id) == Decimal("1.0")
+        assert intervention_manager.get_position_size_multiplier(profile_id) == Decimal(
+            "1.0"
+        )
 
     @pytest.mark.asyncio
     async def test_database_persistence(
-        self,
-        repo,
-        event_bus,
-        profile_manager,
-        tilt_detector,
-        intervention_manager
+        self, repo, event_bus, profile_manager, tilt_detector, intervention_manager
     ):
         """Test that tilt events are persisted to database."""
         # Create account and profile
@@ -285,7 +260,7 @@ class TestTiltDetectionWorkflow:
             "tilt_score_before": 30,
             "tilt_score_after": 60,
             "intervention_message": "Position sizes reduced for safety",
-            "timestamp": datetime.now(UTC)
+            "timestamp": datetime.now(UTC),
         }
 
         # Save event
@@ -308,11 +283,7 @@ class TestTiltDetectionWorkflow:
 
     @pytest.mark.asyncio
     async def test_performance_under_load(
-        self,
-        repo,
-        event_bus,
-        profile_manager,
-        tilt_detector
+        self, repo, event_bus, profile_manager, tilt_detector
     ):
         """Test performance with many concurrent detections."""
         # Create account and profile
@@ -322,10 +293,10 @@ class TestTiltDetectionWorkflow:
         # Mock baseline
         mock_baseline = MagicMock(spec=BehavioralBaseline)
         mock_baseline.get_metric_stats.return_value = {
-            'median': 50.0,
-            'iqr': 10.0,
-            'min': 30.0,
-            'max': 70.0
+            "median": 50.0,
+            "iqr": 10.0,
+            "min": 30.0,
+            "max": 70.0,
         }
 
         profile = MagicMock()
@@ -342,7 +313,7 @@ class TestTiltDetectionWorkflow:
         start_time = asyncio.get_event_loop().time()
 
         tasks = [
-            tilt_detector.detect_tilt_level(profile_id, metrics[i:i+10])
+            tilt_detector.detect_tilt_level(profile_id, metrics[i : i + 10])
             for i in range(0, 100, 10)
         ]
 
@@ -361,22 +332,20 @@ class TestTiltDetectionWorkflow:
         assert total_time_ms < 500  # Should complete in under 500ms total
 
     @pytest.mark.asyncio
-    async def test_event_driven_ui_updates(
-        self,
-        event_bus,
-        intervention_manager
-    ):
+    async def test_event_driven_ui_updates(self, event_bus, intervention_manager):
         """Test that UI components can subscribe to tilt events."""
         # Mock UI component
         ui_updates = []
 
         async def ui_handler(event_type, data):
-            ui_updates.append({
-                'type': event_type,
-                'level': data.get('tilt_level'),
-                'score': data.get('tilt_score'),
-                'message': data.get('message')
-            })
+            ui_updates.append(
+                {
+                    "type": event_type,
+                    "level": data.get("tilt_level"),
+                    "score": data.get("tilt_score"),
+                    "message": data.get("message"),
+                }
+            )
 
         # Subscribe UI handler
         event_bus.subscribe(EventType.TILT_LEVEL1_DETECTED, ui_handler)
@@ -387,20 +356,20 @@ class TestTiltDetectionWorkflow:
         await event_bus.publish(
             EventType.TILT_LEVEL1_DETECTED,
             {
-                'profile_id': 'test',
-                'tilt_level': 'LEVEL1',
-                'tilt_score': 30,
-                'anomaly_count': 2
-            }
+                "profile_id": "test",
+                "tilt_level": "LEVEL1",
+                "tilt_score": 30,
+                "anomaly_count": 2,
+            },
         )
 
         await event_bus.publish(
             EventType.INTERVENTION_APPLIED,
             {
-                'profile_id': 'test',
-                'tilt_level': 'LEVEL1',
-                'message': 'Take a moment to breathe'
-            }
+                "profile_id": "test",
+                "tilt_level": "LEVEL1",
+                "message": "Take a moment to breathe",
+            },
         )
 
         # Wait for events to process
@@ -408,7 +377,7 @@ class TestTiltDetectionWorkflow:
 
         # Verify UI received updates
         assert len(ui_updates) == 2
-        assert ui_updates[0]['type'] == EventType.TILT_LEVEL1_DETECTED
-        assert ui_updates[0]['score'] == 30
-        assert ui_updates[1]['type'] == EventType.INTERVENTION_APPLIED
-        assert 'breathe' in ui_updates[1]['message']
+        assert ui_updates[0]["type"] == EventType.TILT_LEVEL1_DETECTED
+        assert ui_updates[0]["score"] == 30
+        assert ui_updates[1]["type"] == EventType.INTERVENTION_APPLIED
+        assert "breathe" in ui_updates[1]["message"]

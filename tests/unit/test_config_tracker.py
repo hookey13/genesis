@@ -14,8 +14,7 @@ class TestConfigurationChangeTracker:
     def test_initialization(self):
         """Test tracker initialization."""
         tracker = ConfigurationChangeTracker(
-            window_size=50,
-            frequent_change_threshold=5
+            window_size=50, frequent_change_threshold=5
         )
 
         assert tracker.window_size == 50
@@ -54,7 +53,7 @@ class TestConfigurationChangeTracker:
         assert tracker.reverts[0]["setting"] == "leverage"
         assert tracker.reverts[0]["new_value"] == 1
 
-    @patch('genesis.analytics.config_tracker.logger')
+    @patch("genesis.analytics.config_tracker.logger")
     def test_frequent_change_warning(self, mock_logger):
         """Test warning for frequent configuration changes."""
         tracker = ConfigurationChangeTracker(frequent_change_threshold=3)
@@ -94,12 +93,12 @@ class TestConfigurationChangeTracker:
 
         tracker.reverts = [
             {"timestamp": old_time, "setting": "old"},
-            {"timestamp": new_time, "setting": "new"}
+            {"timestamp": new_time, "setting": "new"},
         ]
 
         tracker.setting_history["test"] = [
             {"value": 1, "timestamp": old_time},
-            {"value": 2, "timestamp": new_time}
+            {"value": 2, "timestamp": new_time},
         ]
 
         # Cleanup
@@ -130,14 +129,22 @@ class TestConfigurationChangeTracker:
         # Add recent changes
         now = datetime.utcnow()
         tracker.changes = [
-            {"setting": "position_size", "old_value": 1000, "new_value": 2000, "timestamp": now},
-            {"setting": "position_size", "old_value": 2000, "new_value": 3000, "timestamp": now},
+            {
+                "setting": "position_size",
+                "old_value": 1000,
+                "new_value": 2000,
+                "timestamp": now,
+            },
+            {
+                "setting": "position_size",
+                "old_value": 2000,
+                "new_value": 3000,
+                "timestamp": now,
+            },
             {"setting": "leverage", "old_value": 1, "new_value": 2, "timestamp": now},
         ]
 
-        tracker.reverts = [
-            {"setting": "stop_loss", "timestamp": now}
-        ]
+        tracker.reverts = [{"setting": "stop_loss", "timestamp": now}]
 
         metrics = tracker.get_change_metrics(hours=1)
 
@@ -153,25 +160,19 @@ class TestConfigurationChangeTracker:
 
         # Test stable configuration
         score = tracker._calculate_stability_score(
-            change_frequency=0.5,
-            revert_count=0,
-            total_changes=1
+            change_frequency=0.5, revert_count=0, total_changes=1
         )
         assert score > 80
 
         # Test unstable configuration
         score = tracker._calculate_stability_score(
-            change_frequency=5.0,
-            revert_count=3,
-            total_changes=10
+            change_frequency=5.0, revert_count=3, total_changes=10
         )
         assert score < 50
 
         # Test highly unstable
         score = tracker._calculate_stability_score(
-            change_frequency=10.0,
-            revert_count=8,
-            total_changes=20
+            change_frequency=10.0, revert_count=8, total_changes=20
         )
         assert score < 20
 
@@ -194,10 +195,30 @@ class TestConfigurationChangeTracker:
 
         # Add some changes
         tracker.changes = [
-            {"setting": "position_size", "old_value": 1000, "new_value": 5000, "timestamp": datetime.utcnow()},
-            {"setting": "max_leverage", "old_value": 2, "new_value": 10, "timestamp": datetime.utcnow()},
-            {"setting": "stop_loss", "old_value": 0.05, "new_value": 0.02, "timestamp": datetime.utcnow()},
-            {"setting": "theme", "old_value": "dark", "new_value": "light", "timestamp": datetime.utcnow()},
+            {
+                "setting": "position_size",
+                "old_value": 1000,
+                "new_value": 5000,
+                "timestamp": datetime.utcnow(),
+            },
+            {
+                "setting": "max_leverage",
+                "old_value": 2,
+                "new_value": 10,
+                "timestamp": datetime.utcnow(),
+            },
+            {
+                "setting": "stop_loss",
+                "old_value": 0.05,
+                "new_value": 0.02,
+                "timestamp": datetime.utcnow(),
+            },
+            {
+                "setting": "theme",
+                "old_value": "dark",
+                "new_value": "light",
+                "timestamp": datetime.utcnow(),
+            },
         ]
 
         risky = tracker.get_risky_changes()
@@ -237,7 +258,12 @@ class TestConfigurationChangeTracker:
         # Add various changes
         now = datetime.utcnow()
         tracker.changes = [
-            {"setting": "position_size", "old_value": 1000, "new_value": 2000, "timestamp": now},
+            {
+                "setting": "position_size",
+                "old_value": 1000,
+                "new_value": 2000,
+                "timestamp": now,
+            },
             {"setting": "leverage", "old_value": 1, "new_value": 2, "timestamp": now},
         ]
 
@@ -248,7 +274,12 @@ class TestConfigurationChangeTracker:
         assert "changes_last_hour" in summary
         assert "changes_last_24h" in summary
         assert "recommendation" in summary
-        assert summary["state"] in ["stable", "somewhat_unstable", "unstable", "highly_unstable"]
+        assert summary["state"] in [
+            "stable",
+            "somewhat_unstable",
+            "unstable",
+            "highly_unstable",
+        ]
 
     def test_recommendation_generation(self):
         """Test recommendation based on configuration patterns."""
@@ -263,7 +294,7 @@ class TestConfigurationChangeTracker:
             change_frequency=10.0,
             frequent_settings=["position_size"],
             revert_count=1,
-            stability_score=25.0
+            stability_score=25.0,
         )
         recommendation = tracker._get_recommendation(metrics, [])
         assert "Stop changing settings" in recommendation
@@ -274,7 +305,7 @@ class TestConfigurationChangeTracker:
             change_frequency=3.0,
             frequent_settings=[],
             revert_count=0,
-            stability_score=60.0
+            stability_score=60.0,
         )
         risky = [{"setting": "leverage"}]
         recommendation = tracker._get_recommendation(metrics, risky)
@@ -286,7 +317,7 @@ class TestConfigurationChangeTracker:
             change_frequency=2.0,
             frequent_settings=[],
             revert_count=3,
-            stability_score=50.0
+            stability_score=50.0,
         )
         recommendation = tracker._get_recommendation(metrics, [])
         assert "Commit to settings" in recommendation
@@ -297,7 +328,7 @@ class TestConfigurationChangeTracker:
             change_frequency=0.5,
             frequent_settings=[],
             revert_count=0,
-            stability_score=90.0
+            stability_score=90.0,
         )
         recommendation = tracker._get_recommendation(metrics, [])
         assert "stable" in recommendation

@@ -121,9 +121,7 @@ class EmergencyRecoveryChecklist:
         logger.info("EmergencyRecoveryChecklist initialized")
 
     def create_recovery_checklist(
-        self,
-        emergency_type: str,
-        severity: str = "HIGH"
+        self, emergency_type: str, severity: str = "HIGH"
     ) -> RecoveryChecklist:
         """
         Create a recovery checklist for an emergency type.
@@ -135,12 +133,14 @@ class EmergencyRecoveryChecklist:
         Returns:
             Created recovery checklist
         """
-        checklist_id = f"recovery_{emergency_type}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
+        checklist_id = (
+            f"recovery_{emergency_type}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
+        )
 
         checklist = RecoveryChecklist(
             checklist_id=checklist_id,
             emergency_type=emergency_type,
-            created_at=datetime.now(UTC)
+            created_at=datetime.now(UTC),
         )
 
         # Generate checklist items based on emergency type
@@ -169,7 +169,7 @@ class EmergencyRecoveryChecklist:
             "Recovery checklist created",
             checklist_id=checklist_id,
             emergency_type=emergency_type,
-            items_count=checklist.total_items
+            items_count=checklist.total_items,
         )
 
         return checklist
@@ -185,7 +185,7 @@ class EmergencyRecoveryChecklist:
                 description="Confirm all positions have been closed or secured",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=2
+                estimated_duration_minutes=2,
             ),
             ChecklistItem(
                 item_id="dl_002",
@@ -194,7 +194,7 @@ class EmergencyRecoveryChecklist:
                 description="Ensure no pending orders remain in the system",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=1
+                estimated_duration_minutes=1,
             ),
             ChecklistItem(
                 item_id="dl_003",
@@ -203,9 +203,8 @@ class EmergencyRecoveryChecklist:
                 description="Record exact loss amount and percentage",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=2
+                estimated_duration_minutes=2,
             ),
-
             # ASSESSMENT Phase (5-30 minutes)
             ChecklistItem(
                 item_id="dl_004",
@@ -214,7 +213,7 @@ class EmergencyRecoveryChecklist:
                 description="Analyze trades that led to the loss",
                 critical=False,
                 validation_required=False,
-                estimated_duration_minutes=10
+                estimated_duration_minutes=10,
             ),
             ChecklistItem(
                 item_id="dl_005",
@@ -223,7 +222,7 @@ class EmergencyRecoveryChecklist:
                 description="Document specific events or decisions that caused losses",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=10
+                estimated_duration_minutes=10,
             ),
             ChecklistItem(
                 item_id="dl_006",
@@ -232,9 +231,8 @@ class EmergencyRecoveryChecklist:
                 description="Review system logs for anomalies or errors",
                 critical=False,
                 validation_required=True,
-                estimated_duration_minutes=5
+                estimated_duration_minutes=5,
             ),
-
             # STABILIZATION Phase (30 min - 2 hours)
             ChecklistItem(
                 item_id="dl_007",
@@ -243,7 +241,7 @@ class EmergencyRecoveryChecklist:
                 description="Evaluate and adjust risk limits if necessary",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=15
+                estimated_duration_minutes=15,
             ),
             ChecklistItem(
                 item_id="dl_008",
@@ -252,7 +250,7 @@ class EmergencyRecoveryChecklist:
                 description="Confirm account balance matches expected value",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=5
+                estimated_duration_minutes=5,
             ),
             ChecklistItem(
                 item_id="dl_009",
@@ -261,9 +259,8 @@ class EmergencyRecoveryChecklist:
                 description="Verify all system connections are stable",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=10
+                estimated_duration_minutes=10,
             ),
-
             # RECOVERY Phase (2-24 hours)
             ChecklistItem(
                 item_id="dl_010",
@@ -272,7 +269,7 @@ class EmergencyRecoveryChecklist:
                 description="Write detailed journal entry about the loss event",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=30
+                estimated_duration_minutes=30,
             ),
             ChecklistItem(
                 item_id="dl_011",
@@ -281,7 +278,7 @@ class EmergencyRecoveryChecklist:
                 description="Analyze if strategy modifications are needed",
                 critical=False,
                 validation_required=False,
-                estimated_duration_minutes=60
+                estimated_duration_minutes=60,
             ),
             ChecklistItem(
                 item_id="dl_012",
@@ -290,9 +287,8 @@ class EmergencyRecoveryChecklist:
                 description="Create plan for returning to trading with reduced size",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=30
+                estimated_duration_minutes=30,
             ),
-
             # NORMALIZATION Phase (24+ hours)
             ChecklistItem(
                 item_id="dl_013",
@@ -301,7 +297,7 @@ class EmergencyRecoveryChecklist:
                 description="Start with paper trading to rebuild confidence",
                 critical=False,
                 validation_required=False,
-                estimated_duration_minutes=120
+                estimated_duration_minutes=120,
             ),
             ChecklistItem(
                 item_id="dl_014",
@@ -310,8 +306,8 @@ class EmergencyRecoveryChecklist:
                 description="Return to live trading with 25% normal size",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=60
-            )
+                estimated_duration_minutes=60,
+            ),
         ]
 
     def _create_flash_crash_checklist(self) -> list[ChecklistItem]:
@@ -325,7 +321,7 @@ class EmergencyRecoveryChecklist:
                 description="Confirm all orders cancelled for affected symbols",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=2
+                estimated_duration_minutes=2,
             ),
             ChecklistItem(
                 item_id="fc_002",
@@ -334,7 +330,7 @@ class EmergencyRecoveryChecklist:
                 description="Verify if trading is halted on exchange",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=1
+                estimated_duration_minutes=1,
             ),
             ChecklistItem(
                 item_id="fc_003",
@@ -343,9 +339,8 @@ class EmergencyRecoveryChecklist:
                 description="Record crash start/end prices and times",
                 critical=False,
                 validation_required=False,
-                estimated_duration_minutes=3
+                estimated_duration_minutes=3,
             ),
-
             # ASSESSMENT Phase
             ChecklistItem(
                 item_id="fc_004",
@@ -354,7 +349,7 @@ class EmergencyRecoveryChecklist:
                 description="Monitor if prices are recovering or stabilizing",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=15
+                estimated_duration_minutes=15,
             ),
             ChecklistItem(
                 item_id="fc_005",
@@ -363,9 +358,8 @@ class EmergencyRecoveryChecklist:
                 description="Look for news explaining the crash",
                 critical=False,
                 validation_required=False,
-                estimated_duration_minutes=10
+                estimated_duration_minutes=10,
             ),
-
             # STABILIZATION Phase
             ChecklistItem(
                 item_id="fc_006",
@@ -374,7 +368,7 @@ class EmergencyRecoveryChecklist:
                 description="Ensure volatility has decreased before trading",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=60
+                estimated_duration_minutes=60,
             ),
             ChecklistItem(
                 item_id="fc_007",
@@ -383,9 +377,8 @@ class EmergencyRecoveryChecklist:
                 description="Verify price feeds are accurate and stable",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=5
+                estimated_duration_minutes=5,
             ),
-
             # RECOVERY Phase
             ChecklistItem(
                 item_id="fc_008",
@@ -394,8 +387,8 @@ class EmergencyRecoveryChecklist:
                 description="Adjust stop-loss levels for new volatility",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=20
-            )
+                estimated_duration_minutes=20,
+            ),
         ]
 
     def _create_correlation_checklist(self) -> list[ChecklistItem]:
@@ -409,7 +402,7 @@ class EmergencyRecoveryChecklist:
                 description="List all positions with high correlation",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=3
+                estimated_duration_minutes=3,
             ),
             ChecklistItem(
                 item_id="cs_002",
@@ -418,9 +411,8 @@ class EmergencyRecoveryChecklist:
                 description="Close or reduce highly correlated positions",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=5
+                estimated_duration_minutes=5,
             ),
-
             # ASSESSMENT Phase
             ChecklistItem(
                 item_id="cs_003",
@@ -429,7 +421,7 @@ class EmergencyRecoveryChecklist:
                 description="Compute overall portfolio correlation matrix",
                 critical=False,
                 validation_required=True,
-                estimated_duration_minutes=10
+                estimated_duration_minutes=10,
             ),
             ChecklistItem(
                 item_id="cs_004",
@@ -438,9 +430,8 @@ class EmergencyRecoveryChecklist:
                 description="Assess portfolio diversification adequacy",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=15
+                estimated_duration_minutes=15,
             ),
-
             # RECOVERY Phase
             ChecklistItem(
                 item_id="cs_005",
@@ -449,8 +440,8 @@ class EmergencyRecoveryChecklist:
                 description="Adjust positions to reduce correlation risk",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=30
-            )
+                estimated_duration_minutes=30,
+            ),
         ]
 
     def _create_liquidity_crisis_checklist(self) -> list[ChecklistItem]:
@@ -464,7 +455,7 @@ class EmergencyRecoveryChecklist:
                 description="Use only market orders for urgent executions",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=1
+                estimated_duration_minutes=1,
             ),
             ChecklistItem(
                 item_id="lc_002",
@@ -473,9 +464,8 @@ class EmergencyRecoveryChecklist:
                 description="Remove all limit orders from order book",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=2
+                estimated_duration_minutes=2,
             ),
-
             # ASSESSMENT Phase
             ChecklistItem(
                 item_id="lc_003",
@@ -484,7 +474,7 @@ class EmergencyRecoveryChecklist:
                 description="Track bid-ask spread changes",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=10
+                estimated_duration_minutes=10,
             ),
             ChecklistItem(
                 item_id="lc_004",
@@ -493,9 +483,8 @@ class EmergencyRecoveryChecklist:
                 description="Assess liquidity on other exchanges",
                 critical=False,
                 validation_required=False,
-                estimated_duration_minutes=15
+                estimated_duration_minutes=15,
             ),
-
             # STABILIZATION Phase
             ChecklistItem(
                 item_id="lc_005",
@@ -504,8 +493,8 @@ class EmergencyRecoveryChecklist:
                 description="Lower max position size for low liquidity",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=10
-            )
+                estimated_duration_minutes=10,
+            ),
         ]
 
     def _create_generic_checklist(self) -> list[ChecklistItem]:
@@ -518,7 +507,7 @@ class EmergencyRecoveryChecklist:
                 description="Halt all trading activities immediately",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=1
+                estimated_duration_minutes=1,
             ),
             ChecklistItem(
                 item_id="gen_002",
@@ -527,7 +516,7 @@ class EmergencyRecoveryChecklist:
                 description="Record emergency type and trigger conditions",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=5
+                estimated_duration_minutes=5,
             ),
             ChecklistItem(
                 item_id="gen_003",
@@ -536,7 +525,7 @@ class EmergencyRecoveryChecklist:
                 description="Evaluate financial and operational impact",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=20
+                estimated_duration_minutes=20,
             ),
             ChecklistItem(
                 item_id="gen_004",
@@ -545,7 +534,7 @@ class EmergencyRecoveryChecklist:
                 description="Verify all systems functioning normally",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=15
+                estimated_duration_minutes=15,
             ),
             ChecklistItem(
                 item_id="gen_005",
@@ -554,8 +543,8 @@ class EmergencyRecoveryChecklist:
                 description="Develop plan for returning to normal operations",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=30
-            )
+                estimated_duration_minutes=30,
+            ),
         ]
 
     def _create_critical_severity_items(self) -> list[ChecklistItem]:
@@ -568,7 +557,7 @@ class EmergencyRecoveryChecklist:
                 description="Alert risk management team or supervisor",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=2
+                estimated_duration_minutes=2,
             ),
             ChecklistItem(
                 item_id="crit_002",
@@ -577,7 +566,7 @@ class EmergencyRecoveryChecklist:
                 description="Save all logs and data for investigation",
                 critical=True,
                 validation_required=True,
-                estimated_duration_minutes=10
+                estimated_duration_minutes=10,
             ),
             ChecklistItem(
                 item_id="crit_003",
@@ -586,7 +575,7 @@ class EmergencyRecoveryChecklist:
                 description="Conduct thorough post-mortem of the event",
                 critical=True,
                 validation_required=False,
-                estimated_duration_minutes=120
+                estimated_duration_minutes=120,
             ),
             ChecklistItem(
                 item_id="crit_004",
@@ -595,15 +584,12 @@ class EmergencyRecoveryChecklist:
                 description="Revise procedures based on lessons learned",
                 critical=False,
                 validation_required=False,
-                estimated_duration_minutes=60
-            )
+                estimated_duration_minutes=60,
+            ),
         ]
 
     async def start_item(
-        self,
-        checklist_id: str,
-        item_id: str,
-        user_id: Optional[str] = None
+        self, checklist_id: str, item_id: str, user_id: Optional[str] = None
     ) -> bool:
         """
         Mark a checklist item as started.
@@ -628,7 +614,7 @@ class EmergencyRecoveryChecklist:
                     logger.warning(
                         "Item not in pending state",
                         item_id=item_id,
-                        current_status=item.status.value
+                        current_status=item.status.value,
                     )
                     return False
 
@@ -645,17 +631,17 @@ class EmergencyRecoveryChecklist:
                             "item_id": item_id,
                             "action": "started",
                             "phase": item.phase.value,
-                            "title": item.title
-                        }
+                            "title": item.title,
+                        },
                     ),
-                    priority=EventPriority.NORMAL
+                    priority=EventPriority.NORMAL,
                 )
 
                 logger.info(
                     "Checklist item started",
                     checklist_id=checklist_id,
                     item_id=item_id,
-                    title=item.title
+                    title=item.title,
                 )
 
                 return True
@@ -668,7 +654,7 @@ class EmergencyRecoveryChecklist:
         checklist_id: str,
         item_id: str,
         notes: Optional[str] = None,
-        user_id: Optional[str] = None
+        user_id: Optional[str] = None,
     ) -> bool:
         """
         Mark a checklist item as completed.
@@ -690,11 +676,14 @@ class EmergencyRecoveryChecklist:
 
         for item in checklist.items:
             if item.item_id == item_id:
-                if item.status not in [ChecklistItemStatus.PENDING, ChecklistItemStatus.IN_PROGRESS]:
+                if item.status not in [
+                    ChecklistItemStatus.PENDING,
+                    ChecklistItemStatus.IN_PROGRESS,
+                ]:
                     logger.warning(
                         "Item cannot be completed",
                         item_id=item_id,
-                        current_status=item.status.value
+                        current_status=item.status.value,
                     )
                     return False
 
@@ -705,7 +694,7 @@ class EmergencyRecoveryChecklist:
                         logger.warning(
                             "Item validation failed",
                             item_id=item_id,
-                            validation_result=validation_result
+                            validation_result=validation_result,
                         )
                         item.status = ChecklistItemStatus.FAILED
                         item.validation_result = validation_result
@@ -724,7 +713,8 @@ class EmergencyRecoveryChecklist:
                 # Check if phase complete
                 phase_items = [i for i in checklist.items if i.phase == item.phase]
                 phase_complete = all(
-                    i.status in [ChecklistItemStatus.COMPLETED, ChecklistItemStatus.SKIPPED]
+                    i.status
+                    in [ChecklistItemStatus.COMPLETED, ChecklistItemStatus.SKIPPED]
                     for i in phase_items
                 )
 
@@ -746,10 +736,10 @@ class EmergencyRecoveryChecklist:
                             "phase": item.phase.value,
                             "title": item.title,
                             "progress_percentage": checklist.progress_percentage,
-                            "phase_complete": phase_complete
-                        }
+                            "phase_complete": phase_complete,
+                        },
                     ),
-                    priority=EventPriority.NORMAL
+                    priority=EventPriority.NORMAL,
                 )
 
                 # Check if checklist complete
@@ -761,7 +751,7 @@ class EmergencyRecoveryChecklist:
                     checklist_id=checklist_id,
                     item_id=item_id,
                     title=item.title,
-                    progress=checklist.progress_percentage
+                    progress=checklist.progress_percentage,
                 )
 
                 return True
@@ -789,8 +779,8 @@ class EmergencyRecoveryChecklist:
             "checks_performed": [
                 "system_connectivity",
                 "position_status",
-                "order_status"
-            ]
+                "order_status",
+            ],
         }
 
     def _get_next_phase(self, current_phase: RecoveryPhase) -> Optional[RecoveryPhase]:
@@ -800,7 +790,7 @@ class EmergencyRecoveryChecklist:
             RecoveryPhase.ASSESSMENT,
             RecoveryPhase.STABILIZATION,
             RecoveryPhase.RECOVERY,
-            RecoveryPhase.NORMALIZATION
+            RecoveryPhase.NORMALIZATION,
         ]
 
         try:
@@ -841,16 +831,17 @@ class EmergencyRecoveryChecklist:
                     "completed_items": checklist.completed_items,
                     "duration_minutes": (
                         datetime.now(UTC) - checklist.created_at
-                    ).total_seconds() / 60
-                }
+                    ).total_seconds()
+                    / 60,
+                },
             ),
-            priority=EventPriority.HIGH
+            priority=EventPriority.HIGH,
         )
 
         logger.info(
             "Recovery checklist completed",
             checklist_id=checklist_id,
-            emergency_type=checklist.emergency_type
+            emergency_type=checklist.emergency_type,
         )
 
     def get_checklist_status(self, checklist_id: str) -> Optional[dict[str, Any]]:
@@ -892,14 +883,14 @@ class EmergencyRecoveryChecklist:
                             "title": item.title,
                             "status": item.status.value,
                             "critical": item.critical,
-                            "estimated_minutes": item.estimated_duration_minutes
+                            "estimated_minutes": item.estimated_duration_minutes,
                         }
                         for item in checklist.items
                         if item.phase == phase
                     ]
                 }
                 for phase in RecoveryPhase
-            }
+            },
         }
 
     def get_active_checklists(self) -> list[dict[str, Any]]:

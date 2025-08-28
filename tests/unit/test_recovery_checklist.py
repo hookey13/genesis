@@ -1,4 +1,5 @@
 """Unit tests for recovery checklist system."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -48,7 +49,8 @@ class TestChecklistCreation:
 
         # Check items
         required_count = sum(
-            1 for item in checklist.items
+            1
+            for item in checklist.items
             if item.item_type == ChecklistItemType.REQUIRED
         )
         assert required_count > 0
@@ -303,7 +305,8 @@ class TestTradingResumption:
 
         # Get all required item names
         required_names = [
-            item.name for item in checklist.items
+            item.name
+            for item in checklist.items
             if item.item_type == ChecklistItemType.REQUIRED
         ]
 
@@ -313,7 +316,8 @@ class TestTradingResumption:
 
         # Complete one required item
         first_required = next(
-            item for item in checklist.items
+            item
+            for item in checklist.items
             if item.item_type == ChecklistItemType.REQUIRED
         )
         checklist_manager.complete_item(profile_id, first_required.name)

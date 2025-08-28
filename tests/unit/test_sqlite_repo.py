@@ -54,7 +54,7 @@ def sample_account():
         tier=TradingTier.SNIPER,
         locked_features=[],
         last_sync=datetime.utcnow(),
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -74,7 +74,7 @@ def sample_position():
         pnl_dollars=Decimal("50.00"),
         pnl_percent=Decimal("3.33"),
         priority_score=5,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -94,7 +94,7 @@ def sample_session():
         max_drawdown=Decimal("50.00"),
         daily_loss_limit=Decimal("250.00"),
         is_active=True,
-        created_at=datetime.utcnow()
+        created_at=datetime.utcnow(),
     )
 
 
@@ -157,7 +157,9 @@ class TestSQLiteRepository:
         assert deleted is None
 
     @pytest.mark.asyncio
-    async def test_position_operations(self, sqlite_repo, sample_account, sample_position):
+    async def test_position_operations(
+        self, sqlite_repo, sample_account, sample_position
+    ):
         """Test position CRUD operations."""
         # Create account first
         await sqlite_repo.create_account(sample_account)
@@ -173,7 +175,9 @@ class TestSQLiteRepository:
         assert retrieved.entry_price == sample_position.entry_price
 
         # Get positions by account
-        positions = await sqlite_repo.get_positions_by_account(sample_account.account_id)
+        positions = await sqlite_repo.get_positions_by_account(
+            sample_account.account_id
+        )
         assert len(positions) == 1
         assert positions[0].position_id == position_id
 
@@ -192,7 +196,9 @@ class TestSQLiteRepository:
         assert closed.pnl_dollars == Decimal("150.00")
 
     @pytest.mark.asyncio
-    async def test_session_operations(self, sqlite_repo, sample_account, sample_session):
+    async def test_session_operations(
+        self, sqlite_repo, sample_account, sample_session
+    ):
         """Test trading session operations."""
         # Create account first
         await sqlite_repo.create_account(sample_account)
@@ -233,19 +239,15 @@ class TestSQLiteRepository:
         event1_id = await sqlite_repo.save_event(
             "OrderExecuted",
             "order_abc",
-            {"symbol": "BTC/USDT", "quantity": "0.1", "price": "50000"}
+            {"symbol": "BTC/USDT", "quantity": "0.1", "price": "50000"},
         )
 
         event2_id = await sqlite_repo.save_event(
-            "PositionOpened",
-            "order_abc",
-            {"position_id": "pos_xyz", "side": "LONG"}
+            "PositionOpened", "order_abc", {"position_id": "pos_xyz", "side": "LONG"}
         )
 
         event3_id = await sqlite_repo.save_event(
-            "PositionClosed",
-            "pos_xyz",
-            {"pnl": "500.00", "reason": "take_profit"}
+            "PositionClosed", "pos_xyz", {"pnl": "500.00", "reason": "take_profit"}
         )
 
         # Get events by aggregate
@@ -278,7 +280,7 @@ class TestSQLiteRepository:
             side="LONG",  # Use uppercase for enum
             entry_price=Decimal("50000"),
             quantity=Decimal("0.01"),
-            dollar_value=Decimal("500.00")  # Add required field
+            dollar_value=Decimal("500.00"),  # Add required field
         )
         await sqlite_repo.create_position(position)
 
@@ -293,7 +295,7 @@ class TestSQLiteRepository:
             "side": "BUY",
             "quantity": Decimal("0.01"),
             "price": Decimal("50000"),
-            "status": "PENDING"
+            "status": "PENDING",
         }
 
         # Save order
@@ -338,18 +340,20 @@ class TestSQLiteRepository:
                 pnl_dollars=Decimal("0"),
                 pnl_percent=Decimal("0"),
                 priority_score=i,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             await sqlite_repo.create_position(pos)
 
         # Load open positions
-        open_positions = await sqlite_repo.load_open_positions(sample_account.account_id)
+        open_positions = await sqlite_repo.load_open_positions(
+            sample_account.account_id
+        )
         assert len(open_positions) == 3
 
         # Test reconciliation
         exchange_positions = [
             {"symbol": "TEST0/USDT", "quantity": "1"},
-            {"symbol": "TEST1/USDT", "quantity": "1"}
+            {"symbol": "TEST1/USDT", "quantity": "1"},
             # TEST2/USDT is missing - should be marked as orphaned
         ]
 
@@ -412,7 +416,7 @@ class TestSQLiteRepository:
                 pnl_dollars=Decimal("10"),
                 pnl_percent=Decimal("10"),
                 priority_score=i,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             await sqlite_repo.create_position(pos)
             await sqlite_repo.close_position(pos.position_id, Decimal("10"))
@@ -423,10 +427,7 @@ class TestSQLiteRepository:
         end_date = date.today()
 
         result = await sqlite_repo.export_trades_to_csv(
-            sample_account.account_id,
-            start_date,
-            end_date,
-            export_path
+            sample_account.account_id, start_date, end_date, export_path
         )
 
         assert result == export_path
@@ -455,19 +456,21 @@ class TestSQLiteRepository:
                 symbol=f"TEST{i}/USDT",
                 side=PositionSide.LONG,
                 entry_price=Decimal("100"),
-                current_price=Decimal("100") + Decimal(str(pnl/10)),
+                current_price=Decimal("100") + Decimal(str(pnl / 10)),
                 quantity=Decimal("1"),
                 dollar_value=Decimal("100"),
                 pnl_dollars=Decimal(str(pnl)),
                 pnl_percent=Decimal(str(pnl)),
                 priority_score=i,
-                created_at=datetime.utcnow() - timedelta(days=10-i)
+                created_at=datetime.utcnow() - timedelta(days=10 - i),
             )
             await sqlite_repo.create_position(pos)
             await sqlite_repo.close_position(pos.position_id, Decimal(str(pnl)))
 
         # Calculate metrics
-        metrics = await sqlite_repo.calculate_performance_metrics(sample_account.account_id)
+        metrics = await sqlite_repo.calculate_performance_metrics(
+            sample_account.account_id
+        )
 
         assert metrics["total_trades"] == 10
         assert metrics["winning_trades"] == 6
@@ -491,7 +494,7 @@ class TestSQLiteRepository:
             "high_cancel_rate",
             "high",
             {"cancel_rate": 0.85, "threshold": 0.5, "duration_seconds": 300},
-            "position_size_reduced"
+            "position_size_reduced",
         )
 
         assert event_id is not None
@@ -524,7 +527,7 @@ class TestSQLiteRepository:
                 tier=sample_account.tier,
                 locked_features=sample_account.locked_features,
                 last_sync=sample_account.last_sync,
-                created_at=sample_account.created_at
+                created_at=sample_account.created_at,
             )
             await sqlite_repo.update_account(updated_account)
             # Explicitly rollback
@@ -580,7 +583,7 @@ class TestSQLiteRepository:
                 pnl_dollars=Decimal("0"),
                 pnl_percent=Decimal("0"),
                 priority_score=i,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             tasks.append(sqlite_repo.create_position(pos))
 
@@ -589,7 +592,9 @@ class TestSQLiteRepository:
         assert len(results) == 10
 
         # Verify all were created
-        positions = await sqlite_repo.get_positions_by_account(sample_account.account_id)
+        positions = await sqlite_repo.get_positions_by_account(
+            sample_account.account_id
+        )
         assert len(positions) == 10
 
     @pytest.mark.asyncio
@@ -616,7 +621,7 @@ class TestSQLiteRepository:
             pnl_dollars=Decimal("13.71826858"),
             pnl_percent=Decimal("0.22153846"),
             priority_score=1,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
         )
         await sqlite_repo.create_position(pos)
 

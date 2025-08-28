@@ -26,30 +26,30 @@ def deep_order_book():
     return OrderBook(
         symbol="BTCUSDT",
         bids=[
-            [40000.0, 2.0],    # $80,000
-            [39999.0, 3.0],    # $119,997
-            [39998.0, 2.5],    # $99,995
-            [39997.0, 2.0],    # $79,994
-            [39996.0, 1.5],    # $59,994
-            [39995.0, 2.0],    # $79,990
-            [39994.0, 1.8],    # $71,989
-            [39993.0, 2.2],    # $87,985
-            [39992.0, 1.5],    # $59,988
-            [39991.0, 2.0]     # $79,982
+            [40000.0, 2.0],  # $80,000
+            [39999.0, 3.0],  # $119,997
+            [39998.0, 2.5],  # $99,995
+            [39997.0, 2.0],  # $79,994
+            [39996.0, 1.5],  # $59,994
+            [39995.0, 2.0],  # $79,990
+            [39994.0, 1.8],  # $71,989
+            [39993.0, 2.2],  # $87,985
+            [39992.0, 1.5],  # $59,988
+            [39991.0, 2.0],  # $79,982
         ],
         asks=[
-            [40001.0, 2.0],    # $80,002
-            [40002.0, 3.0],    # $120,006
-            [40003.0, 2.5],    # $100,008
-            [40004.0, 2.0],    # $80,008
-            [40005.0, 1.5],    # $60,008
-            [40006.0, 2.0],    # $80,012
-            [40007.0, 1.8],    # $72,013
-            [40008.0, 2.2],    # $88,018
-            [40009.0, 1.5],    # $60,014
-            [40010.0, 2.0]     # $80,020
+            [40001.0, 2.0],  # $80,002
+            [40002.0, 3.0],  # $120,006
+            [40003.0, 2.5],  # $100,008
+            [40004.0, 2.0],  # $80,008
+            [40005.0, 1.5],  # $60,008
+            [40006.0, 2.0],  # $80,012
+            [40007.0, 1.8],  # $72,013
+            [40008.0, 2.2],  # $88,018
+            [40009.0, 1.5],  # $60,014
+            [40010.0, 2.0],  # $80,020
         ],
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -59,20 +59,20 @@ def shallow_order_book():
     return OrderBook(
         symbol="ETHUSDT",
         bids=[
-            [3000.0, 0.1],     # $300
-            [2999.0, 0.2],     # $599.8
-            [2998.0, 0.15],    # $449.7
-            [2997.0, 0.1],     # $299.7
-            [2996.0, 0.05]     # $149.8
+            [3000.0, 0.1],  # $300
+            [2999.0, 0.2],  # $599.8
+            [2998.0, 0.15],  # $449.7
+            [2997.0, 0.1],  # $299.7
+            [2996.0, 0.05],  # $149.8
         ],
         asks=[
-            [3001.0, 0.1],     # $300.1
-            [3002.0, 0.2],     # $600.4
-            [3003.0, 0.15],    # $450.45
-            [3004.0, 0.1],     # $300.4
-            [3005.0, 0.05]     # $150.25
+            [3001.0, 0.1],  # $300.1
+            [3002.0, 0.2],  # $600.4
+            [3003.0, 0.15],  # $450.45
+            [3004.0, 0.1],  # $300.4
+            [3005.0, 0.05],  # $150.25
         ],
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -81,19 +81,15 @@ def imbalanced_order_book():
     """Create an imbalanced order book (more asks than bids)."""
     return OrderBook(
         symbol="SOLUSDT",
-        bids=[
-            [100.0, 10.0],     # $1,000
-            [99.9, 5.0],       # $499.5
-            [99.8, 3.0]        # $299.4
-        ],
+        bids=[[100.0, 10.0], [99.9, 5.0], [99.8, 3.0]],  # $1,000  # $499.5  # $299.4
         asks=[
-            [100.1, 50.0],     # $5,005
-            [100.2, 40.0],     # $4,008
-            [100.3, 30.0],     # $3,009
-            [100.4, 20.0],     # $2,008
-            [100.5, 10.0]      # $1,005
+            [100.1, 50.0],  # $5,005
+            [100.2, 40.0],  # $4,008
+            [100.3, 30.0],  # $3,009
+            [100.4, 20.0],  # $2,008
+            [100.5, 10.0],  # $1,005
         ],
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -125,11 +121,16 @@ class TestOrderBookAnalyzer:
         profile = analyzer.analyze_liquidity_depth(shallow_order_book)
 
         assert profile.symbol == "ETHUSDT"
-        assert profile.liquidity_level in [LiquidityLevel.SHALLOW, LiquidityLevel.CRITICAL]
+        assert profile.liquidity_level in [
+            LiquidityLevel.SHALLOW,
+            LiquidityLevel.CRITICAL,
+        ]
         assert profile.max_safe_order_size < Decimal("1000")  # Limited safe size
         assert profile.concentration_risk > Decimal("0.5")  # High concentration
 
-    def test_analyze_liquidity_depth_imbalanced_market(self, analyzer, imbalanced_order_book):
+    def test_analyze_liquidity_depth_imbalanced_market(
+        self, analyzer, imbalanced_order_book
+    ):
         """Test liquidity analysis for imbalanced market."""
         profile = analyzer.analyze_liquidity_depth(imbalanced_order_book)
 
@@ -143,8 +144,7 @@ class TestOrderBookAnalyzer:
 
         # Small order (below safe size)
         slices = analyzer.calculate_optimal_slice_count(
-            profile.max_safe_order_size * Decimal("0.5"),
-            profile
+            profile.max_safe_order_size * Decimal("0.5"), profile
         )
         assert slices == analyzer.MIN_SLICES
 
@@ -154,8 +154,7 @@ class TestOrderBookAnalyzer:
 
         # Large order (3x safe size)
         slices = analyzer.calculate_optimal_slice_count(
-            profile.max_safe_order_size * Decimal("3"),
-            profile
+            profile.max_safe_order_size * Decimal("3"), profile
         )
         assert slices > analyzer.MIN_SLICES
         assert slices <= analyzer.MAX_SLICES
@@ -185,7 +184,7 @@ class TestOrderBookAnalyzer:
             expected_slippage_1x=Decimal("0.5"),
             expected_slippage_2x=Decimal("1.5"),
             concentration_risk=Decimal("0.8"),
-            depth_consistency=Decimal("0.2")
+            depth_consistency=Decimal("0.2"),
         )
 
         # Large order in critical liquidity
@@ -286,10 +285,7 @@ class TestOrderBookAnalyzer:
     def test_empty_order_book(self, analyzer):
         """Test handling of empty order book."""
         empty_book = OrderBook(
-            symbol="EMPTY",
-            bids=[],
-            asks=[],
-            timestamp=datetime.now()
+            symbol="EMPTY", bids=[], asks=[], timestamp=datetime.now()
         )
 
         profile = analyzer.analyze_liquidity_depth(empty_book)
@@ -305,7 +301,7 @@ class TestOrderBookAnalyzer:
             symbol="ONESIDED",
             bids=[[100.0, 10.0]],
             asks=[],  # No asks
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         profile = analyzer.analyze_liquidity_depth(one_sided_book)
@@ -347,7 +343,7 @@ class TestOrderBookAnalyzer:
             expected_slippage_1x=Decimal("0.1"),
             expected_slippage_2x=Decimal("0.3"),
             concentration_risk=Decimal("0.2"),
-            depth_consistency=Decimal("0.8")
+            depth_consistency=Decimal("0.8"),
         )
 
         # Very small order
@@ -356,19 +352,10 @@ class TestOrderBookAnalyzer:
 
     def test_calculate_depth_to_price_levels(self, analyzer):
         """Test internal depth calculation method."""
-        bids = [
-            [100.0, 10.0],
-            [99.5, 15.0],
-            [99.0, 20.0],
-            [98.5, 25.0]
-        ]
+        bids = [[100.0, 10.0], [99.5, 15.0], [99.0, 20.0], [98.5, 25.0]]
 
         # Test bid side depth calculation
-        depths = analyzer._calculate_depth_levels(
-            bids,
-            Decimal("100"),
-            is_bid=True
-        )
+        depths = analyzer._calculate_depth_levels(bids, Decimal("100"), is_bid=True)
 
         assert len(depths) == 3  # 0.5%, 1%, 2%
         assert all(d >= 0 for d in depths)

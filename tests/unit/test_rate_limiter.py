@@ -26,7 +26,9 @@ class TestRateLimiter:
     @pytest.mark.asyncio
     async def test_simple_request(self, rate_limiter):
         """Test a simple request within limits."""
-        await rate_limiter.check_and_wait("GET", "/api/v3/ticker/price", {"symbol": "BTCUSDT"})
+        await rate_limiter.check_and_wait(
+            "GET", "/api/v3/ticker/price", {"symbol": "BTCUSDT"}
+        )
 
         assert rate_limiter.current_weight == 1  # Ticker with symbol = 1 weight
         assert rate_limiter.total_requests == 1
@@ -86,15 +88,14 @@ class TestRateLimiter:
         # Add old weight (outside window)
         old_weight = WeightWindow(
             timestamp=current_time - 70,  # 70 seconds ago (outside 60s window)
-            weight=10
+            weight=10,
         )
         rate_limiter.weight_history.append(old_weight)
         rate_limiter.current_weight = 10
 
         # Add recent weight
         recent_weight = WeightWindow(
-            timestamp=current_time - 30,  # 30 seconds ago (inside window)
-            weight=5
+            timestamp=current_time - 30, weight=5  # 30 seconds ago (inside window)
         )
         rate_limiter.weight_history.append(recent_weight)
         rate_limiter.current_weight = 15
@@ -154,9 +155,15 @@ class TestRateLimiter:
         """Test handling concurrent requests."""
         # Create multiple concurrent requests
         tasks = [
-            rate_limiter.check_and_wait("GET", "/api/v3/ticker/price", {"symbol": "BTCUSDT"}),
-            rate_limiter.check_and_wait("GET", "/api/v3/ticker/price", {"symbol": "ETHUSDT"}),
-            rate_limiter.check_and_wait("GET", "/api/v3/ticker/price", {"symbol": "BNBUSDT"}),
+            rate_limiter.check_and_wait(
+                "GET", "/api/v3/ticker/price", {"symbol": "BTCUSDT"}
+            ),
+            rate_limiter.check_and_wait(
+                "GET", "/api/v3/ticker/price", {"symbol": "ETHUSDT"}
+            ),
+            rate_limiter.check_and_wait(
+                "GET", "/api/v3/ticker/price", {"symbol": "BNBUSDT"}
+            ),
         ]
 
         await asyncio.gather(*tasks)

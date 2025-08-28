@@ -45,8 +45,10 @@ class RiskMetrics:
             "conditional_value_at_risk_95": str(self.conditional_value_at_risk_95),
             "beta": str(self.beta) if self.beta else None,
             "alpha": str(self.alpha) if self.alpha else None,
-            "information_ratio": str(self.information_ratio) if self.information_ratio else None,
-            "treynor_ratio": str(self.treynor_ratio) if self.treynor_ratio else None
+            "information_ratio": (
+                str(self.information_ratio) if self.information_ratio else None
+            ),
+            "treynor_ratio": str(self.treynor_ratio) if self.treynor_ratio else None,
         }
 
 
@@ -56,7 +58,7 @@ class RiskMetricsCalculator:
     def __init__(self, risk_free_rate: Decimal = Decimal("0.04")):
         """
         Initialize the risk metrics calculator.
-        
+
         Args:
             risk_free_rate: Annual risk-free rate (default 4%)
                            Can be negative (e.g., during negative rate environments)
@@ -73,16 +75,16 @@ class RiskMetricsCalculator:
         self,
         returns: list[Decimal],
         period: str = "daily",
-        benchmark_returns: list[Decimal] | None = None
+        benchmark_returns: list[Decimal] | None = None,
     ) -> RiskMetrics:
         """
         Calculate comprehensive risk metrics from returns series.
-        
+
         Args:
             returns: List of periodic returns (as decimals, not percentages)
             period: Return period ('daily', 'hourly', 'weekly', 'monthly')
             benchmark_returns: Optional benchmark returns for relative metrics
-            
+
         Returns:
             RiskMetrics object with calculated values
         """
@@ -124,7 +126,9 @@ class RiskMetricsCalculator:
 
         if benchmark_returns and len(benchmark_returns) == len(returns):
             beta = self.calculate_beta(returns, benchmark_returns)
-            alpha = self.calculate_alpha(returns, benchmark_returns, beta, periods_per_year)
+            alpha = self.calculate_alpha(
+                returns, benchmark_returns, beta, periods_per_year
+            )
             information_ratio = self.calculate_information_ratio(
                 returns, benchmark_returns, periods_per_year
             )
@@ -146,25 +150,25 @@ class RiskMetricsCalculator:
             beta=beta,
             alpha=alpha,
             information_ratio=information_ratio,
-            treynor_ratio=treynor_ratio
+            treynor_ratio=treynor_ratio,
         )
 
     def calculate_sharpe_ratio(
         self,
         returns: list[Decimal],
         volatility: Decimal | None = None,
-        periods_per_year: int = 252
+        periods_per_year: int = 252,
     ) -> Decimal:
         """
         Calculate Sharpe ratio.
-        
+
         Sharpe = (Mean Return - Risk Free Rate) / Volatility
-        
+
         Args:
             returns: List of periodic returns
             volatility: Pre-calculated volatility (optional)
             periods_per_year: Number of periods in a year
-            
+
         Returns:
             Sharpe ratio
         """
@@ -190,19 +194,17 @@ class RiskMetricsCalculator:
         return sharpe.quantize(Decimal("0.01"))
 
     def calculate_sortino_ratio(
-        self,
-        returns: list[Decimal],
-        periods_per_year: int = 252
+        self, returns: list[Decimal], periods_per_year: int = 252
     ) -> tuple[Decimal, Decimal]:
         """
         Calculate Sortino ratio using downside deviation.
-        
+
         Sortino = (Mean Return - Risk Free Rate) / Downside Deviation
-        
+
         Args:
             returns: List of periodic returns
             periods_per_year: Number of periods in a year
-            
+
         Returns:
             Tuple of (Sortino ratio, downside deviation)
         """
@@ -234,21 +236,18 @@ class RiskMetricsCalculator:
         return sortino.quantize(Decimal("0.01")), downside_deviation
 
     def calculate_calmar_ratio(
-        self,
-        mean_return: Decimal,
-        max_drawdown: Decimal,
-        periods_per_year: int = 252
+        self, mean_return: Decimal, max_drawdown: Decimal, periods_per_year: int = 252
     ) -> Decimal:
         """
         Calculate Calmar ratio.
-        
+
         Calmar = Annual Return / Maximum Drawdown
-        
+
         Args:
             mean_return: Average periodic return
             max_drawdown: Maximum drawdown (as positive value)
             periods_per_year: Number of periods in a year
-            
+
         Returns:
             Calmar ratio
         """
@@ -260,16 +259,13 @@ class RiskMetricsCalculator:
 
         return calmar.quantize(Decimal("0.01"))
 
-    def calculate_max_drawdown(
-        self,
-        returns: list[Decimal]
-    ) -> tuple[Decimal, int]:
+    def calculate_max_drawdown(self, returns: list[Decimal]) -> tuple[Decimal, int]:
         """
         Calculate maximum drawdown and duration.
-        
+
         Args:
             returns: List of periodic returns
-            
+
         Returns:
             Tuple of (max drawdown as positive decimal, duration in periods)
         """
@@ -281,7 +277,7 @@ class RiskMetricsCalculator:
         cum_return = Decimal("1")
 
         for ret in returns:
-            cum_return *= (Decimal("1") + ret)
+            cum_return *= Decimal("1") + ret
             cumulative.append(cum_return)
 
         # Find maximum drawdown
@@ -304,17 +300,15 @@ class RiskMetricsCalculator:
         return max_dd.quantize(Decimal("0.0001")), max_dd_duration
 
     def calculate_value_at_risk(
-        self,
-        returns: list[Decimal],
-        confidence_level: Decimal = Decimal("0.95")
+        self, returns: list[Decimal], confidence_level: Decimal = Decimal("0.95")
     ) -> Decimal:
         """
         Calculate Value at Risk (VaR) at given confidence level.
-        
+
         Args:
             returns: List of periodic returns
             confidence_level: Confidence level (e.g., 0.95 for 95%)
-            
+
         Returns:
             VaR (as positive value representing potential loss)
         """
@@ -333,17 +327,15 @@ class RiskMetricsCalculator:
         return var.quantize(Decimal("0.0001"))
 
     def calculate_conditional_value_at_risk(
-        self,
-        returns: list[Decimal],
-        confidence_level: Decimal = Decimal("0.95")
+        self, returns: list[Decimal], confidence_level: Decimal = Decimal("0.95")
     ) -> Decimal:
         """
         Calculate Conditional Value at Risk (CVaR/Expected Shortfall).
-        
+
         Args:
             returns: List of periodic returns
             confidence_level: Confidence level (e.g., 0.95 for 95%)
-            
+
         Returns:
             CVaR (average of returns below VaR threshold)
         """
@@ -367,19 +359,17 @@ class RiskMetricsCalculator:
         return cvar.quantize(Decimal("0.0001"))
 
     def calculate_beta(
-        self,
-        returns: list[Decimal],
-        benchmark_returns: list[Decimal]
+        self, returns: list[Decimal], benchmark_returns: list[Decimal]
     ) -> Decimal:
         """
         Calculate beta relative to benchmark.
-        
+
         Beta = Covariance(returns, benchmark) / Variance(benchmark)
-        
+
         Args:
             returns: List of strategy returns
             benchmark_returns: List of benchmark returns
-            
+
         Returns:
             Beta coefficient
         """
@@ -414,19 +404,19 @@ class RiskMetricsCalculator:
         returns: list[Decimal],
         benchmark_returns: list[Decimal],
         beta: Decimal,
-        periods_per_year: int = 252
+        periods_per_year: int = 252,
     ) -> Decimal:
         """
         Calculate Jensen's alpha.
-        
+
         Alpha = Portfolio Return - (Risk Free + Beta * (Market Return - Risk Free))
-        
+
         Args:
             returns: List of strategy returns
             benchmark_returns: List of benchmark returns
             beta: Pre-calculated beta
             periods_per_year: Number of periods in a year
-            
+
         Returns:
             Alpha (excess return)
         """
@@ -435,10 +425,14 @@ class RiskMetricsCalculator:
 
         # Annualize returns
         mean_return = self._calculate_mean(returns) * Decimal(str(periods_per_year))
-        mean_benchmark = self._calculate_mean(benchmark_returns) * Decimal(str(periods_per_year))
+        mean_benchmark = self._calculate_mean(benchmark_returns) * Decimal(
+            str(periods_per_year)
+        )
 
         # Calculate alpha
-        expected_return = self.risk_free_rate + beta * (mean_benchmark - self.risk_free_rate)
+        expected_return = self.risk_free_rate + beta * (
+            mean_benchmark - self.risk_free_rate
+        )
         alpha = mean_return - expected_return
 
         return alpha.quantize(Decimal("0.0001"))
@@ -447,18 +441,18 @@ class RiskMetricsCalculator:
         self,
         returns: list[Decimal],
         benchmark_returns: list[Decimal],
-        periods_per_year: int = 252
+        periods_per_year: int = 252,
     ) -> Decimal:
         """
         Calculate Information Ratio.
-        
+
         IR = (Portfolio Return - Benchmark Return) / Tracking Error
-        
+
         Args:
             returns: List of strategy returns
             benchmark_returns: List of benchmark returns
             periods_per_year: Number of periods in a year
-            
+
         Returns:
             Information ratio
         """
@@ -469,7 +463,9 @@ class RiskMetricsCalculator:
             return Decimal("0")
 
         # Calculate excess returns
-        excess_returns = [r - b for r, b in zip(returns, benchmark_returns, strict=False)]
+        excess_returns = [
+            r - b for r, b in zip(returns, benchmark_returns, strict=False)
+        ]
 
         if not excess_returns:
             return Decimal("0")
@@ -481,7 +477,9 @@ class RiskMetricsCalculator:
             return Decimal("0")
 
         # Annualize metrics
-        mean_excess = self._calculate_mean(excess_returns) * Decimal(str(periods_per_year))
+        mean_excess = self._calculate_mean(excess_returns) * Decimal(
+            str(periods_per_year)
+        )
         annual_tracking_error = tracking_error * Decimal(str(periods_per_year)).sqrt()
 
         info_ratio = mean_excess / annual_tracking_error
@@ -489,21 +487,18 @@ class RiskMetricsCalculator:
         return info_ratio.quantize(Decimal("0.01"))
 
     def calculate_treynor_ratio(
-        self,
-        mean_return: Decimal,
-        beta: Decimal,
-        periods_per_year: int = 252
+        self, mean_return: Decimal, beta: Decimal, periods_per_year: int = 252
     ) -> Decimal:
         """
         Calculate Treynor Ratio.
-        
+
         Treynor = (Portfolio Return - Risk Free Rate) / Beta
-        
+
         Args:
             mean_return: Average periodic return
             beta: Portfolio beta
             periods_per_year: Number of periods in a year
-            
+
         Returns:
             Treynor ratio
         """
@@ -524,17 +519,17 @@ class RiskMetricsCalculator:
         returns: list[Decimal],
         window_size: int,
         period: str = "daily",
-        benchmark_returns: list[Decimal] | None = None
+        benchmark_returns: list[Decimal] | None = None,
     ) -> list[RiskMetrics]:
         """
         Calculate rolling window risk metrics.
-        
+
         Args:
             returns: List of periodic returns
             window_size: Size of rolling window
             period: Return period ('daily', 'hourly', 'weekly', 'monthly')
             benchmark_returns: Optional benchmark returns
-            
+
         Returns:
             List of RiskMetrics for each window
         """
@@ -544,17 +539,13 @@ class RiskMetricsCalculator:
         rolling_metrics = []
 
         for i in range(len(returns) - window_size + 1):
-            window_returns = returns[i:i + window_size]
+            window_returns = returns[i : i + window_size]
             window_benchmark = None
 
             if benchmark_returns:
-                window_benchmark = benchmark_returns[i:i + window_size]
+                window_benchmark = benchmark_returns[i : i + window_size]
 
-            metrics = self.calculate_metrics(
-                window_returns,
-                period,
-                window_benchmark
-            )
+            metrics = self.calculate_metrics(window_returns, period, window_benchmark)
             rolling_metrics.append(metrics)
 
         return rolling_metrics
@@ -588,7 +579,7 @@ class RiskMetricsCalculator:
             "weekly": 52,
             "monthly": 12,
             "quarterly": 4,
-            "yearly": 1
+            "yearly": 1,
         }
         return period_map.get(period, 252)
 
@@ -603,5 +594,5 @@ class RiskMetricsCalculator:
             volatility=Decimal("0"),
             downside_deviation=Decimal("0"),
             value_at_risk_95=Decimal("0"),
-            conditional_value_at_risk_95=Decimal("0")
+            conditional_value_at_risk_95=Decimal("0"),
         )

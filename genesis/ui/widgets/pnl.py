@@ -45,7 +45,7 @@ class PnLWidget(Static):
             "",
             f"[bold]Daily P&L:[/bold] [{daily_color}]{daily_str} ({daily_pct_str})[/{daily_color}]",
             "",
-            f"[dim]Account Balance: ${self.account_balance:,.2f}[/dim]"
+            f"[dim]Account Balance: ${self.account_balance:,.2f}[/dim]",
         ]
 
         return "\n".join(lines)

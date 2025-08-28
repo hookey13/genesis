@@ -1,4 +1,5 @@
 """Journal entry system for Level 3 tilt recovery."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -288,9 +289,7 @@ class JournalSystem:
                 entries_data = await self.repository.get_journal_entries(
                     profile_id, limit
                 )
-                entries = [
-                    self._entry_from_dict(data) for data in entries_data
-                ]
+                entries = [self._entry_from_dict(data) for data in entries_data]
 
                 # Update cache
                 self.recent_entries[profile_id] = entries
@@ -420,7 +419,9 @@ class JournalSystem:
             trigger_analysis=data.get("trigger_analysis"),
             prevention_plan=data.get("prevention_plan"),
             submitted_at=datetime.fromisoformat(data["submitted_at"]),
-            created_at=datetime.fromisoformat(data.get("created_at", data["submitted_at"])),
+            created_at=datetime.fromisoformat(
+                data.get("created_at", data["submitted_at"])
+            ),
             is_valid=True,
         )
 

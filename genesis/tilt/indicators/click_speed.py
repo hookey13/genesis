@@ -60,7 +60,7 @@ class ClickSpeedIndicator:
             logger.warning(
                 "Negative latency detected",
                 action_time=action_timestamp,
-                market_time=self.last_market_update
+                market_time=self.last_market_update,
             )
             return None
 
@@ -73,7 +73,7 @@ class ClickSpeedIndicator:
         logger.debug(
             "Click latency recorded",
             latency_ms=float(latency_ms),
-            window_count=len(self.latencies_ms)
+            window_count=len(self.latencies_ms),
         )
 
         return latency_ms
@@ -104,10 +104,7 @@ class ClickSpeedIndicator:
             Dictionary with pattern metrics
         """
         if not self.latencies_ms:
-            return {
-                "has_data": False,
-                "sample_count": 0
-            }
+            return {"has_data": False, "sample_count": 0}
 
         recent = list(self.latencies_ms)[-last_n:]
 
@@ -115,7 +112,7 @@ class ClickSpeedIndicator:
             return {
                 "has_data": True,
                 "sample_count": len(recent),
-                "insufficient_data": True
+                "insufficient_data": True,
             }
 
         avg = sum(recent) / len(recent)
@@ -123,8 +120,8 @@ class ClickSpeedIndicator:
         max_latency = max(recent)
 
         # Calculate trend (increasing/decreasing/stable)
-        first_half = recent[:len(recent)//2]
-        second_half = recent[len(recent)//2:]
+        first_half = recent[: len(recent) // 2]
+        second_half = recent[len(recent) // 2 :]
 
         avg_first = sum(first_half) / len(first_half)
         avg_second = sum(second_half) / len(second_half)
@@ -152,7 +149,7 @@ class ClickSpeedIndicator:
             "trend": trend,
             "is_erratic": is_erratic,
             "std_dev": float(std_dev),
-            "cv": float(coefficient_of_variation)
+            "cv": float(coefficient_of_variation),
         }
 
     def detect_panic_clicking(self, threshold_ms: Decimal = Decimal("100")) -> bool:
@@ -178,7 +175,7 @@ class ClickSpeedIndicator:
             logger.warning(
                 "Panic clicking pattern detected",
                 recent_latencies=[float(l) for l in recent],
-                threshold_ms=float(threshold_ms)
+                threshold_ms=float(threshold_ms),
             )
 
         return panic_detected

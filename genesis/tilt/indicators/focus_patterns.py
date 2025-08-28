@@ -38,9 +38,7 @@ class FocusPatternDetector:
     """
 
     def __init__(
-        self,
-        rapid_switch_threshold_ms: int = 3000,
-        window_size: int = 100
+        self, rapid_switch_threshold_ms: int = 3000, window_size: int = 100
     ) -> None:
         """
         Initialize focus pattern detector.
@@ -70,14 +68,10 @@ class FocusPatternDetector:
         logger.info(
             "focus_pattern_detector_initialized",
             rapid_switch_threshold_ms=rapid_switch_threshold_ms,
-            window_size=window_size
+            window_size=window_size,
         )
 
-    def track_window_focus(
-        self,
-        window_active: bool,
-        duration_ms: int
-    ) -> None:
+    def track_window_focus(self, window_active: bool, duration_ms: int) -> None:
         """
         Track window focus change event.
 
@@ -93,7 +87,7 @@ class FocusPatternDetector:
             "timestamp": now,
             "window_active": window_active,
             "duration_ms": duration_ms,
-            "duration_seconds": duration_seconds
+            "duration_seconds": duration_seconds,
         }
         self.focus_events.append(event)
 
@@ -114,7 +108,7 @@ class FocusPatternDetector:
             logger.warning(
                 "rapid_focus_switching_detected",
                 time_since_last_ms=time_since_last.total_seconds() * 1000,
-                threshold_ms=self.rapid_switch_threshold.total_seconds() * 1000
+                threshold_ms=self.rapid_switch_threshold.total_seconds() * 1000,
             )
 
         # Update state
@@ -125,10 +119,7 @@ class FocusPatternDetector:
 
         # Clean old rapid switches (keep last hour)
         cutoff = now - timedelta(hours=1)
-        self.rapid_switches = [
-            ts for ts in self.rapid_switches
-            if ts > cutoff
-        ]
+        self.rapid_switches = [ts for ts in self.rapid_switches if ts > cutoff]
 
     def get_focus_metrics(self, window_minutes: int = 5) -> FocusMetrics:
         """
@@ -143,10 +134,7 @@ class FocusPatternDetector:
         cutoff = datetime.utcnow() - timedelta(minutes=window_minutes)
 
         # Filter recent events
-        recent_events = [
-            e for e in self.focus_events
-            if e["timestamp"] > cutoff
-        ]
+        recent_events = [e for e in self.focus_events if e["timestamp"] > cutoff]
 
         if not recent_events:
             return FocusMetrics(
@@ -156,7 +144,7 @@ class FocusPatternDetector:
                 longest_focus=0.0,
                 shortest_focus=0.0,
                 rapid_switch_count=0,
-                distraction_score=0.0
+                distraction_score=0.0,
             )
 
         # Calculate switch frequency
@@ -166,7 +154,7 @@ class FocusPatternDetector:
         # Calculate focus duration statistics
         avg_focus = 0.0
         longest_focus = 0.0
-        shortest_focus = float('inf')
+        shortest_focus = float("inf")
 
         if self.focus_durations:
             avg_focus = sum(self.focus_durations) / len(self.focus_durations)
@@ -174,16 +162,11 @@ class FocusPatternDetector:
             shortest_focus = min(self.focus_durations)
 
         # Count rapid switches in window
-        rapid_switch_count = sum(
-            1 for ts in self.rapid_switches
-            if ts > cutoff
-        )
+        rapid_switch_count = sum(1 for ts in self.rapid_switches if ts > cutoff)
 
         # Calculate distraction score (0-100)
         distraction_score = self._calculate_distraction_score(
-            switch_frequency,
-            rapid_switch_count,
-            avg_focus
+            switch_frequency, rapid_switch_count, avg_focus
         )
 
         return FocusMetrics(
@@ -191,16 +174,13 @@ class FocusPatternDetector:
             switch_frequency=switch_frequency,
             average_focus_duration=avg_focus,
             longest_focus=longest_focus,
-            shortest_focus=shortest_focus if shortest_focus != float('inf') else 0.0,
+            shortest_focus=shortest_focus if shortest_focus != float("inf") else 0.0,
             rapid_switch_count=rapid_switch_count,
-            distraction_score=distraction_score
+            distraction_score=distraction_score,
         )
 
     def _calculate_distraction_score(
-        self,
-        switch_frequency: float,
-        rapid_switches: int,
-        avg_focus_duration: float
+        self, switch_frequency: float, rapid_switches: int, avg_focus_duration: float
     ) -> float:
         """
         Calculate distraction score from focus metrics.
@@ -272,7 +252,7 @@ class FocusPatternDetector:
             "rapid_switches": metrics_5min.rapid_switch_count,
             "average_focus_seconds": metrics_5min.average_focus_duration,
             "trend": "worsening" if increasing_distraction else "stable",
-            "recommendation": self._get_recommendation(metrics_5min)
+            "recommendation": self._get_recommendation(metrics_5min),
         }
 
     def _get_recommendation(self, metrics: FocusMetrics) -> str:

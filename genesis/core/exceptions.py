@@ -20,7 +20,13 @@ class GenesisException(Exception):
 class RiskLimitExceeded(GenesisException):
     """Raised when a risk limit would be exceeded."""
 
-    def __init__(self, message: str, limit_type: str, current_value: Decimal, limit_value: Decimal):
+    def __init__(
+        self,
+        message: str,
+        limit_type: str,
+        current_value: Decimal,
+        limit_value: Decimal,
+    ):
         super().__init__(message, code=f"RISK_{limit_type.upper()}_EXCEEDED")
         self.limit_type = limit_type
         self.current_value = current_value
@@ -39,7 +45,9 @@ class TierViolation(GenesisException):
 class InsufficientBalance(GenesisException):
     """Raised when account balance is insufficient for operation."""
 
-    def __init__(self, message: str, required_amount: Decimal, available_amount: Decimal):
+    def __init__(
+        self, message: str, required_amount: Decimal, available_amount: Decimal
+    ):
         super().__init__(message, code="INSUFFICIENT_BALANCE")
         self.required_amount = required_amount
         self.available_amount = available_amount
@@ -91,7 +99,9 @@ class OrderExecutionError(ExchangeError):
 class SlippageAlert(ExchangeError):
     """Raised when slippage exceeds threshold."""
 
-    def __init__(self, message: str, slippage: Decimal, threshold: Decimal = Decimal("0.5")):
+    def __init__(
+        self, message: str, slippage: Decimal, threshold: Decimal = Decimal("0.5")
+    ):
         super().__init__(message)
         self.code = "SLIPPAGE_ALERT"
         self.slippage = slippage
@@ -101,7 +111,9 @@ class SlippageAlert(ExchangeError):
 class InsufficientLiquidity(ExchangeError):
     """Raised when market liquidity is insufficient for order execution."""
 
-    def __init__(self, message: str, required_liquidity: Decimal, available_liquidity: Decimal):
+    def __init__(
+        self, message: str, required_liquidity: Decimal, available_liquidity: Decimal
+    ):
         super().__init__(message)
         self.code = "INSUFFICIENT_LIQUIDITY"
         self.required_liquidity = required_liquidity

@@ -201,7 +201,7 @@ class TestSpreadAnalyzer:
         """Test spread analysis with rolling statistics."""
         prices1 = [Decimal(str(100 + i * 0.1)) for i in range(100)]
         prices2 = [Decimal(str(99 + i * 0.1)) for i in range(100)]
-        timestamps = [datetime.now() - timedelta(minutes=100-i) for i in range(100)]
+        timestamps = [datetime.now() - timedelta(minutes=100 - i) for i in range(100)]
 
         result = self.analyzer.analyze_spread(
             "BTCUSDT", "ETHUSDT", prices1, prices2, timestamps
@@ -222,7 +222,7 @@ class TestSpreadAnalyzer:
             pair1="BTCUSDT",
             pair2="ETHUSDT",
             cointegrated=True,
-            spread_stability=Decimal("0.8")
+            spread_stability=Decimal("0.8"),
         )
 
         assert signal is not None
@@ -238,7 +238,7 @@ class TestSpreadAnalyzer:
             pair1="BTCUSDT",
             pair2="ETHUSDT",
             cointegrated=True,
-            spread_stability=Decimal("0.8")
+            spread_stability=Decimal("0.8"),
         )
 
         assert signal is not None
@@ -253,7 +253,7 @@ class TestSpreadAnalyzer:
             pair1="BTCUSDT",
             pair2="ETHUSDT",
             cointegrated=True,
-            spread_stability=Decimal("0.8")
+            spread_stability=Decimal("0.8"),
         )
 
         assert signal is None
@@ -267,7 +267,7 @@ class TestSpreadAnalyzer:
             pair1="BTCUSDT",
             pair2="ETHUSDT",
             cointegrated=True,
-            spread_stability=Decimal("0.8")
+            spread_stability=Decimal("0.8"),
         )
 
         assert signal1 is not None
@@ -279,7 +279,7 @@ class TestSpreadAnalyzer:
             pair1="BTCUSDT",
             pair2="ETHUSDT",
             cointegrated=True,
-            spread_stability=Decimal("0.8")
+            spread_stability=Decimal("0.8"),
         )
 
         assert signal2 is None  # Blocked by cooldown
@@ -296,7 +296,7 @@ class TestSpreadAnalyzer:
                 threshold_sigma=Decimal("2.0"),
                 signal_type="ENTRY",
                 confidence_score=Decimal("0.8"),
-                created_at=datetime.now() - timedelta(minutes=5-i)
+                created_at=datetime.now() - timedelta(minutes=5 - i),
             )
             signals.append(signal)
 
@@ -314,7 +314,7 @@ class TestSpreadAnalyzer:
                 zscore=Decimal("2.5"),
                 threshold_sigma=Decimal("2.0"),
                 signal_type="ENTRY",
-                confidence_score=Decimal("0.8")
+                confidence_score=Decimal("0.8"),
             )
         ]
 
@@ -391,7 +391,7 @@ class TestSignal:
             zscore=Decimal("2.5"),
             threshold_sigma=Decimal("2.0"),
             signal_type="ENTRY",
-            confidence_score=Decimal("0.8")
+            confidence_score=Decimal("0.8"),
         )
 
         assert signal.pair1_symbol == "BTCUSDT"
@@ -408,7 +408,7 @@ class TestSignal:
                 zscore=Decimal("2.5"),
                 threshold_sigma=Decimal("2.0"),
                 signal_type="INVALID",
-                confidence_score=Decimal("0.8")
+                confidence_score=Decimal("0.8"),
             )
 
     def test_signal_invalid_confidence(self):
@@ -420,5 +420,5 @@ class TestSignal:
                 zscore=Decimal("2.5"),
                 threshold_sigma=Decimal("2.0"),
                 signal_type="ENTRY",
-                confidence_score=Decimal("1.5")
+                confidence_score=Decimal("1.5"),
             )

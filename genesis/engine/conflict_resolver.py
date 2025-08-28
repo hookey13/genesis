@@ -14,6 +14,7 @@ logger = structlog.get_logger(__name__)
 
 class ResolutionMethod(Enum):
     """Methods for resolving conflicts between signals."""
+
     PRIORITY = "priority"  # Use signal priority
     CONFIDENCE = "confidence"  # Use signal confidence
     VOTING = "voting"  # Multiple strategies vote
@@ -24,6 +25,7 @@ class ResolutionMethod(Enum):
 
 class ConflictType(Enum):
     """Types of conflicts between signals."""
+
     OPPOSING_DIRECTION = "opposing_direction"  # Buy vs Sell
     SAME_ASSET = "same_asset"  # Multiple signals for same asset
     CAPITAL_CONSTRAINT = "capital_constraint"  # Insufficient capital
@@ -35,6 +37,7 @@ class ConflictType(Enum):
 @dataclass
 class SignalConflict:
     """Represents a conflict between trading signals."""
+
     conflict_id: str
     conflict_type: ConflictType
     primary_signal: dict[str, Any]
@@ -129,7 +132,7 @@ class ConflictResolver:
                         primary_signal=symbol_signals[0],
                         conflicting_signals=symbol_signals,
                         timestamp=datetime.now(),
-                        resolved=False
+                        resolved=False,
                     )
                     conflict.symbol = symbol  # Add symbol attribute
                     conflicts.append(conflict)
@@ -144,7 +147,7 @@ class ConflictResolver:
                             primary_signal=symbol_signals[0],
                             conflicting_signals=symbol_signals,
                             timestamp=datetime.now(),
-                            resolved=False
+                            resolved=False,
                         )
                         conflict.symbol = symbol  # Add symbol attribute
                         conflicts.append(conflict)
@@ -202,19 +205,22 @@ class ConflictResolver:
         # Publish conflict event if event bus available
         if self.event_bus and conflicts:
             from genesis.core.events import Event, EventType
+
             event = Event(
                 event_type=EventType.STRATEGY_CONFLICT,
                 event_data={
                     "conflict_type": conflicts[0].conflict_type.value,
                     "resolution_method": self.resolution_method.value,
-                    "num_conflicts": len(conflicts)
-                }
+                    "num_conflicts": len(conflicts),
+                },
             )
             await self.event_bus.publish(event)
 
         return resolved_signals
 
-    async def _resolve_symbol_conflicts(self, signals: list[dict[str, Any]]) -> Any | None:
+    async def _resolve_symbol_conflicts(
+        self, signals: list[dict[str, Any]]
+    ) -> Any | None:
         """
         Resolve conflicts for signals of the same symbol.
 
@@ -231,7 +237,7 @@ class ConflictResolver:
                     logger.info(
                         "Signals vetoed",
                         vetoing_strategy=signal.get("strategy_id"),
-                        reason=signal.get("reason", "No reason provided")
+                        reason=signal.get("reason", "No reason provided"),
                     )
                     return None
 
@@ -267,7 +273,9 @@ class ConflictResolver:
 
             # Return first signal with winning action
             if winning_action:
-                winning_signal = next(s for s in signals if s.get("action") == winning_action)
+                winning_signal = next(
+                    s for s in signals if s.get("action") == winning_action
+                )
             else:
                 winning_signal = signals[0]
 
@@ -298,8 +306,12 @@ class ConflictResolver:
             logger.info(
                 "Conflict resolved",
                 resolution_method=self.resolution_method.value,
-                winner=winning_signal.get("strategy_id") if isinstance(winning_signal, dict) else "multiple",
-                num_conflicts=len(signals)
+                winner=(
+                    winning_signal.get("strategy_id")
+                    if isinstance(winning_signal, dict)
+                    else "multiple"
+                ),
+                num_conflicts=len(signals),
             )
 
         return winning_signal
@@ -311,11 +323,7 @@ class ConflictResolver:
             Dictionary with conflict statistics
         """
         if not self.conflict_history:
-            return {
-                "total_conflicts": 0,
-                "by_type": {},
-                "resolution_success_rate": 0
-            }
+            return {"total_conflicts": 0, "by_type": {}, "resolution_success_rate": 0}
 
         by_type = {}
         resolved_count = 0
@@ -332,5 +340,9 @@ class ConflictResolver:
         return {
             "total_conflicts": len(self.conflict_history),
             "by_type": by_type,
-            "resolution_success_rate": resolved_count / len(self.conflict_history) if self.conflict_history else 0
+            "resolution_success_rate": (
+                resolved_count / len(self.conflict_history)
+                if self.conflict_history
+                else 0
+            ),
         }

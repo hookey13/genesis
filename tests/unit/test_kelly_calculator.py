@@ -1,6 +1,7 @@
 """
 Unit tests for Kelly Criterion position sizing calculator.
 """
+
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -26,7 +27,7 @@ class TestKellyCalculator:
             default_fraction=Decimal("0.25"),
             min_trades=20,
             lookback_days=30,
-            max_kelly=Decimal("0.5")
+            max_kelly=Decimal("0.5"),
         )
 
     @pytest.fixture
@@ -38,32 +39,37 @@ class TestKellyCalculator:
         # Create 30 trades: 20 wins, 10 losses
         # Spread trades evenly over the last 29 days to avoid filter issues
         for i in range(20):  # Wins
-            trades.append(Trade(
-                order_id=f"order_{i}",
-                strategy_id="test_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("10"),  # Avg win: $10
-                pnl_percent=Decimal("2"),
-                timestamp=base_time - timedelta(days=i % 29)  # Spread over 29 days
-            ))
+            trades.append(
+                Trade(
+                    order_id=f"order_{i}",
+                    strategy_id="test_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("10"),  # Avg win: $10
+                    pnl_percent=Decimal("2"),
+                    timestamp=base_time - timedelta(days=i % 29),  # Spread over 29 days
+                )
+            )
 
         for i in range(10):  # Losses
-            trades.append(Trade(
-                order_id=f"order_loss_{i}",
-                strategy_id="test_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("49500"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("-5"),  # Avg loss: $5
-                pnl_percent=Decimal("-1"),
-                timestamp=base_time - timedelta(days=(i+5) % 29)  # Offset and spread
-            ))
+            trades.append(
+                Trade(
+                    order_id=f"order_loss_{i}",
+                    strategy_id="test_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("49500"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("-5"),  # Avg loss: $5
+                    pnl_percent=Decimal("-1"),
+                    timestamp=base_time
+                    - timedelta(days=(i + 5) % 29),  # Offset and spread
+                )
+            )
 
         return trades
 
@@ -129,7 +135,9 @@ class TestKellyCalculator:
         assert edge_metrics["win_rate"] == Decimal("0.6667")  # 20/30
         assert edge_metrics["win_loss_ratio"] == Decimal("2.00")  # 10/5
         assert edge_metrics["sample_size"] == 30
-        assert edge_metrics["confidence"] > Decimal("0.6")  # Reasonable confidence with 30 trades
+        assert edge_metrics["confidence"] > Decimal(
+            "0.6"
+        )  # Reasonable confidence with 30 trades
 
     def test_estimate_edge_with_no_trades(self, calculator):
         """Test edge estimation with no trades."""
@@ -145,7 +153,9 @@ class TestKellyCalculator:
         edge = calculator.calculate_strategy_edge("test_strategy", sample_trades)
 
         assert edge.strategy_id == "test_strategy"
-        assert abs(edge.win_rate - Decimal("0.6667")) < Decimal("0.01")  # 20 wins / 30 total
+        assert abs(edge.win_rate - Decimal("0.6667")) < Decimal(
+            "0.01"
+        )  # 20 wins / 30 total
         assert edge.win_loss_ratio == Decimal("2.00")
         assert edge.sample_size == 30  # All trades should be within window now
         assert edge.confidence_interval[0] < edge.win_rate < edge.confidence_interval[1]
@@ -167,18 +177,20 @@ class TestKellyCalculator:
         # Create trades with significant drawdown
         losing_trades = []
         for i in range(20):
-            losing_trades.append(Trade(
-                order_id=f"loss_{i}",
-                strategy_id="test",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("49000"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("-10"),
-                pnl_percent=Decimal("-2"),
-                timestamp=datetime.now(UTC)
-            ))
+            losing_trades.append(
+                Trade(
+                    order_id=f"loss_{i}",
+                    strategy_id="test",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("49000"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("-10"),
+                    pnl_percent=Decimal("-2"),
+                    timestamp=datetime.now(UTC),
+                )
+            )
 
         adjusted_kelly = calculator.adjust_kelly_for_performance(
             base_kelly, losing_trades, window_size=20
@@ -194,18 +206,20 @@ class TestKellyCalculator:
         # Create recent winning trades
         winning_trades = []
         for i in range(5):
-            winning_trades.append(Trade(
-                order_id=f"win_{i}",
-                strategy_id="test",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("10"),
-                pnl_percent=Decimal("2"),
-                timestamp=datetime.now(UTC)
-            ))
+            winning_trades.append(
+                Trade(
+                    order_id=f"win_{i}",
+                    strategy_id="test",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("10"),
+                    pnl_percent=Decimal("2"),
+                    timestamp=datetime.now(UTC),
+                )
+            )
 
         adjusted_kelly = calculator.adjust_kelly_for_performance(
             base_kelly, winning_trades, window_size=5
@@ -286,13 +300,17 @@ class TestKellyCalculator:
         kelly_fraction = Decimal("0.1")  # Conservative 10% Kelly
 
         result = calculator.run_monte_carlo_simulation(
-            win_rate, win_loss_ratio, kelly_fraction,
+            win_rate,
+            win_loss_ratio,
+            kelly_fraction,
             iterations=100,  # Reduced for test speed
-            trades_per_iteration=50  # Reduced trades
+            trades_per_iteration=50,  # Reduced trades
         )
 
         assert isinstance(result, SimulationResult)
-        assert result.risk_of_ruin < Decimal("0.05")  # Allow slightly higher risk for test
+        assert result.risk_of_ruin < Decimal(
+            "0.05"
+        )  # Allow slightly higher risk for test
         # Growth rate can be negative in some simulations
         assert result.median_final_balance >= Decimal("0")  # At least no total loss
         assert result.percentile_5 < result.median_final_balance < result.percentile_95
@@ -314,18 +332,20 @@ class TestKellyCalculator:
 
         # Create 10 recent trades (all within the lookback window)
         for i in range(10):
-            recent_trades.append(Trade(
-                order_id=f"recent_{i}",
-                strategy_id="test",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000") if i < 7 else Decimal("49500"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("10") if i < 7 else Decimal("-5"),
-                pnl_percent=Decimal("2") if i < 7 else Decimal("-1"),
-                timestamp=base_time - timedelta(days=i)  # All within 10 days
-            ))
+            recent_trades.append(
+                Trade(
+                    order_id=f"recent_{i}",
+                    strategy_id="test",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000") if i < 7 else Decimal("49500"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("10") if i < 7 else Decimal("-5"),
+                    pnl_percent=Decimal("2") if i < 7 else Decimal("-1"),
+                    timestamp=base_time - timedelta(days=i),  # All within 10 days
+                )
+            )
 
         # Test with insufficient data (< min_trades of 20)
         edge_small = calculator.calculate_strategy_edge("test", recent_trades)
@@ -334,14 +354,22 @@ class TestKellyCalculator:
         assert edge_small.sample_size < calculator.min_trades  # Below threshold of 20
 
         # Test with sufficient data (use the full sample_trades fixture)
-        edge_large = calculator.calculate_strategy_edge("test_strategy", sample_trades)  # Use correct strategy_id
+        edge_large = calculator.calculate_strategy_edge(
+            "test_strategy", sample_trades
+        )  # Use correct strategy_id
         # Should have at least min_trades (20) after any filtering
         assert edge_large.sample_size >= calculator.min_trades
         # Confidence interval should be narrower than default
-        interval_width = edge_large.confidence_interval[1] - edge_large.confidence_interval[0]
+        interval_width = (
+            edge_large.confidence_interval[1] - edge_large.confidence_interval[0]
+        )
         assert interval_width < Decimal("1")  # Should be narrower than (0, 1)
         # Check win rate is within confidence interval
-        assert edge_large.confidence_interval[0] <= edge_large.win_rate <= edge_large.confidence_interval[1]
+        assert (
+            edge_large.confidence_interval[0]
+            <= edge_large.win_rate
+            <= edge_large.confidence_interval[1]
+        )
 
 
 class TestStrategyPerformanceTracker:
@@ -365,7 +393,7 @@ class TestStrategyPerformanceTracker:
             quantity=Decimal("0.01"),
             pnl_dollars=Decimal("10"),
             pnl_percent=Decimal("2"),
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
     def test_record_trade(self, tracker, sample_trade):
@@ -397,7 +425,7 @@ class TestStrategyPerformanceTracker:
                 quantity=Decimal("0.01"),
                 pnl_dollars=pnl,
                 pnl_percent=Decimal("2") if pnl > 0 else Decimal("-1"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             )
             tracker.record_trade("test", trade)
 
@@ -411,11 +439,11 @@ class TestStrategyPerformanceTracker:
         """Test maximum drawdown calculation."""
         # Create trades with drawdown
         trades = [
-            (Decimal("100"), 1),   # Win
-            (Decimal("50"), 2),    # Win  (peak: 150)
-            (Decimal("-80"), 3),   # Loss (current: 70, drawdown: 80/150 = 53%)
-            (Decimal("-30"), 4),   # Loss (current: 40, drawdown: 110/150 = 73%)
-            (Decimal("60"), 5),    # Win  (current: 100)
+            (Decimal("100"), 1),  # Win
+            (Decimal("50"), 2),  # Win  (peak: 150)
+            (Decimal("-80"), 3),  # Loss (current: 70, drawdown: 80/150 = 53%)
+            (Decimal("-30"), 4),  # Loss (current: 40, drawdown: 110/150 = 73%)
+            (Decimal("60"), 5),  # Win  (current: 100)
         ]
 
         for pnl, day in trades:
@@ -429,7 +457,7 @@ class TestStrategyPerformanceTracker:
                 quantity=Decimal("0.01"),
                 pnl_dollars=pnl,
                 pnl_percent=Decimal("1"),
-                timestamp=datetime.now(UTC) - timedelta(days=30-day)
+                timestamp=datetime.now(UTC) - timedelta(days=30 - day),
             )
             tracker.record_trade("test", trade)
 
@@ -450,7 +478,7 @@ class TestStrategyPerformanceTracker:
                 quantity=Decimal("0.01"),
                 pnl_dollars=Decimal("10"),
                 pnl_percent=Decimal("2"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             )
             tracker.record_trade("test", trade)
 
@@ -460,7 +488,13 @@ class TestStrategyPerformanceTracker:
     def test_losing_streak(self, tracker):
         """Test losing streak calculation."""
         # Record mixed trades ending with losses
-        trades_pnl = [Decimal("10"), Decimal("10"), Decimal("-5"), Decimal("-5"), Decimal("-5")]
+        trades_pnl = [
+            Decimal("10"),
+            Decimal("10"),
+            Decimal("-5"),
+            Decimal("-5"),
+            Decimal("-5"),
+        ]
 
         for i, pnl in enumerate(trades_pnl):
             trade = Trade(
@@ -473,7 +507,7 @@ class TestStrategyPerformanceTracker:
                 quantity=Decimal("0.01"),
                 pnl_dollars=pnl,
                 pnl_percent=Decimal("2") if pnl > 0 else Decimal("-1"),
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             )
             tracker.record_trade("test", trade)
 

@@ -34,10 +34,9 @@ class TestTwapExecutor:
     def mock_gateway(self):
         """Create mock gateway."""
         gateway = AsyncMock()
-        gateway.get_ticker = AsyncMock(return_value=MagicMock(
-            last_price=Decimal("50000"),
-            volume=Decimal("1000")
-        ))
+        gateway.get_ticker = AsyncMock(
+            return_value=MagicMock(last_price=Decimal("50000"), volume=Decimal("1000"))
+        )
         return gateway
 
     @pytest.fixture
@@ -46,7 +45,7 @@ class TestTwapExecutor:
         return Account(
             account_id="test-account",
             tier=TradingTier.STRATEGIST,
-            balance_usdt=Decimal("100000")
+            balance_usdt=Decimal("100000"),
         )
 
     @pytest.fixture
@@ -54,13 +53,15 @@ class TestTwapExecutor:
         """Create mock market executor."""
         executor = AsyncMock()
         executor.generate_client_order_id = MagicMock(return_value=str(uuid4()))
-        executor.execute_market_order = AsyncMock(return_value=ExecutionResult(
-            success=True,
-            order=MagicMock(),
-            message="Order executed",
-            actual_price=Decimal("50100"),
-            slippage_percent=Decimal("0.1")
-        ))
+        executor.execute_market_order = AsyncMock(
+            return_value=ExecutionResult(
+                success=True,
+                order=MagicMock(),
+                message="Order executed",
+                actual_price=Decimal("50100"),
+                slippage_percent=Decimal("0.1"),
+            )
+        )
         return executor
 
     @pytest.fixture
@@ -81,9 +82,9 @@ class TestTwapExecutor:
 
         # Mock volume profile
         volume_profile = MagicMock(spec=VolumeProfile)
-        volume_profile.get_hourly_volumes = MagicMock(return_value={
-            i: Decimal("100") for i in range(24)
-        })
+        volume_profile.get_hourly_volumes = MagicMock(
+            return_value={i: Decimal("100") for i in range(24)}
+        )
         service.get_volume_profile = AsyncMock(return_value=volume_profile)
 
         return service
@@ -92,10 +93,9 @@ class TestTwapExecutor:
     def mock_risk_engine(self):
         """Create mock risk engine."""
         engine = AsyncMock()
-        engine.check_risk_limits = AsyncMock(return_value=RiskDecision(
-            approved=True,
-            reason=None
-        ))
+        engine.check_risk_limits = AsyncMock(
+            return_value=RiskDecision(approved=True, reason=None)
+        )
         return engine
 
     @pytest.fixture
@@ -114,7 +114,7 @@ class TestTwapExecutor:
         mock_repository,
         mock_market_data_service,
         mock_risk_engine,
-        mock_event_bus
+        mock_event_bus,
     ):
         """Create TWAP executor instance."""
         return TwapExecutor(
@@ -124,7 +124,7 @@ class TestTwapExecutor:
             repository=mock_repository,
             market_data_service=mock_market_data_service,
             risk_engine=mock_risk_engine,
-            event_bus=mock_event_bus
+            event_bus=mock_event_bus,
         )
 
     @pytest.fixture
@@ -138,7 +138,7 @@ class TestTwapExecutor:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("1.0")
+            quantity=Decimal("1.0"),
         )
 
     @pytest.mark.asyncio
@@ -149,14 +149,14 @@ class TestTwapExecutor:
         mock_repository,
         mock_market_data_service,
         mock_risk_engine,
-        mock_event_bus
+        mock_event_bus,
     ):
         """Test TWAP executor requires Strategist tier."""
         # Create account with insufficient tier
         low_tier_account = Account(
             account_id="test-account",
             tier=TradingTier.HUNTER,
-            balance_usdt=Decimal("5000")
+            balance_usdt=Decimal("5000"),
         )
 
         with pytest.raises(OrderExecutionError, match="STRATEGIST"):
@@ -167,7 +167,7 @@ class TestTwapExecutor:
                 repository=mock_repository,
                 market_data_service=mock_market_data_service,
                 risk_engine=mock_risk_engine,
-                event_bus=mock_event_bus
+                event_bus=mock_event_bus,
             )
 
     @pytest.mark.asyncio
@@ -181,22 +181,26 @@ class TestTwapExecutor:
             twap_executor._validate_duration(3)
 
         # Too long
-        with pytest.raises(ValidationError, match=f"cannot exceed {MAX_DURATION_MINUTES}"):
+        with pytest.raises(
+            ValidationError, match=f"cannot exceed {MAX_DURATION_MINUTES}"
+        ):
             twap_executor._validate_duration(45)
 
     @pytest.mark.asyncio
     async def test_calculate_time_slices(self, twap_executor):
         """Test time slice calculation with adaptive timing."""
         volume_profile = MagicMock(spec=VolumeProfile)
-        volume_profile.get_hourly_volumes = MagicMock(return_value={
-            i: Decimal("100") if i in range(9, 17) else Decimal("50")
-            for i in range(24)
-        })
+        volume_profile.get_hourly_volumes = MagicMock(
+            return_value={
+                i: Decimal("100") if i in range(9, 17) else Decimal("50")
+                for i in range(24)
+            }
+        )
 
         slices = await twap_executor.calculate_time_slices(
             duration_minutes=10,
             volume_profile=volume_profile,
-            total_quantity=Decimal("10.0")
+            total_quantity=Decimal("10.0"),
         )
 
         assert len(slices) > 0
@@ -207,7 +211,9 @@ class TestTwapExecutor:
     @pytest.mark.asyncio
     async def test_track_arrival_price(self, twap_executor, mock_market_data_service):
         """Test arrival price tracking."""
-        mock_market_data_service.get_current_price = AsyncMock(return_value=Decimal("51000"))
+        mock_market_data_service.get_current_price = AsyncMock(
+            return_value=Decimal("51000")
+        )
 
         arrival_price = await twap_executor.track_arrival_price("BTC/USDT")
 
@@ -215,40 +221,44 @@ class TestTwapExecutor:
         mock_market_data_service.get_current_price.assert_called_once_with("BTC/USDT")
 
     @pytest.mark.asyncio
-    async def test_check_early_completion_buy(self, twap_executor, mock_market_data_service):
+    async def test_check_early_completion_buy(
+        self, twap_executor, mock_market_data_service
+    ):
         """Test early completion check for buy orders."""
         # Price dropped sufficiently for early completion
-        mock_market_data_service.get_current_price = AsyncMock(return_value=Decimal("49800"))
+        mock_market_data_service.get_current_price = AsyncMock(
+            return_value=Decimal("49800")
+        )
 
         should_complete = await twap_executor.check_early_completion(
-            symbol="BTC/USDT",
-            side=OrderSide.BUY,
-            target_price=Decimal("50000")
+            symbol="BTC/USDT", side=OrderSide.BUY, target_price=Decimal("50000")
         )
 
         assert should_complete is True
 
         # Price not favorable enough
-        mock_market_data_service.get_current_price = AsyncMock(return_value=Decimal("49950"))
+        mock_market_data_service.get_current_price = AsyncMock(
+            return_value=Decimal("49950")
+        )
 
         should_complete = await twap_executor.check_early_completion(
-            symbol="BTC/USDT",
-            side=OrderSide.BUY,
-            target_price=Decimal("50000")
+            symbol="BTC/USDT", side=OrderSide.BUY, target_price=Decimal("50000")
         )
 
         assert should_complete is False
 
     @pytest.mark.asyncio
-    async def test_check_early_completion_sell(self, twap_executor, mock_market_data_service):
+    async def test_check_early_completion_sell(
+        self, twap_executor, mock_market_data_service
+    ):
         """Test early completion check for sell orders."""
         # Price increased sufficiently for early completion
-        mock_market_data_service.get_current_price = AsyncMock(return_value=Decimal("50200"))
+        mock_market_data_service.get_current_price = AsyncMock(
+            return_value=Decimal("50200")
+        )
 
         should_complete = await twap_executor.check_early_completion(
-            symbol="BTC/USDT",
-            side=OrderSide.SELL,
-            target_price=Decimal("50000")
+            symbol="BTC/USDT", side=OrderSide.SELL, target_price=Decimal("50000")
         )
 
         assert should_complete is True
@@ -256,27 +266,29 @@ class TestTwapExecutor:
     @pytest.mark.asyncio
     async def test_enforce_participation_limit(self, twap_executor, mock_gateway):
         """Test participation rate limiting."""
-        mock_gateway.get_ticker = AsyncMock(return_value=MagicMock(
-            volume=Decimal("14400")  # 10 per minute average
-        ))
+        mock_gateway.get_ticker = AsyncMock(
+            return_value=MagicMock(volume=Decimal("14400"))  # 10 per minute average
+        )
 
         # Normal conditions
         adjusted = await twap_executor.enforce_participation_limit(
             slice_size=Decimal("2.0"),
             symbol="BTC/USDT",
-            max_participation=Decimal("0.10")
+            max_participation=Decimal("0.10"),
         )
 
         # Should be limited to 10% of volume per minute (1.0)
         assert adjusted == Decimal("1.0")
 
         # During volume anomaly
-        twap_executor.market_data_service.is_volume_anomaly = AsyncMock(return_value=True)
+        twap_executor.market_data_service.is_volume_anomaly = AsyncMock(
+            return_value=True
+        )
 
         adjusted = await twap_executor.enforce_participation_limit(
             slice_size=Decimal("2.0"),
             symbol="BTC/USDT",
-            max_participation=Decimal("0.10")
+            max_participation=Decimal("0.10"),
         )
 
         # Should be further reduced by 50%
@@ -300,16 +312,14 @@ class TestTwapExecutor:
         """Test implementation shortfall calculation."""
         # Positive shortfall (unfavorable)
         shortfall = twap_executor.calculate_implementation_shortfall(
-            arrival_price=Decimal("50000"),
-            execution_price=Decimal("50100")
+            arrival_price=Decimal("50000"), execution_price=Decimal("50100")
         )
 
         assert shortfall == Decimal("0.2000")
 
         # Negative shortfall (favorable)
         shortfall = twap_executor.calculate_implementation_shortfall(
-            arrival_price=Decimal("50000"),
-            execution_price=Decimal("49900")
+            arrival_price=Decimal("50000"), execution_price=Decimal("49900")
         )
 
         assert shortfall == Decimal("-0.2000")
@@ -326,7 +336,7 @@ class TestTwapExecutor:
             duration_minutes=15,
             slices=[],
             arrival_price=Decimal("50000"),
-            remaining_quantity=Decimal("10.0")
+            remaining_quantity=Decimal("10.0"),
         )
         twap_executor.active_executions["test-exec"] = execution
 
@@ -358,7 +368,7 @@ class TestTwapExecutor:
         mock_market_executor,
         mock_market_data_service,
         mock_risk_engine,
-        mock_event_bus
+        mock_event_bus,
     ):
         """Test basic TWAP execution flow."""
         # Mock successful slice executions
@@ -369,27 +379,27 @@ class TestTwapExecutor:
                     order=MagicMock(filled_quantity=Decimal("0.2")),
                     message="Slice 1 executed",
                     actual_price=Decimal("50000"),
-                    slippage_percent=Decimal("0.0")
+                    slippage_percent=Decimal("0.0"),
                 ),
                 ExecutionResult(
                     success=True,
                     order=MagicMock(filled_quantity=Decimal("0.3")),
                     message="Slice 2 executed",
                     actual_price=Decimal("50100"),
-                    slippage_percent=Decimal("0.1")
+                    slippage_percent=Decimal("0.1"),
                 ),
                 ExecutionResult(
                     success=True,
                     order=MagicMock(filled_quantity=Decimal("0.5")),
                     message="Slice 3 executed",
                     actual_price=Decimal("50050"),
-                    slippage_percent=Decimal("0.05")
+                    slippage_percent=Decimal("0.05"),
                 ),
             ]
         )
 
         # Speed up execution for testing
-        with patch.object(asyncio, 'sleep', new_callable=AsyncMock):
+        with patch.object(asyncio, "sleep", new_callable=AsyncMock):
             result = await twap_executor.execute_twap(sample_order, duration_minutes=5)
 
         assert result.success is True
@@ -397,23 +407,21 @@ class TestTwapExecutor:
         assert sample_order.filled_quantity > 0
 
         # Verify events were published
-        assert mock_event_bus.publish.call_count >= 2  # At least start and complete events
+        assert (
+            mock_event_bus.publish.call_count >= 2
+        )  # At least start and complete events
 
     @pytest.mark.asyncio
     async def test_execute_twap_with_risk_rejection(
-        self,
-        twap_executor,
-        sample_order,
-        mock_risk_engine
+        self, twap_executor, sample_order, mock_risk_engine
     ):
         """Test TWAP execution when risk engine rejects slices."""
         # Mock risk rejection
-        mock_risk_engine.check_risk_limits = AsyncMock(return_value=RiskDecision(
-            approved=False,
-            reason="Position limit exceeded"
-        ))
+        mock_risk_engine.check_risk_limits = AsyncMock(
+            return_value=RiskDecision(approved=False, reason="Position limit exceeded")
+        )
 
-        with patch.object(asyncio, 'sleep', new_callable=AsyncMock):
+        with patch.object(asyncio, "sleep", new_callable=AsyncMock):
             result = await twap_executor.execute_twap(sample_order, duration_minutes=5)
 
         # Execution should complete but with no filled quantity
@@ -421,10 +429,7 @@ class TestTwapExecutor:
 
     @pytest.mark.asyncio
     async def test_execute_twap_with_early_completion(
-        self,
-        twap_executor,
-        sample_order,
-        mock_market_data_service
+        self, twap_executor, sample_order, mock_market_data_service
     ):
         """Test TWAP execution with early completion triggered."""
         # Mock favorable price for early completion
@@ -435,11 +440,15 @@ class TestTwapExecutor:
             ]
         )
 
-        with patch.object(asyncio, 'sleep', new_callable=AsyncMock):
+        with patch.object(asyncio, "sleep", new_callable=AsyncMock):
             result = await twap_executor.execute_twap(sample_order, duration_minutes=10)
 
         # Check that early completion was noted
-        execution_id = list(twap_executor.active_executions.keys())[0] if twap_executor.active_executions else None
+        execution_id = (
+            list(twap_executor.active_executions.keys())[0]
+            if twap_executor.active_executions
+            else None
+        )
         if execution_id:
             execution = twap_executor.active_executions[execution_id]
             assert execution.early_completion is True
@@ -457,7 +466,7 @@ class TestTwapExecutor:
             slices=[],
             arrival_price=Decimal("50000"),
             remaining_quantity=Decimal("10.0"),
-            background_task=MagicMock()
+            background_task=MagicMock(),
         )
         execution.background_task.cancel = MagicMock()
         twap_executor.active_executions["test-exec"] = execution
@@ -483,7 +492,7 @@ class TestTwapExecutor:
                 slices=[],
                 arrival_price=Decimal("50000"),
                 remaining_quantity=Decimal("10.0"),
-                background_task=MagicMock()
+                background_task=MagicMock(),
             )
             execution.background_task.cancel = MagicMock()
             twap_executor.active_executions[f"test-exec-{i}"] = execution
@@ -495,16 +504,16 @@ class TestTwapExecutor:
         assert cancelled_count == 4  # 2 TWAP + 2 market
         assert twap_executor.active_executions["test-exec-0"].status == "CANCELLED"
         assert twap_executor.active_executions["test-exec-1"].status == "CANCELLED"
-        assert twap_executor.active_executions["test-exec-2"].status == "ACTIVE"  # Different symbol
+        assert (
+            twap_executor.active_executions["test-exec-2"].status == "ACTIVE"
+        )  # Different symbol
 
     @pytest.mark.asyncio
     async def test_execute_market_order(self, twap_executor, sample_order):
         """Test that execute_market_order routes to TWAP."""
-        with patch.object(twap_executor, 'execute_twap') as mock_execute:
+        with patch.object(twap_executor, "execute_twap") as mock_execute:
             mock_execute.return_value = ExecutionResult(
-                success=True,
-                order=sample_order,
-                message="TWAP completed"
+                success=True, order=sample_order, message="TWAP completed"
             )
 
             result = await twap_executor.execute_market_order(sample_order)

@@ -1,4 +1,5 @@
 """Unit tests for tilt debt tracking system."""
+
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
@@ -81,17 +82,13 @@ class TestDebtLedger:
     async def test_add_to_debt_ledger(self, mock_repository, mock_event_bus):
         """Test adding debt to ledger."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
         debt_amount = Decimal("100")
 
         transaction = await calculator.add_to_debt_ledger(
-            profile_id,
-            debt_amount,
-            tilt_level=TiltLevel.LEVEL2,
-            reason="Test debt"
+            profile_id, debt_amount, tilt_level=TiltLevel.LEVEL2, reason="Test debt"
         )
 
         assert transaction is not None
@@ -110,8 +107,7 @@ class TestDebtLedger:
         profile_id = "test_profile"
 
         transaction = await debt_calculator.add_to_debt_ledger(
-            profile_id,
-            Decimal("0.5")  # Below minimum
+            profile_id, Decimal("0.5")  # Below minimum
         )
 
         assert transaction is None
@@ -120,8 +116,7 @@ class TestDebtLedger:
     async def test_cumulative_debt_addition(self, mock_repository, mock_event_bus):
         """Test that debt accumulates correctly."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -141,8 +136,7 @@ class TestDebtReduction:
     async def test_reduce_debt(self, mock_repository, mock_event_bus):
         """Test reducing debt with profits."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -159,8 +153,7 @@ class TestDebtReduction:
     async def test_reduce_debt_capped_at_balance(self, mock_repository, mock_event_bus):
         """Test that debt reduction is capped at current balance."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -193,8 +186,7 @@ class TestDebtQueries:
     async def test_get_current_debt(self, mock_repository, mock_event_bus):
         """Test getting current debt balance."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -209,8 +201,7 @@ class TestDebtQueries:
     async def test_has_outstanding_debt(self, mock_repository, mock_event_bus):
         """Test checking for outstanding debt."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -234,8 +225,7 @@ class TestDebtQueries:
     async def test_get_debt_payoff_ratio(self, mock_repository, mock_event_bus):
         """Test calculating debt payoff ratio."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -256,8 +246,7 @@ class TestDebtStatistics:
     async def test_get_debt_statistics(self, mock_repository, mock_event_bus):
         """Test getting comprehensive debt statistics."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -294,8 +283,7 @@ class TestDebtClearance:
     async def test_clear_debt(self, mock_repository, mock_event_bus):
         """Test clearing all debt."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -325,8 +313,7 @@ class TestTransactionHistory:
     async def test_transaction_history_cache(self, mock_repository, mock_event_bus):
         """Test that transactions are cached."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -342,8 +329,7 @@ class TestTransactionHistory:
     async def test_transaction_history_limit(self, mock_repository, mock_event_bus):
         """Test that transaction history is limited to 100 entries."""
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
         profile_id = "test_profile"
 
@@ -395,19 +381,19 @@ class TestDebtPersistence:
         assert calculator.get_current_debt("profile_2") == Decimal("250.50")
 
     @pytest.mark.asyncio
-    async def test_persist_transaction_error_handling(self, mock_repository, mock_event_bus):
+    async def test_persist_transaction_error_handling(
+        self, mock_repository, mock_event_bus
+    ):
         """Test error handling when persisting transaction."""
         mock_repository.save_debt_transaction.side_effect = Exception("Database error")
 
         calculator = TiltDebtCalculator(
-            repository=mock_repository,
-            event_bus=mock_event_bus
+            repository=mock_repository, event_bus=mock_event_bus
         )
 
         # Should not raise exception
         transaction = await calculator.add_to_debt_ledger(
-            "test_profile",
-            Decimal("100")
+            "test_profile", Decimal("100")
         )
 
         assert transaction is not None

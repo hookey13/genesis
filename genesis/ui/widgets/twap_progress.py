@@ -94,7 +94,7 @@ class TwapProgressWidget(Widget):
                 Static(id="twap-progress"),
                 Static(id="twap-metrics"),
                 Static(id="twap-slices"),
-                id="twap-container"
+                id="twap-container",
             )
         )
 
@@ -116,15 +116,23 @@ class TwapProgressWidget(Widget):
         self.symbol = execution_data.get("symbol", "")
         self.side = execution_data.get("side", "")
         self.total_quantity = Decimal(str(execution_data.get("total_quantity", 0)))
-        self.executed_quantity = Decimal(str(execution_data.get("executed_quantity", 0)))
-        self.remaining_quantity = Decimal(str(execution_data.get("remaining_quantity", 0)))
+        self.executed_quantity = Decimal(
+            str(execution_data.get("executed_quantity", 0))
+        )
+        self.remaining_quantity = Decimal(
+            str(execution_data.get("remaining_quantity", 0))
+        )
         self.slice_count = execution_data.get("slice_count", 0)
         self.completed_slices = execution_data.get("completed_slices", 0)
         self.arrival_price = Decimal(str(execution_data.get("arrival_price", 0)))
         self.current_price = Decimal(str(execution_data.get("current_price", 0)))
         self.twap_price = Decimal(str(execution_data.get("twap_price", 0)))
-        self.avg_participation_rate = Decimal(str(execution_data.get("participation_rate", 0)))
-        self.implementation_shortfall = Decimal(str(execution_data.get("implementation_shortfall", 0)))
+        self.avg_participation_rate = Decimal(
+            str(execution_data.get("participation_rate", 0))
+        )
+        self.implementation_shortfall = Decimal(
+            str(execution_data.get("implementation_shortfall", 0))
+        )
         self.status = execution_data.get("status", "INACTIVE")
         self.started_at = execution_data.get("started_at")
 
@@ -196,7 +204,7 @@ class TwapProgressWidget(Widget):
             return Panel(
                 Text("No active TWAP execution", style="dim"),
                 title="TWAP Progress Monitor",
-                border_style="blue"
+                border_style="blue",
             )
 
         # Status color
@@ -205,7 +213,7 @@ class TwapProgressWidget(Widget):
             "PAUSED": "yellow",
             "COMPLETED": "blue",
             "FAILED": "red",
-            "CANCELLED": "red"
+            "CANCELLED": "red",
         }
         status_color = status_colors.get(self.status, "white")
 
@@ -214,15 +222,13 @@ class TwapProgressWidget(Widget):
         header_text.append(f"{self.execution_id[:8]}...\n", style="cyan")
         header_text.append("Symbol: ", style="bold")
         header_text.append(f"{self.symbol} ", style="white")
-        header_text.append(f"[{self.side}]\n", style="yellow" if self.side == "BUY" else "red")
+        header_text.append(
+            f"[{self.side}]\n", style="yellow" if self.side == "BUY" else "red"
+        )
         header_text.append("Status: ", style="bold")
         header_text.append(f"{self.status}", style=status_color)
 
-        return Panel(
-            header_text,
-            title="TWAP Execution Monitor",
-            border_style="blue"
-        )
+        return Panel(header_text, title="TWAP Execution Monitor", border_style="blue")
 
     def _create_progress_display(self) -> RenderableType:
         """Create the progress bar display."""
@@ -239,16 +245,14 @@ class TwapProgressWidget(Widget):
 
         # Slice progress
         slice_task = progress.add_task(
-            "Slices",
-            total=self.slice_count,
-            completed=self.completed_slices
+            "Slices", total=self.slice_count, completed=self.completed_slices
         )
 
         # Quantity progress
         qty_task = progress.add_task(
             "Quantity",
             total=float(self.total_quantity),
-            completed=float(self.executed_quantity)
+            completed=float(self.executed_quantity),
         )
 
         # Time remaining
@@ -261,14 +265,11 @@ class TwapProgressWidget(Widget):
 
         progress_panel = Panel(
             Align.center(
-                Vertical(
-                    progress,
-                    Text(time_text, style="dim", justify="center")
-                ),
-                vertical="middle"
+                Vertical(progress, Text(time_text, style="dim", justify="center")),
+                vertical="middle",
             ),
             title="Execution Progress",
-            border_style="green" if self.status == "ACTIVE" else "dim"
+            border_style="green" if self.status == "ACTIVE" else "dim",
         )
 
         return progress_panel
@@ -284,58 +285,70 @@ class TwapProgressWidget(Widget):
         if self.arrival_price > 0:
             price_diff = self.twap_price - self.arrival_price
             price_color = "green" if price_diff <= 0 else "red"
-            table.add_row(
-                "Arrival Price",
-                f"{self.arrival_price:,.2f}",
-                ""
-            )
+            table.add_row("Arrival Price", f"{self.arrival_price:,.2f}", "")
 
         if self.twap_price > 0:
             table.add_row(
-                "TWAP Price",
-                f"{self.twap_price:,.2f}",
-                "✓" if self.twap_price else ""
+                "TWAP Price", f"{self.twap_price:,.2f}", "✓" if self.twap_price else ""
             )
 
         if self.current_price > 0:
-            market_diff = ((self.current_price - self.twap_price) / self.twap_price * 100) if self.twap_price > 0 else 0
-            market_color = "green" if abs(market_diff) < 0.5 else "yellow" if abs(market_diff) < 1 else "red"
+            market_diff = (
+                ((self.current_price - self.twap_price) / self.twap_price * 100)
+                if self.twap_price > 0
+                else 0
+            )
+            market_color = (
+                "green"
+                if abs(market_diff) < 0.5
+                else "yellow" if abs(market_diff) < 1 else "red"
+            )
             table.add_row(
                 "Market Price",
                 f"{self.current_price:,.2f}",
-                f"[{market_color}]{market_diff:+.2f}%[/{market_color}]"
+                f"[{market_color}]{market_diff:+.2f}%[/{market_color}]",
             )
 
         # Volume metrics
         if self.avg_participation_rate > 0:
-            part_color = "green" if self.avg_participation_rate < 8 else "yellow" if self.avg_participation_rate < 10 else "red"
+            part_color = (
+                "green"
+                if self.avg_participation_rate < 8
+                else "yellow" if self.avg_participation_rate < 10 else "red"
+            )
             table.add_row(
                 "Avg Participation",
                 f"{self.avg_participation_rate:.2f}%",
-                f"[{part_color}]{'✓' if self.avg_participation_rate < 10 else '⚠'}[/{part_color}]"
+                f"[{part_color}]{'✓' if self.avg_participation_rate < 10 else '⚠'}[/{part_color}]",
             )
 
         # Implementation shortfall
         if self.implementation_shortfall != 0:
-            shortfall_color = "green" if self.implementation_shortfall < 0 else "yellow" if abs(self.implementation_shortfall) < 0.2 else "red"
+            shortfall_color = (
+                "green"
+                if self.implementation_shortfall < 0
+                else "yellow" if abs(self.implementation_shortfall) < 0.2 else "red"
+            )
             table.add_row(
                 "Implementation Shortfall",
                 f"{self.implementation_shortfall:+.4f}%",
-                f"[{shortfall_color}]{'✓' if abs(self.implementation_shortfall) < 0.2 else '⚠'}[/{shortfall_color}]"
+                f"[{shortfall_color}]{'✓' if abs(self.implementation_shortfall) < 0.2 else '⚠'}[/{shortfall_color}]",
             )
 
         # Quantity metrics
         table.add_row(
             "Executed / Total",
             f"{self.executed_quantity:.4f} / {self.total_quantity:.4f}",
-            f"{(self.executed_quantity / self.total_quantity * 100):.1f}%"
+            f"{(self.executed_quantity / self.total_quantity * 100):.1f}%",
         )
 
         return Panel(table, border_style="blue")
 
     def _create_slices_table(self) -> RenderableType:
         """Create the slice history table."""
-        table = Table(title="Slice Execution History", show_header=True, header_style="bold")
+        table = Table(
+            title="Slice Execution History", show_header=True, header_style="bold"
+        )
         table.add_column("#", style="dim", width=3)
         table.add_column("Time", style="cyan")
         table.add_column("Quantity", justify="right")
@@ -345,7 +358,11 @@ class TwapProgressWidget(Widget):
         table.add_column("Status", justify="center")
 
         # Show last 10 slices
-        display_slices = self.slice_history[-10:] if len(self.slice_history) > 10 else self.slice_history
+        display_slices = (
+            self.slice_history[-10:]
+            if len(self.slice_history) > 10
+            else self.slice_history
+        )
 
         for slice_data in display_slices:
             slice_num = slice_data.get("slice_number", 0)
@@ -369,12 +386,16 @@ class TwapProgressWidget(Widget):
                 "EXECUTED": "[green]✓[/green]",
                 "FAILED": "[red]✗[/red]",
                 "SKIPPED": "[yellow]-[/yellow]",
-                "PENDING": "[dim]⋯[/dim]"
+                "PENDING": "[dim]⋯[/dim]",
             }
             status_icon = status_icons.get(status, "?")
 
             # Slippage color
-            slippage_color = "green" if abs(slippage_bps) < 10 else "yellow" if abs(slippage_bps) < 20 else "red"
+            slippage_color = (
+                "green"
+                if abs(slippage_bps) < 10
+                else "yellow" if abs(slippage_bps) < 20 else "red"
+            )
 
             table.add_row(
                 str(slice_num),
@@ -383,7 +404,7 @@ class TwapProgressWidget(Widget):
                 f"{price:,.2f}",
                 f"{participation:.1f}%",
                 f"[{slippage_color}]{slippage_bps:+.1f}[/{slippage_color}]",
-                status_icon
+                status_icon,
             )
 
         # Add summary row
@@ -395,13 +416,10 @@ class TwapProgressWidget(Widget):
                 f"[bold]{self.twap_price:,.2f}[/bold]",
                 f"[bold]{self.avg_participation_rate:.1f}%[/bold]",
                 "",
-                f"[bold]{self.completed_slices}/{self.slice_count}[/bold]"
+                f"[bold]{self.completed_slices}/{self.slice_count}[/bold]",
             )
 
-        return Panel(
-            table,
-            border_style="green" if self.status == "ACTIVE" else "dim"
-        )
+        return Panel(table, border_style="green" if self.status == "ACTIVE" else "dim")
 
     def pause_execution(self) -> None:
         """Update display when execution is paused."""
@@ -422,7 +440,9 @@ class TwapProgressWidget(Widget):
         """
         self.status = "COMPLETED"
         self.twap_price = Decimal(str(final_metrics.get("twap_price", 0)))
-        self.implementation_shortfall = Decimal(str(final_metrics.get("implementation_shortfall", 0)))
+        self.implementation_shortfall = Decimal(
+            str(final_metrics.get("implementation_shortfall", 0))
+        )
         self.update_display()
 
     def clear_execution(self) -> None:

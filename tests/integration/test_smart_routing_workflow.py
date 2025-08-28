@@ -75,16 +75,16 @@ class TestSmartRoutingIntegration:
     """Test complete smart routing workflow."""
 
     @pytest.mark.asyncio
-    async def test_market_order_tight_spread_flow(self, mock_gateway, smart_router, mock_executor):
+    async def test_market_order_tight_spread_flow(
+        self, mock_gateway, smart_router, mock_executor
+    ):
         """Test market order selection for tight spread conditions."""
         # Setup market conditions - tight spread
         mock_gateway.get_order_book.return_value = {
-            'bids': [[49999, 10], [49998, 20]],
-            'asks': [[50001, 10], [50002, 20]]  # 2 point spread = 0.004%
+            "bids": [[49999, 10], [49998, 20]],
+            "asks": [[50001, 10], [50002, 20]],  # 2 point spread = 0.004%
         }
-        mock_gateway.get_ticker.return_value = {
-            'priceChangePercent': '1.5'
-        }
+        mock_gateway.get_ticker.return_value = {"priceChangePercent": "1.5"}
 
         # Create order
         order = Order(
@@ -95,7 +95,7 @@ class TestSmartRoutingIntegration:
             side=OrderSide.BUY,
             price=Decimal("50000"),
             quantity=Decimal("0.1"),
-            status=OrderStatus.PENDING
+            status=OrderStatus.PENDING,
         )
 
         # Route order
@@ -111,12 +111,10 @@ class TestSmartRoutingIntegration:
         """Test post-only order selection for wide spread conditions."""
         # Setup market conditions - wide spread
         mock_gateway.get_order_book.return_value = {
-            'bids': [[49950, 10], [49940, 20]],
-            'asks': [[50050, 10], [50060, 20]]  # 100 point spread = 0.2%
+            "bids": [[49950, 10], [49940, 20]],
+            "asks": [[50050, 10], [50060, 20]],  # 100 point spread = 0.2%
         }
-        mock_gateway.get_ticker.return_value = {
-            'priceChangePercent': '2.0'
-        }
+        mock_gateway.get_ticker.return_value = {"priceChangePercent": "2.0"}
 
         # Create order
         order = Order(
@@ -127,7 +125,7 @@ class TestSmartRoutingIntegration:
             side=OrderSide.BUY,
             price=Decimal("49960"),
             quantity=Decimal("0.05"),
-            status=OrderStatus.PENDING
+            status=OrderStatus.PENDING,
         )
 
         # Route order with low urgency
@@ -139,15 +137,17 @@ class TestSmartRoutingIntegration:
         assert routed.expected_fee_rate == smart_router.MAKER_FEE_RATE
 
     @pytest.mark.asyncio
-    async def test_fok_order_volatile_thin_liquidity_flow(self, mock_gateway, smart_router):
+    async def test_fok_order_volatile_thin_liquidity_flow(
+        self, mock_gateway, smart_router
+    ):
         """Test FOK order selection for volatile, thin liquidity conditions."""
         # Setup market conditions - thin liquidity, high volatility
         mock_gateway.get_order_book.return_value = {
-            'bids': [[49990, 0.5], [49980, 0.3]],  # Very thin
-            'asks': [[50010, 0.4], [50020, 0.2]]
+            "bids": [[49990, 0.5], [49980, 0.3]],  # Very thin
+            "asks": [[50010, 0.4], [50020, 0.2]],
         }
         mock_gateway.get_ticker.return_value = {
-            'priceChangePercent': '8.5'  # High volatility
+            "priceChangePercent": "8.5"  # High volatility
         }
 
         # Create order
@@ -159,7 +159,7 @@ class TestSmartRoutingIntegration:
             side=OrderSide.BUY,
             price=Decimal("50000"),
             quantity=Decimal("0.5"),  # Large relative to liquidity
-            status=OrderStatus.PENDING
+            status=OrderStatus.PENDING,
         )
 
         # Route order
@@ -185,8 +185,8 @@ class TestSmartRoutingIntegration:
                 quantity=Decimal("0.1"),
                 filled_quantity=Decimal("0"),
                 status="open",
-                created_at=datetime.now()
-            )
+                created_at=datetime.now(),
+            ),
         ]
 
         # Create order request
@@ -195,7 +195,7 @@ class TestSmartRoutingIntegration:
             side="buy",
             type="POST_ONLY",
             quantity=Decimal("0.1"),
-            price=Decimal("49960")
+            price=Decimal("49960"),
         )
 
         # Place post-only order with retries
@@ -222,7 +222,7 @@ class TestSmartRoutingIntegration:
             maker_fee_paid=Decimal("0.00005"),  # 0.05% maker fee
             taker_fee_paid=Decimal("0"),
             created_at=datetime.now(),
-            executed_at=datetime.now()
+            executed_at=datetime.now(),
         )
 
         # Track execution
@@ -230,7 +230,7 @@ class TestSmartRoutingIntegration:
             order=order,
             actual_price=Decimal("49995"),  # Slight improvement
             time_to_fill_ms=150,
-            market_mid_price=Decimal("50000")
+            market_mid_price=Decimal("50000"),
         )
 
         assert score > 80  # Good execution
@@ -257,7 +257,7 @@ class TestSmartRoutingIntegration:
             side=OrderSide.BUY,
             price=Decimal("50000"),
             quantity=Decimal("0.1"),
-            status=OrderStatus.PENDING
+            status=OrderStatus.PENDING,
         )
 
         # Try to route order - should fail
@@ -275,7 +275,7 @@ class TestSmartRoutingIntegration:
                 message="Order executed via smart routing",
                 actual_price=Decimal("50000"),
                 slippage_percent=Decimal("0"),
-                latency_ms=100
+                latency_ms=100,
             )
         )
 
@@ -287,7 +287,7 @@ class TestSmartRoutingIntegration:
             side=OrderSide.BUY,
             price=Decimal("50000"),
             quantity=Decimal("0.1"),
-            status=OrderStatus.PENDING
+            status=OrderStatus.PENDING,
         )
 
         # Execute with SMART strategy
@@ -297,16 +297,16 @@ class TestSmartRoutingIntegration:
         assert "smart routing" in result.message.lower()
 
     @pytest.mark.asyncio
-    async def test_complete_workflow_with_reporting(self, mock_gateway, smart_router, quality_tracker):
+    async def test_complete_workflow_with_reporting(
+        self, mock_gateway, smart_router, quality_tracker
+    ):
         """Test complete workflow from routing to quality reporting."""
         # Setup market conditions
         mock_gateway.get_order_book.return_value = {
-            'bids': [[49990, 10], [49980, 20]],
-            'asks': [[50010, 10], [50020, 20]]
+            "bids": [[49990, 10], [49980, 20]],
+            "asks": [[50010, 10], [50020, 20]],
         }
-        mock_gateway.get_ticker.return_value = {
-            'priceChangePercent': '2.5'
-        }
+        mock_gateway.get_ticker.return_value = {"priceChangePercent": "2.5"}
 
         # Create and route multiple orders
         orders = []
@@ -319,7 +319,7 @@ class TestSmartRoutingIntegration:
                 side=OrderSide.BUY if i % 2 == 0 else OrderSide.SELL,
                 price=Decimal("50000"),
                 quantity=Decimal("0.1"),
-                status=OrderStatus.PENDING
+                status=OrderStatus.PENDING,
             )
 
             # Route order
@@ -343,7 +343,7 @@ class TestSmartRoutingIntegration:
                 order=order,
                 actual_price=Decimal("50000") + Decimal(i * 10),
                 time_to_fill_ms=100 + i * 50,
-                market_mid_price=Decimal("50000")
+                market_mid_price=Decimal("50000"),
             )
 
             orders.append(order)
@@ -380,7 +380,7 @@ class TestErrorHandling:
             side=OrderSide.BUY,
             price=Decimal("50000"),
             quantity=Decimal("0.1"),
-            status=OrderStatus.PENDING
+            status=OrderStatus.PENDING,
         )
 
         # Should still route with conservative defaults
@@ -393,14 +393,16 @@ class TestErrorHandling:
     async def test_post_only_max_retries(self, mock_gateway):
         """Test post-only order fails after max retries."""
         # Setup continuous rejection
-        mock_gateway.place_order.side_effect = Exception("Order would immediately match")
+        mock_gateway.place_order.side_effect = Exception(
+            "Order would immediately match"
+        )
 
         request = OrderRequest(
             symbol="BTC/USDT",
             side="buy",
             type="POST_ONLY",
             quantity=Decimal("0.1"),
-            price=Decimal("50000")
+            price=Decimal("50000"),
         )
 
         # Should raise after max retries
@@ -422,48 +424,48 @@ class TestConfigurationIntegration:
         # This would normally load the actual config file
         # For testing, we'll create a sample config
         config = {
-            'smart_routing': {
-                'enabled_from_tier': 'HUNTER',
-                'spread_thresholds': {
-                    'tight_bps': 5,
-                    'wide_bps': 20,
-                    'post_only_min_bps': 5
+            "smart_routing": {
+                "enabled_from_tier": "HUNTER",
+                "spread_thresholds": {
+                    "tight_bps": 5,
+                    "wide_bps": 20,
+                    "post_only_min_bps": 5,
                 },
-                'fee_optimization': {
-                    'prefer_maker': True,
-                    'max_post_only_retries': 3
-                }
+                "fee_optimization": {"prefer_maker": True, "max_post_only_retries": 3},
             }
         }
 
-        assert config['smart_routing']['enabled_from_tier'] == 'HUNTER'
-        assert config['smart_routing']['spread_thresholds']['tight_bps'] == 5
-        assert config['smart_routing']['fee_optimization']['prefer_maker'] is True
+        assert config["smart_routing"]["enabled_from_tier"] == "HUNTER"
+        assert config["smart_routing"]["spread_thresholds"]["tight_bps"] == 5
+        assert config["smart_routing"]["fee_optimization"]["prefer_maker"] is True
 
     def test_tier_gate_configuration(self):
         """Test tier gate configuration for smart routing."""
 
         # Sample tier gates config
         config = {
-            'tiers': {
-                'HUNTER': {
-                    'features_unlocked': [
-                        'smart_order_routing',
-                        'post_only_orders',
-                        'fok_ioc_orders'
+            "tiers": {
+                "HUNTER": {
+                    "features_unlocked": [
+                        "smart_order_routing",
+                        "post_only_orders",
+                        "fok_ioc_orders",
                     ]
                 },
-                'STRATEGIST': {
-                    'features_unlocked': [
-                        'advanced_smart_routing',
-                        'execution_quality_reports'
+                "STRATEGIST": {
+                    "features_unlocked": [
+                        "advanced_smart_routing",
+                        "execution_quality_reports",
                     ]
-                }
+                },
             }
         }
 
-        assert 'smart_order_routing' in config['tiers']['HUNTER']['features_unlocked']
-        assert 'execution_quality_reports' in config['tiers']['STRATEGIST']['features_unlocked']
+        assert "smart_order_routing" in config["tiers"]["HUNTER"]["features_unlocked"]
+        assert (
+            "execution_quality_reports"
+            in config["tiers"]["STRATEGIST"]["features_unlocked"]
+        )
 
 
 if __name__ == "__main__":

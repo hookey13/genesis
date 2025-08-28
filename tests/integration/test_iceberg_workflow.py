@@ -14,14 +14,15 @@ from genesis.analytics.order_book_analyzer import OrderBookAnalyzer
 from genesis.core.exceptions import (
     InsufficientLiquidity,
     OrderExecutionError,
-    TierGateViolation,
+    TierViolation as TierGateViolation,
     ValidationError,
 )
 from genesis.core.models import Order, OrderSide, OrderStatus, OrderType
 from genesis.engine.executor.iceberg import IcebergOrderExecutor
 from genesis.engine.executor.market import MarketOrderExecutor
-from genesis.engine.state_machine import TierStateMachine, TradingTier
-from genesis.exchange.gateway import ExchangeGateway
+from genesis.engine.state_machine import TierStateMachine
+from genesis.core.constants import TradingTier
+from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 from genesis.exchange.models import OrderBook, OrderBookLevel
 
 
@@ -61,7 +62,7 @@ class TestIcebergWorkflow:
             order_book_analyzer=order_book_analyzer,
             impact_monitor=impact_monitor,
             state_machine=state_machine,
-            repository=repository
+            repository=repository,
         )
 
         return {
@@ -69,7 +70,7 @@ class TestIcebergWorkflow:
             "exchange": exchange,
             "state_machine": state_machine,
             "repository": repository,
-            "report_generator": report_generator
+            "report_generator": report_generator,
         }
 
     @pytest.fixture
@@ -82,20 +83,22 @@ class TestIcebergWorkflow:
                 OrderBookLevel(price=Decimal("49940"), quantity=Decimal("0.8")),
                 OrderBookLevel(price=Decimal("49930"), quantity=Decimal("1.2")),
                 OrderBookLevel(price=Decimal("49920"), quantity=Decimal("1.5")),
-                OrderBookLevel(price=Decimal("49910"), quantity=Decimal("2.0"))
+                OrderBookLevel(price=Decimal("49910"), quantity=Decimal("2.0")),
             ],
             asks=[
                 OrderBookLevel(price=Decimal("50050"), quantity=Decimal("0.5")),
                 OrderBookLevel(price=Decimal("50060"), quantity=Decimal("0.8")),
                 OrderBookLevel(price=Decimal("50070"), quantity=Decimal("1.2")),
                 OrderBookLevel(price=Decimal("50080"), quantity=Decimal("1.5")),
-                OrderBookLevel(price=Decimal("50090"), quantity=Decimal("2.0"))
+                OrderBookLevel(price=Decimal("50090"), quantity=Decimal("2.0")),
             ],
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     @pytest.mark.asyncio
-    async def test_successful_iceberg_execution(self, setup_infrastructure, sample_order_book):
+    async def test_successful_iceberg_execution(
+        self, setup_infrastructure, sample_order_book
+    ):
         """Test successful end-to-end iceberg order execution."""
         infra = await setup_infrastructure
         iceberg = infra["iceberg"]
@@ -119,7 +122,7 @@ class TestIcebergWorkflow:
                 filled_price=Decimal("50000"),
                 status=OrderStatus.FILLED,
                 created_at=order.created_at,
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
         exchange.place_order.side_effect = mock_place_order
@@ -134,7 +137,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.01"),  # $500 worth at $50k
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # Execute iceberg order
@@ -154,7 +157,9 @@ class TestIcebergWorkflow:
         infra["repository"].save_iceberg_execution.assert_called()
 
     @pytest.mark.asyncio
-    async def test_iceberg_abort_on_high_slippage(self, setup_infrastructure, sample_order_book):
+    async def test_iceberg_abort_on_high_slippage(
+        self, setup_infrastructure, sample_order_book
+    ):
         """Test iceberg execution aborts when slippage exceeds threshold."""
         infra = await setup_infrastructure
         iceberg = infra["iceberg"]
@@ -188,7 +193,7 @@ class TestIcebergWorkflow:
                 filled_price=filled_price,
                 status=OrderStatus.FILLED,
                 created_at=order.created_at,
-                updated_at=datetime.now()
+                updated_at=datetime.now(),
             )
 
         exchange.place_order.side_effect = mock_place_order_with_slippage
@@ -203,7 +208,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.01"),
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # Execute should abort due to high slippage
@@ -235,7 +240,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.01"),
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # Should raise tier gate violation
@@ -252,13 +257,9 @@ class TestIcebergWorkflow:
         # Create thin order book
         thin_order_book = OrderBook(
             symbol="BTC/USDT",
-            bids=[
-                OrderBookLevel(price=Decimal("49950"), quantity=Decimal("0.001"))
-            ],
-            asks=[
-                OrderBookLevel(price=Decimal("50050"), quantity=Decimal("0.001"))
-            ],
-            timestamp=datetime.now()
+            bids=[OrderBookLevel(price=Decimal("49950"), quantity=Decimal("0.001"))],
+            asks=[OrderBookLevel(price=Decimal("50050"), quantity=Decimal("0.001"))],
+            timestamp=datetime.now(),
         )
 
         exchange.get_order_book.return_value = thin_order_book
@@ -273,7 +274,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("1.0"),  # Much larger than available liquidity
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # Should raise insufficient liquidity error
@@ -308,7 +309,7 @@ class TestIcebergWorkflow:
                     filled_quantity=order.quantity,
                     filled_price=Decimal("50000"),
                     status=OrderStatus.FILLED,
-                    created_at=order.created_at
+                    created_at=order.created_at,
                 )
             else:
                 # Simulate failure on third slice
@@ -326,7 +327,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.01"),
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # Execute with expected failure
@@ -347,8 +348,7 @@ class TestIcebergWorkflow:
         exchange.place_order.side_effect = mock_partial_execution  # Reset mock
 
         rollback_result = await iceberg.rollback_partial_execution(
-            execution_id=execution_id,
-            confirmed_by="test_user"
+            execution_id=execution_id, confirmed_by="test_user"
         )
 
         assert rollback_result["confirmed_by"] == "test_user"
@@ -356,7 +356,9 @@ class TestIcebergWorkflow:
         assert rollback_result["execution_id"] == execution_id
 
     @pytest.mark.asyncio
-    async def test_concurrent_iceberg_executions(self, setup_infrastructure, sample_order_book):
+    async def test_concurrent_iceberg_executions(
+        self, setup_infrastructure, sample_order_book
+    ):
         """Test handling multiple concurrent iceberg executions."""
         infra = await setup_infrastructure
         iceberg = infra["iceberg"]
@@ -378,7 +380,7 @@ class TestIcebergWorkflow:
                 filled_quantity=order.quantity,
                 filled_price=Decimal("50000"),
                 status=OrderStatus.FILLED,
-                created_at=order.created_at
+                created_at=order.created_at,
             )
 
         exchange.place_order.side_effect = mock_place_order
@@ -394,7 +396,7 @@ class TestIcebergWorkflow:
                 side=OrderSide.BUY,
                 quantity=Decimal("0.01"),
                 price=None,
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
             for i in range(3)
         ]
@@ -409,7 +411,9 @@ class TestIcebergWorkflow:
         assert len(iceberg.active_executions) == 3
 
     @pytest.mark.asyncio
-    async def test_execution_tracking_and_reporting(self, setup_infrastructure, sample_order_book):
+    async def test_execution_tracking_and_reporting(
+        self, setup_infrastructure, sample_order_book
+    ):
         """Test real-time execution tracking and report generation."""
         infra = await setup_infrastructure
         iceberg = infra["iceberg"]
@@ -423,10 +427,9 @@ class TestIcebergWorkflow:
 
         async def mock_place_order_with_tracking(order):
             # Simulate progress tracking
-            execution_updates.append({
-                "timestamp": datetime.now(),
-                "slice": len(execution_updates) + 1
-            })
+            execution_updates.append(
+                {"timestamp": datetime.now(), "slice": len(execution_updates) + 1}
+            )
 
             return Order(
                 order_id=str(uuid.uuid4()),
@@ -439,7 +442,7 @@ class TestIcebergWorkflow:
                 filled_quantity=order.quantity,
                 filled_price=Decimal("50000") + Decimal(len(execution_updates) * 10),
                 status=OrderStatus.FILLED,
-                created_at=order.created_at
+                created_at=order.created_at,
             )
 
         exchange.place_order.side_effect = mock_place_order_with_tracking
@@ -454,7 +457,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.01"),
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         result = await iceberg.execute_iceberg_order(order)
@@ -486,7 +489,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.003"),  # $150 at $50k
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # Should not trigger iceberg execution
@@ -494,7 +497,9 @@ class TestIcebergWorkflow:
             await iceberg.execute_iceberg_order(order)
 
     @pytest.mark.asyncio
-    async def test_recovery_from_network_failure(self, setup_infrastructure, sample_order_book):
+    async def test_recovery_from_network_failure(
+        self, setup_infrastructure, sample_order_book
+    ):
         """Test recovery mechanism when network fails during execution."""
         infra = await setup_infrastructure
         iceberg = infra["iceberg"]
@@ -521,7 +526,7 @@ class TestIcebergWorkflow:
                     filled_quantity=order.quantity,
                     filled_price=Decimal("50000"),
                     status=OrderStatus.FILLED,
-                    created_at=order.created_at
+                    created_at=order.created_at,
                 )
             else:
                 # Simulate network timeout
@@ -539,7 +544,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.01"),
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         # Execute with expected failure
@@ -553,7 +558,9 @@ class TestIcebergWorkflow:
         assert execution.status != "COMPLETED"
 
     @pytest.mark.asyncio
-    async def test_market_impact_monitoring(self, setup_infrastructure, sample_order_book):
+    async def test_market_impact_monitoring(
+        self, setup_infrastructure, sample_order_book
+    ):
         """Test real-time market impact monitoring during execution."""
         infra = await setup_infrastructure
         iceberg = infra["iceberg"]
@@ -583,7 +590,7 @@ class TestIcebergWorkflow:
                 filled_quantity=order.quantity,
                 filled_price=filled_price,
                 status=OrderStatus.FILLED,
-                created_at=order.created_at
+                created_at=order.created_at,
             )
 
         exchange.place_order.side_effect = mock_place_order_with_impact
@@ -598,7 +605,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.01"),
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         result = await iceberg.execute_iceberg_order(order)
@@ -612,7 +619,9 @@ class TestIcebergWorkflow:
         assert execution.cumulative_impact > Decimal("0")
 
     @pytest.mark.asyncio
-    async def test_order_exactly_at_threshold(self, setup_infrastructure, sample_order_book):
+    async def test_order_exactly_at_threshold(
+        self, setup_infrastructure, sample_order_book
+    ):
         """Test order exactly at $200 threshold triggers iceberg."""
         infra = await setup_infrastructure
         iceberg = infra["iceberg"]
@@ -632,7 +641,7 @@ class TestIcebergWorkflow:
                 filled_quantity=order.quantity,
                 filled_price=Decimal("50000"),
                 status=OrderStatus.FILLED,
-                created_at=order.created_at
+                created_at=order.created_at,
             )
 
         exchange.place_order.side_effect = mock_place_order
@@ -647,7 +656,7 @@ class TestIcebergWorkflow:
             side=OrderSide.BUY,
             quantity=Decimal("0.004"),  # Exactly $200 at $50k
             price=None,
-            created_at=datetime.now()
+            created_at=datetime.now(),
         )
 
         result = await iceberg.execute_iceberg_order(order)

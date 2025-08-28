@@ -90,14 +90,20 @@ class WinLossPattern:
             "average_loss_duration_hours": str(self.average_loss_duration_hours),
             "median_win_duration_hours": str(self.median_win_duration_hours),
             "median_loss_duration_hours": str(self.median_loss_duration_hours),
-            "win_rate_by_hour": {str(k): str(v) for k, v in self.win_rate_by_hour.items()},
-            "win_rate_by_day_of_week": {str(k): str(v) for k, v in self.win_rate_by_day_of_week.items()},
-            "win_rate_by_day_of_month": {str(k): str(v) for k, v in self.win_rate_by_day_of_month.items()},
+            "win_rate_by_hour": {
+                str(k): str(v) for k, v in self.win_rate_by_hour.items()
+            },
+            "win_rate_by_day_of_week": {
+                str(k): str(v) for k, v in self.win_rate_by_day_of_week.items()
+            },
+            "win_rate_by_day_of_month": {
+                str(k): str(v) for k, v in self.win_rate_by_day_of_month.items()
+            },
             "close_reason_distribution": self.close_reason_distribution,
             "win_close_reasons": self.win_close_reasons,
             "loss_close_reasons": self.loss_close_reasons,
             "trades_recovering_from_drawdown": self.trades_recovering_from_drawdown,
-            "recovery_success_rate": str(self.recovery_success_rate)
+            "recovery_success_rate": str(self.recovery_success_rate),
         }
 
 
@@ -109,17 +115,15 @@ class PatternAnalyzer:
         self._pattern_cache: dict[str, WinLossPattern] = {}
 
     def analyze_patterns(
-        self,
-        trades: list[Trade],
-        positions: list[Position] | None = None
+        self, trades: list[Trade], positions: list[Position] | None = None
     ) -> WinLossPattern:
         """
         Analyze win/loss patterns from trades and positions.
-        
+
         Args:
             trades: List of completed trades
             positions: Optional list of positions for close reason analysis
-            
+
         Returns:
             WinLossPattern with comprehensive analysis
         """
@@ -139,7 +143,8 @@ class PatternAnalyzer:
         total_trades = len(sorted_trades)
         win_rate = (
             Decimal(str(len(winning_trades))) / Decimal(str(total_trades))
-            if total_trades > 0 else Decimal("0")
+            if total_trades > 0
+            else Decimal("0")
         )
 
         # Analyze streaks
@@ -149,13 +154,17 @@ class PatternAnalyzer:
         size_analysis = self._analyze_sizes(winning_trades, losing_trades)
 
         # Analyze holding times
-        duration_analysis = self._analyze_durations(winning_trades, losing_trades, positions)
+        duration_analysis = self._analyze_durations(
+            winning_trades, losing_trades, positions
+        )
 
         # Analyze temporal patterns
         temporal_analysis = self._analyze_temporal_patterns(sorted_trades)
 
         # Analyze close reasons if positions provided
-        close_reason_analysis = self._analyze_close_reasons(positions) if positions else {}
+        close_reason_analysis = (
+            self._analyze_close_reasons(positions) if positions else {}
+        )
 
         # Analyze recovery patterns
         recovery_analysis = self._analyze_recovery_patterns(sorted_trades)
@@ -171,7 +180,7 @@ class PatternAnalyzer:
             **duration_analysis,
             **temporal_analysis,
             **close_reason_analysis,
-            **recovery_analysis
+            **recovery_analysis,
         )
 
         return pattern
@@ -184,7 +193,7 @@ class PatternAnalyzer:
                 "max_win_streak": 0,
                 "max_loss_streak": 0,
                 "average_win_streak": Decimal("0"),
-                "average_loss_streak": Decimal("0")
+                "average_loss_streak": Decimal("0"),
             }
 
         current_streak = 0
@@ -222,11 +231,13 @@ class PatternAnalyzer:
         # Calculate averages
         avg_win_streak = (
             sum(Decimal(str(s)) for s in win_streaks) / Decimal(str(len(win_streaks)))
-            if win_streaks else Decimal("0")
+            if win_streaks
+            else Decimal("0")
         )
         avg_loss_streak = (
             sum(Decimal(str(s)) for s in loss_streaks) / Decimal(str(len(loss_streaks)))
-            if loss_streaks else Decimal("0")
+            if loss_streaks
+            else Decimal("0")
         )
 
         return {
@@ -234,31 +245,32 @@ class PatternAnalyzer:
             "max_win_streak": max_win_streak,
             "max_loss_streak": max_loss_streak,
             "average_win_streak": avg_win_streak.quantize(Decimal("0.01")),
-            "average_loss_streak": avg_loss_streak.quantize(Decimal("0.01"))
+            "average_loss_streak": avg_loss_streak.quantize(Decimal("0.01")),
         }
 
     def _analyze_sizes(
-        self,
-        winning_trades: list[Trade],
-        losing_trades: list[Trade]
+        self, winning_trades: list[Trade], losing_trades: list[Trade]
     ) -> dict:
         """Analyze win/loss sizes."""
         # Calculate average win size
         avg_win_size = (
-            sum(t.pnl_dollars for t in winning_trades) / Decimal(str(len(winning_trades)))
-            if winning_trades else Decimal("0")
+            sum(t.pnl_dollars for t in winning_trades)
+            / Decimal(str(len(winning_trades)))
+            if winning_trades
+            else Decimal("0")
         )
 
         # Calculate average loss size (as positive value)
         avg_loss_size = (
-            abs(sum(t.pnl_dollars for t in losing_trades)) / Decimal(str(len(losing_trades)))
-            if losing_trades else Decimal("0")
+            abs(sum(t.pnl_dollars for t in losing_trades))
+            / Decimal(str(len(losing_trades)))
+            if losing_trades
+            else Decimal("0")
         )
 
         # Calculate win/loss ratio
         win_loss_ratio = (
-            avg_win_size / avg_loss_size
-            if avg_loss_size > 0 else Decimal("999.99")
+            avg_win_size / avg_loss_size if avg_loss_size > 0 else Decimal("999.99")
         )
 
         # Calculate expectancy
@@ -274,14 +286,14 @@ class PatternAnalyzer:
             "average_win_size": avg_win_size.quantize(Decimal("0.01")),
             "average_loss_size": avg_loss_size.quantize(Decimal("0.01")),
             "win_loss_ratio": win_loss_ratio.quantize(Decimal("0.01")),
-            "expectancy": expectancy.quantize(Decimal("0.01"))
+            "expectancy": expectancy.quantize(Decimal("0.01")),
         }
 
     def _analyze_durations(
         self,
         winning_trades: list[Trade],
         losing_trades: list[Trade],
-        positions: list[Position] | None = None
+        positions: list[Position] | None = None,
     ) -> dict:
         """Analyze position holding durations."""
         # For now, use a default duration since we need position data
@@ -298,33 +310,41 @@ class PatternAnalyzer:
                 if trade.position_id and trade.position_id in position_map:
                     position = position_map[trade.position_id]
                     if position.updated_at and position.created_at:
-                        duration = (position.updated_at - position.created_at).total_seconds() / 3600
+                        duration = (
+                            position.updated_at - position.created_at
+                        ).total_seconds() / 3600
                         win_durations.append(Decimal(str(duration)))
 
             for trade in losing_trades:
                 if trade.position_id and trade.position_id in position_map:
                     position = position_map[trade.position_id]
                     if position.updated_at and position.created_at:
-                        duration = (position.updated_at - position.created_at).total_seconds() / 3600
+                        duration = (
+                            position.updated_at - position.created_at
+                        ).total_seconds() / 3600
                         loss_durations.append(Decimal(str(duration)))
 
             # Calculate averages and medians
             avg_win_duration = (
                 sum(win_durations) / Decimal(str(len(win_durations)))
-                if win_durations else Decimal("24")  # Default 24 hours
+                if win_durations
+                else Decimal("24")  # Default 24 hours
             )
             avg_loss_duration = (
                 sum(loss_durations) / Decimal(str(len(loss_durations)))
-                if loss_durations else Decimal("12")  # Default 12 hours
+                if loss_durations
+                else Decimal("12")  # Default 12 hours
             )
 
             median_win_duration = (
                 sorted(win_durations)[len(win_durations) // 2]
-                if win_durations else Decimal("24")
+                if win_durations
+                else Decimal("24")
             )
             median_loss_duration = (
                 sorted(loss_durations)[len(loss_durations) // 2]
-                if loss_durations else Decimal("12")
+                if loss_durations
+                else Decimal("12")
             )
         else:
             # Use defaults when no position data available
@@ -337,7 +357,7 @@ class PatternAnalyzer:
             "average_win_duration_hours": avg_win_duration.quantize(Decimal("0.1")),
             "average_loss_duration_hours": avg_loss_duration.quantize(Decimal("0.1")),
             "median_win_duration_hours": median_win_duration.quantize(Decimal("0.1")),
-            "median_loss_duration_hours": median_loss_duration.quantize(Decimal("0.1"))
+            "median_loss_duration_hours": median_loss_duration.quantize(Decimal("0.1")),
         }
 
     def _analyze_temporal_patterns(self, trades: list[Trade]) -> dict:
@@ -362,7 +382,8 @@ class PatternAnalyzer:
             wins = sum(1 for t in hour_trades if t.pnl_dollars > 0)
             win_rate_by_hour[hour] = (
                 Decimal(str(wins)) / Decimal(str(len(hour_trades)))
-                if hour_trades else Decimal("0")
+                if hour_trades
+                else Decimal("0")
             )
 
         win_rate_by_day_of_week = {}
@@ -370,7 +391,8 @@ class PatternAnalyzer:
             wins = sum(1 for t in day_trades if t.pnl_dollars > 0)
             win_rate_by_day_of_week[day] = (
                 Decimal(str(wins)) / Decimal(str(len(day_trades)))
-                if day_trades else Decimal("0")
+                if day_trades
+                else Decimal("0")
             )
 
         win_rate_by_day_of_month = {}
@@ -378,13 +400,14 @@ class PatternAnalyzer:
             wins = sum(1 for t in day_trades if t.pnl_dollars > 0)
             win_rate_by_day_of_month[day] = (
                 Decimal(str(wins)) / Decimal(str(len(day_trades)))
-                if day_trades else Decimal("0")
+                if day_trades
+                else Decimal("0")
             )
 
         return {
             "win_rate_by_hour": win_rate_by_hour,
             "win_rate_by_day_of_week": win_rate_by_day_of_week,
-            "win_rate_by_day_of_month": win_rate_by_day_of_month
+            "win_rate_by_day_of_month": win_rate_by_day_of_month,
         }
 
     def _analyze_close_reasons(self, positions: list[Position]) -> dict:
@@ -393,7 +416,7 @@ class PatternAnalyzer:
             return {
                 "close_reason_distribution": {},
                 "win_close_reasons": {},
-                "loss_close_reasons": {}
+                "loss_close_reasons": {},
             }
 
         # Count close reasons
@@ -402,7 +425,7 @@ class PatternAnalyzer:
         loss_reasons = Counter()
 
         for position in positions:
-            reason = getattr(position, 'close_reason', 'unknown')
+            reason = getattr(position, "close_reason", "unknown")
             if reason:
                 all_reasons[reason] += 1
 
@@ -414,7 +437,7 @@ class PatternAnalyzer:
         return {
             "close_reason_distribution": dict(all_reasons),
             "win_close_reasons": dict(win_reasons),
-            "loss_close_reasons": dict(loss_reasons)
+            "loss_close_reasons": dict(loss_reasons),
         }
 
     def _analyze_recovery_patterns(self, trades: list[Trade]) -> dict:
@@ -422,7 +445,7 @@ class PatternAnalyzer:
         if len(trades) < 2:
             return {
                 "trades_recovering_from_drawdown": 0,
-                "recovery_success_rate": Decimal("0")
+                "recovery_success_rate": Decimal("0"),
             }
 
         recovery_attempts = 0
@@ -441,26 +464,25 @@ class PatternAnalyzer:
 
         recovery_rate = (
             Decimal(str(successful_recoveries)) / Decimal(str(recovery_attempts))
-            if recovery_attempts > 0 else Decimal("0")
+            if recovery_attempts > 0
+            else Decimal("0")
         )
 
         return {
             "trades_recovering_from_drawdown": successful_recoveries,
-            "recovery_success_rate": recovery_rate.quantize(Decimal("0.01"))
+            "recovery_success_rate": recovery_rate.quantize(Decimal("0.01")),
         }
 
     def identify_best_trading_times(
-        self,
-        pattern: WinLossPattern,
-        min_trades: int = 10
+        self, pattern: WinLossPattern, min_trades: int = 10
     ) -> dict:
         """
         Identify the best times to trade based on win rates.
-        
+
         Args:
             pattern: WinLossPattern analysis result
             min_trades: Minimum trades required for significance
-            
+
         Returns:
             Dictionary with best hours and days
         """
@@ -472,20 +494,21 @@ class PatternAnalyzer:
             # Would need trade count to properly filter
             # For now, just take high win rate hours
             if win_rate > Decimal("0.6"):
-                best_hours.append({
-                    "hour": hour,
-                    "win_rate": str(win_rate)
-                })
+                best_hours.append({"hour": hour, "win_rate": str(win_rate)})
 
         # Find best days of week
-        day_names = ["Monday", "Tuesday", "Wednesday", "Thursday",
-                    "Friday", "Saturday", "Sunday"]
+        day_names = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
         for day, win_rate in pattern.win_rate_by_day_of_week.items():
             if win_rate > Decimal("0.6"):
-                best_days.append({
-                    "day": day_names[day],
-                    "win_rate": str(win_rate)
-                })
+                best_days.append({"day": day_names[day], "win_rate": str(win_rate)})
 
         # Sort by win rate
         best_hours.sort(key=lambda x: x["win_rate"], reverse=True)
@@ -493,19 +516,23 @@ class PatternAnalyzer:
 
         return {
             "best_trading_hours": best_hours[:3],  # Top 3 hours
-            "best_trading_days": best_days[:2],    # Top 2 days
+            "best_trading_days": best_days[:2],  # Top 2 days
             "worst_trading_hours": sorted(
-                [{"hour": h, "win_rate": str(r)}
-                 for h, r in pattern.win_rate_by_hour.items()
-                 if r < Decimal("0.4")],
-                key=lambda x: x["win_rate"]
+                [
+                    {"hour": h, "win_rate": str(r)}
+                    for h, r in pattern.win_rate_by_hour.items()
+                    if r < Decimal("0.4")
+                ],
+                key=lambda x: x["win_rate"],
             )[:3],
             "worst_trading_days": sorted(
-                [{"day": day_names[d], "win_rate": str(r)}
-                 for d, r in pattern.win_rate_by_day_of_week.items()
-                 if r < Decimal("0.4")],
-                key=lambda x: x["win_rate"]
-            )[:2]
+                [
+                    {"day": day_names[d], "win_rate": str(r)}
+                    for d, r in pattern.win_rate_by_day_of_week.items()
+                    if r < Decimal("0.4")
+                ],
+                key=lambda x: x["win_rate"],
+            )[:2],
         }
 
     def _empty_pattern(self) -> WinLossPattern:
@@ -527,5 +554,5 @@ class PatternAnalyzer:
             average_win_duration_hours=Decimal("0"),
             average_loss_duration_hours=Decimal("0"),
             median_win_duration_hours=Decimal("0"),
-            median_loss_duration_hours=Decimal("0")
+            median_loss_duration_hours=Decimal("0"),
         )

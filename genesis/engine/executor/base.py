@@ -22,6 +22,7 @@ logger = structlog.get_logger(__name__)
 
 class OrderType(str, Enum):
     """Order types."""
+
     MARKET = "MARKET"
     LIMIT = "LIMIT"
     STOP_LOSS = "STOP_LOSS"
@@ -33,12 +34,14 @@ class OrderType(str, Enum):
 
 class OrderSide(str, Enum):
     """Order side."""
+
     BUY = "BUY"
     SELL = "SELL"
 
 
 class OrderStatus(str, Enum):
     """Order status states."""
+
     PENDING = "PENDING"
     PARTIAL = "PARTIAL"
     FILLED = "FILLED"
@@ -49,6 +52,7 @@ class OrderStatus(str, Enum):
 @dataclass
 class Order:
     """Order data structure."""
+
     order_id: str
     position_id: Optional[str]
     client_order_id: str
@@ -82,6 +86,7 @@ class Order:
 @dataclass
 class ExecutionResult:
     """Result of an order execution."""
+
     success: bool
     order: Order
     message: str
@@ -93,6 +98,7 @@ class ExecutionResult:
 
 class ExecutionStrategy(str, Enum):
     """Execution strategy types."""
+
     MARKET = "MARKET"
     ICEBERG = "ICEBERG"
     VWAP = "VWAP"
@@ -121,7 +127,9 @@ class OrderExecutor(ABC):
         logger.info("Initializing order executor", tier=tier.value)
 
     @abstractmethod
-    async def execute_market_order(self, order: Order, confirmation_required: bool = True) -> ExecutionResult:
+    async def execute_market_order(
+        self, order: Order, confirmation_required: bool = True
+    ) -> ExecutionResult:
         """
         Execute a market order.
 
@@ -134,7 +142,9 @@ class OrderExecutor(ABC):
         """
         pass
 
-    async def execute_order(self, order: Order, strategy: ExecutionStrategy = ExecutionStrategy.MARKET) -> ExecutionResult:
+    async def execute_order(
+        self, order: Order, strategy: ExecutionStrategy = ExecutionStrategy.MARKET
+    ) -> ExecutionResult:
         """
         Execute an order with the specified strategy.
 
@@ -175,7 +185,7 @@ class OrderExecutor(ABC):
 
         # Determine urgency based on order characteristics
         urgency = UrgencyLevel.NORMAL
-        if hasattr(order, 'urgency'):
+        if hasattr(order, "urgency"):
             urgency = order.urgency
 
         return await self.smart_router.route_order(order, urgency)
@@ -230,7 +240,9 @@ class OrderExecutor(ABC):
         """
         return str(uuid4())
 
-    def calculate_slippage(self, expected_price: Decimal, actual_price: Decimal, side: OrderSide) -> Decimal:
+    def calculate_slippage(
+        self, expected_price: Decimal, actual_price: Decimal, side: OrderSide
+    ) -> Decimal:
         """
         Calculate slippage percentage between expected and actual price.
 
@@ -247,10 +259,14 @@ class OrderExecutor(ABC):
 
         if side == OrderSide.BUY:
             # For buys, higher actual price is unfavorable
-            slippage = ((actual_price - expected_price) / expected_price) * Decimal("100")
+            slippage = ((actual_price - expected_price) / expected_price) * Decimal(
+                "100"
+            )
         else:
             # For sells, lower actual price is unfavorable
-            slippage = ((expected_price - actual_price) / expected_price) * Decimal("100")
+            slippage = ((expected_price - actual_price) / expected_price) * Decimal(
+                "100"
+            )
 
         return slippage.quantize(Decimal("0.0001"))
 

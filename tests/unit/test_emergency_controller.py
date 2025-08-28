@@ -34,21 +34,21 @@ def circuit_manager():
 @pytest.fixture
 def emergency_controller(event_bus, circuit_manager):
     """Create emergency controller fixture."""
-    with patch('genesis.engine.emergency_controller.yaml.safe_load') as mock_yaml:
+    with patch("genesis.engine.emergency_controller.yaml.safe_load") as mock_yaml:
         mock_yaml.return_value = {
-            'daily_loss_limit': 0.15,
-            'correlation_spike_threshold': 0.80,
-            'liquidity_drop_threshold': 0.50,
-            'flash_crash_threshold': 0.10,
-            'flash_crash_window_seconds': 60,
-            'override_timeout_seconds': 300,
-            'emergency_timeout_seconds': 3600
+            "daily_loss_limit": 0.15,
+            "correlation_spike_threshold": 0.80,
+            "liquidity_drop_threshold": 0.50,
+            "flash_crash_threshold": 0.10,
+            "flash_crash_window_seconds": 60,
+            "override_timeout_seconds": 300,
+            "emergency_timeout_seconds": 3600,
         }
 
         controller = EmergencyController(
             event_bus=event_bus,
             circuit_manager=circuit_manager,
-            config_path="test_config.yaml"
+            config_path="test_config.yaml",
         )
 
         return controller
@@ -101,7 +101,10 @@ class TestEmergencyController:
         await emergency_controller._check_daily_loss()
 
         # Verify emergency triggered
-        assert EmergencyType.DAILY_LOSS_HALT.value in emergency_controller.active_emergencies
+        assert (
+            EmergencyType.DAILY_LOSS_HALT.value
+            in emergency_controller.active_emergencies
+        )
         assert emergency_controller.state == EmergencyState.EMERGENCY
         assert emergency_controller.emergencies_triggered == 1
 
@@ -109,7 +112,7 @@ class TestEmergencyController:
         emergency_controller.event_bus.publish.assert_called()
         call_args = emergency_controller.event_bus.publish.call_args
         assert call_args[0][0].event_type == EventType.CIRCUIT_BREAKER_OPEN
-        assert call_args[1]['priority'] == EventPriority.CRITICAL
+        assert call_args[1]["priority"] == EventPriority.CRITICAL
 
     @pytest.mark.asyncio
     async def test_daily_loss_below_threshold(self, emergency_controller):
@@ -142,7 +145,10 @@ class TestEmergencyController:
         await emergency_controller._check_correlation_spike()
 
         # Verify emergency triggered
-        assert EmergencyType.CORRELATION_SPIKE.value in emergency_controller.active_emergencies
+        assert (
+            EmergencyType.CORRELATION_SPIKE.value
+            in emergency_controller.active_emergencies
+        )
         assert emergency_controller.state == EmergencyState.EMERGENCY
 
     @pytest.mark.asyncio
@@ -157,7 +163,10 @@ class TestEmergencyController:
         await emergency_controller._check_liquidity_crisis()
 
         # Verify emergency triggered
-        assert EmergencyType.LIQUIDITY_CRISIS.value in emergency_controller.active_emergencies
+        assert (
+            EmergencyType.LIQUIDITY_CRISIS.value
+            in emergency_controller.active_emergencies
+        )
         assert emergency_controller.state == EmergencyState.EMERGENCY
 
     @pytest.mark.asyncio
@@ -169,14 +178,16 @@ class TestEmergencyController:
         now = datetime.now(UTC)
         emergency_controller.price_history["BTC-USDT"] = [
             (now - timedelta(seconds=30), Decimal("50000")),
-            (now, Decimal("42500"))  # 15% drop
+            (now, Decimal("42500")),  # 15% drop
         ]
 
         # Check flash crash
         await emergency_controller._check_flash_crash()
 
         # Verify emergency triggered
-        assert EmergencyType.FLASH_CRASH.value in emergency_controller.active_emergencies
+        assert (
+            EmergencyType.FLASH_CRASH.value in emergency_controller.active_emergencies
+        )
         assert emergency_controller.state == EmergencyState.EMERGENCY
 
     @pytest.mark.asyncio
@@ -198,9 +209,7 @@ class TestEmergencyController:
     async def test_manual_override_wrong_phrase(self, emergency_controller):
         """Test manual override with wrong confirmation."""
         # Request override with wrong phrase
-        result = await emergency_controller.request_manual_override(
-            "WRONG PHRASE"
-        )
+        result = await emergency_controller.request_manual_override("WRONG PHRASE")
 
         assert result is False
         assert emergency_controller.override_active is False
@@ -234,17 +243,22 @@ class TestEmergencyController:
             triggered_at=datetime.now(UTC) - timedelta(hours=2),  # 2 hours ago
             trigger_values={},
             affected_symbols=[],
-            actions_taken=[]
+            actions_taken=[],
         )
 
-        emergency_controller.active_emergencies[EmergencyType.DAILY_LOSS_HALT.value] = emergency
+        emergency_controller.active_emergencies[EmergencyType.DAILY_LOSS_HALT.value] = (
+            emergency
+        )
         emergency_controller.state = EmergencyState.EMERGENCY
 
         # Check for clearance
         await emergency_controller._check_emergency_clearance()
 
         # Verify emergency cleared
-        assert EmergencyType.DAILY_LOSS_HALT.value not in emergency_controller.active_emergencies
+        assert (
+            EmergencyType.DAILY_LOSS_HALT.value
+            not in emergency_controller.active_emergencies
+        )
         assert emergency_controller.state == EmergencyState.RECOVERY
 
     @pytest.mark.asyncio
@@ -252,7 +266,9 @@ class TestEmergencyController:
         """Test emergency report generation."""
         # Set some test data
         emergency_controller.daily_loss_percent = Decimal("0.12")
-        emergency_controller.correlation_matrix[("BTC-USDT", "ETH-USDT")] = Decimal("0.75")
+        emergency_controller.correlation_matrix[("BTC-USDT", "ETH-USDT")] = Decimal(
+            "0.75"
+        )
         emergency_controller.liquidity_scores["BTC-USDT"] = Decimal("0.45")
         emergency_controller.emergencies_triggered = 3
 
@@ -270,10 +286,7 @@ class TestEmergencyController:
         """Test handling of position update events."""
         # Create position update event
         event = Event(
-            event_type=EventType.POSITION_UPDATED,
-            event_data={
-                "balance": "950.50"
-            }
+            event_type=EventType.POSITION_UPDATED, event_data={"balance": "950.50"}
         )
 
         # Handle event
@@ -292,8 +305,8 @@ class TestEmergencyController:
             event_data={
                 "symbol": "BTC-USDT",
                 "price": "45000",
-                "liquidity_score": "0.85"
-            }
+                "liquidity_score": "0.85",
+            },
         )
 
         # Handle event
@@ -340,7 +353,9 @@ class TestEmergencyController:
         # Trigger multiple emergencies
         emergency_controller.daily_start_balance = Decimal("1000")
         emergency_controller.current_balance = Decimal("850")  # 15% loss
-        emergency_controller.correlation_matrix[("BTC-USDT", "ETH-USDT")] = Decimal("0.90")
+        emergency_controller.correlation_matrix[("BTC-USDT", "ETH-USDT")] = Decimal(
+            "0.90"
+        )
 
         # Check both conditions
         await emergency_controller._check_daily_loss()
@@ -348,8 +363,14 @@ class TestEmergencyController:
 
         # Verify both emergencies active
         assert len(emergency_controller.active_emergencies) == 2
-        assert EmergencyType.DAILY_LOSS_HALT.value in emergency_controller.active_emergencies
-        assert EmergencyType.CORRELATION_SPIKE.value in emergency_controller.active_emergencies
+        assert (
+            EmergencyType.DAILY_LOSS_HALT.value
+            in emergency_controller.active_emergencies
+        )
+        assert (
+            EmergencyType.CORRELATION_SPIKE.value
+            in emergency_controller.active_emergencies
+        )
         assert emergency_controller.state == EmergencyState.EMERGENCY
 
 

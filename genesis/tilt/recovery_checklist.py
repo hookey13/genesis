@@ -1,4 +1,5 @@
 """Recovery checklist system for tilt recovery protocols."""
+
 from __future__ import annotations
 
 import asyncio
@@ -149,7 +150,9 @@ class RecoveryChecklistManager:
             profile_id=profile_id,
             checklist_id=checklist.checklist_id,
             item_count=len(items),
-            required_count=len([i for i in items if i.item_type == ChecklistItemType.REQUIRED]),
+            required_count=len(
+                [i for i in items if i.item_type == ChecklistItemType.REQUIRED]
+            ),
         )
 
         return checklist
@@ -278,8 +281,12 @@ class RecoveryChecklistManager:
                 "optional_total": 0,
             }
 
-        required_items = [i for i in checklist.items if i.item_type == ChecklistItemType.REQUIRED]
-        optional_items = [i for i in checklist.items if i.item_type == ChecklistItemType.OPTIONAL]
+        required_items = [
+            i for i in checklist.items if i.item_type == ChecklistItemType.REQUIRED
+        ]
+        optional_items = [
+            i for i in checklist.items if i.item_type == ChecklistItemType.OPTIONAL
+        ]
 
         required_complete = len([i for i in required_items if i.is_completed])
         optional_complete = len([i for i in optional_items if i.is_completed])
@@ -306,7 +313,9 @@ class RecoveryChecklistManager:
                     "description": item.description,
                     "type": item.item_type.value,
                     "is_completed": item.is_completed,
-                    "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+                    "completed_at": (
+                        item.completed_at.isoformat() if item.completed_at else None
+                    ),
                 }
                 for item in checklist.items
             ],
@@ -408,7 +417,11 @@ class RecoveryChecklistManager:
                 "created_at": checklist.created_at.isoformat(),
                 "last_updated": checklist.last_updated.isoformat(),
                 "is_complete": checklist.is_complete,
-                "completed_at": checklist.completed_at.isoformat() if checklist.completed_at else None,
+                "completed_at": (
+                    checklist.completed_at.isoformat()
+                    if checklist.completed_at
+                    else None
+                ),
                 "items": [
                     {
                         "item_id": item.item_id,
@@ -416,7 +429,9 @@ class RecoveryChecklistManager:
                         "description": item.description,
                         "item_type": item.item_type.value,
                         "is_completed": item.is_completed,
-                        "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+                        "completed_at": (
+                            item.completed_at.isoformat() if item.completed_at else None
+                        ),
                     }
                     for item in checklist.items
                 ],
@@ -454,7 +469,8 @@ class RecoveryChecklistManager:
                 "item_completed": item_name,
                 "is_complete": checklist.is_complete,
                 "progress_percentage": progress["progress_percentage"],
-                "required_remaining": progress["required_total"] - progress["required_complete"],
+                "required_remaining": progress["required_total"]
+                - progress["required_complete"],
                 "timestamp": datetime.now(UTC).isoformat(),
             },
         )
@@ -512,7 +528,9 @@ class RecoveryChecklistManager:
             profile_id=data["profile_id"],
             created_at=datetime.fromisoformat(data["created_at"]),
             items=items,
-            last_updated=datetime.fromisoformat(data.get("last_updated", data["created_at"])),
+            last_updated=datetime.fromisoformat(
+                data.get("last_updated", data["created_at"])
+            ),
             is_complete=data.get("is_complete", False),
             completed_at=(
                 datetime.fromisoformat(data["completed_at"])
@@ -520,4 +538,3 @@ class RecoveryChecklistManager:
                 else None
             ),
         )
-

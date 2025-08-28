@@ -58,7 +58,7 @@ class CorrelationSpikeDetector:
         event_bus: EventBus,
         window_minutes: int = 30,
         spike_threshold: Decimal = Decimal("0.80"),
-        min_observations: int = 20
+        min_observations: int = 20,
     ):
         """
         Initialize correlation spike detector.
@@ -81,7 +81,9 @@ class CorrelationSpikeDetector:
         self.correlation_matrix: dict[tuple[str, str], Decimal] = {}
 
         # Rolling correlation averages for spike detection
-        self.correlation_history: dict[tuple[str, str], list[tuple[datetime, Decimal]]] = defaultdict(list)
+        self.correlation_history: dict[
+            tuple[str, str], list[tuple[datetime, Decimal]]
+        ] = defaultdict(list)
 
         # Active alerts
         self.active_alerts: dict[tuple[str, str], CorrelationAlert] = {}
@@ -94,7 +96,7 @@ class CorrelationSpikeDetector:
         logger.info(
             "CorrelationSpikeDetector initialized",
             window_minutes=window_minutes,
-            spike_threshold=float(spike_threshold)
+            spike_threshold=float(spike_threshold),
         )
 
     def add_price_observation(
@@ -102,7 +104,7 @@ class CorrelationSpikeDetector:
         symbol: str,
         price: Decimal,
         volume: Decimal,
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> None:
         """
         Add a price observation for correlation tracking.
@@ -129,8 +131,7 @@ class CorrelationSpikeDetector:
         cutoff = datetime.now(UTC) - timedelta(minutes=self.window_minutes * 2)
 
         self.price_history[symbol] = [
-            point for point in self.price_history[symbol]
-            if point.timestamp >= cutoff
+            point for point in self.price_history[symbol] if point.timestamp >= cutoff
         ]
 
     async def calculate_correlation_matrix(self) -> dict[tuple[str, str], Decimal]:
@@ -144,7 +145,8 @@ class CorrelationSpikeDetector:
 
         # Get symbols with sufficient data
         valid_symbols = [
-            symbol for symbol, history in self.price_history.items()
+            symbol
+            for symbol, history in self.price_history.items()
             if len(history) >= self.min_observations
         ]
 
@@ -159,7 +161,8 @@ class CorrelationSpikeDetector:
         for symbol in valid_symbols:
             # Get recent prices
             recent_prices = [
-                point for point in self.price_history[symbol]
+                point
+                for point in self.price_history[symbol]
                 if point.timestamp >= cutoff
             ]
 
@@ -173,10 +176,12 @@ class CorrelationSpikeDetector:
         new_matrix = {}
 
         for i, symbol1 in enumerate(valid_symbols):
-            for symbol2 in valid_symbols[i+1:]:
+            for symbol2 in valid_symbols[i + 1 :]:
                 if symbol1 in price_series and symbol2 in price_series:
                     # Ensure same length
-                    min_len = min(len(price_series[symbol1]), len(price_series[symbol2]))
+                    min_len = min(
+                        len(price_series[symbol1]), len(price_series[symbol2])
+                    )
 
                     if min_len >= self.min_observations - 1:  # -1 because of diff
                         series1 = price_series[symbol1][-min_len:]
@@ -201,7 +206,8 @@ class CorrelationSpikeDetector:
                             # Keep only recent history (last hour)
                             hour_ago = now - timedelta(hours=1)
                             self.correlation_history[key] = [
-                                (ts, corr) for ts, corr in self.correlation_history[key]
+                                (ts, corr)
+                                for ts, corr in self.correlation_history[key]
                                 if ts >= hour_ago
                             ]
 
@@ -213,8 +219,7 @@ class CorrelationSpikeDetector:
         return new_matrix
 
     async def _check_for_spikes(
-        self,
-        current_matrix: dict[tuple[str, str], Decimal]
+        self, current_matrix: dict[tuple[str, str], Decimal]
     ) -> None:
         """
         Check for correlation spikes compared to rolling average.
@@ -230,13 +235,18 @@ class CorrelationSpikeDetector:
 
                 if len(history) >= 5:  # Need some history for comparison
                     # Calculate average correlation over past period
-                    avg_correlation = sum(corr for _, corr in history[:-1]) / (len(history) - 1)
+                    avg_correlation = sum(corr for _, corr in history[:-1]) / (
+                        len(history) - 1
+                    )
 
                     # Calculate spike magnitude
                     spike_magnitude = correlation - avg_correlation
 
                     # Check if this is a new spike or update
-                    if pair not in self.active_alerts or spike_magnitude > self.active_alerts[pair].spike_magnitude:
+                    if (
+                        pair not in self.active_alerts
+                        or spike_magnitude > self.active_alerts[pair].spike_magnitude
+                    ):
                         alert = CorrelationAlert(
                             symbol1=pair[0],
                             symbol2=pair[1],
@@ -244,7 +254,7 @@ class CorrelationSpikeDetector:
                             rolling_avg=avg_correlation,
                             spike_magnitude=spike_magnitude,
                             window_minutes=self.window_minutes,
-                            detected_at=datetime.now(UTC)
+                            detected_at=datetime.now(UTC),
                         )
 
                         self.active_alerts[pair] = alert
@@ -254,7 +264,10 @@ class CorrelationSpikeDetector:
                         await self._publish_alert(alert)
                 else:
                     # No history but above threshold - still alert
-                    if correlation >= self.spike_threshold and pair not in self.active_alerts:
+                    if (
+                        correlation >= self.spike_threshold
+                        and pair not in self.active_alerts
+                    ):
                         alert = CorrelationAlert(
                             symbol1=pair[0],
                             symbol2=pair[1],
@@ -262,7 +275,7 @@ class CorrelationSpikeDetector:
                             rolling_avg=correlation,  # No history, use current
                             spike_magnitude=Decimal("0"),
                             window_minutes=self.window_minutes,
-                            detected_at=datetime.now(UTC)
+                            detected_at=datetime.now(UTC),
                         )
 
                         self.active_alerts[pair] = alert
@@ -271,7 +284,10 @@ class CorrelationSpikeDetector:
                         await self._publish_alert(alert)
 
             # Clear alert if correlation dropped
-            elif pair in self.active_alerts and correlation < self.spike_threshold * Decimal("0.95"):
+            elif (
+                pair in self.active_alerts
+                and correlation < self.spike_threshold * Decimal("0.95")
+            ):
                 # 5% buffer to prevent flapping
                 del self.active_alerts[pair]
 
@@ -284,10 +300,10 @@ class CorrelationSpikeDetector:
                             "symbol1": pair[0],
                             "symbol2": pair[1],
                             "correlation": float(correlation),
-                            "threshold": float(self.spike_threshold)
-                        }
+                            "threshold": float(self.spike_threshold),
+                        },
                     ),
-                    priority=EventPriority.HIGH
+                    priority=EventPriority.HIGH,
                 )
 
     async def _publish_alert(self, alert: CorrelationAlert) -> None:
@@ -303,7 +319,7 @@ class CorrelationSpikeDetector:
             symbol2=alert.symbol2,
             correlation=float(alert.correlation),
             rolling_avg=float(alert.rolling_avg),
-            spike_magnitude=float(alert.spike_magnitude)
+            spike_magnitude=float(alert.spike_magnitude),
         )
 
         await self.event_bus.publish(
@@ -317,10 +333,10 @@ class CorrelationSpikeDetector:
                     "rolling_avg": float(alert.rolling_avg),
                     "spike_magnitude": float(alert.spike_magnitude),
                     "window_minutes": alert.window_minutes,
-                    "recommendation": self._get_recommendation(alert)
-                }
+                    "recommendation": self._get_recommendation(alert),
+                },
             ),
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
     def _get_recommendation(self, alert: CorrelationAlert) -> str:
@@ -340,11 +356,12 @@ class CorrelationSpikeDetector:
         elif alert.correlation >= Decimal("0.85"):
             return "MEDIUM: Reduce position sizes - high correlation risk"
         else:
-            return "WARNING: Monitor positions - correlation approaching dangerous levels"
+            return (
+                "WARNING: Monitor positions - correlation approaching dangerous levels"
+            )
 
     def get_position_recommendations(
-        self,
-        positions: dict[str, Decimal]
+        self, positions: dict[str, Decimal]
     ) -> list[dict[str, Any]]:
         """
         Get position adjustment recommendations based on correlations.
@@ -361,7 +378,7 @@ class CorrelationSpikeDetector:
         symbols = list(positions.keys())
 
         for i, symbol1 in enumerate(symbols):
-            for symbol2 in symbols[i+1:]:
+            for symbol2 in symbols[i + 1 :]:
                 key = tuple(sorted([symbol1, symbol2]))
 
                 if key in self.correlation_matrix:
@@ -369,7 +386,9 @@ class CorrelationSpikeDetector:
 
                     if correlation >= self.spike_threshold:
                         # Calculate combined exposure
-                        combined_exposure = abs(positions[symbol1]) + abs(positions[symbol2])
+                        combined_exposure = abs(positions[symbol1]) + abs(
+                            positions[symbol2]
+                        )
 
                         # Recommend reduction based on correlation level
                         if correlation >= Decimal("0.95"):
@@ -381,19 +400,24 @@ class CorrelationSpikeDetector:
                         else:
                             reduction_pct = Decimal("0.20")  # Reduce by 20%
 
-                        recommendations.append({
-                            "symbol1": symbol1,
-                            "symbol2": symbol2,
-                            "correlation": float(correlation),
-                            "combined_exposure": float(combined_exposure),
-                            "recommended_reduction": float(reduction_pct),
-                            "priority": "HIGH" if correlation >= Decimal("0.90") else "MEDIUM"
-                        })
+                        recommendations.append(
+                            {
+                                "symbol1": symbol1,
+                                "symbol2": symbol2,
+                                "correlation": float(correlation),
+                                "combined_exposure": float(combined_exposure),
+                                "recommended_reduction": float(reduction_pct),
+                                "priority": (
+                                    "HIGH"
+                                    if correlation >= Decimal("0.90")
+                                    else "MEDIUM"
+                                ),
+                            }
+                        )
 
         # Sort by priority and correlation
         recommendations.sort(
-            key=lambda x: (x["priority"] == "HIGH", x["correlation"]),
-            reverse=True
+            key=lambda x: (x["priority"] == "HIGH", x["correlation"]), reverse=True
         )
 
         return recommendations
@@ -411,11 +435,12 @@ class CorrelationSpikeDetector:
                 "highest_correlation": 0,
                 "pairs_above_threshold": 0,
                 "active_alerts": 0,
-                "recommendations": "Insufficient data for correlation analysis"
+                "recommendations": "Insufficient data for correlation analysis",
             }
 
         pairs_above_threshold = sum(
-            1 for corr in self.correlation_matrix.values()
+            1
+            for corr in self.correlation_matrix.values()
             if corr >= self.spike_threshold
         )
 
@@ -430,7 +455,7 @@ class CorrelationSpikeDetector:
             "spike_threshold": float(self.spike_threshold),
             "window_minutes": self.window_minutes,
             "calculations_performed": self.calculations_performed,
-            "alerts_triggered": self.alerts_triggered
+            "alerts_triggered": self.alerts_triggered,
         }
 
     def reset(self) -> None:

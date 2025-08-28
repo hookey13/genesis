@@ -22,6 +22,7 @@ logger = structlog.get_logger(__name__)
 
 class SignalStatus(Enum):
     """Signal processing status."""
+
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     EXECUTED = "EXECUTED"
@@ -32,6 +33,7 @@ class SignalStatus(Enum):
 
 class ConflictResolution(Enum):
     """Conflict resolution strategies."""
+
     HIGHEST_PRIORITY = "HIGHEST_PRIORITY"
     HIGHEST_CONFIDENCE = "HIGHEST_CONFIDENCE"
     FIRST_IN = "FIRST_IN"
@@ -42,6 +44,7 @@ class ConflictResolution(Enum):
 @dataclass(order=True)
 class QueuedSignal:
     """Signal with queue metadata."""
+
     priority_score: float = field(compare=True)  # For heap ordering
     signal: Signal = field(compare=False)
     status: SignalStatus = field(default=SignalStatus.PENDING, compare=False)
@@ -54,7 +57,9 @@ class QueuedSignal:
         """Calculate negative priority for min-heap (higher priority = lower score)."""
         # Combine priority (0-100) and confidence (0-1) for scoring
         # Higher values should be processed first, so negate for min-heap
-        self.priority_score = -(self.signal.priority + self.signal.confidence_score * 20)
+        self.priority_score = -(
+            self.signal.priority + self.signal.confidence_score * 20
+        )
 
     @property
     def is_expired(self) -> bool:
@@ -76,7 +81,7 @@ class SignalQueue:
         self,
         repository: Repository,
         event_bus: Optional[EventBus] = None,
-        conflict_resolution: ConflictResolution = ConflictResolution.HIGHEST_PRIORITY
+        conflict_resolution: ConflictResolution = ConflictResolution.HIGHEST_PRIORITY,
     ):
         """Initialize signal queue.
 
@@ -107,7 +112,7 @@ class SignalQueue:
             "total_executed": 0,
             "total_rejected": 0,
             "total_expired": 0,
-            "total_conflicts": 0
+            "total_conflicts": 0,
         }
 
     async def add_signal(self, signal: Signal, priority: Optional[int] = None) -> None:
@@ -123,7 +128,7 @@ class SignalQueue:
                 logger.warning(
                     "signal_already_processed",
                     signal_id=signal.signal_id,
-                    symbol=signal.symbol
+                    symbol=signal.symbol,
                 )
                 return
 
@@ -136,9 +141,11 @@ class SignalQueue:
                     logger.error(
                         "signal_queue_full",
                         queue_size=len(self._queue),
-                        max_size=self.MAX_QUEUE_SIZE
+                        max_size=self.MAX_QUEUE_SIZE,
                     )
-                    raise ValidationError(f"Signal queue full: {len(self._queue)} signals")
+                    raise ValidationError(
+                        f"Signal queue full: {len(self._queue)} signals"
+                    )
 
             # Override priority if provided
             if priority is not None:
@@ -146,12 +153,13 @@ class SignalQueue:
 
             # Set default expiry if not specified
             if signal.expiry_time is None:
-                signal.expiry_time = datetime.utcnow() + timedelta(minutes=self.DEFAULT_EXPIRY_MINUTES)
+                signal.expiry_time = datetime.utcnow() + timedelta(
+                    minutes=self.DEFAULT_EXPIRY_MINUTES
+                )
 
             # Create queued signal
             queued_signal = QueuedSignal(
-                signal=signal,
-                priority_score=0  # Will be calculated in __post_init__
+                signal=signal, priority_score=0  # Will be calculated in __post_init__
             )
 
             # Check for conflicts
@@ -176,7 +184,7 @@ class SignalQueue:
                     symbol=signal.symbol,
                     priority=signal.priority,
                     confidence=signal.confidence_score,
-                    queue_size=len(self._queue)
+                    queue_size=len(self._queue),
                 )
 
                 # Publish event
@@ -187,10 +195,10 @@ class SignalQueue:
                             data={
                                 "signal_id": signal.signal_id,
                                 "symbol": signal.symbol,
-                                "priority": signal.priority
-                            }
+                                "priority": signal.priority,
+                            },
                         ),
-                        priority=EventPriority.HIGH
+                        priority=EventPriority.HIGH,
                     )
 
             # Persist to database
@@ -221,7 +229,9 @@ class SignalQueue:
 
                 # Remove from symbol tracking
                 if queued_signal.signal.symbol in self._signals_by_symbol:
-                    self._signals_by_symbol[queued_signal.signal.symbol].remove(queued_signal)
+                    self._signals_by_symbol[queued_signal.signal.symbol].remove(
+                        queued_signal
+                    )
                     if not self._signals_by_symbol[queued_signal.signal.symbol]:
                         del self._signals_by_symbol[queued_signal.signal.symbol]
 
@@ -233,7 +243,9 @@ class SignalQueue:
                     signal_id=queued_signal.signal.signal_id,
                     symbol=queued_signal.signal.symbol,
                     priority=queued_signal.signal.priority,
-                    queue_time_seconds=(queued_signal.processed_at - queued_signal.queued_at).total_seconds()
+                    queue_time_seconds=(
+                        queued_signal.processed_at - queued_signal.queued_at
+                    ).total_seconds(),
                 )
 
                 # Update database
@@ -255,9 +267,15 @@ class SignalQueue:
         async with self._lock:
             if symbol:
                 symbol_signals = self._signals_by_symbol.get(symbol, [])
-                return [qs.signal for qs in symbol_signals if qs.status == SignalStatus.PENDING]
+                return [
+                    qs.signal
+                    for qs in symbol_signals
+                    if qs.status == SignalStatus.PENDING
+                ]
             else:
-                return [qs.signal for qs in self._queue if qs.status == SignalStatus.PENDING]
+                return [
+                    qs.signal for qs in self._queue if qs.status == SignalStatus.PENDING
+                ]
 
     async def cancel_signal(self, signal_id: str) -> bool:
         """Cancel a pending signal.
@@ -291,11 +309,7 @@ class SignalQueue:
                     # Update database
                     await self._update_signal_status(queued_signal)
 
-                    logger.info(
-                        "signal_cancelled",
-                        signal_id=signal_id,
-                        symbol=symbol
-                    )
+                    logger.info("signal_cancelled", signal_id=signal_id, symbol=symbol)
 
                     return True
 
@@ -329,7 +343,7 @@ class SignalQueue:
                 "total_rejected": self._stats["total_rejected"],
                 "total_expired": self._stats["total_expired"],
                 "total_conflicts": self._stats["total_conflicts"],
-                "oldest_signal_age": self._get_oldest_signal_age()
+                "oldest_signal_age": self._get_oldest_signal_age(),
             }
 
     # Private methods
@@ -386,12 +400,20 @@ class SignalQueue:
         """
         # Same symbol, opposite directions
         if signal1.symbol == signal2.symbol:
-            if (signal1.signal_type == SignalType.BUY and signal2.signal_type == SignalType.SELL) or \
-               (signal1.signal_type == SignalType.SELL and signal2.signal_type == SignalType.BUY):
+            if (
+                signal1.signal_type == SignalType.BUY
+                and signal2.signal_type == SignalType.SELL
+            ) or (
+                signal1.signal_type == SignalType.SELL
+                and signal2.signal_type == SignalType.BUY
+            ):
                 return True
 
             # Both trying to close
-            if signal1.signal_type == SignalType.CLOSE and signal2.signal_type == SignalType.CLOSE:
+            if (
+                signal1.signal_type == SignalType.CLOSE
+                and signal2.signal_type == SignalType.CLOSE
+            ):
                 return True
 
         return False
@@ -407,7 +429,8 @@ class SignalQueue:
 
         # Get all signals in conflict group
         conflicting_signals = [
-            qs for qs in self._signals_by_symbol.get(symbol, [])
+            qs
+            for qs in self._signals_by_symbol.get(symbol, [])
             if qs.conflict_group == conflict_group and qs.status == SignalStatus.PENDING
         ]
         conflicting_signals.append(new_signal)
@@ -417,7 +440,7 @@ class SignalQueue:
             symbol=symbol,
             conflict_group=conflict_group,
             num_signals=len(conflicting_signals),
-            resolution_strategy=self.conflict_resolution.value
+            resolution_strategy=self.conflict_resolution.value,
         )
 
         if self.conflict_resolution == ConflictResolution.HIGHEST_PRIORITY:
@@ -455,7 +478,9 @@ class SignalQueue:
             if winner != new_signal:
                 # New signal lost, don't add to queue
                 new_signal.status = SignalStatus.CONFLICTED
-                new_signal.rejection_reason = f"Lost conflict to {winner.signal.signal_id}"
+                new_signal.rejection_reason = (
+                    f"Lost conflict to {winner.signal.signal_id}"
+                )
                 await self._update_signal_status(new_signal)
             else:
                 # New signal won, add to queue
@@ -471,11 +496,16 @@ class SignalQueue:
                 self._queue.remove(loser)
                 heapq.heapify(self._queue)
 
-            if symbol in self._signals_by_symbol and loser in self._signals_by_symbol[symbol]:
+            if (
+                symbol in self._signals_by_symbol
+                and loser in self._signals_by_symbol[symbol]
+            ):
                 self._signals_by_symbol[symbol].remove(loser)
 
             loser.status = SignalStatus.CONFLICTED
-            loser.rejection_reason = f"Conflict resolution: {self.conflict_resolution.value}"
+            loser.rejection_reason = (
+                f"Conflict resolution: {self.conflict_resolution.value}"
+            )
             await self._update_signal_status(loser)
 
     async def _clean_expired_signals(self) -> int:
@@ -501,7 +531,7 @@ class SignalQueue:
             logger.info(
                 "expired_signals_cleaned",
                 count=expired_count,
-                remaining=len(self._queue)
+                remaining=len(self._queue),
             )
 
         return expired_count
@@ -527,9 +557,7 @@ class SignalQueue:
         await self._update_signal_status(queued_signal)
 
         logger.debug(
-            "signal_expired",
-            signal_id=queued_signal.signal.signal_id,
-            symbol=symbol
+            "signal_expired", signal_id=queued_signal.signal.signal_id, symbol=symbol
         )
 
     def _get_oldest_signal_age(self) -> Optional[float]:
@@ -551,21 +579,23 @@ class SignalQueue:
             queued_signal: Signal to persist
         """
         try:
-            await self.repository.save_queued_signal({
-                "signal_id": queued_signal.signal.signal_id,
-                "symbol": queued_signal.signal.symbol,
-                "signal_type": queued_signal.signal.signal_type.value,
-                "confidence_score": queued_signal.signal.confidence_score,
-                "priority": queued_signal.signal.priority,
-                "status": queued_signal.status.value,
-                "queued_at": queued_signal.queued_at,
-                "conflict_group": queued_signal.conflict_group
-            })
+            await self.repository.save_queued_signal(
+                {
+                    "signal_id": queued_signal.signal.signal_id,
+                    "symbol": queued_signal.signal.symbol,
+                    "signal_type": queued_signal.signal.signal_type.value,
+                    "confidence_score": queued_signal.signal.confidence_score,
+                    "priority": queued_signal.signal.priority,
+                    "status": queued_signal.status.value,
+                    "queued_at": queued_signal.queued_at,
+                    "conflict_group": queued_signal.conflict_group,
+                }
+            )
         except Exception as e:
             logger.error(
                 "failed_to_persist_signal",
                 signal_id=queued_signal.signal.signal_id,
-                error=str(e)
+                error=str(e),
             )
 
     async def _update_signal_status(self, queued_signal: QueuedSignal) -> None:
@@ -579,11 +609,11 @@ class SignalQueue:
                 signal_id=queued_signal.signal.signal_id,
                 status=queued_signal.status.value,
                 processed_at=queued_signal.processed_at,
-                rejection_reason=queued_signal.rejection_reason
+                rejection_reason=queued_signal.rejection_reason,
             )
         except Exception as e:
             logger.error(
                 "failed_to_update_signal_status",
                 signal_id=queued_signal.signal.signal_id,
-                error=str(e)
+                error=str(e),
             )

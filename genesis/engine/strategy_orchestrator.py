@@ -37,6 +37,7 @@ logger = structlog.get_logger(__name__)
 
 class OrchestrationMode(str, Enum):
     """Orchestration operation modes."""
+
     NORMAL = "normal"  # Standard multi-strategy operation
     CONSERVATIVE = "conservative"  # Reduced risk, lower allocations
     AGGRESSIVE = "aggressive"  # Higher risk tolerance
@@ -47,6 +48,7 @@ class OrchestrationMode(str, Enum):
 @dataclass
 class OrchestrationConfig:
     """Configuration for strategy orchestration."""
+
     max_concurrent_strategies: int = 10
     min_strategy_capital: Decimal = Decimal("100")
     correlation_check_interval: int = 300  # seconds
@@ -60,6 +62,7 @@ class OrchestrationConfig:
 
 class StrategySignal(BaseModel):
     """Trading signal from a strategy."""
+
     strategy_id: str
     signal_id: str = Field(default_factory=lambda: str(uuid4()))
     symbol: str
@@ -84,7 +87,7 @@ class StrategyOrchestrator:
         event_bus: EventBus,
         risk_engine: RiskEngine,
         total_capital: Decimal,
-        config: OrchestrationConfig | None = None
+        config: OrchestrationConfig | None = None,
     ):
         """
         Initialize strategy orchestrator.
@@ -110,7 +113,9 @@ class StrategyOrchestrator:
 
         # State tracking
         self.mode = OrchestrationMode.NORMAL
-        self.active_positions: dict[str, list[Position]] = {}  # strategy_id -> positions
+        self.active_positions: dict[str, list[Position]] = (
+            {}
+        )  # strategy_id -> positions
         self.pending_signals: list[StrategySignal] = []
         self.strategy_allocations: dict[str, StrategyAllocation] = {}
 
@@ -134,7 +139,7 @@ class StrategyOrchestrator:
             asyncio.create_task(self._performance_update_task()),
             asyncio.create_task(self._regime_monitor_task()),
             asyncio.create_task(self._rebalance_task()),
-            asyncio.create_task(self._signal_processor_task())
+            asyncio.create_task(self._signal_processor_task()),
         ]
 
         # Subscribe to events
@@ -143,7 +148,7 @@ class StrategyOrchestrator:
         logger.info(
             "Strategy orchestrator started",
             mode=self.mode.value,
-            total_capital=str(self.total_capital)
+            total_capital=str(self.total_capital),
         )
 
     async def stop(self) -> None:
@@ -173,7 +178,7 @@ class StrategyOrchestrator:
         account_id: str,
         strategy_name: str,
         metadata: StrategyMetadata,
-        initial_allocation: Decimal | None = None
+        initial_allocation: Decimal | None = None,
     ) -> str:
         """
         Register a new strategy with the orchestrator.
@@ -208,7 +213,9 @@ class StrategyOrchestrator:
             strategy_name=strategy_name,
             target_allocation=initial_allocation or self.config.min_strategy_capital,
             min_allocation=self.config.min_strategy_capital,
-            max_allocation=self.total_capital * metadata.max_capital_percent / Decimal("100")
+            max_allocation=self.total_capital
+            * metadata.max_capital_percent
+            / Decimal("100"),
         )
 
         self.strategy_allocations[strategy_id] = allocation
@@ -221,7 +228,7 @@ class StrategyOrchestrator:
             "Strategy registered with orchestrator",
             strategy_id=strategy_id,
             strategy_name=strategy_name,
-            initial_allocation=str(allocation.current_allocation)
+            initial_allocation=str(allocation.current_allocation),
         )
 
         return strategy_id
@@ -244,7 +251,7 @@ class StrategyOrchestrator:
             logger.warning(
                 "Strategy not compatible with current market regime",
                 strategy_id=strategy_id,
-                regime=current_regime.value
+                regime=current_regime.value,
             )
             if not self.config.auto_regime_adjustment:
                 return False
@@ -262,7 +269,9 @@ class StrategyOrchestrator:
         """Unregister a strategy (alias for stop_strategy with close_positions=True)."""
         await self.stop_strategy(strategy_id, close_positions=True)
 
-    async def stop_strategy(self, strategy_id: str, close_positions: bool = True) -> bool:
+    async def stop_strategy(
+        self, strategy_id: str, close_positions: bool = True
+    ) -> bool:
         """
         Stop a running strategy.
 
@@ -320,7 +329,7 @@ class StrategyOrchestrator:
             logger.warning(
                 "Signal from inactive strategy rejected",
                 strategy_id=signal.strategy_id,
-                state=state
+                state=state,
             )
             return False
 
@@ -329,7 +338,7 @@ class StrategyOrchestrator:
             logger.warning(
                 "Signal failed risk check",
                 signal_id=signal.signal_id,
-                strategy_id=signal.strategy_id
+                strategy_id=signal.strategy_id,
             )
             return False
 
@@ -352,7 +361,9 @@ class StrategyOrchestrator:
         active_strategies = self.strategy_registry.get_active_strategies()
 
         # Calculate aggregate metrics
-        total_positions = sum(len(positions) for positions in self.active_positions.values())
+        total_positions = sum(
+            len(positions) for positions in self.active_positions.values()
+        )
         total_pnl = Decimal("0")
         total_locked = Decimal("0")
 
@@ -380,7 +391,7 @@ class StrategyOrchestrator:
             "correlation_status": correlation_summary,
             "performance": performance_summary,
             "current_regime": (await self.regime_detector.detect_regime()).value,
-            "pending_signals": len(self.pending_signals)
+            "pending_signals": len(self.pending_signals),
         }
 
     async def rebalance_allocations(self) -> None:
@@ -407,9 +418,7 @@ class StrategyOrchestrator:
         self.mode = mode
 
         logger.info(
-            "Orchestration mode changed",
-            old_mode=old_mode.value,
-            new_mode=mode.value
+            "Orchestration mode changed", old_mode=old_mode.value, new_mode=mode.value
         )
 
         # Adjust behavior based on mode
@@ -421,14 +430,19 @@ class StrategyOrchestrator:
             await self._exit_emergency_mode()
 
         # Publish mode change event
-        await self.event_bus.publish(Event(
-            event_type=EventType.SYSTEM_SHUTDOWN if mode == OrchestrationMode.EMERGENCY
-                     else EventType.SYSTEM_STARTUP,
-            event_data={
-                "mode": mode.value,
-                "timestamp": datetime.now(UTC).isoformat()
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=(
+                    EventType.SYSTEM_SHUTDOWN
+                    if mode == OrchestrationMode.EMERGENCY
+                    else EventType.SYSTEM_STARTUP
+                ),
+                event_data={
+                    "mode": mode.value,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+        )
 
     async def _allocate_capital_to_strategy(self, strategy_id: str) -> None:
         """Allocate capital to a strategy."""
@@ -457,7 +471,7 @@ class StrategyOrchestrator:
                     if not resolved_signal:
                         logger.warning(
                             "Signal rejected due to conflicts",
-                            signal_id=signal.signal_id
+                            signal_id=signal.signal_id,
                         )
                         return
                     signal = resolved_signal
@@ -473,7 +487,7 @@ class StrategyOrchestrator:
                     "Insufficient capital for signal",
                     signal_id=signal.signal_id,
                     required=str(required_capital),
-                    available=str(allocation.available_capital)
+                    available=str(allocation.available_capital),
                 )
                 return
 
@@ -499,15 +513,13 @@ class StrategyOrchestrator:
                     exit_price=Decimal("0"),
                     quantity=order.quantity,
                     pnl_dollars=Decimal("0"),
-                    pnl_percent=Decimal("0")
-                )
+                    pnl_percent=Decimal("0"),
+                ),
             )
 
         except Exception as e:
             logger.error(
-                "Failed to process signal",
-                signal_id=signal.signal_id,
-                error=str(e)
+                "Failed to process signal", signal_id=signal.signal_id, error=str(e)
             )
 
     async def _check_signal_risk(self, signal: StrategySignal) -> bool:
@@ -522,23 +534,35 @@ class StrategyOrchestrator:
         # Check correlation impact
         if signal.strategy_id in self.active_positions:
             positions = self.active_positions[signal.strategy_id]
-            correlations = await self.correlation_monitor.calculate_position_correlations(
-                [{"position_id": p.position_id, "symbol": p.symbol} for p in positions]
+            correlations = (
+                await self.correlation_monitor.calculate_position_correlations(
+                    [
+                        {"position_id": p.position_id, "symbol": p.symbol}
+                        for p in positions
+                    ]
+                )
             )
 
-            high_correlations = [c for c in correlations if c.correlation_coefficient > Decimal("0.8")]
+            high_correlations = [
+                c for c in correlations if c.correlation_coefficient > Decimal("0.8")
+            ]
             if high_correlations:
                 logger.warning(
                     "High correlation detected for signal",
                     signal_id=signal.signal_id,
-                    num_high_correlations=len(high_correlations)
+                    num_high_correlations=len(high_correlations),
                 )
-                if self.mode in [OrchestrationMode.CONSERVATIVE, OrchestrationMode.DEFENSIVE]:
+                if self.mode in [
+                    OrchestrationMode.CONSERVATIVE,
+                    OrchestrationMode.DEFENSIVE,
+                ]:
                     return False
 
         return True
 
-    async def _check_signal_conflicts(self, signal: StrategySignal) -> list[StrategySignal]:
+    async def _check_signal_conflicts(
+        self, signal: StrategySignal
+    ) -> list[StrategySignal]:
         """Check for conflicting signals."""
         conflicts = []
 
@@ -548,8 +572,9 @@ class StrategyOrchestrator:
 
             # Check for opposite signals on same symbol
             if pending.symbol == signal.symbol:
-                if (signal.action == "buy" and pending.action == "sell") or \
-                   (signal.action == "sell" and pending.action == "buy"):
+                if (signal.action == "buy" and pending.action == "sell") or (
+                    signal.action == "sell" and pending.action == "buy"
+                ):
                     conflicts.append(pending)
 
         return conflicts
@@ -567,7 +592,7 @@ class StrategyOrchestrator:
             symbol=signal.symbol,
             type=OrderType.MARKET,
             side=OrderSide.BUY if signal.action == "buy" else OrderSide.SELL,
-            quantity=signal.quantity
+            quantity=signal.quantity,
         )
 
     async def _create_position_from_order(self, order: Order) -> Position:
@@ -581,7 +606,7 @@ class StrategyOrchestrator:
             side=PositionSide.LONG if order.side.value == "BUY" else PositionSide.SHORT,
             entry_price=order.price or Decimal("0"),
             quantity=order.quantity,
-            dollar_value=order.quantity * (order.price or Decimal("0"))
+            dollar_value=order.quantity * (order.price or Decimal("0")),
         )
 
     async def _calculate_portfolio_metrics(self) -> dict:
@@ -597,7 +622,11 @@ class StrategyOrchestrator:
         return {
             "total_value": total_value,
             "total_pnl": total_pnl,
-            "total_pnl_pct": (total_pnl / self.total_capital * 100) if self.total_capital else Decimal("0")
+            "total_pnl_pct": (
+                (total_pnl / self.total_capital * 100)
+                if self.total_capital
+                else Decimal("0")
+            ),
         }
 
     async def _close_all_positions(self) -> None:
@@ -615,13 +644,15 @@ class StrategyOrchestrator:
             symbol=position.symbol,
             type=OrderType.MARKET,
             side=OrderSide.SELL if position.side.value == "LONG" else OrderSide.BUY,
-            quantity=position.quantity
+            quantity=position.quantity,
         )
 
         # Process closing order
         # ... implementation ...
 
-    def _is_regime_compatible(self, metadata: StrategyMetadata, regime: MarketRegime) -> bool:
+    def _is_regime_compatible(
+        self, metadata: StrategyMetadata, regime: MarketRegime
+    ) -> bool:
         """Check if strategy is compatible with market regime."""
         # Simplified compatibility check
         if regime == MarketRegime.CRASH:
@@ -689,13 +720,13 @@ class StrategyOrchestrator:
         """Handle correlation alert from monitor."""
         correlation_value = alert.get("correlation", Decimal("0"))
         symbols = alert.get("symbols", [])
-        
+
         logger.warning(
             "High correlation detected",
             correlation=str(correlation_value),
-            symbols=symbols
+            symbols=symbols,
         )
-        
+
         # Enter defensive mode if correlation too high
         if correlation_value > Decimal("0.9"):
             await self._enter_defensive_mode()
@@ -703,10 +734,10 @@ class StrategyOrchestrator:
     async def handle_regime_change(self, new_regime: str) -> None:
         """Handle market regime change."""
         logger.info("Market regime changed", new_regime=new_regime)
-        
+
         # Adjust strategies based on regime
         for strategy_id, metadata in self.strategy_registry._strategies.items():
-            if hasattr(metadata, 'compatible_regimes'):
+            if hasattr(metadata, "compatible_regimes"):
                 if new_regime not in metadata.compatible_regimes:
                     await self.pause_strategy(strategy_id)
                 else:
@@ -725,7 +756,9 @@ class StrategyOrchestrator:
             metrics = await self.performance_tracker.get_performance(strategy_id)
             if metrics:
                 allocation = self.strategy_allocations[strategy_id]
-                allocation.performance_score = metrics.get("sharpe_ratio", Decimal("1.0"))
+                allocation.performance_score = metrics.get(
+                    "sharpe_ratio", Decimal("1.0")
+                )
 
     async def check_correlations(self) -> dict:
         """Check and return current correlation matrix."""
@@ -737,7 +770,7 @@ class StrategyOrchestrator:
         if strategy_id in self.active_positions:
             positions = self.active_positions[strategy_id]
             # Close 50% of positions
-            for position in positions[:len(positions)//2]:
+            for position in positions[: len(positions) // 2]:
                 await self._close_position(position)
 
     async def _handle_regime_change(self, new_regime: str) -> None:
@@ -755,8 +788,10 @@ class StrategyOrchestrator:
 
                 if all_positions:
                     # Check correlations
-                    alerts = await self.correlation_monitor.check_correlation_thresholds(
-                        all_positions
+                    alerts = (
+                        await self.correlation_monitor.check_correlation_thresholds(
+                            all_positions
+                        )
                     )
 
                     # Handle alerts
@@ -777,8 +812,10 @@ class StrategyOrchestrator:
             try:
                 # Update performance scores
                 for strategy_id in self.strategy_allocations:
-                    performance = await self.performance_tracker.get_strategy_performance(
-                        strategy_id
+                    performance = (
+                        await self.performance_tracker.get_strategy_performance(
+                            strategy_id
+                        )
                     )
 
                     if performance:
@@ -786,7 +823,7 @@ class StrategyOrchestrator:
                         self.capital_allocator.update_strategy_performance(
                             strategy_id,
                             performance.get("sharpe_ratio", Decimal("1.0")),
-                            performance.get("volatility", Decimal("1.0"))
+                            performance.get("volatility", Decimal("1.0")),
                         )
 
             except Exception as e:
@@ -819,7 +856,9 @@ class StrategyOrchestrator:
 
                 # Update strategy allocations
                 for strategy_id, allocation in self.strategy_allocations.items():
-                    new_capital = self.capital_allocator.get_available_capital(strategy_id)
+                    new_capital = self.capital_allocator.get_available_capital(
+                        strategy_id
+                    )
                     allocation.available_capital = new_capital
 
             except Exception as e:
@@ -857,15 +896,11 @@ class StrategyOrchestrator:
     async def _subscribe_to_events(self) -> None:
         """Subscribe to relevant events."""
         # Subscribe to risk events (subscribe is synchronous)
-        self.event_bus.subscribe(
-            EventType.RISK_LIMIT_BREACH,
-            self._handle_risk_event
-        )
+        self.event_bus.subscribe(EventType.RISK_LIMIT_BREACH, self._handle_risk_event)
 
         # Subscribe to market events
         self.event_bus.subscribe(
-            EventType.MARKET_STATE_CHANGE,
-            self._handle_market_event
+            EventType.MARKET_STATE_CHANGE, self._handle_market_event
         )
 
     async def _handle_risk_event(self, event: Event) -> None:

@@ -41,23 +41,25 @@ class TestPortfolioOptimizer:
                 "min_allocation": 0.01,
                 "max_allocation": 0.40,
                 "max_correlation": 0.60,
-                "min_strategies": 2
+                "min_strategies": 2,
             },
             "rebalancing": {
                 "threshold_percent": 5.0,
                 "min_improvement": 0.01,
-                "schedule": "weekly"
-            }
+                "schedule": "weekly",
+            },
         }
 
-        with patch('genesis.analytics.portfolio_optimizer.PortfolioOptimizer._load_configuration'):
+        with patch(
+            "genesis.analytics.portfolio_optimizer.PortfolioOptimizer._load_configuration"
+        ):
             optimizer = PortfolioOptimizer(event_bus=event_bus)
             optimizer.config = config
             optimizer.constraints = OptimizationConstraints(
                 min_allocation=Decimal("0.01"),
                 max_allocation=Decimal("0.40"),
                 max_correlation=Decimal("0.60"),
-                min_strategies=2
+                min_strategies=2,
             )
         return optimizer
 
@@ -80,20 +82,20 @@ class TestPortfolioOptimizer:
                 name="Strategy_A",
                 returns=[Decimal(str(r)) for r in returns1],
                 current_allocation=Decimal("0.33"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Strategy_B",
                 returns=[Decimal(str(r)) for r in returns2],
                 current_allocation=Decimal("0.33"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Strategy_C",
                 returns=[Decimal(str(r)) for r in returns3],
                 current_allocation=Decimal("0.34"),
-                is_active=True
-            )
+                is_active=True,
+            ),
         ]
 
         return strategies
@@ -115,14 +117,14 @@ class TestPortfolioOptimizer:
                 name="Correlated_A",
                 returns=[Decimal(str(r)) for r in returns1],
                 current_allocation=Decimal("0.50"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Correlated_B",
                 returns=[Decimal(str(r)) for r in returns2],
                 current_allocation=Decimal("0.50"),
-                is_active=True
-            )
+                is_active=True,
+            ),
         ]
 
         return strategies
@@ -134,7 +136,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         assert isinstance(result, OptimizationResult)
@@ -158,7 +160,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # All non-zero weights should be >= min_allocation
@@ -173,7 +175,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # No weight should exceed max_allocation
@@ -184,7 +186,7 @@ class TestPortfolioOptimizer:
     async def test_correlation_detection(self, optimizer, correlated_strategies):
         """Test detection of high correlation"""
         # Should detect and warn about high correlation
-        with patch('structlog.get_logger') as mock_logger:
+        with patch("structlog.get_logger") as mock_logger:
             logger_instance = Mock()
             mock_logger.return_value = logger_instance
 
@@ -192,7 +194,7 @@ class TestPortfolioOptimizer:
                 correlated_strategies,
                 portfolio_value_usdt=Decimal("10000"),
                 validate=False,
-                rebalance_check=False
+                rebalance_check=False,
             )
 
             assert result is not None
@@ -208,14 +210,13 @@ class TestPortfolioOptimizer:
                 name="Only_One",
                 returns=[Decimal("0.01")] * 100,
                 current_allocation=Decimal("1.00"),
-                is_active=True
+                is_active=True,
             )
         ]
 
         with pytest.raises(InvalidDataError):
             await optimizer.optimize_portfolio(
-                single_strategy,
-                portfolio_value_usdt=Decimal("10000")
+                single_strategy, portfolio_value_usdt=Decimal("10000")
             )
 
     @pytest.mark.asyncio
@@ -225,7 +226,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=True,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         assert result.validation is not None
@@ -242,7 +243,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=True,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         assert result.validation is not None
@@ -262,7 +263,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=True
+            rebalance_check=True,
         )
 
         assert result.rebalance_recommendation is not None
@@ -281,7 +282,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # Should only have 2 strategies in result
@@ -299,7 +300,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # Strategy_A should respect its specific constraints
@@ -320,7 +321,7 @@ class TestPortfolioOptimizer:
                     name=f"Strategy_{i}",
                     returns=[Decimal(str(r)) for r in returns],
                     current_allocation=Decimal("0.10"),
-                    is_active=True
+                    is_active=True,
                 )
             )
 
@@ -328,7 +329,7 @@ class TestPortfolioOptimizer:
             strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # Should complete within 1 second (1000ms)
@@ -341,7 +342,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # Should have published an event
@@ -357,20 +358,19 @@ class TestPortfolioOptimizer:
                 name="Short_Data_A",
                 returns=[Decimal("0.01")] * 10,  # Only 10 periods
                 current_allocation=Decimal("0.50"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Short_Data_B",
                 returns=[Decimal("0.02")] * 10,
                 current_allocation=Decimal("0.50"),
-                is_active=True
-            )
+                is_active=True,
+            ),
         ]
 
         with pytest.raises(InvalidDataError):
             await optimizer.optimize_portfolio(
-                strategies,
-                portfolio_value_usdt=Decimal("10000")
+                strategies, portfolio_value_usdt=Decimal("10000")
             )
 
     @pytest.mark.asyncio
@@ -381,20 +381,19 @@ class TestPortfolioOptimizer:
                 name="Invalid_A",
                 returns=[Decimal("999")] * 50,  # Unrealistic returns
                 current_allocation=Decimal("0.50"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Invalid_B",
                 returns=[Decimal("0.01")] * 50,
                 current_allocation=Decimal("0.50"),
-                is_active=True
-            )
+                is_active=True,
+            ),
         ]
 
         with pytest.raises(InvalidDataError):
             await optimizer.optimize_portfolio(
-                strategies,
-                portfolio_value_usdt=Decimal("10000")
+                strategies, portfolio_value_usdt=Decimal("10000")
             )
 
     @pytest.mark.asyncio
@@ -404,7 +403,7 @@ class TestPortfolioOptimizer:
             sample_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # Weights should sum to exactly 1 (within rounding tolerance)
@@ -415,6 +414,6 @@ class TestPortfolioOptimizer:
         for weight in result.optimal_weights.values():
             # Check that weight has at most 4 decimal places
             str_weight = str(weight)
-            if '.' in str_weight:
-                decimals = len(str_weight.split('.')[1])
+            if "." in str_weight:
+                decimals = len(str_weight.split(".")[1])
                 assert decimals <= 4

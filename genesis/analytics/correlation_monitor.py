@@ -24,6 +24,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class CorrelationWindow:
     """Rolling window for correlation calculation."""
+
     window_size: int = 20  # Number of observations
     data: dict[str, list[float]] = field(default_factory=dict)
     timestamps: list[datetime] = field(default_factory=list)
@@ -55,6 +56,7 @@ class CorrelationWindow:
 @dataclass
 class CorrelationAlert:
     """Correlation alert information."""
+
     alert_id: str
     timestamp: datetime
     entity1: str
@@ -74,7 +76,7 @@ class CorrelationAlert:
             "correlation": str(self.correlation),
             "threshold": str(self.threshold),
             "severity": self.severity,
-            "message": self.message
+            "message": self.message,
         }
 
 
@@ -90,7 +92,7 @@ class CorrelationMonitor:
         event_bus: EventBus,
         window_size: int = 20,
         warning_threshold: Decimal = Decimal("0.6"),
-        critical_threshold: Decimal = Decimal("0.8")
+        critical_threshold: Decimal = Decimal("0.8"),
     ):
         """
         Initialize correlation monitor.
@@ -135,9 +137,7 @@ class CorrelationMonitor:
         logger.info("Correlation monitor stopped")
 
     async def add_strategy_returns(
-        self,
-        timestamp: datetime,
-        returns: dict[str, float]
+        self, timestamp: datetime, returns: dict[str, float]
     ) -> None:
         """
         Add strategy return observations.
@@ -152,9 +152,7 @@ class CorrelationMonitor:
             await self._calculate_correlations()
 
     async def add_position_returns(
-        self,
-        timestamp: datetime,
-        returns: dict[str, float]
+        self, timestamp: datetime, returns: dict[str, float]
     ) -> None:
         """
         Add position return observations.
@@ -210,19 +208,27 @@ class CorrelationMonitor:
                 # Check thresholds
                 if correlation >= self.critical_threshold:
                     alert = await self._create_alert(
-                        entity1, entity2, correlation,
-                        self.critical_threshold, "critical"
+                        entity1,
+                        entity2,
+                        correlation,
+                        self.critical_threshold,
+                        "critical",
                     )
                     self.active_alerts[alert_key] = alert
                     alerts_to_publish.append(alert)
 
                 elif correlation >= self.warning_threshold:
                     # Only create warning if no critical alert exists
-                    if alert_key not in self.active_alerts or \
-                       self.active_alerts[alert_key].severity != "critical":
+                    if (
+                        alert_key not in self.active_alerts
+                        or self.active_alerts[alert_key].severity != "critical"
+                    ):
                         alert = await self._create_alert(
-                            entity1, entity2, correlation,
-                            self.warning_threshold, "warning"
+                            entity1,
+                            entity2,
+                            correlation,
+                            self.warning_threshold,
+                            "warning",
                         )
                         self.active_alerts[alert_key] = alert
                         alerts_to_publish.append(alert)
@@ -242,7 +248,7 @@ class CorrelationMonitor:
         entity2: str,
         correlation: Decimal,
         threshold: Decimal,
-        severity: str
+        severity: str,
     ) -> CorrelationAlert:
         """Create correlation alert."""
         from uuid import uuid4
@@ -261,27 +267,25 @@ class CorrelationMonitor:
             correlation=correlation,
             threshold=threshold,
             severity=severity,
-            message=message
+            message=message,
         )
 
     async def _publish_alert(self, alert: CorrelationAlert) -> None:
         """Publish correlation alert event."""
-        await self.event_bus.publish(Event(
-            event_type=EventType.CORRELATION_ALERT,
-            event_data=alert.to_dict()
-        ))
+        await self.event_bus.publish(
+            Event(event_type=EventType.CORRELATION_ALERT, event_data=alert.to_dict())
+        )
 
         logger.warning(
             "Correlation alert",
             severity=alert.severity,
             entity1=alert.entity1,
             entity2=alert.entity2,
-            correlation=float(alert.correlation)
+            correlation=float(alert.correlation),
         )
 
     async def calculate_position_correlations(
-        self,
-        positions: list[dict]
+        self, positions: list[dict]
     ) -> list[PositionCorrelation]:
         """
         Calculate correlations between positions.
@@ -321,7 +325,7 @@ class CorrelationMonitor:
                         position_a_id=pos1_id,
                         position_b_id=pos2_id,
                         correlation_coefficient=corr_value,
-                        alert_triggered=abs(corr_value) >= self.warning_threshold
+                        alert_triggered=abs(corr_value) >= self.warning_threshold,
                     )
                     correlations.append(correlation)
 
@@ -349,7 +353,7 @@ class CorrelationMonitor:
         if self.correlation_matrix is None:
             return {
                 "status": "insufficient_data",
-                "message": "Not enough data for correlation calculation"
+                "message": "Not enough data for correlation calculation",
             }
 
         corr_matrix = self.correlation_matrix
@@ -359,10 +363,7 @@ class CorrelationMonitor:
         correlations = upper_triangle[upper_triangle != 0]
 
         if len(correlations) == 0:
-            return {
-                "status": "no_correlations",
-                "message": "No correlations to report"
-            }
+            return {"status": "no_correlations", "message": "No correlations to report"}
 
         return {
             "status": "active",
@@ -370,16 +371,17 @@ class CorrelationMonitor:
             "average_correlation": float(np.mean(np.abs(correlations))),
             "max_correlation": float(np.max(np.abs(correlations))),
             "min_correlation": float(np.min(np.abs(correlations))),
-            "warning_breaches": len([c for c in correlations
-                                    if abs(c) >= float(self.warning_threshold)]),
-            "critical_breaches": len([c for c in correlations
-                                     if abs(c) >= float(self.critical_threshold)]),
-            "active_alerts": len(self.active_alerts)
+            "warning_breaches": len(
+                [c for c in correlations if abs(c) >= float(self.warning_threshold)]
+            ),
+            "critical_breaches": len(
+                [c for c in correlations if abs(c) >= float(self.critical_threshold)]
+            ),
+            "active_alerts": len(self.active_alerts),
         }
 
     def get_high_correlation_pairs(
-        self,
-        threshold: Decimal | None = None
+        self, threshold: Decimal | None = None
     ) -> list[tuple[str, str, Decimal]]:
         """
         Get pairs with high correlations.
@@ -402,11 +404,13 @@ class CorrelationMonitor:
             for j in range(i + 1, len(corr_matrix.columns)):
                 correlation = abs(corr_matrix.iloc[i, j])
                 if correlation >= float(threshold):
-                    high_pairs.append((
-                        corr_matrix.columns[i],
-                        corr_matrix.columns[j],
-                        Decimal(str(correlation))
-                    ))
+                    high_pairs.append(
+                        (
+                            corr_matrix.columns[i],
+                            corr_matrix.columns[j],
+                            Decimal(str(correlation)),
+                        )
+                    )
 
         return sorted(high_pairs, key=lambda x: x[2], reverse=True)
 
@@ -441,17 +445,18 @@ class CorrelationMonitor:
 
             # Crisis threshold: average correlation > 0.9
             if avg_correlation > 0.9:
-                await self.event_bus.publish(Event(
-                    event_type=EventType.CORRELATION_ALERT,
-                    event_data={
-                        "type": "correlation_crisis",
-                        "average_correlation": float(avg_correlation),
-                        "message": "Market-wide correlation crisis detected",
-                        "severity": "critical"
-                    }
-                ))
+                await self.event_bus.publish(
+                    Event(
+                        event_type=EventType.CORRELATION_ALERT,
+                        event_data={
+                            "type": "correlation_crisis",
+                            "average_correlation": float(avg_correlation),
+                            "message": "Market-wide correlation crisis detected",
+                            "severity": "critical",
+                        },
+                    )
+                )
 
                 logger.critical(
-                    "Correlation crisis detected",
-                    average_correlation=avg_correlation
+                    "Correlation crisis detected", average_correlation=avg_correlation
                 )

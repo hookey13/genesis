@@ -29,44 +29,45 @@ logger = structlog.get_logger(__name__)
 
 # Minimum requirements for tier readiness
 READINESS_REQUIREMENTS = {
-    'HUNTER': {
-        'min_days_at_tier': 30,
-        'max_tilt_score': 30,
-        'min_profitability_ratio': 0.55,
-        'max_recent_tilt_events': 2,
-        'min_trades': 50,
-        'min_readiness_score': 80
+    "HUNTER": {
+        "min_days_at_tier": 30,
+        "max_tilt_score": 30,
+        "min_profitability_ratio": 0.55,
+        "max_recent_tilt_events": 2,
+        "min_trades": 50,
+        "min_readiness_score": 80,
     },
-    'STRATEGIST': {
-        'min_days_at_tier': 60,
-        'max_tilt_score': 25,
-        'min_profitability_ratio': 0.60,
-        'max_recent_tilt_events': 1,
-        'min_trades': 200,
-        'min_readiness_score': 85
+    "STRATEGIST": {
+        "min_days_at_tier": 60,
+        "max_tilt_score": 25,
+        "min_profitability_ratio": 0.60,
+        "max_recent_tilt_events": 1,
+        "min_trades": 200,
+        "min_readiness_score": 85,
     },
-    'ARCHITECT': {
-        'min_days_at_tier': 90,
-        'max_tilt_score': 20,
-        'min_profitability_ratio': 0.65,
-        'max_recent_tilt_events': 0,
-        'min_trades': 500,
-        'min_readiness_score': 90
+    "ARCHITECT": {
+        "min_days_at_tier": 90,
+        "max_tilt_score": 20,
+        "min_profitability_ratio": 0.65,
+        "max_recent_tilt_events": 0,
+        "min_trades": 500,
+        "min_readiness_score": 90,
     },
-    'EMPEROR': {
-        'min_days_at_tier': 180,
-        'max_tilt_score': 15,
-        'min_profitability_ratio': 0.70,
-        'max_recent_tilt_events': 0,
-        'min_trades': 1000,
-        'min_readiness_score': 95
-    }
+    "EMPEROR": {
+        "min_days_at_tier": 180,
+        "max_tilt_score": 15,
+        "min_profitability_ratio": 0.70,
+        "max_recent_tilt_events": 0,
+        "min_trades": 1000,
+        "min_readiness_score": 95,
+    },
 }
 
 
 @dataclass
 class ReadinessReport:
     """Comprehensive readiness assessment report."""
+
     account_id: str
     current_tier: str
     target_tier: str
@@ -99,30 +100,30 @@ class ReadinessReport:
     def to_dict(self) -> dict[str, Any]:
         """Convert report to dictionary."""
         return {
-            'account_id': self.account_id,
-            'current_tier': self.current_tier,
-            'target_tier': self.target_tier,
-            'readiness_score': self.readiness_score,
-            'is_ready': self.is_ready,
-            'assessment_timestamp': self.assessment_timestamp.isoformat(),
-            'component_scores': {
-                'behavioral_stability': self.behavioral_stability_score,
-                'profitability': self.profitability_score,
-                'consistency': self.consistency_score,
-                'risk_management': self.risk_management_score,
-                'experience': self.experience_score
+            "account_id": self.account_id,
+            "current_tier": self.current_tier,
+            "target_tier": self.target_tier,
+            "readiness_score": self.readiness_score,
+            "is_ready": self.is_ready,
+            "assessment_timestamp": self.assessment_timestamp.isoformat(),
+            "component_scores": {
+                "behavioral_stability": self.behavioral_stability_score,
+                "profitability": self.profitability_score,
+                "consistency": self.consistency_score,
+                "risk_management": self.risk_management_score,
+                "experience": self.experience_score,
             },
-            'metrics': {
-                'days_at_tier': self.days_at_current_tier,
-                'tilt_score': self.current_tilt_score,
-                'recent_tilt_events': self.recent_tilt_events,
-                'profitability_ratio': float(self.profitability_ratio),
-                'risk_adjusted_return': float(self.risk_adjusted_return),
-                'max_drawdown': float(self.max_drawdown),
-                'trade_count': self.trade_count
+            "metrics": {
+                "days_at_tier": self.days_at_current_tier,
+                "tilt_score": self.current_tilt_score,
+                "recent_tilt_events": self.recent_tilt_events,
+                "profitability_ratio": float(self.profitability_ratio),
+                "risk_adjusted_return": float(self.risk_adjusted_return),
+                "max_drawdown": float(self.max_drawdown),
+                "trade_count": self.trade_count,
             },
-            'failure_reasons': self.failure_reasons,
-            'recommendations': self.recommendations
+            "failure_reasons": self.failure_reasons,
+            "recommendations": self.recommendations,
         }
 
 
@@ -138,9 +139,7 @@ class TierReadinessAssessor:
         self.session = session or get_session()
 
     async def assess_readiness(
-        self,
-        profile_id: str,
-        target_tier: str
+        self, profile_id: str, target_tier: str
     ) -> ReadinessReport:
         """Assess readiness for tier transition.
 
@@ -152,16 +151,18 @@ class TierReadinessAssessor:
             ReadinessReport with comprehensive assessment
         """
         # Get profile and account
-        profile = self.session.query(TiltProfile).filter_by(
-            profile_id=profile_id
-        ).first()
+        profile = (
+            self.session.query(TiltProfile).filter_by(profile_id=profile_id).first()
+        )
 
         if not profile:
             raise ValidationError(f"Profile not found: {profile_id}")
 
-        account = self.session.query(AccountDB).filter_by(
-            account_id=profile.account_id
-        ).first()
+        account = (
+            self.session.query(AccountDB)
+            .filter_by(account_id=profile.account_id)
+            .first()
+        )
 
         if not account:
             raise ValidationError(f"Account not found: {profile.account_id}")
@@ -179,7 +180,7 @@ class TierReadinessAssessor:
             profitability_score,
             consistency_score,
             risk_score,
-            experience_score
+            experience_score,
         )
 
         # Get detailed metrics
@@ -209,15 +210,15 @@ class TierReadinessAssessor:
             consistency_score=consistency_score,
             risk_management_score=risk_score,
             experience_score=experience_score,
-            days_at_current_tier=metrics['days_at_tier'],
-            current_tilt_score=metrics['tilt_score'],
-            recent_tilt_events=metrics['recent_tilt_events'],
-            profitability_ratio=metrics['profitability_ratio'],
-            risk_adjusted_return=metrics['risk_adjusted_return'],
-            max_drawdown=metrics['max_drawdown'],
-            trade_count=metrics['trade_count'],
+            days_at_current_tier=metrics["days_at_tier"],
+            current_tilt_score=metrics["tilt_score"],
+            recent_tilt_events=metrics["recent_tilt_events"],
+            profitability_ratio=metrics["profitability_ratio"],
+            risk_adjusted_return=metrics["risk_adjusted_return"],
+            max_drawdown=metrics["max_drawdown"],
+            trade_count=metrics["trade_count"],
             failure_reasons=failure_reasons,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
         # Store assessment in database
@@ -228,7 +229,7 @@ class TierReadinessAssessor:
             profile_id=profile_id,
             target_tier=target_tier,
             readiness_score=readiness_score,
-            is_ready=is_ready
+            is_ready=is_ready,
         )
 
         return report
@@ -244,10 +245,14 @@ class TierReadinessAssessor:
         """
         # Get recent tilt events
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        recent_events = self.session.query(TiltEventDB).filter(
-            TiltEventDB.profile_id == profile.profile_id,
-            TiltEventDB.timestamp >= thirty_days_ago
-        ).all()
+        recent_events = (
+            self.session.query(TiltEventDB)
+            .filter(
+                TiltEventDB.profile_id == profile.profile_id,
+                TiltEventDB.timestamp >= thirty_days_ago,
+            )
+            .all()
+        )
 
         # Base score starts at 100
         score = 100
@@ -257,9 +262,9 @@ class TierReadinessAssessor:
 
         # Deduct for recent tilt events
         for event in recent_events:
-            if event.severity == 'HIGH':
+            if event.severity == "HIGH":
                 score -= 15
-            elif event.severity == 'MEDIUM':
+            elif event.severity == "MEDIUM":
                 score -= 10
             else:
                 score -= 5
@@ -281,11 +286,15 @@ class TierReadinessAssessor:
         """
         # Get trades from last 30 days
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        trades = self.session.query(Trade).filter(
-            Trade.account_id == account.account_id,
-            Trade.closed_at >= thirty_days_ago,
-            Trade.closed_at.isnot(None)
-        ).all()
+        trades = (
+            self.session.query(Trade)
+            .filter(
+                Trade.account_id == account.account_id,
+                Trade.closed_at >= thirty_days_ago,
+                Trade.closed_at.isnot(None),
+            )
+            .all()
+        )
 
         if len(trades) < 10:
             return 0  # Not enough data
@@ -318,11 +327,15 @@ class TierReadinessAssessor:
         """
         # Get daily P&L for last 30 days
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        trades = self.session.query(Trade).filter(
-            Trade.account_id == account.account_id,
-            Trade.closed_at >= thirty_days_ago,
-            Trade.closed_at.isnot(None)
-        ).all()
+        trades = (
+            self.session.query(Trade)
+            .filter(
+                Trade.account_id == account.account_id,
+                Trade.closed_at >= thirty_days_ago,
+                Trade.closed_at.isnot(None),
+            )
+            .all()
+        )
 
         if len(trades) < 10:
             return 0
@@ -332,7 +345,7 @@ class TierReadinessAssessor:
         for trade in trades:
             day = trade.closed_at.date()
             if day not in daily_pnl:
-                daily_pnl[day] = Decimal('0')
+                daily_pnl[day] = Decimal("0")
             daily_pnl[day] += trade.pnl_usdt
 
         if len(daily_pnl) < 5:
@@ -344,7 +357,11 @@ class TierReadinessAssessor:
 
         if len(pnl_values) > 1:
             std_dev = statistics.stdev([float(p) for p in pnl_values])
-            coefficient_of_variation = std_dev / float(abs(avg_daily_pnl)) if avg_daily_pnl != 0 else float('inf')
+            coefficient_of_variation = (
+                std_dev / float(abs(avg_daily_pnl))
+                if avg_daily_pnl != 0
+                else float("inf")
+            )
         else:
             coefficient_of_variation = 0
 
@@ -373,19 +390,23 @@ class TierReadinessAssessor:
         """
         # Get recent trades
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        trades = self.session.query(Trade).filter(
-            Trade.account_id == account.account_id,
-            Trade.closed_at >= thirty_days_ago,
-            Trade.closed_at.isnot(None)
-        ).all()
+        trades = (
+            self.session.query(Trade)
+            .filter(
+                Trade.account_id == account.account_id,
+                Trade.closed_at >= thirty_days_ago,
+                Trade.closed_at.isnot(None),
+            )
+            .all()
+        )
 
         if not trades:
             return 50  # No data, neutral score
 
         # Calculate max drawdown
-        cumulative_pnl = Decimal('0')
-        peak = Decimal('0')
-        max_drawdown = Decimal('0')
+        cumulative_pnl = Decimal("0")
+        peak = Decimal("0")
+        max_drawdown = Decimal("0")
 
         for trade in sorted(trades, key=lambda t: t.closed_at):
             cumulative_pnl += trade.pnl_usdt
@@ -408,9 +429,9 @@ class TierReadinessAssessor:
         score = 100
 
         # Penalize for high drawdown
-        if max_drawdown > account.balance_usdt * Decimal('0.20'):
+        if max_drawdown > account.balance_usdt * Decimal("0.20"):
             score -= 30
-        elif max_drawdown > account.balance_usdt * Decimal('0.10'):
+        elif max_drawdown > account.balance_usdt * Decimal("0.10"):
             score -= 15
 
         # Reward for good Sharpe ratio
@@ -435,9 +456,11 @@ class TierReadinessAssessor:
         days_at_tier = (datetime.utcnow() - tier_started_at).days
 
         # Count total trades
-        total_trades = self.session.query(Trade).filter(
-            Trade.account_id == account.account_id
-        ).count()
+        total_trades = (
+            self.session.query(Trade)
+            .filter(Trade.account_id == account.account_id)
+            .count()
+        )
 
         # Base score on days and trades
         score = 0
@@ -474,7 +497,7 @@ class TierReadinessAssessor:
         profitability: int,
         consistency: int,
         risk: int,
-        experience: int
+        experience: int,
     ) -> int:
         """Calculate overall readiness score.
 
@@ -490,27 +513,25 @@ class TierReadinessAssessor:
         """
         # Weighted average with behavioral stability having highest weight
         weights = {
-            'behavioral': 0.30,
-            'profitability': 0.20,
-            'consistency': 0.20,
-            'risk': 0.20,
-            'experience': 0.10
+            "behavioral": 0.30,
+            "profitability": 0.20,
+            "consistency": 0.20,
+            "risk": 0.20,
+            "experience": 0.10,
         }
 
         weighted_sum = (
-            behavioral * weights['behavioral'] +
-            profitability * weights['profitability'] +
-            consistency * weights['consistency'] +
-            risk * weights['risk'] +
-            experience * weights['experience']
+            behavioral * weights["behavioral"]
+            + profitability * weights["profitability"]
+            + consistency * weights["consistency"]
+            + risk * weights["risk"]
+            + experience * weights["experience"]
         )
 
         return int(weighted_sum)
 
     async def _gather_detailed_metrics(
-        self,
-        account: AccountDB,
-        profile: TiltProfile
+        self, account: AccountDB, profile: TiltProfile
     ) -> dict[str, Any]:
         """Gather detailed metrics for assessment.
 
@@ -527,18 +548,26 @@ class TierReadinessAssessor:
 
         # Recent tilt events (last 30 days)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        recent_tilt_events = self.session.query(TiltEventDB).filter(
-            TiltEventDB.profile_id == profile.profile_id,
-            TiltEventDB.timestamp >= thirty_days_ago,
-            TiltEventDB.severity.in_(['MEDIUM', 'HIGH'])
-        ).count()
+        recent_tilt_events = (
+            self.session.query(TiltEventDB)
+            .filter(
+                TiltEventDB.profile_id == profile.profile_id,
+                TiltEventDB.timestamp >= thirty_days_ago,
+                TiltEventDB.severity.in_(["MEDIUM", "HIGH"]),
+            )
+            .count()
+        )
 
         # Trade metrics
-        trades = self.session.query(Trade).filter(
-            Trade.account_id == account.account_id,
-            Trade.closed_at >= thirty_days_ago,
-            Trade.closed_at.isnot(None)
-        ).all()
+        trades = (
+            self.session.query(Trade)
+            .filter(
+                Trade.account_id == account.account_id,
+                Trade.closed_at >= thirty_days_ago,
+                Trade.closed_at.isnot(None),
+            )
+            .all()
+        )
 
         if trades:
             profitable_trades = [t for t in trades if t.pnl_usdt > 0]
@@ -549,14 +578,16 @@ class TierReadinessAssessor:
             if len(returns) > 1:
                 avg_return = statistics.mean(returns)
                 std_return = statistics.stdev(returns)
-                risk_adjusted_return = Decimal(avg_return / std_return) if std_return > 0 else Decimal('0')
+                risk_adjusted_return = (
+                    Decimal(avg_return / std_return) if std_return > 0 else Decimal("0")
+                )
             else:
-                risk_adjusted_return = Decimal('0')
+                risk_adjusted_return = Decimal("0")
 
             # Max drawdown
-            cumulative_pnl = Decimal('0')
-            peak = Decimal('0')
-            max_drawdown = Decimal('0')
+            cumulative_pnl = Decimal("0")
+            peak = Decimal("0")
+            max_drawdown = Decimal("0")
 
             for trade in sorted(trades, key=lambda t: t.closed_at):
                 cumulative_pnl += trade.pnl_usdt
@@ -566,30 +597,32 @@ class TierReadinessAssessor:
                 if drawdown > max_drawdown:
                     max_drawdown = drawdown
         else:
-            profitability_ratio = Decimal('0')
-            risk_adjusted_return = Decimal('0')
-            max_drawdown = Decimal('0')
+            profitability_ratio = Decimal("0")
+            risk_adjusted_return = Decimal("0")
+            max_drawdown = Decimal("0")
 
         # Total trade count
-        trade_count = self.session.query(Trade).filter(
-            Trade.account_id == account.account_id
-        ).count()
+        trade_count = (
+            self.session.query(Trade)
+            .filter(Trade.account_id == account.account_id)
+            .count()
+        )
 
         return {
-            'days_at_tier': days_at_tier,
-            'tilt_score': profile.current_tilt_score,
-            'recent_tilt_events': recent_tilt_events,
-            'profitability_ratio': profitability_ratio,
-            'risk_adjusted_return': risk_adjusted_return,
-            'max_drawdown': max_drawdown,
-            'trade_count': trade_count
+            "days_at_tier": days_at_tier,
+            "tilt_score": profile.current_tilt_score,
+            "recent_tilt_events": recent_tilt_events,
+            "profitability_ratio": profitability_ratio,
+            "risk_adjusted_return": risk_adjusted_return,
+            "max_drawdown": max_drawdown,
+            "trade_count": trade_count,
         }
 
     def _check_requirements(
         self,
         metrics: dict[str, Any],
         requirements: dict[str, Any],
-        readiness_score: int
+        readiness_score: int,
     ) -> tuple[bool, list[str]]:
         """Check if metrics meet requirements.
 
@@ -604,37 +637,41 @@ class TierReadinessAssessor:
         failure_reasons = []
 
         # Check each requirement
-        if metrics['days_at_tier'] < requirements.get('min_days_at_tier', 0):
+        if metrics["days_at_tier"] < requirements.get("min_days_at_tier", 0):
             failure_reasons.append(
                 f"Insufficient time at tier: {metrics['days_at_tier']} days "
                 f"(required: {requirements['min_days_at_tier']})"
             )
 
-        if metrics['tilt_score'] > requirements.get('max_tilt_score', 100):
+        if metrics["tilt_score"] > requirements.get("max_tilt_score", 100):
             failure_reasons.append(
                 f"Tilt score too high: {metrics['tilt_score']} "
                 f"(maximum: {requirements['max_tilt_score']})"
             )
 
-        if metrics['profitability_ratio'] < Decimal(str(requirements.get('min_profitability_ratio', 0))):
+        if metrics["profitability_ratio"] < Decimal(
+            str(requirements.get("min_profitability_ratio", 0))
+        ):
             failure_reasons.append(
                 f"Profitability ratio too low: {float(metrics['profitability_ratio']):.2%} "
                 f"(required: {requirements['min_profitability_ratio']:.2%})"
             )
 
-        if metrics['recent_tilt_events'] > requirements.get('max_recent_tilt_events', 999):
+        if metrics["recent_tilt_events"] > requirements.get(
+            "max_recent_tilt_events", 999
+        ):
             failure_reasons.append(
                 f"Too many recent tilt events: {metrics['recent_tilt_events']} "
                 f"(maximum: {requirements['max_recent_tilt_events']})"
             )
 
-        if metrics['trade_count'] < requirements.get('min_trades', 0):
+        if metrics["trade_count"] < requirements.get("min_trades", 0):
             failure_reasons.append(
                 f"Insufficient trading experience: {metrics['trade_count']} trades "
                 f"(required: {requirements['min_trades']})"
             )
 
-        if readiness_score < requirements.get('min_readiness_score', 0):
+        if readiness_score < requirements.get("min_readiness_score", 0):
             failure_reasons.append(
                 f"Overall readiness score too low: {readiness_score} "
                 f"(required: {requirements['min_readiness_score']})"
@@ -648,7 +685,7 @@ class TierReadinessAssessor:
         self,
         metrics: dict[str, Any],
         requirements: dict[str, Any],
-        failure_reasons: list[str]
+        failure_reasons: list[str],
     ) -> list[str]:
         """Generate improvement recommendations.
 
@@ -662,27 +699,27 @@ class TierReadinessAssessor:
         """
         recommendations = []
 
-        if metrics['tilt_score'] > 30:
+        if metrics["tilt_score"] > 30:
             recommendations.append(
                 "Focus on emotional regulation and complete recovery protocols"
             )
 
-        if metrics['profitability_ratio'] < Decimal('0.60'):
+        if metrics["profitability_ratio"] < Decimal("0.60"):
             recommendations.append(
                 "Review and refine your trading strategy for better win rate"
             )
 
-        if metrics['recent_tilt_events'] > 2:
+        if metrics["recent_tilt_events"] > 2:
             recommendations.append(
                 "Identify and address tilt triggers through journaling"
             )
 
-        if metrics['risk_adjusted_return'] < Decimal('0.5'):
+        if metrics["risk_adjusted_return"] < Decimal("0.5"):
             recommendations.append(
                 "Improve risk management to achieve better risk-adjusted returns"
             )
 
-        if metrics['max_drawdown'] > Decimal('1000'):
+        if metrics["max_drawdown"] > Decimal("1000"):
             recommendations.append(
                 "Implement stricter position sizing to reduce drawdowns"
             )
@@ -702,32 +739,34 @@ class TierReadinessAssessor:
         """
         try:
             # Update or create tier transition record
-            transition = self.session.query(TierTransition).filter_by(
-                account_id=report.account_id,
-                from_tier=report.current_tier,
-                to_tier=report.target_tier,
-                transition_status='APPROACHING'
-            ).first()
+            transition = (
+                self.session.query(TierTransition)
+                .filter_by(
+                    account_id=report.account_id,
+                    from_tier=report.current_tier,
+                    to_tier=report.target_tier,
+                    transition_status="APPROACHING",
+                )
+                .first()
+            )
 
             if transition:
                 transition.readiness_score = report.readiness_score
                 transition.updated_at = datetime.utcnow()
 
                 if report.is_ready:
-                    transition.transition_status = 'READY'
+                    transition.transition_status = "READY"
 
                 self.session.commit()
 
                 logger.info(
                     "Updated transition record with readiness",
                     transition_id=transition.transition_id,
-                    readiness_score=report.readiness_score
+                    readiness_score=report.readiness_score,
                 )
 
         except Exception as e:
             logger.error(
-                "Failed to store assessment",
-                account_id=report.account_id,
-                error=str(e)
+                "Failed to store assessment", account_id=report.account_id, error=str(e)
             )
             self.session.rollback()

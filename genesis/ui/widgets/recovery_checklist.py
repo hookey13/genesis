@@ -247,15 +247,15 @@ class RecoveryChecklistWidget(Container):
         # Update status message
         status_message = self.query_one("#status-message", Static)
         if progress["is_complete"]:
-            status_message.update("✅ All required items complete! Ready to resume trading.")
+            status_message.update(
+                "✅ All required items complete! Ready to resume trading."
+            )
             status_message.remove_class("status-incomplete")
             status_message.add_class("status-complete")
         else:
             remaining = progress["required_total"] - progress["required_complete"]
             if remaining > 0:
-                status_message.update(
-                    f"⚠️ {remaining} required item(s) remaining"
-                )
+                status_message.update(f"⚠️ {remaining} required item(s) remaining")
                 status_message.remove_class("status-complete")
                 status_message.add_class("status-incomplete")
             else:

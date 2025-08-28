@@ -51,6 +51,7 @@ SLIPPAGE_ABORT_THRESHOLD = Decimal("0.5")  # Abort if slippage exceeds 0.5%
 @dataclass
 class LiquidityProfile:
     """Market liquidity analysis result."""
+
     total_bid_volume: Decimal
     total_ask_volume: Decimal
     bid_depth_1pct: Decimal  # Volume to move price 1%
@@ -65,6 +66,7 @@ class LiquidityProfile:
 @dataclass
 class IcebergExecution:
     """Iceberg execution tracking."""
+
     execution_id: str
     order: Order
     total_slices: int
@@ -96,9 +98,9 @@ class IcebergOrderExecutor(OrderExecutor):
         account: Account,
         market_executor: MarketOrderExecutor,
         repository: Repository,
-        risk_engine: Optional['RiskEngine'] = None,
+        risk_engine: Optional["RiskEngine"] = None,
         min_order_value: Decimal = MIN_ORDER_VALUE_USDT,
-        slippage_threshold: Decimal = SLIPPAGE_ABORT_THRESHOLD
+        slippage_threshold: Decimal = SLIPPAGE_ABORT_THRESHOLD,
     ):
         """
         Initialize the iceberg order executor.
@@ -118,7 +120,7 @@ class IcebergOrderExecutor(OrderExecutor):
         if account.tier.value < TradingTier.HUNTER.value:
             raise OrderExecutionError(
                 f"Iceberg execution requires {TradingTier.HUNTER.value} tier or above",
-                details={"current_tier": account.tier.value}
+                details={"current_tier": account.tier.value},
             )
 
         self.gateway = gateway
@@ -141,14 +143,12 @@ class IcebergOrderExecutor(OrderExecutor):
             account_id=account.account_id,
             tier=account.tier.value,
             min_order_value=str(min_order_value),
-            slippage_threshold=str(slippage_threshold)
+            slippage_threshold=str(slippage_threshold),
         )
 
     @requires_tier(TradingTier.HUNTER)
     async def execute_iceberg_order(
-        self,
-        order: Order,
-        force_iceberg: bool = False
+        self, order: Order, force_iceberg: bool = False
     ) -> ExecutionResult:
         """
         Execute an order using iceberg slicing if it meets criteria.
@@ -178,9 +178,11 @@ class IcebergOrderExecutor(OrderExecutor):
                     "Order value below iceberg threshold, using standard execution",
                     order_id=order.order_id,
                     order_value=str(order_value),
-                    threshold=str(self.min_order_value)
+                    threshold=str(self.min_order_value),
                 )
-                return await self.market_executor.execute_market_order(order, confirmation_required=False)
+                return await self.market_executor.execute_market_order(
+                    order, confirmation_required=False
+                )
 
             logger.info(
                 "Starting iceberg order execution",
@@ -188,12 +190,14 @@ class IcebergOrderExecutor(OrderExecutor):
                 symbol=order.symbol,
                 side=order.side.value,
                 quantity=str(order.quantity),
-                value_usdt=str(order_value)
+                value_usdt=str(order_value),
             )
 
             # Analyze order book depth
             order_book = await self._get_cached_order_book(order.symbol)
-            liquidity_profile = self.analyze_liquidity_depth(order_book, order.side, order_value)
+            liquidity_profile = self.analyze_liquidity_depth(
+                order_book, order.side, order_value
+            )
 
             # Calculate slice sizes with variation
             slice_sizes = self.calculate_slice_sizes(order_value, liquidity_profile)
@@ -210,7 +214,7 @@ class IcebergOrderExecutor(OrderExecutor):
                 slices=[],
                 slice_sizes=slice_sizes,
                 slice_delays=slice_delays,
-                started_at=datetime.now()
+                started_at=datetime.now(),
             )
 
             self.active_executions[execution_id] = execution
@@ -220,7 +224,9 @@ class IcebergOrderExecutor(OrderExecutor):
 
             # Execute slices sequentially with delays
             cumulative_quantity = Decimal("0")
-            for i, (slice_size, delay) in enumerate(zip(slice_sizes, slice_delays, strict=False)):
+            for i, (slice_size, delay) in enumerate(
+                zip(slice_sizes, slice_delays, strict=False)
+            ):
                 slice_number = i + 1
 
                 try:
@@ -244,7 +250,7 @@ class IcebergOrderExecutor(OrderExecutor):
                         quantity=slice_quantity,
                         slice_number=slice_number,
                         total_slices=execution.total_slices,
-                        created_at=datetime.now()
+                        created_at=datetime.now(),
                     )
 
                     execution.slices.append(slice_order)
@@ -254,13 +260,12 @@ class IcebergOrderExecutor(OrderExecutor):
                         execution_id=execution_id,
                         slice_id=slice_order.order_id,
                         quantity=str(slice_quantity),
-                        delay_seconds=delay
+                        delay_seconds=delay,
                     )
 
                     # Execute slice
                     slice_result = await self.market_executor.execute_market_order(
-                        slice_order,
-                        confirmation_required=False
+                        slice_order, confirmation_required=False
                     )
 
                     if slice_result.success:
@@ -269,28 +274,36 @@ class IcebergOrderExecutor(OrderExecutor):
 
                         # Update slippage tracking
                         if slice_result.slippage_percent:
-                            execution.cumulative_slippage += slice_result.slippage_percent
+                            execution.cumulative_slippage += (
+                                slice_result.slippage_percent
+                            )
                             execution.max_slice_slippage = max(
                                 execution.max_slice_slippage,
-                                abs(slice_result.slippage_percent)
+                                abs(slice_result.slippage_percent),
                             )
 
                         # Check slippage threshold
-                        avg_slippage = execution.cumulative_slippage / execution.completed_slices
+                        avg_slippage = (
+                            execution.cumulative_slippage / execution.completed_slices
+                        )
                         if abs(avg_slippage) > self.slippage_threshold:
                             logger.warning(
                                 "Slippage threshold exceeded, aborting iceberg execution",
                                 execution_id=execution_id,
                                 avg_slippage=str(avg_slippage),
-                                threshold=str(self.slippage_threshold)
+                                threshold=str(self.slippage_threshold),
                             )
                             execution.status = "ABORTED"
-                            execution.abort_reason = f"Slippage {avg_slippage}% exceeded threshold"
+                            execution.abort_reason = (
+                                f"Slippage {avg_slippage}% exceeded threshold"
+                            )
                             await self._abort_execution(execution)
                             break
 
                         # Save slice to database
-                        await self._save_slice_to_db(execution_id, slice_order, slice_result)
+                        await self._save_slice_to_db(
+                            execution_id, slice_order, slice_result
+                        )
 
                         # Delay before next slice (except for last slice)
                         if i < len(slice_sizes) - 1:
@@ -300,7 +313,7 @@ class IcebergOrderExecutor(OrderExecutor):
                         logger.warning(
                             f"Slice {slice_number} failed",
                             execution_id=execution_id,
-                            error=slice_result.error
+                            error=slice_result.error,
                         )
 
                         # Abort if too many failures
@@ -314,7 +327,7 @@ class IcebergOrderExecutor(OrderExecutor):
                     logger.error(
                         f"Error executing slice {slice_number}",
                         execution_id=execution_id,
-                        error=str(e)
+                        error=str(e),
                     )
                     execution.failed_slices += 1
 
@@ -326,20 +339,27 @@ class IcebergOrderExecutor(OrderExecutor):
 
             # Finalize execution
             execution.completed_at = datetime.now()
-            execution_time = (execution.completed_at - execution.started_at).total_seconds()
+            execution_time = (
+                execution.completed_at - execution.started_at
+            ).total_seconds()
 
             if execution.status == "PENDING":
                 execution.status = "COMPLETED"
 
             # Update original order
             order.filled_quantity = cumulative_quantity
-            order.status = OrderStatus.FILLED if cumulative_quantity == order.quantity else OrderStatus.PARTIAL
+            order.status = (
+                OrderStatus.FILLED
+                if cumulative_quantity == order.quantity
+                else OrderStatus.PARTIAL
+            )
             order.total_slices = execution.total_slices
 
             # Calculate average slippage
             avg_slippage = (
                 execution.cumulative_slippage / execution.completed_slices
-                if execution.completed_slices > 0 else Decimal("0")
+                if execution.completed_slices > 0
+                else Decimal("0")
             )
 
             # Update database
@@ -356,7 +376,7 @@ class IcebergOrderExecutor(OrderExecutor):
                 failed_slices=execution.failed_slices,
                 avg_slippage=str(avg_slippage),
                 max_slippage=str(execution.max_slice_slippage),
-                execution_time_seconds=execution_time
+                execution_time_seconds=execution_time,
             )
 
             return ExecutionResult(
@@ -365,24 +385,19 @@ class IcebergOrderExecutor(OrderExecutor):
                 message=f"Iceberg execution {execution.status.lower()}: {execution.completed_slices}/{execution.total_slices} slices",
                 slippage_percent=avg_slippage,
                 latency_ms=int(execution_time * 1000),
-                error=execution.abort_reason
+                error=execution.abort_reason,
             )
 
         except Exception as e:
             logger.error(
-                "Iceberg execution failed",
-                order_id=order.order_id,
-                error=str(e)
+                "Iceberg execution failed", order_id=order.order_id, error=str(e)
             )
             raise OrderExecutionError(
-                f"Failed to execute iceberg order: {e!s}",
-                order_id=order.order_id
+                f"Failed to execute iceberg order: {e!s}", order_id=order.order_id
             )
 
     def calculate_slice_sizes(
-        self,
-        order_value: Decimal,
-        liquidity_profile: LiquidityProfile
+        self, order_value: Decimal, liquidity_profile: LiquidityProfile
     ) -> list[Decimal]:
         """
         Calculate optimal slice sizes based on liquidity profile.
@@ -395,7 +410,9 @@ class IcebergOrderExecutor(OrderExecutor):
             List of slice sizes in USDT
         """
         # Determine number of slices
-        slice_count = max(MIN_SLICES, min(liquidity_profile.optimal_slice_count, MAX_SLICES))
+        slice_count = max(
+            MIN_SLICES, min(liquidity_profile.optimal_slice_count, MAX_SLICES)
+        )
 
         # Base slice size
         base_size = order_value / Decimal(str(slice_count))
@@ -423,15 +440,13 @@ class IcebergOrderExecutor(OrderExecutor):
             "Calculated slice sizes",
             total_value=str(order_value),
             slice_count=slice_count,
-            sizes=[str(s) for s in slice_sizes]
+            sizes=[str(s) for s in slice_sizes],
         )
 
         return slice_sizes
 
     def add_slice_variation(
-        self,
-        base_size: Decimal,
-        variation_percent: Decimal
+        self, base_size: Decimal, variation_percent: Decimal
     ) -> Decimal:
         """
         Add random variation to slice size.
@@ -444,7 +459,9 @@ class IcebergOrderExecutor(OrderExecutor):
             Varied slice size
         """
         # Generate random variation between -variation_percent and +variation_percent
-        variation = Decimal(str(random.uniform(-float(variation_percent), float(variation_percent)))) / Decimal("100")
+        variation = Decimal(
+            str(random.uniform(-float(variation_percent), float(variation_percent)))
+        ) / Decimal("100")
         varied_size = base_size * (Decimal("1") + variation)
 
         # Ensure positive value
@@ -460,10 +477,7 @@ class IcebergOrderExecutor(OrderExecutor):
         return random.uniform(MIN_DELAY_SECONDS, MAX_DELAY_SECONDS)
 
     def analyze_liquidity_depth(
-        self,
-        order_book: OrderBook,
-        side: OrderSide,
-        order_value: Decimal
+        self, order_book: OrderBook, side: OrderSide, order_value: Decimal
     ) -> LiquidityProfile:
         """
         Analyze order book liquidity depth.
@@ -481,38 +495,35 @@ class IcebergOrderExecutor(OrderExecutor):
         total_ask_volume = sum(Decimal(str(level[1])) for level in order_book.asks)
 
         # Calculate spread
-        best_bid = Decimal(str(order_book.bids[0][0])) if order_book.bids else Decimal("0")
-        best_ask = Decimal(str(order_book.asks[0][0])) if order_book.asks else Decimal("0")
+        best_bid = (
+            Decimal(str(order_book.bids[0][0])) if order_book.bids else Decimal("0")
+        )
+        best_ask = (
+            Decimal(str(order_book.asks[0][0])) if order_book.asks else Decimal("0")
+        )
         spread_percent = (
             ((best_ask - best_bid) / best_bid * Decimal("100"))
-            if best_bid > 0 else Decimal("0")
+            if best_bid > 0
+            else Decimal("0")
         )
 
         # Calculate depth to move price by 1% and 2%
         if side == OrderSide.BUY:
             # For buys, look at ask side
             depth_1pct = self._calculate_depth_to_price_level(
-                order_book.asks,
-                best_ask * Decimal("1.01"),
-                is_ask=True
+                order_book.asks, best_ask * Decimal("1.01"), is_ask=True
             )
             depth_2pct = self._calculate_depth_to_price_level(
-                order_book.asks,
-                best_ask * Decimal("1.02"),
-                is_ask=True
+                order_book.asks, best_ask * Decimal("1.02"), is_ask=True
             )
             available_liquidity = total_ask_volume
         else:
             # For sells, look at bid side
             depth_1pct = self._calculate_depth_to_price_level(
-                order_book.bids,
-                best_bid * Decimal("0.99"),
-                is_ask=False
+                order_book.bids, best_bid * Decimal("0.99"), is_ask=False
             )
             depth_2pct = self._calculate_depth_to_price_level(
-                order_book.bids,
-                best_bid * Decimal("0.98"),
-                is_ask=False
+                order_book.bids, best_bid * Decimal("0.98"), is_ask=False
             )
             available_liquidity = total_bid_volume
 
@@ -523,7 +534,9 @@ class IcebergOrderExecutor(OrderExecutor):
             optimal_slices = 5
         else:
             # For large orders relative to liquidity, use more slices
-            liquidity_ratio = order_value / depth_2pct if depth_2pct > 0 else Decimal("10")
+            liquidity_ratio = (
+                order_value / depth_2pct if depth_2pct > 0 else Decimal("10")
+            )
             optimal_slices = min(int(liquidity_ratio * 3) + MIN_SLICES, MAX_SLICES)
 
         return LiquidityProfile(
@@ -535,14 +548,11 @@ class IcebergOrderExecutor(OrderExecutor):
             ask_depth_2pct=depth_2pct if side == OrderSide.BUY else Decimal("0"),
             spread_percent=spread_percent,
             optimal_slice_count=optimal_slices,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     def _calculate_depth_to_price_level(
-        self,
-        levels: list[list[float]],
-        target_price: Decimal,
-        is_ask: bool
+        self, levels: list[list[float]], target_price: Decimal, is_ask: bool
     ) -> Decimal:
         """
         Calculate total volume to reach a target price level.
@@ -610,7 +620,7 @@ class IcebergOrderExecutor(OrderExecutor):
             execution_id=execution.execution_id,
             reason=execution.abort_reason,
             completed_slices=execution.completed_slices,
-            total_slices=execution.total_slices
+            total_slices=execution.total_slices,
         )
 
         # Update execution status in database
@@ -625,10 +635,7 @@ class IcebergOrderExecutor(OrderExecutor):
             await self.repository.save_iceberg_execution(execution)
 
     async def _save_slice_to_db(
-        self,
-        execution_id: str,
-        slice_order: Order,
-        result: ExecutionResult
+        self, execution_id: str, slice_order: Order, result: ExecutionResult
     ) -> None:
         """Save slice execution to database."""
         if self.repository:
@@ -642,9 +649,7 @@ class IcebergOrderExecutor(OrderExecutor):
     # Implement required abstract methods from OrderExecutor
 
     async def execute_market_order(
-        self,
-        order: Order,
-        confirmation_required: bool = True
+        self, order: Order, confirmation_required: bool = True
     ) -> ExecutionResult:
         """
         Execute a market order, using iceberg if it qualifies.
@@ -665,7 +670,9 @@ class IcebergOrderExecutor(OrderExecutor):
         """Get order status."""
         return await self.market_executor.get_order_status(order_id, symbol)
 
-    async def rollback_partial_execution(self, execution_id: str, confirmed_by: str = None) -> dict[str, Any]:
+    async def rollback_partial_execution(
+        self, execution_id: str, confirmed_by: str = None
+    ) -> dict[str, Any]:
         """
         Rollback a partially filled iceberg execution.
 
@@ -687,7 +694,7 @@ class IcebergOrderExecutor(OrderExecutor):
         logger.warning(
             "Starting rollback for partial execution",
             execution_id=execution_id,
-            completed_slices=execution.completed_slices
+            completed_slices=execution.completed_slices,
         )
 
         # Calculate rollback details
@@ -703,10 +710,14 @@ class IcebergOrderExecutor(OrderExecutor):
                     client_order_id=self.generate_client_order_id(),
                     symbol=slice_order.symbol,
                     type=OrderType.MARKET,
-                    side=OrderSide.SELL if slice_order.side == OrderSide.BUY else OrderSide.BUY,
+                    side=(
+                        OrderSide.SELL
+                        if slice_order.side == OrderSide.BUY
+                        else OrderSide.BUY
+                    ),
                     price=None,
                     quantity=slice_order.filled_quantity,
-                    created_at=datetime.now()
+                    created_at=datetime.now(),
                 )
                 rollback_orders.append(rollback_order)
                 total_rollback_quantity += slice_order.filled_quantity
@@ -718,20 +729,21 @@ class IcebergOrderExecutor(OrderExecutor):
         for rollback_order in rollback_orders:
             try:
                 result = await self.market_executor.execute_market_order(
-                    rollback_order,
-                    confirmation_required=False
+                    rollback_order, confirmation_required=False
                 )
                 rollback_results.append(result)
 
                 # Calculate cost (fees + slippage)
                 if result.slippage_percent:
-                    rollback_cost += abs(result.slippage_percent) * rollback_order.quantity
+                    rollback_cost += (
+                        abs(result.slippage_percent) * rollback_order.quantity
+                    )
 
             except Exception as e:
                 logger.error(
                     "Failed to execute rollback order",
                     rollback_order_id=rollback_order.order_id,
-                    error=str(e)
+                    error=str(e),
                 )
 
         # Update execution status
@@ -743,7 +755,7 @@ class IcebergOrderExecutor(OrderExecutor):
             execution_id=execution_id,
             confirmed_by=confirmed_by,
             rollback_orders=rollback_orders,
-            rollback_cost=rollback_cost
+            rollback_cost=rollback_cost,
         )
 
         return {
@@ -752,7 +764,7 @@ class IcebergOrderExecutor(OrderExecutor):
             "rollback_quantity": str(total_rollback_quantity),
             "rollback_cost_estimate": str(rollback_cost),
             "confirmed_by": confirmed_by,
-            "success": len(rollback_results) == len(rollback_orders)
+            "success": len(rollback_results) == len(rollback_orders),
         }
 
     async def _update_execution_in_db(self, execution: IcebergExecution):
@@ -760,8 +772,13 @@ class IcebergOrderExecutor(OrderExecutor):
         # TODO: Implement database update
         pass
 
-    async def _store_rollback_history(self, execution_id: str, confirmed_by: str,
-                                     rollback_orders: list[Order], rollback_cost: Decimal):
+    async def _store_rollback_history(
+        self,
+        execution_id: str,
+        confirmed_by: str,
+        rollback_orders: list[Order],
+        rollback_cost: Decimal,
+    ):
         """Store rollback history with confirmation details."""
         # TODO: Implement rollback history storage
         pass

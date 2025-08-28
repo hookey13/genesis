@@ -41,7 +41,7 @@ class StrategyPerformanceTracker:
             "average_win": Decimal("0"),
             "average_loss": Decimal("0"),
             "volatility": Decimal("0.1"),
-            "started_at": datetime.now(UTC)
+            "started_at": datetime.now(UTC),
         }
 
     async def record_trade(self, strategy_id: str, trade: Trade) -> None:
@@ -56,23 +56,26 @@ class StrategyPerformanceTracker:
         if trade.pnl_dollars > 0:
             data["winning_trades"] += 1
             data["average_win"] = (
-                (data["average_win"] * (data["winning_trades"] - 1) + trade.pnl_dollars) /
-                data["winning_trades"]
-            )
+                data["average_win"] * (data["winning_trades"] - 1) + trade.pnl_dollars
+            ) / data["winning_trades"]
         else:
             data["losing_trades"] += 1
             data["average_loss"] = (
-                (data["average_loss"] * (data["losing_trades"] - 1) + abs(trade.pnl_dollars)) /
-                data["losing_trades"]
-            )
+                data["average_loss"] * (data["losing_trades"] - 1)
+                + abs(trade.pnl_dollars)
+            ) / data["losing_trades"]
 
         # Update win rate
         if data["total_trades"] > 0:
-            data["win_rate"] = Decimal(str(data["winning_trades"])) / Decimal(str(data["total_trades"]))
+            data["win_rate"] = Decimal(str(data["winning_trades"])) / Decimal(
+                str(data["total_trades"])
+            )
 
         # Simple Sharpe ratio approximation
         if data["volatility"] > 0:
-            data["sharpe_ratio"] = data["total_pnl"] / (data["volatility"] * Decimal("100"))
+            data["sharpe_ratio"] = data["total_pnl"] / (
+                data["volatility"] * Decimal("100")
+            )
 
     async def get_strategy_performance(self, strategy_id: str) -> dict | None:
         """Get performance metrics for a strategy."""
@@ -90,5 +93,5 @@ class StrategyPerformanceTracker:
         return {
             "total_pnl": str(total_pnl),
             "total_trades": total_trades,
-            "num_strategies": len(self.performance_data)
+            "num_strategies": len(self.performance_data),
         }

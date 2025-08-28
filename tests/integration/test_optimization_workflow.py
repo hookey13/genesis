@@ -43,7 +43,7 @@ class TestOptimizationWorkflow:
                     "min_allocation": 0.01,
                     "max_allocation": 0.40,
                     "max_correlation": 0.60,
-                    "min_strategies": 2
+                    "min_strategies": 2,
                 },
                 "rebalancing": {
                     "threshold_percent": 5.0,
@@ -51,18 +51,18 @@ class TestOptimizationWorkflow:
                     "schedule": "weekly",
                     "maker_fee": 0.001,
                     "taker_fee": 0.001,
-                    "slippage": 0.0005
+                    "slippage": 0.0005,
                 },
                 "validation": {
                     "out_of_sample_ratio": 0.3,
                     "max_degradation": 0.20,
                     "walk_forward_windows": 5,
-                    "min_data_periods": 30
+                    "min_data_periods": 30,
                 },
                 "performance": {
                     "max_optimization_time_ms": 1000,
-                    "cache_ttl_seconds": 3600
-                }
+                    "cache_ttl_seconds": 3600,
+                },
             }
         }
 
@@ -70,7 +70,7 @@ class TestOptimizationWorkflow:
     def temp_config_file(self, tmp_path, config_data):
         """Create temporary config file"""
         config_path = tmp_path / "test_config.yaml"
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(config_data, f)
         return str(config_path)
 
@@ -78,8 +78,7 @@ class TestOptimizationWorkflow:
     async def portfolio_optimizer(self, event_bus, temp_config_file):
         """Create portfolio optimizer with config"""
         optimizer = PortfolioOptimizer(
-            event_bus=event_bus,
-            config_path=temp_config_file
+            event_bus=event_bus, config_path=temp_config_file
         )
         return optimizer
 
@@ -96,7 +95,7 @@ class TestOptimizationWorkflow:
             change = np.random.normal(0.0015, 0.012)
             if len(trend_returns) > 0 and trend_returns[-1] > 0:
                 change += 0.0005  # Momentum boost
-            price *= (1 + change)
+            price *= 1 + change
             trend_returns.append(Decimal(str(change)))
 
         # Mean reversion strategy
@@ -134,35 +133,33 @@ class TestOptimizationWorkflow:
                 name="TrendFollowing",
                 returns=trend_returns,
                 current_allocation=Decimal("0.30"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="MeanReversion",
                 returns=mr_returns,
                 current_allocation=Decimal("0.25"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Arbitrage",
                 returns=arb_returns,
                 current_allocation=Decimal("0.25"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="MarketMaking",
                 returns=mm_returns,
                 current_allocation=Decimal("0.20"),
-                is_active=True
-            )
+                is_active=True,
+            ),
         ]
 
         return strategies
 
     @pytest.mark.asyncio
     async def test_complete_optimization_flow(
-        self,
-        portfolio_optimizer,
-        realistic_strategies
+        self, portfolio_optimizer, realistic_strategies
     ):
         """Test complete optimization workflow"""
         portfolio_value = Decimal("10000")
@@ -172,7 +169,7 @@ class TestOptimizationWorkflow:
             realistic_strategies,
             portfolio_value_usdt=portfolio_value,
             validate=True,
-            rebalance_check=True
+            rebalance_check=True,
         )
 
         # Verify all components produced results
@@ -205,7 +202,7 @@ class TestOptimizationWorkflow:
                 strategy.returns,
                 risk_free_rate=Decimal("0.02"),
                 period=TimePeriod.DAILY,
-                confidence_level=0.95
+                confidence_level=0.95,
             )
 
             assert result is not None
@@ -218,14 +215,10 @@ class TestOptimizationWorkflow:
         """Test efficient frontier calculation with real data"""
         analyzer = EfficientFrontierAnalyzer()
 
-        strategy_returns = {
-            s.name: s.returns
-            for s in realistic_strategies
-        }
+        strategy_returns = {s.name: s.returns for s in realistic_strategies}
 
         result = await analyzer.calculate_efficient_frontier(
-            strategy_returns,
-            risk_free_rate=Decimal("0.02")
+            strategy_returns, risk_free_rate=Decimal("0.02")
         )
 
         assert result is not None
@@ -234,29 +227,24 @@ class TestOptimizationWorkflow:
         assert result.min_variance_portfolio is not None
 
         # Max Sharpe should have better ratio than min variance
-        assert result.max_sharpe_portfolio.sharpe_ratio >= \
-               result.min_variance_portfolio.sharpe_ratio
+        assert (
+            result.max_sharpe_portfolio.sharpe_ratio
+            >= result.min_variance_portfolio.sharpe_ratio
+        )
 
     @pytest.mark.asyncio
-    async def test_rebalancing_integration(
-        self,
-        event_bus,
-        realistic_strategies
-    ):
+    async def test_rebalancing_integration(self, event_bus, realistic_strategies):
         """Test rebalancing engine integration"""
         engine = RebalancingEngine(event_bus=event_bus)
 
-        current_weights = {
-            s.name: s.current_allocation
-            for s in realistic_strategies
-        }
+        current_weights = {s.name: s.current_allocation for s in realistic_strategies}
 
         # Create target weights (different from current)
         target_weights = {
             "TrendFollowing": Decimal("0.35"),
             "MeanReversion": Decimal("0.20"),
             "Arbitrage": Decimal("0.30"),
-            "MarketMaking": Decimal("0.15")
+            "MarketMaking": Decimal("0.15"),
         }
 
         portfolio_value = Decimal("10000")
@@ -265,7 +253,7 @@ class TestOptimizationWorkflow:
             current_weights,
             target_weights,
             portfolio_value,
-            expected_sharpe_improvement=Decimal("0.05")
+            expected_sharpe_improvement=Decimal("0.05"),
         )
 
         assert recommendation is not None
@@ -276,10 +264,7 @@ class TestOptimizationWorkflow:
 
     @pytest.mark.asyncio
     async def test_event_bus_integration(
-        self,
-        event_bus,
-        portfolio_optimizer,
-        realistic_strategies
+        self, event_bus, portfolio_optimizer, realistic_strategies
     ):
         """Test event bus communication"""
         received_events = []
@@ -296,7 +281,7 @@ class TestOptimizationWorkflow:
             realistic_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=True
+            rebalance_check=True,
         )
 
         # Allow events to propagate
@@ -307,8 +292,7 @@ class TestOptimizationWorkflow:
 
         # Check for portfolio optimized event
         portfolio_events = [
-            e for e in received_events
-            if e.type == EventType.PORTFOLIO_OPTIMIZED
+            e for e in received_events if e.type == EventType.PORTFOLIO_OPTIMIZED
         ]
         assert len(portfolio_events) > 0
 
@@ -316,7 +300,7 @@ class TestOptimizationWorkflow:
     async def test_tier_restrictions(self, portfolio_optimizer):
         """Test that tier restrictions are enforced"""
         # Mock tier check to return SNIPER (below required HUNTER)
-        with patch('genesis.utils.decorators.get_current_tier') as mock_tier:
+        with patch("genesis.utils.decorators.get_current_tier") as mock_tier:
             mock_tier.return_value = TradingTier.SNIPER
 
             strategies = [
@@ -324,29 +308,24 @@ class TestOptimizationWorkflow:
                     name="Test_A",
                     returns=[Decimal("0.01")] * 100,
                     current_allocation=Decimal("0.50"),
-                    is_active=True
+                    is_active=True,
                 ),
                 Strategy(
                     name="Test_B",
                     returns=[Decimal("0.02")] * 100,
                     current_allocation=Decimal("0.50"),
-                    is_active=True
-                )
+                    is_active=True,
+                ),
             ]
 
             # Should raise tier restriction error
             with pytest.raises(Exception):  # Would be TierRestrictionError in real code
                 await portfolio_optimizer.optimize_portfolio(
-                    strategies,
-                    portfolio_value_usdt=Decimal("10000")
+                    strategies, portfolio_value_usdt=Decimal("10000")
                 )
 
     @pytest.mark.asyncio
-    async def test_caching_behavior(
-        self,
-        portfolio_optimizer,
-        realistic_strategies
-    ):
+    async def test_caching_behavior(self, portfolio_optimizer, realistic_strategies):
         """Test that caching improves performance"""
         import time
 
@@ -356,7 +335,7 @@ class TestOptimizationWorkflow:
             realistic_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
         time1 = time.time() - start1
 
@@ -366,7 +345,7 @@ class TestOptimizationWorkflow:
             realistic_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
         time2 = time.time() - start2
 
@@ -379,16 +358,14 @@ class TestOptimizationWorkflow:
 
     @pytest.mark.asyncio
     async def test_weekly_recommendation_generation(
-        self,
-        portfolio_optimizer,
-        realistic_strategies
+        self, portfolio_optimizer, realistic_strategies
     ):
         """Test weekly recommendation report generation"""
         result = await portfolio_optimizer.optimize_portfolio(
             realistic_strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=True
+            rebalance_check=True,
         )
 
         recommendation = result.rebalance_recommendation
@@ -411,43 +388,40 @@ class TestOptimizationWorkflow:
         assert "cost_benefit_ratio" in rec_details
 
     @pytest.mark.asyncio
-    async def test_minimum_allocation_handling(
-        self,
-        portfolio_optimizer
-    ):
+    async def test_minimum_allocation_handling(self, portfolio_optimizer):
         """Test handling of strategies below minimum allocation"""
         strategies = [
             Strategy(
                 name="Large",
                 returns=[Decimal("0.01")] * 100,
                 current_allocation=Decimal("0.90"),
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Small_1",
                 returns=[Decimal("0.02")] * 100,
                 current_allocation=Decimal("0.005"),  # Below minimum
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Small_2",
                 returns=[Decimal("0.015")] * 100,
                 current_allocation=Decimal("0.005"),  # Below minimum
-                is_active=True
+                is_active=True,
             ),
             Strategy(
                 name="Medium",
                 returns=[Decimal("0.012")] * 100,
                 current_allocation=Decimal("0.09"),
-                is_active=True
-            )
+                is_active=True,
+            ),
         ]
 
         result = await portfolio_optimizer.optimize_portfolio(
             strategies,
             portfolio_value_usdt=Decimal("10000"),
             validate=False,
-            rebalance_check=False
+            rebalance_check=False,
         )
 
         # Should handle minimum allocations properly
@@ -457,10 +431,7 @@ class TestOptimizationWorkflow:
                 assert weight >= Decimal("0.01")  # Minimum allocation
 
     @pytest.mark.asyncio
-    async def test_performance_with_many_strategies(
-        self,
-        portfolio_optimizer
-    ):
+    async def test_performance_with_many_strategies(self, portfolio_optimizer):
         """Test performance with maximum number of strategies"""
         # Create 10 strategies (performance requirement limit)
         strategies = []
@@ -472,18 +443,19 @@ class TestOptimizationWorkflow:
                     name=f"Strategy_{i:02d}",
                     returns=[Decimal(str(r)) for r in returns],
                     current_allocation=Decimal("0.10"),
-                    is_active=True
+                    is_active=True,
                 )
             )
 
         import time
+
         start = time.time()
 
         result = await portfolio_optimizer.optimize_portfolio(
             strategies,
             portfolio_value_usdt=Decimal("50000"),
             validate=True,  # Include validation for stress test
-            rebalance_check=True
+            rebalance_check=True,
         )
 
         elapsed_ms = (time.time() - start) * 1000

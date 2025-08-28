@@ -27,7 +27,7 @@ class IcebergStatusWidget(Widget):
         total_slices: int,
         status: str,
         current_slippage: Optional[Decimal] = None,
-        cumulative_impact: Optional[Decimal] = None
+        cumulative_impact: Optional[Decimal] = None,
     ):
         """Update execution status."""
         self.active_executions[execution_id] = {
@@ -37,7 +37,9 @@ class IcebergStatusWidget(Widget):
             "status": status,
             "slippage": current_slippage,
             "impact": cumulative_impact,
-            "progress": (completed_slices / total_slices * 100) if total_slices > 0 else 0
+            "progress": (
+                (completed_slices / total_slices * 100) if total_slices > 0 else 0
+            ),
         }
         self.refresh()
 
@@ -65,7 +67,7 @@ class IcebergStatusWidget(Widget):
             progress = Progress(
                 TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
                 BarColumn(bar_width=10),
-                expand=False
+                expand=False,
             )
             task = progress.add_task("", total=100, completed=data["progress"])
 
@@ -73,24 +75,24 @@ class IcebergStatusWidget(Widget):
             slices = f"{data['completed_slices']}/{data['total_slices']}"
 
             # Format slippage and impact
-            slippage = f"{data['slippage']:.2f}%" if data['slippage'] else "—"
-            impact = f"{data['impact']:.2f}%" if data['impact'] else "—"
+            slippage = f"{data['slippage']:.2f}%" if data["slippage"] else "—"
+            impact = f"{data['impact']:.2f}%" if data["impact"] else "—"
 
             # Status with emoji
             status_emoji = {
                 "IN_PROGRESS": "⏳",
                 "COMPLETED": "✅",
                 "ABORTED": "❌",
-                "FAILED": "⚠️"
-            }.get(data['status'], "❓")
+                "FAILED": "⚠️",
+            }.get(data["status"], "❓")
 
             table.add_row(
-                data['symbol'],
+                data["symbol"],
                 progress,
                 slices,
                 slippage,
                 impact,
-                f"{status_emoji} {data['status']}"
+                f"{status_emoji} {data['status']}",
             )
 
         return Panel(table, title="🧊 Iceberg Executions")

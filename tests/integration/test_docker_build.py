@@ -38,10 +38,18 @@ class TestDockerBuild:
     def test_docker_build_development(self):
         """Test Docker image build for development."""
         result = subprocess.run(
-            ["docker", "build", "-f", "docker/Dockerfile", "-t", "genesis-test:dev", "."],
+            [
+                "docker",
+                "build",
+                "-f",
+                "docker/Dockerfile",
+                "-t",
+                "genesis-test:dev",
+                ".",
+            ],
             cwd=self.project_root,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         assert result.returncode == 0, f"Docker build failed: {result.stderr}"
@@ -50,7 +58,7 @@ class TestDockerBuild:
         result = subprocess.run(
             ["docker", "images", "genesis-test:dev", "--format", "{{.Repository}}"],
             capture_output=True,
-            text=True
+            text=True,
         )
         assert "genesis-test" in result.stdout, "Docker image not created"
 
@@ -60,7 +68,7 @@ class TestDockerBuild:
             ["docker-compose", "-f", "docker/docker-compose.yml", "config"],
             cwd=self.project_root,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         assert result.returncode == 0, f"Docker-compose config invalid: {result.stderr}"
@@ -72,7 +80,7 @@ class TestDockerBuild:
             ["docker-compose", "-f", "docker/docker-compose.prod.yml", "config"],
             cwd=self.project_root,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         assert result.returncode == 0, f"Docker-compose config invalid: {result.stderr}"
@@ -93,11 +101,12 @@ class TestDockerBuild:
             ["docker-compose", "-f", "docker/docker-compose.yml", "config"],
             cwd=self.project_root,
             capture_output=True,
-            text=True
+            text=True,
         )
 
-        assert "./genesis:/app/genesis" in result.stdout or "volumes:" in result.stdout, \
-            "Volume mounts not configured"
+        assert (
+            "./genesis:/app/genesis" in result.stdout or "volumes:" in result.stdout
+        ), "Volume mounts not configured"
 
     def test_docker_environment_variables(self):
         """Test environment variable handling in Docker."""
@@ -105,29 +114,45 @@ class TestDockerBuild:
             ["docker-compose", "-f", "docker/docker-compose.yml", "config"],
             cwd=self.project_root,
             capture_output=True,
-            text=True
+            text=True,
         )
 
-        assert "environment:" in result.stdout or "env_file:" in result.stdout, \
-            "Environment variables not configured"
+        assert (
+            "environment:" in result.stdout or "env_file:" in result.stdout
+        ), "Environment variables not configured"
 
     @pytest.mark.slow
     def test_docker_container_startup(self):
         """Test container startup and health check."""
         # Build image first
         subprocess.run(
-            ["docker", "build", "-f", "docker/Dockerfile", "-t", "genesis-test:integration", "."],
+            [
+                "docker",
+                "build",
+                "-f",
+                "docker/Dockerfile",
+                "-t",
+                "genesis-test:integration",
+                ".",
+            ],
             cwd=self.project_root,
-            capture_output=True
+            capture_output=True,
         )
 
         # Run container with test command
         result = subprocess.run(
-            ["docker", "run", "--rm", "genesis-test:integration", "python", "-c",
-             "import genesis; print('Genesis package imported successfully')"],
+            [
+                "docker",
+                "run",
+                "--rm",
+                "genesis-test:integration",
+                "python",
+                "-c",
+                "import genesis; print('Genesis package imported successfully')",
+            ],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         assert result.returncode == 0, f"Container startup failed: {result.stderr}"
@@ -137,5 +162,5 @@ class TestDockerBuild:
         """Clean up test Docker images."""
         subprocess.run(
             ["docker", "rmi", "genesis-test:dev", "genesis-test:integration"],
-            capture_output=True
+            capture_output=True,
         )

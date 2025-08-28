@@ -26,6 +26,7 @@ logger = structlog.get_logger(__name__)
 
 class StrategyState(str, Enum):
     """Strategy lifecycle states."""
+
     IDLE = "IDLE"  # Registered but not started
     STARTING = "STARTING"  # Initialization in progress
     RUNNING = "RUNNING"  # Active and processing
@@ -38,6 +39,7 @@ class StrategyState(str, Enum):
 
 class StrategyPriority(int, Enum):
     """Strategy execution priority levels."""
+
     CRITICAL = 1  # Highest priority (e.g., risk management)
     HIGH = 2
     NORMAL = 3
@@ -48,6 +50,7 @@ class StrategyPriority(int, Enum):
 @dataclass
 class StrategyMetadata:
     """Metadata for registered strategy."""
+
     strategy_id: str = field(default_factory=lambda: str(uuid4()))
     name: str = ""
     version: str = "1.0.0"
@@ -72,6 +75,7 @@ class StrategyMetadata:
 @dataclass
 class StrategyHealth:
     """Health metrics for strategy monitoring."""
+
     last_heartbeat: datetime = field(default_factory=lambda: datetime.now(UTC))
     error_count: int = 0
     restart_count: int = 0
@@ -171,7 +175,7 @@ class StrategyRegistry:
         account_id: str,
         strategy_name: str,
         metadata: StrategyMetadata,
-        strategy_callable: Callable | None = None
+        strategy_callable: Callable | None = None,
     ) -> str:
         """
         Register a new strategy instance.
@@ -190,7 +194,9 @@ class StrategyRegistry:
         """
         # Check if strategy is enabled for account tier
         if not self.strategy_loader.is_strategy_enabled(account_id, strategy_name):
-            raise ValueError(f"Strategy {strategy_name} not enabled for account {account_id}")
+            raise ValueError(
+                f"Strategy {strategy_name} not enabled for account {account_id}"
+            )
 
         # Check for conflicts with existing strategies
         for sid, instance in self._strategies.items():
@@ -207,7 +213,7 @@ class StrategyRegistry:
             strategy_id=strategy_id,
             account_id=account_id,
             metadata=metadata.__dict__,
-            health=StrategyHealth().__dict__
+            health=StrategyHealth().__dict__,
         )
 
         # Store registration
@@ -216,21 +222,23 @@ class StrategyRegistry:
         self._health[strategy_id] = StrategyHealth()
 
         # Publish registration event
-        await self.event_bus.publish(Event(
-            event_type=EventType.STRATEGY_REGISTERED,
-            event_data={
-                "strategy_id": strategy_id,
-                "strategy_name": strategy_name,
-                "account_id": account_id,
-                "metadata": metadata.__dict__
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.STRATEGY_REGISTERED,
+                event_data={
+                    "strategy_id": strategy_id,
+                    "strategy_name": strategy_name,
+                    "account_id": account_id,
+                    "metadata": metadata.__dict__,
+                },
+            )
+        )
 
         logger.info(
             "Strategy registered",
             strategy_id=strategy_id,
             strategy_name=strategy_name,
-            account_id=account_id
+            account_id=account_id,
         )
 
         return strategy_id
@@ -246,7 +254,9 @@ class StrategyRegistry:
             True if successfully unregistered
         """
         if strategy_id not in self._strategies:
-            logger.warning("Strategy not found for unregistration", strategy_id=strategy_id)
+            logger.warning(
+                "Strategy not found for unregistration", strategy_id=strategy_id
+            )
             return False
 
         # Stop strategy if running
@@ -270,10 +280,12 @@ class StrategyRegistry:
         del self._health[strategy_id]
 
         # Publish event
-        await self.event_bus.publish(Event(
-            event_type=EventType.STRATEGY_UNREGISTERED,
-            event_data={"strategy_id": strategy_id}
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.STRATEGY_UNREGISTERED,
+                event_data={"strategy_id": strategy_id},
+            )
+        )
 
         logger.info("Strategy unregistered", strategy_id=strategy_id)
         return True
@@ -295,11 +307,15 @@ class StrategyRegistry:
         instance = self._strategies[strategy_id]
 
         # Check current state
-        if instance.state not in [StrategyState.IDLE, StrategyState.STOPPED, StrategyState.ERROR]:
+        if instance.state not in [
+            StrategyState.IDLE,
+            StrategyState.STOPPED,
+            StrategyState.ERROR,
+        ]:
             logger.warning(
                 "Cannot start strategy in current state",
                 strategy_id=strategy_id,
-                current_state=instance.state
+                current_state=instance.state,
             )
             return False
 
@@ -316,13 +332,15 @@ class StrategyRegistry:
         instance.state = StrategyState.RUNNING
 
         # Publish event
-        await self.event_bus.publish(Event(
-            event_type=EventType.STRATEGY_STARTED,
-            event_data={
-                "strategy_id": strategy_id,
-                "started_at": instance.started_at.isoformat()
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.STRATEGY_STARTED,
+                event_data={
+                    "strategy_id": strategy_id,
+                    "started_at": instance.started_at.isoformat(),
+                },
+            )
+        )
 
         logger.info("Strategy started", strategy_id=strategy_id)
         return True
@@ -346,17 +364,19 @@ class StrategyRegistry:
             logger.warning(
                 "Cannot pause strategy not in RUNNING state",
                 strategy_id=strategy_id,
-                current_state=instance.state
+                current_state=instance.state,
             )
             return False
 
         instance.state = StrategyState.PAUSED
 
         # Publish event
-        await self.event_bus.publish(Event(
-            event_type=EventType.STRATEGY_PAUSED,
-            event_data={"strategy_id": strategy_id}
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.STRATEGY_PAUSED,
+                event_data={"strategy_id": strategy_id},
+            )
+        )
 
         logger.info("Strategy paused", strategy_id=strategy_id)
         return True
@@ -380,17 +400,19 @@ class StrategyRegistry:
             logger.warning(
                 "Cannot resume strategy not in PAUSED state",
                 strategy_id=strategy_id,
-                current_state=instance.state
+                current_state=instance.state,
             )
             return False
 
         instance.state = StrategyState.RUNNING
 
         # Publish event
-        await self.event_bus.publish(Event(
-            event_type=EventType.STRATEGY_RESUMED,
-            event_data={"strategy_id": strategy_id}
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.STRATEGY_RESUMED,
+                event_data={"strategy_id": strategy_id},
+            )
+        )
 
         logger.info("Strategy resumed", strategy_id=strategy_id)
         return True
@@ -412,15 +434,19 @@ class StrategyRegistry:
         instance.stopped_at = datetime.now(UTC)
 
         # Publish event
-        await self.event_bus.publish(Event(
-            event_type=EventType.STRATEGY_STOPPED,
-            event_data={
-                "strategy_id": strategy_id,
-                "stopped_at": instance.stopped_at.isoformat()
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.STRATEGY_STOPPED,
+                event_data={
+                    "strategy_id": strategy_id,
+                    "stopped_at": instance.stopped_at.isoformat(),
+                },
+            )
+        )
 
-    def get_active_strategies(self, account_id: str | None = None) -> list[StrategyInstance]:
+    def get_active_strategies(
+        self, account_id: str | None = None
+    ) -> list[StrategyInstance]:
         """
         Get list of active strategies.
 
@@ -491,9 +517,7 @@ class StrategyRegistry:
 
         except Exception as e:
             logger.error(
-                "Strategy execution error",
-                strategy_id=strategy_id,
-                error=str(e)
+                "Strategy execution error", strategy_id=strategy_id, error=str(e)
             )
             health.record_error(str(e))
             instance.state = StrategyState.ERROR
@@ -519,7 +543,7 @@ class StrategyRegistry:
                             logger.warning(
                                 "Strategy heartbeat timeout",
                                 strategy_id=strategy_id,
-                                timeout_seconds=time_since_heartbeat
+                                timeout_seconds=time_since_heartbeat,
                             )
 
                             # Attempt automatic recovery
@@ -529,7 +553,7 @@ class StrategyRegistry:
                                 logger.error(
                                     "Strategy recovery limit reached",
                                     strategy_id=strategy_id,
-                                    restart_count=health.restart_count
+                                    restart_count=health.restart_count,
                                 )
                                 instance.state = StrategyState.ERROR
 
@@ -564,7 +588,7 @@ class StrategyRegistry:
         logger.info(
             "Attempting strategy recovery",
             strategy_id=strategy_id,
-            restart_count=health.restart_count
+            restart_count=health.restart_count,
         )
 
         instance.state = StrategyState.RECOVERING
@@ -584,10 +608,12 @@ class StrategyRegistry:
         await self.start_strategy(strategy_id)
 
         # Publish recovery event
-        await self.event_bus.publish(Event(
-            event_type=EventType.STRATEGY_RECOVERED,
-            event_data={
-                "strategy_id": strategy_id,
-                "restart_count": health.restart_count
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.STRATEGY_RECOVERED,
+                event_data={
+                    "strategy_id": strategy_id,
+                    "restart_count": health.restart_count,
+                },
+            )
+        )

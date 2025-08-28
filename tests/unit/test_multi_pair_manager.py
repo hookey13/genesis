@@ -53,7 +53,7 @@ class TestMultiPairManager:
         return MultiPairManager(
             repository=mock_repository,
             state_manager=mock_state_manager,
-            account_id=account_id
+            account_id=account_id,
         )
 
     @pytest.fixture
@@ -70,7 +70,7 @@ class TestMultiPairManager:
                 quantity=Decimal("0.5"),
                 dollar_value=Decimal("25500"),
                 pnl_dollars=Decimal("500"),
-                opened_at=datetime.utcnow()
+                opened_at=datetime.utcnow(),
             ),
             Position(
                 position_id=str(uuid.uuid4()),
@@ -82,8 +82,8 @@ class TestMultiPairManager:
                 quantity=Decimal("2"),
                 dollar_value=Decimal("6200"),
                 pnl_dollars=Decimal("200"),
-                opened_at=datetime.utcnow()
-            )
+                opened_at=datetime.utcnow(),
+            ),
         ]
 
     @pytest.fixture
@@ -100,7 +100,7 @@ class TestMultiPairManager:
                 price_target=Decimal("52000"),
                 stop_loss=Decimal("49000"),
                 strategy_name="mean_reversion",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             ),
             Signal(
                 signal_id=str(uuid.uuid4()),
@@ -112,7 +112,7 @@ class TestMultiPairManager:
                 price_target=Decimal("3200"),
                 stop_loss=Decimal("2900"),
                 strategy_name="trend_following",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             ),
             Signal(
                 signal_id=str(uuid.uuid4()),
@@ -124,8 +124,8 @@ class TestMultiPairManager:
                 price_target=Decimal("150"),
                 stop_loss=Decimal("120"),
                 strategy_name="breakout",
-                timestamp=datetime.utcnow()
-            )
+                timestamp=datetime.utcnow(),
+            ),
         ]
 
     @pytest.mark.asyncio
@@ -140,7 +140,9 @@ class TestMultiPairManager:
         assert "Multi-pair trading requires HUNTER tier" in str(exc_info.value)
 
     @pytest.mark.asyncio
-    async def test_initialize_loads_limits(self, manager, mock_repository, mock_state_manager):
+    async def test_initialize_loads_limits(
+        self, manager, mock_repository, mock_state_manager
+    ):
         """Test initialization loads portfolio limits."""
         mock_state_manager.get_current_tier.return_value = Tier.HUNTER
         mock_repository.get_portfolio_limits.return_value = None
@@ -154,7 +156,9 @@ class TestMultiPairManager:
         assert manager._limits.max_exposure_global_dollars == Decimal("10000")
 
     @pytest.mark.asyncio
-    async def test_can_open_position_checks_global_limit(self, manager, mock_repository):
+    async def test_can_open_position_checks_global_limit(
+        self, manager, mock_repository
+    ):
         """Test position opening checks global position count."""
         # Initialize with Hunter tier
         mock_repository.get_portfolio_limits.return_value = None
@@ -167,7 +171,7 @@ class TestMultiPairManager:
                 position_id=str(uuid.uuid4()),
                 symbol=f"PAIR{i}/USDT",
                 quantity=Decimal("1"),
-                dollar_value=Decimal("1000")
+                dollar_value=Decimal("1000"),
             )
             await manager.add_position(position)
 
@@ -188,14 +192,16 @@ class TestMultiPairManager:
             position_id=str(uuid.uuid4()),
             symbol="BTC/USDT",
             quantity=Decimal("1.8"),  # Near 2 BTC limit for Hunter
-            dollar_value=Decimal("2800")  # Near $3000 limit
+            dollar_value=Decimal("2800"),  # Near $3000 limit
         )
         await manager.add_position(btc_position)
 
         mock_repository.get_latest_price.return_value = Decimal("50000")
 
         # Should not allow exceeding pair limit
-        can_open = await manager.can_open_position("BTC/USDT", Decimal("0.5"))  # Would exceed 2 BTC
+        can_open = await manager.can_open_position(
+            "BTC/USDT", Decimal("0.5")
+        )  # Would exceed 2 BTC
         assert can_open is False
 
         # Should allow smaller addition
@@ -203,7 +209,9 @@ class TestMultiPairManager:
         assert can_open is True
 
     @pytest.mark.asyncio
-    async def test_can_open_position_checks_global_exposure(self, manager, mock_repository):
+    async def test_can_open_position_checks_global_exposure(
+        self, manager, mock_repository
+    ):
         """Test position opening checks global exposure limit."""
         await manager.initialize()
 
@@ -211,7 +219,7 @@ class TestMultiPairManager:
         positions = [
             Position(symbol="BTC/USDT", dollar_value=Decimal("5000")),
             Position(symbol="ETH/USDT", dollar_value=Decimal("3000")),
-            Position(symbol="SOL/USDT", dollar_value=Decimal("1500"))
+            Position(symbol="SOL/USDT", dollar_value=Decimal("1500")),
         ]
 
         for pos in positions:
@@ -246,9 +254,7 @@ class TestMultiPairManager:
 
         # Mock account with no balance
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("0"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("0"), tier=Tier.HUNTER
         )
 
         allocations = await manager.allocate_capital(sample_signals)
@@ -263,9 +269,7 @@ class TestMultiPairManager:
 
         # Mock account with balance
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("5000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("5000"), tier=Tier.HUNTER
         )
 
         allocations = await manager.allocate_capital(sample_signals)
@@ -290,14 +294,12 @@ class TestMultiPairManager:
             position_id=str(uuid.uuid4()),
             symbol="BTC/USDT",
             quantity=Decimal("1"),
-            dollar_value=Decimal("2900")  # Near $3000 limit
+            dollar_value=Decimal("2900"),  # Near $3000 limit
         )
         await manager.add_position(btc_position)
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("5000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("5000"), tier=Tier.HUNTER
         )
 
         # Find BTC signal
@@ -318,24 +320,24 @@ class TestMultiPairManager:
         await manager.initialize()
 
         # Set up high correlation between BTC and ETH
-        await manager.update_correlations({
-            ("BTC/USDT", "ETH/USDT"): Decimal("0.85"),
-            ("ETH/USDT", "BTC/USDT"): Decimal("0.85")
-        })
+        await manager.update_correlations(
+            {
+                ("BTC/USDT", "ETH/USDT"): Decimal("0.85"),
+                ("ETH/USDT", "BTC/USDT"): Decimal("0.85"),
+            }
+        )
 
         # Add BTC position
         btc_position = Position(
             position_id=str(uuid.uuid4()),
             symbol="BTC/USDT",
             quantity=Decimal("0.5"),
-            dollar_value=Decimal("2500")
+            dollar_value=Decimal("2500"),
         )
         await manager.add_position(btc_position)
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("5000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("5000"), tier=Tier.HUNTER
         )
 
         # Create ETH signal (high correlation with BTC)
@@ -346,7 +348,7 @@ class TestMultiPairManager:
             confidence_score=Decimal("0.80"),
             priority=75,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         # Create SOL signal (no correlation)
@@ -357,7 +359,7 @@ class TestMultiPairManager:
             confidence_score=Decimal("0.80"),
             priority=75,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         allocations = await manager.allocate_capital([eth_signal, sol_signal])
@@ -385,9 +387,7 @@ class TestMultiPairManager:
         await manager.initialize()
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("10000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("10000"), tier=Tier.HUNTER
         )
 
         risk = await manager.calculate_portfolio_risk()
@@ -409,9 +409,7 @@ class TestMultiPairManager:
             await manager.add_position(pos)
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("40000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("40000"), tier=Tier.HUNTER
         )
 
         risk = await manager.calculate_portfolio_risk()
@@ -433,14 +431,10 @@ class TestMultiPairManager:
             await manager.add_position(pos)
 
         # Set high correlation
-        await manager.update_correlations({
-            ("BTC/USDT", "ETH/USDT"): Decimal("0.85")
-        })
+        await manager.update_correlations({("BTC/USDT", "ETH/USDT"): Decimal("0.85")})
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("40000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("40000"), tier=Tier.HUNTER
         )
 
         risk = await manager.calculate_portfolio_risk()
@@ -462,7 +456,7 @@ class TestMultiPairManager:
             symbol="BTC/USDT",
             quantity=Decimal("1"),
             dollar_value=Decimal("9000"),  # 90% of limit
-            pnl_dollars=Decimal("-500")  # Loss
+            pnl_dollars=Decimal("-500"),  # Loss
         )
         await manager.add_position(large_position)
 
@@ -472,14 +466,12 @@ class TestMultiPairManager:
             symbol="ETH/USDT",
             quantity=Decimal("0.1"),
             dollar_value=Decimal("1000"),  # 10% of limit
-            pnl_dollars=Decimal("50")
+            pnl_dollars=Decimal("50"),
         )
         await manager.add_position(small_position)
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("15000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("15000"), tier=Tier.HUNTER
         )
 
         risk = await manager.calculate_portfolio_risk()
@@ -503,14 +495,12 @@ class TestMultiPairManager:
                 symbol=f"PAIR{i}/USDT",
                 quantity=Decimal("1"),
                 dollar_value=Decimal("2000"),
-                pnl_dollars=Decimal("0")
+                pnl_dollars=Decimal("0"),
             )
             await manager.add_position(position)
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("10000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("10000"), tier=Tier.HUNTER
         )
 
         risk = await manager.calculate_portfolio_risk()
@@ -527,7 +517,7 @@ class TestMultiPairManager:
             position_id=str(uuid.uuid4()),
             symbol="BTC/USDT",
             quantity=Decimal("1"),
-            dollar_value=Decimal("50000")
+            dollar_value=Decimal("50000"),
         )
 
         # Add position
@@ -545,8 +535,10 @@ class TestMultiPairManager:
 
         correlations = {
             ("BTC/USDT", "ETH/USDT"): Decimal("0.65"),  # Above warning threshold
-            ("ETH/USDT", "SOL/USDT"): Decimal("0.3"),   # Below threshold
-            ("BTC/USDT", "SOL/USDT"): Decimal("0.85")   # Above risk adjustment threshold
+            ("ETH/USDT", "SOL/USDT"): Decimal("0.3"),  # Below threshold
+            ("BTC/USDT", "SOL/USDT"): Decimal(
+                "0.85"
+            ),  # Above risk adjustment threshold
         }
 
         with patch("genesis.engine.executor.multi_pair.logger") as mock_logger:
@@ -562,8 +554,14 @@ class TestMultiPairManager:
                 if call[0][0] == "high_correlation_detected":
                     warned_pairs.append((call[1]["symbol1"], call[1]["symbol2"]))
 
-            assert ("BTC/USDT", "ETH/USDT") in warned_pairs or ("ETH/USDT", "BTC/USDT") in warned_pairs
-            assert ("BTC/USDT", "SOL/USDT") in warned_pairs or ("SOL/USDT", "BTC/USDT") in warned_pairs
+            assert ("BTC/USDT", "ETH/USDT") in warned_pairs or (
+                "ETH/USDT",
+                "BTC/USDT",
+            ) in warned_pairs
+            assert ("BTC/USDT", "SOL/USDT") in warned_pairs or (
+                "SOL/USDT",
+                "BTC/USDT",
+            ) in warned_pairs
 
     @pytest.mark.asyncio
     async def test_concurrent_operations_thread_safe(self, manager, mock_repository):
@@ -571,9 +569,7 @@ class TestMultiPairManager:
         await manager.initialize()
 
         mock_repository.get_account.return_value = Account(
-            account_id=manager.account_id,
-            balance=Decimal("10000"),
-            tier=Tier.HUNTER
+            account_id=manager.account_id, balance=Decimal("10000"), tier=Tier.HUNTER
         )
 
         # Simulate concurrent position additions and risk calculations
@@ -583,7 +579,7 @@ class TestMultiPairManager:
                     position_id=str(uuid.uuid4()),
                     symbol=f"PAIR{i}/USDT",
                     quantity=Decimal("1"),
-                    dollar_value=Decimal("1000")
+                    dollar_value=Decimal("1000"),
                 )
                 await manager.add_position(position)
                 await asyncio.sleep(0.01)  # Small delay
@@ -598,7 +594,7 @@ class TestMultiPairManager:
         await asyncio.gather(
             add_positions(),
             calculate_risk(),
-            calculate_risk()  # Multiple risk calculations
+            calculate_risk(),  # Multiple risk calculations
         )
 
         # Final state should be consistent

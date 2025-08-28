@@ -39,8 +39,13 @@ class TestMakefileCommands:
 
         content = self.makefile.read_text()
         required_targets = [
-            "install:", "test:", "run:", "deploy:",
-            "format:", "lint:", "backup:"
+            "install:",
+            "test:",
+            "run:",
+            "deploy:",
+            "format:",
+            "lint:",
+            "backup:",
         ]
 
         for target in required_targets:
@@ -49,10 +54,7 @@ class TestMakefileCommands:
     def test_make_help(self):
         """Test make help command."""
         result = subprocess.run(
-            ["make", "help"],
-            cwd=self.project_root,
-            capture_output=True,
-            text=True
+            ["make", "help"], cwd=self.project_root, capture_output=True, text=True
         )
 
         # Help should always succeed
@@ -70,17 +72,14 @@ class TestMakefileCommands:
             cwd=self.project_root,
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=120,
         )
 
         assert result.returncode == 0, f"Make install failed: {result.stderr}"
 
         # Verify key packages are installed
         pip_list = subprocess.run(
-            ["pip", "list"],
-            cwd=self.project_root,
-            capture_output=True,
-            text=True
+            ["pip", "list"], cwd=self.project_root, capture_output=True, text=True
         )
 
         required_packages = ["ccxt", "pydantic", "structlog", "pandas"]
@@ -98,7 +97,7 @@ class TestMakefileCommands:
                 ["make", "format"],
                 cwd=self.project_root,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Format should succeed even if no changes needed
@@ -106,26 +105,25 @@ class TestMakefileCommands:
 
             # Check if file was formatted
             formatted_content = test_file.read_text()
-            assert "x = 1 + 2" in formatted_content or "would reformat" in result.stdout, \
-                "Black formatting not applied"
+            assert (
+                "x = 1 + 2" in formatted_content or "would reformat" in result.stdout
+            ), "Black formatting not applied"
         finally:
             test_file.unlink(missing_ok=True)
 
     def test_make_lint(self):
         """Test linting command."""
         result = subprocess.run(
-            ["make", "lint"],
-            cwd=self.project_root,
-            capture_output=True,
-            text=True
+            ["make", "lint"], cwd=self.project_root, capture_output=True, text=True
         )
 
         # Lint might find issues but should not crash
         assert result.returncode in [0, 1], f"Make lint crashed: {result.stderr}"
 
         # Verify ruff is being used (not pylint)
-        assert "ruff" in result.stdout or "ruff" in result.stderr or \
-               result.returncode == 0, "Ruff linter not executed"
+        assert (
+            "ruff" in result.stdout or "ruff" in result.stderr or result.returncode == 0
+        ), "Ruff linter not executed"
 
     def test_make_test(self):
         """Test pytest execution."""
@@ -134,12 +132,15 @@ class TestMakefileCommands:
             cwd=self.project_root,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=60,
         )
 
         # Tests should run without crashing
-        assert "pytest" in result.stdout or "test" in result.stdout.lower() or \
-               result.returncode == 0, "Pytest not executed"
+        assert (
+            "pytest" in result.stdout
+            or "test" in result.stdout.lower()
+            or result.returncode == 0
+        ), "Pytest not executed"
 
     def test_make_clean(self):
         """Test clean command if it exists."""
@@ -151,10 +152,7 @@ class TestMakefileCommands:
             (cache_dir / "test.pyc").touch()
 
             result = subprocess.run(
-                ["make", "clean"],
-                cwd=self.project_root,
-                capture_output=True,
-                text=True
+                ["make", "clean"], cwd=self.project_root, capture_output=True, text=True
             )
 
             assert result.returncode == 0, f"Make clean failed: {result.stderr}"
@@ -166,7 +164,7 @@ class TestMakefileCommands:
             cwd=self.project_root,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=30,
         )
 
         # Backup should complete without errors
@@ -177,13 +175,15 @@ class TestMakefileCommands:
         content = self.makefile.read_text()
 
         # Should use Python from virtual environment
-        assert "python" in content.lower() or "pip" in content.lower(), \
-            "Makefile doesn't reference Python"
+        assert (
+            "python" in content.lower() or "pip" in content.lower()
+        ), "Makefile doesn't reference Python"
 
         # Should have proper shell configuration
         if "SHELL" in content:
-            assert "/bin/bash" in content or "/bin/sh" in content, \
-                "Invalid shell configuration"
+            assert (
+                "/bin/bash" in content or "/bin/sh" in content
+            ), "Invalid shell configuration"
 
     def test_make_typecheck(self):
         """Test type checking with mypy if configured."""
@@ -194,11 +194,14 @@ class TestMakefileCommands:
                 cwd=self.project_root,
                 capture_output=True,
                 text=True,
-                timeout=60
+                timeout=60,
             )
 
             # Type checking might find issues but shouldn't crash
-            assert result.returncode in [0, 1], f"Make typecheck crashed: {result.stderr}"
+            assert result.returncode in [
+                0,
+                1,
+            ], f"Make typecheck crashed: {result.stderr}"
 
     def test_make_targets_are_phony(self):
         """Verify .PHONY targets are declared."""
@@ -208,5 +211,6 @@ class TestMakefileCommands:
             phony_targets = ["install", "test", "format", "lint", "clean"]
             for target in phony_targets:
                 if f"{target}:" in content:
-                    assert target in content[content.find(".PHONY"):], \
-                        f"Target {target} not marked as .PHONY"
+                    assert (
+                        target in content[content.find(".PHONY") :]
+                    ), f"Target {target} not marked as .PHONY"

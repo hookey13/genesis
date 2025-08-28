@@ -33,7 +33,7 @@ async def monitor(mock_event_bus):
         event_bus=mock_event_bus,
         window_size=5,  # Small window for testing
         warning_threshold=Decimal("0.6"),
-        critical_threshold=Decimal("0.8")
+        critical_threshold=Decimal("0.8"),
     )
     await monitor.start()
     yield monitor
@@ -49,8 +49,7 @@ class TestCorrelationWindow:
 
         # Add observations
         window.add_observation(
-            datetime.now(UTC),
-            {"strategy1": 0.05, "strategy2": -0.02}
+            datetime.now(UTC), {"strategy1": 0.05, "strategy2": -0.02}
         )
 
         assert len(window.timestamps) == 1
@@ -63,10 +62,7 @@ class TestCorrelationWindow:
 
         # Add 3 observations
         for i in range(3):
-            window.add_observation(
-                datetime.now(UTC),
-                {"strategy1": i}
-            )
+            window.add_observation(datetime.now(UTC), {"strategy1": i})
 
         # Should only keep last 2
         assert len(window.timestamps) == 2
@@ -81,18 +77,12 @@ class TestCorrelationWindow:
 
         # Add partial data
         for i in range(2):
-            window.add_observation(
-                datetime.now(UTC),
-                {"strategy1": i}
-            )
+            window.add_observation(datetime.now(UTC), {"strategy1": i})
 
         assert not window.is_ready()
 
         # Complete window
-        window.add_observation(
-            datetime.now(UTC),
-            {"strategy1": 2}
-        )
+        window.add_observation(datetime.now(UTC), {"strategy1": 2})
 
         assert window.is_ready()
 
@@ -104,10 +94,7 @@ class TestCorrelationWindow:
         for i in range(3):
             ts = datetime.now(UTC)
             timestamps.append(ts)
-            window.add_observation(
-                ts,
-                {"strategy1": i, "strategy2": i * 2}
-            )
+            window.add_observation(ts, {"strategy1": i, "strategy2": i * 2})
 
         df = window.get_dataframe()
 
@@ -130,7 +117,7 @@ class TestCorrelationAlert:
             correlation=Decimal("0.85"),
             threshold=Decimal("0.8"),
             severity="critical",
-            message="Test alert"
+            message="Test alert",
         )
 
         alert_dict = alert.to_dict()
@@ -149,8 +136,7 @@ class TestCorrelationMonitor:
         # Add insufficient data
         for i in range(3):
             await monitor.add_strategy_returns(
-                datetime.now(UTC),
-                {"strategy1": 0.01 * i, "strategy2": -0.01 * i}
+                datetime.now(UTC), {"strategy1": 0.01 * i, "strategy2": -0.01 * i}
             )
 
         assert not monitor.strategy_returns.is_ready()
@@ -158,8 +144,7 @@ class TestCorrelationMonitor:
         # Add more to complete window
         for i in range(2):
             await monitor.add_strategy_returns(
-                datetime.now(UTC),
-                {"strategy1": 0.01, "strategy2": -0.01}
+                datetime.now(UTC), {"strategy1": 0.01, "strategy2": -0.01}
             )
 
         assert monitor.strategy_returns.is_ready()
@@ -169,8 +154,7 @@ class TestCorrelationMonitor:
         # Create perfectly correlated data
         for i in range(5):
             await monitor.add_strategy_returns(
-                datetime.now(UTC),
-                {"strategy1": 0.01 * i, "strategy2": 0.01 * i}
+                datetime.now(UTC), {"strategy1": 0.01 * i, "strategy2": 0.01 * i}
             )
 
         # Should have correlation matrix
@@ -189,8 +173,8 @@ class TestCorrelationMonitor:
                 datetime.now(UTC),
                 {
                     "strategy1": base[i],
-                    "strategy2": base[i] * 0.7 + np.random.randn() * 0.3
-                }
+                    "strategy2": base[i] * 0.7 + np.random.randn() * 0.3,
+                },
             )
 
         # Check for alerts
@@ -209,8 +193,8 @@ class TestCorrelationMonitor:
                 datetime.now(UTC),
                 {
                     "strategy1": 0.01 * i,
-                    "strategy2": 0.01 * i + 0.001  # Almost identical
-                }
+                    "strategy2": 0.01 * i + 0.001,  # Almost identical
+                },
             )
 
         # Should generate critical alert
@@ -223,8 +207,7 @@ class TestCorrelationMonitor:
         # Create high correlation
         for i in range(5):
             await monitor.add_strategy_returns(
-                datetime.now(UTC),
-                {"strategy1": i, "strategy2": i}
+                datetime.now(UTC), {"strategy1": i, "strategy2": i}
             )
 
         assert len(monitor.active_alerts) > 0
@@ -233,7 +216,7 @@ class TestCorrelationMonitor:
         for i in range(5):
             await monitor.add_strategy_returns(
                 datetime.now(UTC),
-                {"strategy1": i, "strategy2": -i}  # Negative correlation
+                {"strategy1": i, "strategy2": -i},  # Negative correlation
             )
 
         # Alerts should be cleared
@@ -242,18 +225,15 @@ class TestCorrelationMonitor:
     async def test_calculate_position_correlations(self, monitor):
         """Test position correlation calculation."""
         positions = [
-            {
-                "position_id": "pos1",
-                "returns": [0.01, 0.02, -0.01, 0.03, 0.01]
-            },
+            {"position_id": "pos1", "returns": [0.01, 0.02, -0.01, 0.03, 0.01]},
             {
                 "position_id": "pos2",
-                "returns": [0.01, 0.02, -0.01, 0.03, 0.01]  # Identical
+                "returns": [0.01, 0.02, -0.01, 0.03, 0.01],  # Identical
             },
             {
                 "position_id": "pos3",
-                "returns": [-0.01, -0.02, 0.01, -0.03, -0.01]  # Inverse
-            }
+                "returns": [-0.01, -0.02, 0.01, -0.03, -0.01],  # Inverse
+            },
         ]
 
         correlations = await monitor.calculate_position_correlations(positions)
@@ -262,9 +242,10 @@ class TestCorrelationMonitor:
 
         # Find correlation between pos1 and pos2 (should be ~1.0)
         pos1_pos2 = next(
-            c for c in correlations
-            if (c.position_a_id == "pos1" and c.position_b_id == "pos2") or
-               (c.position_a_id == "pos2" and c.position_b_id == "pos1")
+            c
+            for c in correlations
+            if (c.position_a_id == "pos1" and c.position_b_id == "pos2")
+            or (c.position_a_id == "pos2" and c.position_b_id == "pos1")
         )
         assert abs(pos1_pos2.correlation_coefficient - Decimal("1.0")) < Decimal("0.01")
         assert pos1_pos2.alert_triggered  # Should trigger alert
@@ -279,11 +260,7 @@ class TestCorrelationMonitor:
         for i in range(5):
             await monitor.add_strategy_returns(
                 datetime.now(UTC),
-                {
-                    "strategy1": i * 0.01,
-                    "strategy2": i * 0.01,
-                    "strategy3": -i * 0.01
-                }
+                {"strategy1": i * 0.01, "strategy2": i * 0.01, "strategy3": -i * 0.01},
             )
 
         summary = monitor.get_correlation_summary()
@@ -298,12 +275,7 @@ class TestCorrelationMonitor:
         for i in range(5):
             await monitor.add_strategy_returns(
                 datetime.now(UTC),
-                {
-                    "strategy1": i,
-                    "strategy2": i,
-                    "strategy3": i * 0.5,
-                    "strategy4": -i
-                }
+                {"strategy1": i, "strategy2": i, "strategy3": i * 0.5, "strategy4": -i},
             )
 
         high_pairs = monitor.get_high_correlation_pairs()
@@ -324,8 +296,8 @@ class TestCorrelationMonitor:
                 {
                     "strategy1": i,
                     "strategy2": i * 0.7,  # 0.7 correlation
-                    "strategy3": i * 0.4   # 0.4 correlation
-                }
+                    "strategy3": i * 0.4,  # 0.4 correlation
+                },
             )
 
         # Get pairs with correlation > 0.5
@@ -333,10 +305,7 @@ class TestCorrelationMonitor:
 
         # Should include strategy1-strategy2 but maybe not others
         pair_names = [(p[0], p[1]) for p in high_pairs]
-        assert any(
-            ("strategy1" in p and "strategy2" in p)
-            for p in pair_names
-        )
+        assert any(("strategy1" in p and "strategy2" in p) for p in pair_names)
 
     async def test_correlation_crisis_detection(self, monitor, mock_event_bus):
         """Test detection of market-wide correlation crisis."""
@@ -350,8 +319,8 @@ class TestCorrelationMonitor:
                     "strategy2": base_return * 1.01,
                     "strategy3": base_return * 0.99,
                     "strategy4": base_return * 1.02,
-                    "strategy5": base_return * 0.98
-                }
+                    "strategy5": base_return * 0.98,
+                },
             )
 
         # Manually trigger crisis check
@@ -361,8 +330,7 @@ class TestCorrelationMonitor:
         if mock_event_bus.publish.called:
             call_args = mock_event_bus.publish.call_args_list
             crisis_events = [
-                call for call in call_args
-                if "correlation_crisis" in str(call)
+                call for call in call_args if "correlation_crisis" in str(call)
             ]
             assert len(crisis_events) > 0
 
@@ -373,16 +341,15 @@ class TestCorrelationMonitor:
         assert correlations == []
 
         # Single position
-        correlations = await monitor.calculate_position_correlations([
-            {"position_id": "pos1", "returns": [0.01, 0.02]}
-        ])
+        correlations = await monitor.calculate_position_correlations(
+            [{"position_id": "pos1", "returns": [0.01, 0.02]}]
+        )
         assert correlations == []
 
         # Positions without returns
-        correlations = await monitor.calculate_position_correlations([
-            {"position_id": "pos1"},
-            {"position_id": "pos2"}
-        ])
+        correlations = await monitor.calculate_position_correlations(
+            [{"position_id": "pos1"}, {"position_id": "pos2"}]
+        )
         assert correlations == []
 
     async def test_correlation_history_limit(self, monitor):
@@ -391,8 +358,7 @@ class TestCorrelationMonitor:
         for batch in range(110):  # More than limit of 100
             for i in range(5):
                 await monitor.add_strategy_returns(
-                    datetime.now(UTC),
-                    {"strategy1": i, "strategy2": i * 2}
+                    datetime.now(UTC), {"strategy1": i, "strategy2": i * 2}
                 )
 
         # History should be capped at 100

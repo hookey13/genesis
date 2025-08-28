@@ -8,8 +8,8 @@ from .order_frequency import OrderFrequencyIndicator
 from .position_sizing import PositionSizingIndicator
 
 __all__ = [
-    'CancelRateIndicator',
-    'ClickSpeedIndicator',
-    'OrderFrequencyIndicator',
-    'PositionSizingIndicator'
+    "CancelRateIndicator",
+    "ClickSpeedIndicator",
+    "OrderFrequencyIndicator",
+    "PositionSizingIndicator",
 ]

@@ -35,9 +35,7 @@ class StrategyRestrictionManager:
 
     @requires_tier(TradingTier.HUNTER)
     def restrict_strategies(
-        self,
-        account_id: str,
-        allowed_strategies: list[str]
+        self, account_id: str, allowed_strategies: list[str]
     ) -> None:
         """Restrict account to specific strategies.
 
@@ -51,20 +49,15 @@ class StrategyRestrictionManager:
             "Strategy restrictions applied",
             account_id=account_id,
             allowed_strategies=allowed_strategies,
-            count=len(allowed_strategies)
+            count=len(allowed_strategies),
         )
 
         # Persist restrictions
         self.repository.save_strategy_restrictions(
-            account_id,
-            allowed_strategies,
-            datetime.now(UTC)
+            account_id, allowed_strategies, datetime.now(UTC)
         )
 
-    def get_highest_winrate_strategy(
-        self,
-        window_days: int = 30
-    ) -> str:
+    def get_highest_winrate_strategy(self, window_days: int = 30) -> str:
         """Get strategy with highest win rate over recent period.
 
         Args:
@@ -95,16 +88,12 @@ class StrategyRestrictionManager:
             "Highest win-rate strategy identified",
             strategy=best_strategy,
             win_rate=float(best_winrate),
-            window_days=window_days
+            window_days=window_days,
         )
 
         return best_strategy or "simple_arb"
 
-    def is_strategy_allowed(
-        self,
-        account_id: str,
-        strategy_name: str
-    ) -> bool:
+    def is_strategy_allowed(self, account_id: str, strategy_name: str) -> bool:
         """Check if strategy is allowed for account.
 
         Args:
@@ -129,17 +118,11 @@ class StrategyRestrictionManager:
         if account_id in self._restricted_accounts:
             del self._restricted_accounts[account_id]
 
-            logger.info(
-                "Strategy restrictions removed",
-                account_id=account_id
-            )
+            logger.info("Strategy restrictions removed", account_id=account_id)
 
             self.repository.remove_strategy_restrictions(account_id)
 
-    def apply_recovery_restrictions(
-        self,
-        account_id: str
-    ) -> None:
+    def apply_recovery_restrictions(self, account_id: str) -> None:
         """Apply default recovery mode restrictions.
 
         Args:
@@ -154,7 +137,7 @@ class StrategyRestrictionManager:
         logger.info(
             "Recovery mode restrictions applied",
             account_id=account_id,
-            restricted_to=best_strategy
+            restricted_to=best_strategy,
         )
 
     def _should_refresh_cache(self) -> bool:
@@ -208,7 +191,9 @@ class StrategyRestrictionManager:
             # Calculate win rates
             for strategy, stats in strategy_stats.items():
                 if stats["total_trades"] > 0:
-                    stats["win_rate"] = Decimal(stats["winning_trades"]) / Decimal(stats["total_trades"])
+                    stats["win_rate"] = Decimal(stats["winning_trades"]) / Decimal(
+                        stats["total_trades"]
+                    )
                 else:
                     stats["win_rate"] = Decimal("0")
 
@@ -218,14 +203,11 @@ class StrategyRestrictionManager:
             logger.info(
                 "Strategy performance cache refreshed",
                 strategies_analyzed=len(strategy_stats),
-                window_days=window_days
+                window_days=window_days,
             )
 
         except Exception as e:
-            logger.error(
-                "Failed to refresh strategy performance",
-                error=str(e)
-            )
+            logger.error("Failed to refresh strategy performance", error=str(e))
 
 
 def recovery_mode(func):
@@ -234,6 +216,7 @@ def recovery_mode(func):
     This decorator checks if the current account is in recovery mode
     and enforces strategy restrictions accordingly.
     """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         # Extract account_id and strategy_name from arguments
@@ -247,9 +230,7 @@ def recovery_mode(func):
         # Get restriction manager from context (would be injected)
         # For now, just log and proceed
         logger.debug(
-            "Recovery mode check",
-            account_id=account_id,
-            strategy=strategy_name
+            "Recovery mode check", account_id=account_id, strategy=strategy_name
         )
 
         return func(*args, **kwargs)
@@ -272,9 +253,7 @@ class StrategyFilter:
         self.restriction_manager = restriction_manager
 
     def filter_available_strategies(
-        self,
-        account_id: str,
-        all_strategies: list[str]
+        self, account_id: str, all_strategies: list[str]
     ) -> list[str]:
         """Filter strategies based on account restrictions.
 
@@ -297,7 +276,7 @@ class StrategyFilter:
             logger.warning(
                 "No strategies allowed, using default",
                 account_id=account_id,
-                default=allowed[0]
+                default=allowed[0],
             )
 
         return allowed

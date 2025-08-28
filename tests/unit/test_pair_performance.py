@@ -37,7 +37,7 @@ class TestPairMetrics:
             fees_paid_dollars=Decimal("50"),
             best_trade_pnl=Decimal("400"),
             worst_trade_pnl=Decimal("-200"),
-            average_hold_time_minutes=30.5
+            average_hold_time_minutes=30.5,
         )
 
         assert metrics.expectancy == Decimal("50")  # 500 / 10
@@ -61,7 +61,7 @@ class TestPairMetrics:
             fees_paid_dollars=Decimal("50"),
             best_trade_pnl=Decimal("400"),
             worst_trade_pnl=Decimal("-150"),
-            average_hold_time_minutes=25
+            average_hold_time_minutes=25,
         )
 
         assert metrics.risk_reward_ratio == Decimal("2")  # 200 / 100
@@ -87,10 +87,7 @@ class TestPairPerformanceTracker:
     @pytest.fixture
     def tracker(self, mock_repository, account_id):
         """Create PairPerformanceTracker instance."""
-        return PairPerformanceTracker(
-            repository=mock_repository,
-            account_id=account_id
-        )
+        return PairPerformanceTracker(repository=mock_repository, account_id=account_id)
 
     @pytest.fixture
     def sample_position_closed(self, account_id):
@@ -106,7 +103,7 @@ class TestPairPerformanceTracker:
             dollar_value=Decimal("25500"),
             pnl_dollars=Decimal("500"),
             opened_at=datetime.utcnow() - timedelta(hours=2),
-            closed_at=datetime.utcnow()
+            closed_at=datetime.utcnow(),
         )
         return position
 
@@ -121,7 +118,7 @@ class TestPairPerformanceTracker:
                 "volume_quote": Decimal("5000"),
                 "fees_paid": Decimal("5"),
                 "hold_time_minutes": 30,
-                "closed_at": datetime.utcnow() - timedelta(hours=1)
+                "closed_at": datetime.utcnow() - timedelta(hours=1),
             },
             {
                 "trade_id": str(uuid.uuid4()),
@@ -130,7 +127,7 @@ class TestPairPerformanceTracker:
                 "volume_quote": Decimal("2500"),
                 "fees_paid": Decimal("2.5"),
                 "hold_time_minutes": 45,
-                "closed_at": datetime.utcnow() - timedelta(hours=2)
+                "closed_at": datetime.utcnow() - timedelta(hours=2),
             },
             {
                 "trade_id": str(uuid.uuid4()),
@@ -139,8 +136,8 @@ class TestPairPerformanceTracker:
                 "volume_quote": Decimal("7500"),
                 "fees_paid": Decimal("7.5"),
                 "hold_time_minutes": 20,
-                "closed_at": datetime.utcnow() - timedelta(hours=3)
-            }
+                "closed_at": datetime.utcnow() - timedelta(hours=3),
+            },
         ]
 
     @pytest.mark.asyncio
@@ -159,7 +156,9 @@ class TestPairPerformanceTracker:
         assert saved_data["is_winner"] is True
 
     @pytest.mark.asyncio
-    async def test_track_trade_open_position(self, tracker, mock_repository, account_id):
+    async def test_track_trade_open_position(
+        self, tracker, mock_repository, account_id
+    ):
         """Test that open positions are not tracked."""
         open_position = Position(
             position_id=str(uuid.uuid4()),
@@ -168,7 +167,7 @@ class TestPairPerformanceTracker:
             side=PositionSide.LONG,
             quantity=Decimal("0.5"),
             opened_at=datetime.utcnow(),
-            closed_at=None  # Still open
+            closed_at=None,  # Still open
         )
 
         await tracker.track_trade(open_position)
@@ -189,7 +188,9 @@ class TestPairPerformanceTracker:
         assert metrics.win_rate == Decimal("0")
 
     @pytest.mark.asyncio
-    async def test_get_pair_metrics_with_trades(self, tracker, mock_repository, sample_trades):
+    async def test_get_pair_metrics_with_trades(
+        self, tracker, mock_repository, sample_trades
+    ):
         """Test getting metrics with trade data."""
         mock_repository.get_trades_by_symbol.return_value = sample_trades
 
@@ -241,7 +242,7 @@ class TestPairPerformanceTracker:
                 "pnl_dollars": Decimal("500"),
                 "volume_quote": Decimal("25000"),
                 "hold_time_minutes": 30,
-                "closed_at": datetime.utcnow()
+                "closed_at": datetime.utcnow(),
             }
         ]
 
@@ -250,7 +251,7 @@ class TestPairPerformanceTracker:
                 "pnl_dollars": Decimal("-200"),
                 "volume_quote": Decimal("10000"),
                 "hold_time_minutes": 45,
-                "closed_at": datetime.utcnow()
+                "closed_at": datetime.utcnow(),
             }
         ]
 
@@ -281,14 +282,12 @@ class TestPairPerformanceTracker:
                 "pnl_dollars": Decimal("100"),
                 "volume_quote": Decimal("5000"),
                 "hold_time_minutes": 30,
-                "closed_at": datetime.utcnow()
+                "closed_at": datetime.utcnow(),
             }
         ]
 
         historical = await tracker.get_historical_performance(
-            "BTC/USDT",
-            periods=7,
-            period_type=PeriodType.DAILY
+            "BTC/USDT", periods=7, period_type=PeriodType.DAILY
         )
 
         assert len(historical) == 7
@@ -297,6 +296,7 @@ class TestPairPerformanceTracker:
     @pytest.mark.asyncio
     async def test_compare_pairs(self, tracker, mock_repository):
         """Test comparing multiple pairs."""
+
         # Setup different metrics for each pair
         def get_trades_side_effect(account_id, symbol, **kwargs):
             if symbol == "BTC/USDT":
@@ -315,9 +315,7 @@ class TestPairPerformanceTracker:
 
         mock_repository.get_trades_by_symbol.side_effect = get_trades_side_effect
 
-        comparison = await tracker.compare_pairs(
-            ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
-        )
+        comparison = await tracker.compare_pairs(["BTC/USDT", "ETH/USDT", "SOL/USDT"])
 
         assert len(comparison) == 3
         assert "BTC/USDT" in comparison
@@ -346,7 +344,7 @@ class TestPairPerformanceTracker:
             {"pnl_dollars": 200, "closed_at": datetime.utcnow() - timedelta(days=4)},
             {"pnl_dollars": -150, "closed_at": datetime.utcnow() - timedelta(days=3)},
             {"pnl_dollars": -100, "closed_at": datetime.utcnow() - timedelta(days=2)},
-            {"pnl_dollars": 50, "closed_at": datetime.utcnow() - timedelta(days=1)}
+            {"pnl_dollars": 50, "closed_at": datetime.utcnow() - timedelta(days=1)},
         ]
 
         max_dd = tracker._calculate_max_drawdown(trades)
@@ -374,7 +372,7 @@ class TestPairPerformanceTracker:
                 fees_paid_dollars=Decimal("100"),
                 best_trade_pnl=Decimal("200"),
                 worst_trade_pnl=Decimal("-300"),
-                average_hold_time_minutes=30
+                average_hold_time_minutes=30,
             ),
             "ETH/USDT": PairMetrics(
                 symbol="ETH/USDT",
@@ -393,19 +391,17 @@ class TestPairPerformanceTracker:
                 fees_paid_dollars=Decimal("50"),
                 best_trade_pnl=Decimal("300"),
                 worst_trade_pnl=Decimal("-150"),
-                average_hold_time_minutes=25
-            )
+                average_hold_time_minutes=25,
+            ),
         }
 
         pair_weights = {
             "BTC/USDT": Decimal("0.7"),  # High concentration
-            "ETH/USDT": Decimal("0.3")
+            "ETH/USDT": Decimal("0.3"),
         }
 
         recommendations = tracker._generate_recommendations(
-            pair_metrics,
-            pair_weights,
-            Decimal("0")
+            pair_metrics, pair_weights, Decimal("0")
         )
 
         assert len(recommendations) > 0

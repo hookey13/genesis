@@ -1,4 +1,5 @@
 """Tilt debt tracking and management system."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -167,7 +168,9 @@ class TiltDebtCalculator:
 
         # Keep only last 100 transactions in cache
         if len(self.transaction_history[profile_id]) > 100:
-            self.transaction_history[profile_id] = self.transaction_history[profile_id][-100:]
+            self.transaction_history[profile_id] = self.transaction_history[profile_id][
+                -100:
+            ]
 
         # Persist to database
         if self.repository:
@@ -336,8 +339,7 @@ class TiltDebtCalculator:
                     profile_id, limit
                 )
                 transactions = [
-                    self._transaction_from_dict(data)
-                    for data in transactions_data
+                    self._transaction_from_dict(data) for data in transactions_data
                 ]
 
                 # Update cache
@@ -386,7 +388,9 @@ class TiltDebtCalculator:
             "transaction_count": len(history),
         }
 
-    async def clear_debt(self, profile_id: str, reason: str = "Manual debt clearance") -> bool:
+    async def clear_debt(
+        self, profile_id: str, reason: str = "Manual debt clearance"
+    ) -> bool:
         """Clear all debt for a profile (emergency override).
 
         Args:
@@ -445,13 +449,14 @@ class TiltDebtCalculator:
         try:
             balances = await self.repository.get_all_debt_balances()
             self.debt_balances = {
-                profile_id: Decimal(balance)
-                for profile_id, balance in balances.items()
+                profile_id: Decimal(balance) for profile_id, balance in balances.items()
             }
 
             logger.info(
                 "Debt balances loaded",
-                profiles_with_debt=len([b for b in self.debt_balances.values() if b > 0]),
+                profiles_with_debt=len(
+                    [b for b in self.debt_balances.values() if b > 0]
+                ),
             )
         except Exception as e:
             logger.error(

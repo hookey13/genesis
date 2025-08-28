@@ -29,7 +29,7 @@ class GateProgressBar(Widget):
         current_value: float,
         required_value: float,
         unit: str = "",
-        **kwargs
+        **kwargs,
     ):
         """Initialize gate progress bar.
 
@@ -44,20 +44,18 @@ class GateProgressBar(Widget):
         self.current_value = current_value
         self.required_value = required_value
         self.unit = unit
-        self.progress = min(current_value / required_value * 100, 100) if required_value > 0 else 0
+        self.progress = (
+            min(current_value / required_value * 100, 100) if required_value > 0 else 0
+        )
 
     def compose(self) -> ComposeResult:
         """Compose the widget."""
         with Horizontal(classes="gate-progress-container"):
             yield Label(f"{self.gate_name}:", classes="gate-label")
-            yield ProgressBar(
-                total=100,
-                progress=self.progress,
-                classes="gate-bar"
-            )
+            yield ProgressBar(total=100, progress=self.progress, classes="gate-bar")
             yield Label(
                 f"{self.current_value:.1f}/{self.required_value:.1f} {self.unit}",
-                classes="gate-value"
+                classes="gate-value",
             )
 
     def update_progress(self, current_value: float) -> None:
@@ -67,7 +65,11 @@ class GateProgressBar(Widget):
             current_value: New current value
         """
         self.current_value = current_value
-        self.progress = min(current_value / self.required_value * 100, 100) if self.required_value > 0 else 0
+        self.progress = (
+            min(current_value / self.required_value * 100, 100)
+            if self.required_value > 0
+            else 0
+        )
         self.refresh()
 
 
@@ -120,7 +122,7 @@ class TierCeremonyAnimation(Widget):
             text,
             title="Tier Transition",
             border_style="green" if opacity > 0.5 else "dim green",
-            padding=(1, 2)
+            padding=(1, 2),
         )
 
 
@@ -182,7 +184,7 @@ class TierGateProgressWidget(Widget):
             # Header
             yield Label(
                 f"Current Tier: {self.current_tier} → Next: {self.next_tier}",
-                classes="tier-header"
+                classes="tier-header",
             )
 
             # Overall progress
@@ -191,11 +193,10 @@ class TierGateProgressWidget(Widget):
                 yield ProgressBar(
                     total=self.total_gates,
                     progress=self.gates_completed,
-                    id="overall-bar"
+                    id="overall-bar",
                 )
                 yield Label(
-                    f"{self.gates_completed}/{self.total_gates} gates",
-                    id="gates-count"
+                    f"{self.gates_completed}/{self.total_gates} gates", id="gates-count"
                 )
 
             # Individual gate progress bars
@@ -219,10 +220,7 @@ class TierGateProgressWidget(Widget):
             if "min_balance" in requirements:
                 if "balance" not in self.gate_bars:
                     bar = GateProgressBar(
-                        "Minimum Balance",
-                        0,
-                        requirements["min_balance"],
-                        "USDT"
+                        "Minimum Balance", 0, requirements["min_balance"], "USDT"
                     )
                     self.gate_bars["balance"] = bar
                     gates_container.mount(bar)
@@ -231,10 +229,7 @@ class TierGateProgressWidget(Widget):
             if "min_trades" in requirements:
                 if "trades" not in self.gate_bars:
                     bar = GateProgressBar(
-                        "Minimum Trades",
-                        0,
-                        requirements["min_trades"],
-                        "trades"
+                        "Minimum Trades", 0, requirements["min_trades"], "trades"
                     )
                     self.gate_bars["trades"] = bar
                     gates_container.mount(bar)
@@ -243,10 +238,7 @@ class TierGateProgressWidget(Widget):
             if "max_tilt_events" in requirements:
                 if "tilt" not in self.gate_bars:
                     bar = GateProgressBar(
-                        "Max Tilt Events",
-                        0,
-                        requirements["max_tilt_events"],
-                        "events"
+                        "Max Tilt Events", 0, requirements["max_tilt_events"], "events"
                     )
                     self.gate_bars["tilt"] = bar
                     gates_container.mount(bar)
@@ -254,12 +246,7 @@ class TierGateProgressWidget(Widget):
             # Paper trading requirement
             if requirements.get("paper_trading_required"):
                 if "paper_trading" not in self.gate_bars:
-                    bar = GateProgressBar(
-                        "Paper Trading",
-                        0,
-                        1,
-                        "complete"
-                    )
+                    bar = GateProgressBar("Paper Trading", 0, 1, "complete")
                     self.gate_bars["paper_trading"] = bar
                     gates_container.mount(bar)
 
@@ -275,10 +262,7 @@ class TierGateProgressWidget(Widget):
                 self.gate_bars["paper_trading"].update_progress(0)
 
             # Update overall progress
-            completed = sum(
-                1 for bar in self.gate_bars.values()
-                if bar.progress >= 100
-            )
+            completed = sum(1 for bar in self.gate_bars.values() if bar.progress >= 100)
             self.gates_completed = completed
 
         except Exception as e:
@@ -319,7 +303,7 @@ class TierGateProgressWidget(Widget):
             "iceberg_orders": "Iceberg orders allow you to split large orders into smaller chunks.",
             "multi_pair_trading": "Trade multiple pairs simultaneously with coordinated risk management.",
             "twap_execution": "Time-Weighted Average Price execution for optimal trade timing.",
-            "statistical_arbitrage": "Exploit price inefficiencies using statistical models."
+            "statistical_arbitrage": "Exploit price inefficiencies using statistical models.",
         }
 
         # Show relevant tutorials
@@ -358,7 +342,7 @@ class TierTransitionHistory(Widget):
                 transition.get("from_tier", ""),
                 transition.get("to_tier", ""),
                 transition.get("reason", ""),
-                transition.get("duration", "")
+                transition.get("duration", ""),
             )
 
         return Panel(table, title="Transition History", border_style="blue")

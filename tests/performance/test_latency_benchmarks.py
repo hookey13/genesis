@@ -22,6 +22,7 @@ class TestLatencyBenchmarks:
     def test_gateway_initialization_latency(self, benchmark, mock_settings):
         """Benchmark gateway initialization time."""
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
+
             def init_gateway():
                 gateway = BinanceGateway(mock_mode=True)
                 return gateway
@@ -44,18 +45,14 @@ class TestLatencyBenchmarks:
                 side="buy",
                 type="limit",
                 quantity=Decimal("0.001"),
-                price=Decimal("50000")
+                price=Decimal("50000"),
             )
 
             async def place_order():
                 return await gateway.place_order(request)
 
             # Run benchmark
-            result = await benchmark.pedantic(
-                place_order,
-                rounds=100,
-                iterations=1
-            )
+            result = await benchmark.pedantic(place_order, rounds=100, iterations=1)
 
             assert result is not None
             # Order placement should complete in under 100ms
@@ -76,9 +73,7 @@ class TestLatencyBenchmarks:
 
             # Run benchmark
             result = await benchmark.pedantic(
-                fetch_order_book,
-                rounds=100,
-                iterations=1
+                fetch_order_book, rounds=100, iterations=1
             )
 
             assert result is not None
@@ -99,11 +94,7 @@ class TestLatencyBenchmarks:
                 return await gateway.get_ticker("BTC/USDT")
 
             # Run benchmark
-            result = await benchmark.pedantic(
-                fetch_ticker,
-                rounds=100,
-                iterations=1
-            )
+            result = await benchmark.pedantic(fetch_ticker, rounds=100, iterations=1)
 
             assert result is not None
             # Ticker fetch should complete in under 100ms
@@ -123,11 +114,7 @@ class TestLatencyBenchmarks:
                 return await gateway.get_account_balance()
 
             # Run benchmark
-            result = await benchmark.pedantic(
-                fetch_balance,
-                rounds=100,
-                iterations=1
-            )
+            result = await benchmark.pedantic(fetch_balance, rounds=100, iterations=1)
 
             assert result is not None
             # Balance fetch should complete in under 100ms
@@ -147,11 +134,7 @@ class TestLatencyBenchmarks:
                 return await gateway.cancel_order("mock_order_001", "BTC/USDT")
 
             # Run benchmark
-            result = await benchmark.pedantic(
-                cancel_order,
-                rounds=100,
-                iterations=1
-            )
+            result = await benchmark.pedantic(cancel_order, rounds=100, iterations=1)
 
             assert result is not None
             # Order cancellation should complete in under 100ms
@@ -171,7 +154,9 @@ class TestLatencyBenchmarks:
             remaining = limiter.get_remaining_weight()
             # Calculate utilization manually since get_utilization doesn't exist
             used_weight = limiter.max_weight - remaining
-            utilization = used_weight / limiter.max_weight if limiter.max_weight > 0 else 0
+            utilization = (
+                used_weight / limiter.max_weight if limiter.max_weight > 0 else 0
+            )
             return remaining, utilization
 
         result = benchmark(check_weight)
@@ -188,7 +173,7 @@ class TestLatencyBenchmarks:
             name="test",
             failure_threshold=5,
             failure_window_seconds=30,
-            recovery_timeout_seconds=60
+            recovery_timeout_seconds=60,
         )
 
         def check_state():
@@ -215,7 +200,7 @@ class TestLatencyBenchmarks:
                     type="limit",
                     quantity=Decimal("0.001"),
                     price=Decimal("50000"),
-                    client_order_id="test_order_001"
+                    client_order_id="test_order_001",
                 )
                 order = await gateway.place_order(request)
 
@@ -230,9 +215,7 @@ class TestLatencyBenchmarks:
 
             # Run benchmark
             result = await benchmark.pedantic(
-                complete_order_flow,
-                rounds=50,
-                iterations=1
+                complete_order_flow, rounds=50, iterations=1
             )
 
             assert result is not None

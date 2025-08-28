@@ -45,14 +45,16 @@ class PositionWidget(Static):
         side_color = "cyan" if self.side == "LONG" else "magenta"
 
         # Format values
-        qty_str = f"{self.quantity:.8f}".rstrip('0').rstrip('.')
+        qty_str = f"{self.quantity:.8f}".rstrip("0").rstrip(".")
         entry_str = f"${self.entry_price:,.2f}"
         current_str = f"${self.current_price:,.2f}"
         pnl_str = f"${self.unrealized_pnl:,.2f}"
 
         # Calculate percentage change
         if self.entry_price > 0:
-            pct_change = ((self.current_price - self.entry_price) / self.entry_price) * 100
+            pct_change = (
+                (self.current_price - self.entry_price) / self.entry_price
+            ) * 100
             pct_str = f"{pct_change:+.2f}%"
         else:
             pct_str = "+0.00%"
@@ -77,11 +79,7 @@ class PositionWidget(Static):
 
         # Add details if enabled
         if self.show_details:
-            lines.extend([
-                "",
-                "[dim]─────────────────────[/dim]",
-                self._get_details()
-            ])
+            lines.extend(["", "[dim]─────────────────────[/dim]", self._get_details()])
 
         return "\n".join(lines)
 
@@ -137,9 +135,15 @@ Status: Active[/dim]"""
         """React to detail toggle."""
         self.update(self.render())
 
-    def set_mock_position(self, symbol: str, side: str, qty: Decimal,
-                         entry: Decimal, current: Decimal,
-                         stop_loss: Optional[Decimal] = None) -> None:
+    def set_mock_position(
+        self,
+        symbol: str,
+        side: str,
+        qty: Decimal,
+        entry: Decimal,
+        current: Decimal,
+        stop_loss: Optional[Decimal] = None,
+    ) -> None:
         """Set mock position data for testing."""
         self.has_position = True
         self.symbol = symbol

@@ -39,7 +39,7 @@ def framework(mock_event_bus, mock_performance_tracker, tmp_path):
     return ABTestFramework(
         event_bus=mock_event_bus,
         performance_tracker=mock_performance_tracker,
-        storage_path=str(tmp_path / "ab_tests")
+        storage_path=str(tmp_path / "ab_tests"),
     )
 
 
@@ -50,7 +50,7 @@ def variant_a():
         variant_id="variant_a",
         strategy_name="strategy_a",
         strategy_params={"param1": "value1"},
-        weight=Decimal("0.5")
+        weight=Decimal("0.5"),
     )
 
 
@@ -61,7 +61,7 @@ def variant_b():
         variant_id="variant_b",
         strategy_name="strategy_b",
         strategy_params={"param2": "value2"},
-        weight=Decimal("0.5")
+        weight=Decimal("0.5"),
     )
 
 
@@ -79,7 +79,7 @@ class TestABTestFramework:
             variant_b=variant_b,
             min_trades=50,
             confidence_level=Decimal("0.95"),
-            allocation_method=AllocationMethod.RANDOM
+            allocation_method=AllocationMethod.RANDOM,
         )
 
         assert test.test_id == "test_1"
@@ -104,7 +104,7 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
 
         with pytest.raises(ValueError, match="already exists"):
@@ -113,7 +113,7 @@ class TestABTestFramework:
                 name="Test 1",
                 description="Test description",
                 variant_a=variant_a,
-                variant_b=variant_b
+                variant_b=variant_b,
             )
 
     @pytest.mark.asyncio
@@ -124,7 +124,7 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
 
         await framework.start_test("test_1")
@@ -151,7 +151,7 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
         await framework.start_test("test_1")
 
@@ -167,13 +167,13 @@ class TestABTestFramework:
             description="Test description",
             variant_a=variant_a,
             variant_b=variant_b,
-            allocation_method=AllocationMethod.RANDOM
+            allocation_method=AllocationMethod.RANDOM,
         )
         await framework.start_test("test_1")
 
         # Test allocation distribution
         allocations = []
-        with patch('numpy.random.random') as mock_random:
+        with patch("numpy.random.random") as mock_random:
             # Test variant A allocation
             mock_random.return_value = 0.3
             allocations.append(framework.allocate_variant("test_1"))
@@ -194,7 +194,7 @@ class TestABTestFramework:
             description="Test description",
             variant_a=variant_a,
             variant_b=variant_b,
-            allocation_method=AllocationMethod.ROUND_ROBIN
+            allocation_method=AllocationMethod.ROUND_ROBIN,
         )
         await framework.start_test("test_1")
 
@@ -212,13 +212,13 @@ class TestABTestFramework:
             variant_id="variant_a",
             strategy_name="strategy_a",
             strategy_params={},
-            weight=Decimal("0.7")
+            weight=Decimal("0.7"),
         )
         variant_b = TestVariant(
             variant_id="variant_b",
             strategy_name="strategy_b",
             strategy_params={},
-            weight=Decimal("0.3")
+            weight=Decimal("0.3"),
         )
 
         await framework.create_test(
@@ -227,11 +227,11 @@ class TestABTestFramework:
             description="Test description",
             variant_a=variant_a,
             variant_b=variant_b,
-            allocation_method=AllocationMethod.WEIGHTED
+            allocation_method=AllocationMethod.WEIGHTED,
         )
         await framework.start_test("test_1")
 
-        with patch('numpy.random.random') as mock_random:
+        with patch("numpy.random.random") as mock_random:
             # Test weighted allocation
             mock_random.return_value = 0.6  # Should allocate to variant A (0.6 < 0.7)
             assert framework.allocate_variant("test_1") == "variant_a"
@@ -247,7 +247,7 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
 
         with pytest.raises(ValueError, match="not running"):
@@ -262,22 +262,16 @@ class TestABTestFramework:
             description="Test description",
             variant_a=variant_a,
             variant_b=variant_b,
-            min_trades=2
+            min_trades=2,
         )
         await framework.start_test("test_1")
 
         # Record trades for variant A
         await framework.record_trade_result(
-            "test_1",
-            "variant_a",
-            Decimal("100"),
-            datetime.now(UTC)
+            "test_1", "variant_a", Decimal("100"), datetime.now(UTC)
         )
         await framework.record_trade_result(
-            "test_1",
-            "variant_a",
-            Decimal("-50"),
-            datetime.now(UTC)
+            "test_1", "variant_a", Decimal("-50"), datetime.now(UTC)
         )
 
         test = framework.active_tests.get("test_1")
@@ -294,16 +288,13 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
         await framework.start_test("test_1")
 
         with pytest.raises(ValueError, match="not found"):
             await framework.record_trade_result(
-                "test_1",
-                "invalid_variant",
-                Decimal("100"),
-                datetime.now(UTC)
+                "test_1", "invalid_variant", Decimal("100"), datetime.now(UTC)
             )
 
     @pytest.mark.asyncio
@@ -315,7 +306,7 @@ class TestABTestFramework:
             description="Test description",
             variant_a=variant_a,
             variant_b=variant_b,
-            min_trades=2
+            min_trades=2,
         )
         await framework.start_test("test_1")
 
@@ -325,13 +316,13 @@ class TestABTestFramework:
                 "test_1",
                 "variant_a",
                 Decimal(str(np.random.normal(10, 5))),
-                datetime.now(UTC)
+                datetime.now(UTC),
             )
             await framework.record_trade_result(
                 "test_1",
                 "variant_b",
                 Decimal(str(np.random.normal(5, 5))),
-                datetime.now(UTC)
+                datetime.now(UTC),
             )
 
         # Complete test
@@ -356,7 +347,7 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
         await framework.start_test("test_1")
 
@@ -386,9 +377,7 @@ class TestABTestFramework:
         returns_b = [Decimal("5"), Decimal("8"), Decimal("3")] * 20
 
         lower, upper = framework._calculate_confidence_interval(
-            returns_a,
-            returns_b,
-            Decimal("0.95")
+            returns_a, returns_b, Decimal("0.95")
         )
 
         assert lower < upper
@@ -412,8 +401,12 @@ class TestABTestFramework:
     def test_calculate_max_drawdown(self, framework):
         """Test maximum drawdown calculation"""
         returns = [
-            Decimal("100"), Decimal("50"), Decimal("-75"),
-            Decimal("25"), Decimal("-100"), Decimal("50")
+            Decimal("100"),
+            Decimal("50"),
+            Decimal("-75"),
+            Decimal("25"),
+            Decimal("-100"),
+            Decimal("50"),
         ]
 
         max_dd = framework._calculate_max_drawdown(returns)
@@ -434,7 +427,7 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
 
         # Get active test
@@ -454,14 +447,14 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
         await framework.create_test(
             test_id="test_2",
             name="Test 2",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
 
         all_tests = await framework.get_all_tests()
@@ -469,14 +462,16 @@ class TestABTestFramework:
         assert all(isinstance(test, ABTest) for test in all_tests)
 
     @pytest.mark.asyncio
-    async def test_save_and_load_test_results(self, framework, variant_a, variant_b, tmp_path):
+    async def test_save_and_load_test_results(
+        self, framework, variant_a, variant_b, tmp_path
+    ):
         """Test saving and loading test results"""
         test = await framework.create_test(
             test_id="test_1",
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
         test.status = TestStatus.COMPLETED
         test.winner = "variant_a"
@@ -505,17 +500,14 @@ class TestABTestFramework:
             name="Test 1",
             description="Test description",
             variant_a=variant_a,
-            variant_b=variant_b
+            variant_b=variant_b,
         )
         await framework.start_test("test_1")
 
         # Add some trades
         for _ in range(10):
             await framework.record_trade_result(
-                "test_1",
-                "variant_a",
-                Decimal("100"),
-                datetime.now(UTC)
+                "test_1", "variant_a", Decimal("100"), datetime.now(UTC)
             )
 
         report = await framework.generate_report("test_1")
@@ -528,7 +520,9 @@ class TestABTestFramework:
         assert "Trades: 10" in report
 
     @pytest.mark.asyncio
-    async def test_check_test_completion_min_trades(self, framework, variant_a, variant_b):
+    async def test_check_test_completion_min_trades(
+        self, framework, variant_a, variant_b
+    ):
         """Test completion check with minimum trades requirement"""
         test = await framework.create_test(
             test_id="test_1",
@@ -536,7 +530,7 @@ class TestABTestFramework:
             description="Test description",
             variant_a=variant_a,
             variant_b=variant_b,
-            min_trades=10
+            min_trades=10,
         )
 
         # Not enough trades
@@ -547,7 +541,9 @@ class TestABTestFramework:
         # Enough trades
         test.variant_a.trades_executed = 10
         test.variant_b.trades_executed = 10
-        assert not await framework._check_test_completion(test)  # Still need statistical significance
+        assert not await framework._check_test_completion(
+            test
+        )  # Still need statistical significance
 
     @pytest.mark.asyncio
     async def test_check_test_completion_statistical_significance(self, framework):
@@ -556,13 +552,13 @@ class TestABTestFramework:
             variant_id="variant_a",
             strategy_name="strategy_a",
             strategy_params={},
-            returns=[Decimal("10")] * 35
+            returns=[Decimal("10")] * 35,
         )
         variant_b = TestVariant(
             variant_id="variant_b",
             strategy_name="strategy_b",
             strategy_params={},
-            returns=[Decimal("5")] * 35
+            returns=[Decimal("5")] * 35,
         )
 
         test = ABTest(
@@ -572,13 +568,15 @@ class TestABTestFramework:
             variant_a=variant_a,
             variant_b=variant_b,
             min_trades_per_variant=10,
-            confidence_level=Decimal("0.95")
+            confidence_level=Decimal("0.95"),
         )
         test.variant_a.trades_executed = 35
         test.variant_b.trades_executed = 35
 
         # Should complete with statistical significance
-        with patch.object(framework, '_calculate_p_value', return_value=Decimal("0.01")):
+        with patch.object(
+            framework, "_calculate_p_value", return_value=Decimal("0.01")
+        ):
             assert await framework._check_test_completion(test)
 
     def test_test_variant_to_dict(self, variant_a):
@@ -591,8 +589,8 @@ class TestABTestFramework:
             variant_b=TestVariant(
                 variant_id="variant_b",
                 strategy_name="strategy_b",
-                strategy_params={"param": "value"}
-            )
+                strategy_params={"param": "value"},
+            ),
         )
 
         data = test.to_dict()

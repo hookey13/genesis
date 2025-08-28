@@ -31,9 +31,7 @@ class ProfileManager:
         self.active_profiles: dict[str, BaselineProfile] = {}
 
     async def create_baseline_profile(
-        self,
-        account_id: str,
-        context: str = "normal"
+        self, account_id: str, context: str = "normal"
     ) -> BaselineProfile:
         """
         Create a new baseline profile.
@@ -59,7 +57,7 @@ class ProfileManager:
             profile_id=profile_id,
             learning_start_date=datetime.now(UTC),
             is_mature=False,
-            context=context
+            context=context,
         )
 
         # Cache in memory
@@ -69,7 +67,7 @@ class ProfileManager:
             "Baseline profile created",
             profile_id=profile_id,
             account_id=account_id,
-            context=context
+            context=context,
         )
 
         return profile
@@ -89,8 +87,7 @@ class ProfileManager:
 
         # Update database
         await self.repository.update_tilt_profile_baseline(
-            profile_id,
-            {"metric_ranges": {}}  # Empty baseline
+            profile_id, {"metric_ranges": {}}  # Empty baseline
         )
 
         # Update cache
@@ -101,9 +98,7 @@ class ProfileManager:
         return new_baseline
 
     async def switch_profile_context(
-        self,
-        profile_id: str,
-        new_context: str
+        self, profile_id: str, new_context: str
     ) -> BaselineProfile:
         """
         Switch profile to a different context.
@@ -131,17 +126,13 @@ class ProfileManager:
         self.active_profiles[profile_id] = profile
 
         logger.info(
-            "Profile context switched",
-            profile_id=profile_id,
-            new_context=new_context
+            "Profile context switched", profile_id=profile_id, new_context=new_context
         )
 
         return profile
 
     async def update_baseline_from_metrics(
-        self,
-        profile_id: str,
-        force_recalculation: bool = False
+        self, profile_id: str, force_recalculation: bool = False
     ) -> BaselineProfile:
         """
         Update profile baseline from collected metrics.
@@ -154,10 +145,14 @@ class ProfileManager:
             Updated baseline profile
         """
         # Get metrics from database
-        metrics_data = await self.repository.get_metrics_for_baseline(profile_id, days=30)
+        metrics_data = await self.repository.get_metrics_for_baseline(
+            profile_id, days=30
+        )
 
         if not metrics_data:
-            logger.warning("No metrics found for baseline update", profile_id=profile_id)
+            logger.warning(
+                "No metrics found for baseline update", profile_id=profile_id
+            )
             return await self._get_or_load_profile(profile_id)
 
         # Convert to BehavioralMetric objects
@@ -169,33 +164,38 @@ class ProfileManager:
                 timestamp=data["timestamp"],
                 session_context=data.get("session_context"),
                 time_of_day_bucket=data.get("time_of_day_bucket"),
-                profile_id=profile_id
+                profile_id=profile_id,
             )
             metrics.append(metric)
 
         # Calculate or update baseline
         # Check if we need full recalculation
         needs_recalculation = (
-            force_recalculation or
-            profile_id not in self.active_profiles or
-            (profile_id in self.active_profiles and
-             len(self.active_profiles[profile_id].metric_ranges) == 0)
+            force_recalculation
+            or profile_id not in self.active_profiles
+            or (
+                profile_id in self.active_profiles
+                and len(self.active_profiles[profile_id].metric_ranges) == 0
+            )
         )
 
         if needs_recalculation:
             # Full recalculation
-            logger.debug(f"Full recalculation for profile {profile_id}, metrics count: {len(metrics)}")
+            logger.debug(
+                f"Full recalculation for profile {profile_id}, metrics count: {len(metrics)}"
+            )
             baseline = self.baseline_calculator.calculate_baseline(metrics)
             # Ensure profile_id is set correctly
             baseline.profile_id = profile_id
-            logger.debug(f"Calculated baseline has {len(baseline.metric_ranges)} metric ranges")
+            logger.debug(
+                f"Calculated baseline has {len(baseline.metric_ranges)} metric ranges"
+            )
         else:
             # Rolling update
             current_baseline = self.active_profiles[profile_id]
             logger.debug(f"Rolling update for profile {profile_id}")
             baseline = self.baseline_calculator.update_rolling_baseline(
-                current_baseline,
-                metrics
+                current_baseline, metrics
             )
 
         # Update database
@@ -205,7 +205,7 @@ class ProfileManager:
                     "mean": float(v.mean),  # Convert Decimal to float for JSON
                     "std_dev": float(v.std_dev),
                     "lower_bound": float(v.lower_bound),
-                    "upper_bound": float(v.upper_bound)
+                    "upper_bound": float(v.upper_bound),
                 }
                 for k, v in baseline.metric_ranges.items()
             }
@@ -219,12 +219,14 @@ class ProfileManager:
             "Baseline updated from metrics",
             profile_id=profile_id,
             metric_count=len(metrics),
-            is_mature=baseline.is_mature
+            is_mature=baseline.is_mature,
         )
 
         return baseline
 
-    async def get_profile_by_account(self, account_id: str) -> Optional[BaselineProfile]:
+    async def get_profile_by_account(
+        self, account_id: str
+    ) -> Optional[BaselineProfile]:
         """
         Get profile for an account.
 
@@ -277,14 +279,16 @@ class ProfileManager:
             Baseline profile or None
         """
         # Get metrics for baseline calculation
-        metrics_data = await self.repository.get_metrics_for_baseline(profile_id, days=30)
+        metrics_data = await self.repository.get_metrics_for_baseline(
+            profile_id, days=30
+        )
 
         if not metrics_data:
             # Create empty profile
             profile = BaselineProfile(
                 profile_id=profile_id,
                 learning_start_date=datetime.now(UTC),
-                is_mature=False
+                is_mature=False,
             )
         else:
             # Convert to BehavioralMetric objects
@@ -296,7 +300,7 @@ class ProfileManager:
                     timestamp=data["timestamp"],
                     session_context=data.get("session_context"),
                     time_of_day_bucket=data.get("time_of_day_bucket"),
-                    profile_id=profile_id
+                    profile_id=profile_id,
                 )
                 metrics.append(metric)
 
@@ -329,8 +333,15 @@ class ProfileManager:
             issues.append("Profile not mature - still in learning period")
 
         # Check for missing metric types
-        expected_metrics = ["click_speed", "order_frequency", "position_size_variance", "cancel_rate"]
-        missing_metrics = [m for m in expected_metrics if m not in profile.metric_ranges]
+        expected_metrics = [
+            "click_speed",
+            "order_frequency",
+            "position_size_variance",
+            "cancel_rate",
+        ]
+        missing_metrics = [
+            m for m in expected_metrics if m not in profile.metric_ranges
+        ]
 
         if missing_metrics:
             issues.append(f"Missing metrics: {', '.join(missing_metrics)}")
@@ -341,7 +352,9 @@ class ProfileManager:
                 issues.append(f"{metric_type} has zero variance - may be stale")
 
             if metric_range.upper_bound == metric_range.lower_bound:
-                issues.append(f"{metric_type} has identical bounds - needs recalculation")
+                issues.append(
+                    f"{metric_type} has identical bounds - needs recalculation"
+                )
 
         return issues
 
@@ -357,7 +370,7 @@ class ProfileManager:
         """
         export_data = {
             "export_timestamp": datetime.now(UTC).isoformat(),
-            "profiles": {}
+            "profiles": {},
         }
 
         # Export each cached profile
@@ -367,19 +380,17 @@ class ProfileManager:
             export_data["profiles"][profile_id] = baseline_data
 
         # Write to file
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(export_data, f, indent=2, default=str)
 
         summary = {
             "profiles_exported": len(export_data["profiles"]),
             "export_path": output_path,
-            "timestamp": export_data["export_timestamp"]
+            "timestamp": export_data["export_timestamp"],
         }
 
         logger.info(
-            "Profiles exported",
-            count=summary["profiles_exported"],
-            path=output_path
+            "Profiles exported", count=summary["profiles_exported"], path=output_path
         )
 
         return summary
@@ -416,7 +427,7 @@ class ProfileManager:
             logger.info(
                 "Stale profiles cleaned from cache",
                 cleaned=cleaned_count,
-                remaining=len(self.active_profiles)
+                remaining=len(self.active_profiles),
             )
 
         return cleaned_count

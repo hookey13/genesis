@@ -1,4 +1,5 @@
 """Unit tests for the journal entry system."""
+
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -118,7 +119,9 @@ class TestContentValidation:
         )
         assert is_valid is True
 
-    def test_validate_insufficient_trigger_analysis(self, journal_system, sample_content):
+    def test_validate_insufficient_trigger_analysis(
+        self, journal_system, sample_content
+    ):
         """Test validation with insufficient trigger analysis."""
         trigger = "Bad"  # Too short
         is_valid, message = journal_system.validate_entry_content(

@@ -1,4 +1,5 @@
 """Unit tests for behavioral anomaly detection."""
+
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -19,7 +20,7 @@ class TestRevengeTradingDetector:
         return RevengeTradingDetector(
             loss_streak_threshold=3,
             time_window_minutes=30,
-            size_multiplier_threshold=Decimal('1.5')
+            size_multiplier_threshold=Decimal("1.5"),
         )
 
     def test_record_trade_result_loss(self, detector):
@@ -31,7 +32,7 @@ class TestRevengeTradingDetector:
             profile_id=profile_id,
             pnl=Decimal("-100"),
             symbol="BTC/USDT",
-            position_size=Decimal("1000")
+            position_size=Decimal("1000"),
         )
 
         # Check loss was recorded
@@ -49,7 +50,7 @@ class TestRevengeTradingDetector:
                 profile_id=profile_id,
                 pnl=Decimal("-100"),
                 symbol="BTC/USDT",
-                position_size=Decimal("1000")
+                position_size=Decimal("1000"),
             )
 
         assert detector.consecutive_losses[profile_id] == 3
@@ -59,7 +60,7 @@ class TestRevengeTradingDetector:
             profile_id=profile_id,
             pnl=Decimal("100"),
             symbol="BTC/USDT",
-            position_size=Decimal("1000")
+            position_size=Decimal("1000"),
         )
 
         # Streak should reset
@@ -75,7 +76,7 @@ class TestRevengeTradingDetector:
                 profile_id=profile_id,
                 pnl=Decimal("-100"),
                 symbol="BTC/USDT",
-                position_size=Decimal("1000")
+                position_size=Decimal("1000"),
             )
 
         # Create metric with increased position size
@@ -83,7 +84,7 @@ class TestRevengeTradingDetector:
             metric_name="position_size",
             value=2000.0,  # Doubled position size
             timestamp=datetime.now(UTC),
-            context={}
+            context={},
         )
 
         # Detect pattern
@@ -91,10 +92,10 @@ class TestRevengeTradingDetector:
 
         # Assert pattern detected
         assert result is not None
-        assert result['pattern'] == 'revenge_trading'
-        assert result['consecutive_losses'] == 3
-        assert result['position_size_increase'] == 2.0
-        assert result['severity'] == 6  # min(3*2, 10)
+        assert result["pattern"] == "revenge_trading"
+        assert result["consecutive_losses"] == 3
+        assert result["position_size_increase"] == 2.0
+        assert result["severity"] == 6  # min(3*2, 10)
 
     def test_detect_revenge_pattern_rapid_trading(self, detector):
         """Test detection of rapid trading after losses."""
@@ -108,7 +109,7 @@ class TestRevengeTradingDetector:
                 pnl=Decimal("-100"),
                 symbol="BTC/USDT",
                 position_size=Decimal("1000"),
-                timestamp=now - timedelta(seconds=30+i*10)  # Recent losses
+                timestamp=now - timedelta(seconds=30 + i * 10),  # Recent losses
             )
 
         # Create order frequency metric (rapid trading)
@@ -116,7 +117,7 @@ class TestRevengeTradingDetector:
             metric_name="order_frequency",
             value=10.0,  # High frequency
             timestamp=now,
-            context={}
+            context={},
         )
 
         # Detect pattern
@@ -124,9 +125,9 @@ class TestRevengeTradingDetector:
 
         # Assert pattern detected
         assert result is not None
-        assert result['pattern'] == 'revenge_trading_speed'
-        assert result['consecutive_losses'] == 3
-        assert result['severity'] == 7
+        assert result["pattern"] == "revenge_trading_speed"
+        assert result["consecutive_losses"] == 3
+        assert result["severity"] == 7
 
     def test_no_revenge_pattern_below_threshold(self, detector):
         """Test no pattern detected below loss threshold."""
@@ -138,7 +139,7 @@ class TestRevengeTradingDetector:
                 profile_id=profile_id,
                 pnl=Decimal("-100"),
                 symbol="BTC/USDT",
-                position_size=Decimal("1000")
+                position_size=Decimal("1000"),
             )
 
         # Create metric
@@ -146,7 +147,7 @@ class TestRevengeTradingDetector:
             metric_name="position_size",
             value=2000.0,
             timestamp=datetime.now(UTC),
-            context={}
+            context={},
         )
 
         # No pattern should be detected
@@ -167,7 +168,7 @@ class TestRevengeTradingDetector:
             pnl=Decimal("-100"),
             symbol="BTC/USDT",
             position_size=Decimal("1000"),
-            timestamp=old_timestamp
+            timestamp=old_timestamp,
         )
 
         detector.record_trade_result(
@@ -175,7 +176,7 @@ class TestRevengeTradingDetector:
             pnl=Decimal("-100"),
             symbol="BTC/USDT",
             position_size=Decimal("1000"),
-            timestamp=recent_timestamp
+            timestamp=recent_timestamp,
         )
 
         # Old loss should be cleaned
@@ -191,7 +192,7 @@ class TestRevengeTradingDetector:
             profile_id=profile_id,
             pnl=Decimal("-100"),
             symbol="BTC/USDT",
-            position_size=Decimal("1000")
+            position_size=Decimal("1000"),
         )
 
         # Reset
@@ -210,21 +211,18 @@ class TestTypingSpeedIndicator:
     def indicator(self):
         """Create typing speed indicator."""
         return TypingSpeedIndicator(
-            window_size=50,
-            burst_threshold_wpm=120,
-            slow_threshold_wpm=20
+            window_size=50, burst_threshold_wpm=120, slow_threshold_wpm=20
         )
 
     def test_record_keystroke_event(self, indicator):
         """Test recording keystroke events."""
         # Record normal typing
         result = indicator.record_keystroke_event(
-            key_count=50,
-            duration_ms=3000  # 50 keys in 3 seconds
+            key_count=50, duration_ms=3000  # 50 keys in 3 seconds
         )
 
-        assert result['has_data']
-        assert result['sample_count'] == 1
+        assert result["has_data"]
+        assert result["sample_count"] == 1
         assert len(indicator.keystroke_events) == 1
 
     def test_detect_typing_burst(self, indicator):
@@ -232,7 +230,7 @@ class TestTypingSpeedIndicator:
         # Record a burst (fast typing)
         result = indicator.record_keystroke_event(
             key_count=100,
-            duration_ms=2000  # 150 WPM (100 chars / 5 chars per word / (2/60) minutes)
+            duration_ms=2000,  # 150 WPM (100 chars / 5 chars per word / (2/60) minutes)
         )
 
         assert indicator.burst_count == 1
@@ -242,10 +240,10 @@ class TestTypingSpeedIndicator:
         """Test analysis of typing patterns."""
         # Record various typing speeds
         speeds = [
-            (50, 3000),   # Normal
+            (50, 3000),  # Normal
             (100, 2000),  # Fast
-            (20, 4000),   # Slow
-            (75, 3000),   # Normal-fast
+            (20, 4000),  # Slow
+            (75, 3000),  # Normal-fast
         ]
 
         for key_count, duration in speeds:
@@ -253,12 +251,12 @@ class TestTypingSpeedIndicator:
 
         analysis = indicator.analyze_typing_patterns()
 
-        assert analysis['has_data']
-        assert analysis['sample_count'] == 4
-        assert 'avg_wpm' in analysis
-        assert 'max_wpm' in analysis
-        assert 'min_wpm' in analysis
-        assert analysis['burst_detected']  # One burst was recorded
+        assert analysis["has_data"]
+        assert analysis["sample_count"] == 4
+        assert "avg_wpm" in analysis
+        assert "max_wpm" in analysis
+        assert "min_wpm" in analysis
+        assert analysis["burst_detected"]  # One burst was recorded
 
     def test_detect_stress_typing(self, indicator):
         """Test detection of stress-induced typing patterns."""
@@ -275,9 +273,9 @@ class TestTypingSpeedIndicator:
         stress = indicator.detect_stress_typing()
 
         assert stress is not None
-        assert stress['stress_detected']
-        assert 'rapid_bursts' in stress['indicators']
-        assert stress['severity'] > 0
+        assert stress["stress_detected"]
+        assert "rapid_bursts" in stress["indicators"]
+        assert stress["severity"] > 0
 
     def test_calculate_wpm(self, indicator):
         """Test WPM calculation."""
@@ -314,20 +312,15 @@ class TestMousePatternsIndicator:
     def indicator(self):
         """Create mouse patterns indicator."""
         return MousePatternsIndicator(
-            window_size=50,
-            rapid_click_threshold_ms=200,
-            jitter_threshold_pixels=5
+            window_size=50, rapid_click_threshold_ms=200, jitter_threshold_pixels=5
         )
 
     def test_record_click(self, indicator):
         """Test recording mouse clicks."""
-        result = indicator.record_click(
-            position=(100, 200),
-            duration_ms=100
-        )
+        result = indicator.record_click(position=(100, 200), duration_ms=100)
 
-        assert result['has_data']
-        assert result['click_count'] == 1
+        assert result["has_data"]
+        assert result["click_count"] == 1
         assert len(indicator.mouse_events) == 1
         assert len(indicator.click_times) == 1
 
@@ -354,13 +347,11 @@ class TestMousePatternsIndicator:
     def test_record_movement(self, indicator):
         """Test recording mouse movements."""
         result = indicator.record_movement(
-            start_pos=(100, 100),
-            end_pos=(200, 200),
-            duration_ms=500
+            start_pos=(100, 100), end_pos=(200, 200), duration_ms=500
         )
 
-        assert result['has_data']
-        assert result['movement_count'] == 1
+        assert result["has_data"]
+        assert result["movement_count"] == 1
         assert len(indicator.movement_velocities) == 1
 
     def test_detect_jitter(self, indicator):
@@ -370,7 +361,7 @@ class TestMousePatternsIndicator:
             indicator.record_movement(
                 start_pos=(100, 100),
                 end_pos=(102, 102),  # Small movement (< 5 pixels)
-                duration_ms=50
+                duration_ms=50,
             )
 
         assert indicator.jitter_count == 10
@@ -382,23 +373,21 @@ class TestMousePatternsIndicator:
 
         # Clicks
         for i in range(5):
-            indicator.record_click((100 + i*10, 200), 100, now + timedelta(seconds=i))
+            indicator.record_click((100 + i * 10, 200), 100, now + timedelta(seconds=i))
 
         # Movements
         for i in range(5):
             indicator.record_movement(
-                start_pos=(100, 100),
-                end_pos=(200 + i*50, 200),
-                duration_ms=200
+                start_pos=(100, 100), end_pos=(200 + i * 50, 200), duration_ms=200
             )
 
         analysis = indicator.analyze_patterns()
 
-        assert analysis['has_data']
-        assert analysis['click_count'] == 5
-        assert analysis['movement_count'] == 5
-        assert 'click_rate_per_second' in analysis
-        assert 'avg_velocity_pps' in analysis
+        assert analysis["has_data"]
+        assert analysis["click_count"] == 5
+        assert analysis["movement_count"] == 5
+        assert "click_rate_per_second" in analysis
+        assert "avg_velocity_pps" in analysis
 
     def test_detect_stress_patterns(self, indicator):
         """Test detection of stress-induced mouse patterns."""
@@ -407,7 +396,9 @@ class TestMousePatternsIndicator:
         # Simulate stress pattern: rapid clicking + erratic movement
         for i in range(10):
             # Rapid clicks
-            indicator.record_click((100, 200), 50, now + timedelta(milliseconds=i*100))
+            indicator.record_click(
+                (100, 200), 50, now + timedelta(milliseconds=i * 100)
+            )
 
             # Erratic movements
             if i % 2 == 0:
@@ -418,9 +409,9 @@ class TestMousePatternsIndicator:
         stress = indicator.detect_stress_patterns()
 
         assert stress is not None
-        assert stress['stress_detected']
-        assert 'rapid_clicking' in stress['indicators']
-        assert stress['severity'] > 0
+        assert stress["stress_detected"]
+        assert "rapid_clicking" in stress["indicators"]
+        assert stress["severity"] > 0
 
     def test_reset(self, indicator):
         """Test resetting indicator state."""

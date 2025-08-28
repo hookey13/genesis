@@ -32,6 +32,7 @@ AlertLevel = Literal["info", "warning", "critical"]
 @dataclass
 class SpreadAlert:
     """Spread alert notification"""
+
     symbol: str
     alert_type: str
     message: str
@@ -87,11 +88,7 @@ class SpreadAlertsWidget(Widget):
     }
     """
 
-    def __init__(
-        self,
-        max_alerts: int = 50,
-        **kwargs
-    ):
+    def __init__(self, max_alerts: int = 50, **kwargs):
         """
         Initialize spread alerts widget
 
@@ -117,7 +114,9 @@ class SpreadAlertsWidget(Widget):
                 yield Button("Clear", id="clear-alerts", variant="error")
 
             # Alerts display
-            yield Static(self._render_alerts(), classes="alerts-display", id="alerts-list")
+            yield Static(
+                self._render_alerts(), classes="alerts-display", id="alerts-list"
+            )
 
     def _render_alerts(self) -> RenderableType:
         """
@@ -132,7 +131,7 @@ class SpreadAlertsWidget(Widget):
         if not filtered_alerts:
             return Panel(
                 "[dim]No alerts to display[/dim]",
-                title=f"Spread Alerts ({len(self.alerts)} total)"
+                title=f"Spread Alerts ({len(self.alerts)} total)",
             )
 
         # Create table
@@ -141,7 +140,7 @@ class SpreadAlertsWidget(Widget):
             show_header=True,
             header_style="bold magenta",
             show_lines=False,
-            expand=True
+            expand=True,
         )
 
         # Add columns
@@ -162,7 +161,7 @@ class SpreadAlertsWidget(Widget):
                 alert.symbol,
                 alert.alert_type,
                 alert.message,
-                Text(level_icon, style=level_style)
+                Text(level_icon, style=level_style),
             )
 
         return table
@@ -178,7 +177,9 @@ class SpreadAlertsWidget(Widget):
 
         # Filter by symbol
         if self.filter_symbol:
-            filtered = [a for a in filtered if self.filter_symbol.lower() in a.symbol.lower()]
+            filtered = [
+                a for a in filtered if self.filter_symbol.lower() in a.symbol.lower()
+            ]
 
         # Filter by level
         if self.filter_level:
@@ -196,11 +197,9 @@ class SpreadAlertsWidget(Widget):
         Returns:
             Rich style string
         """
-        return {
-            "info": "blue",
-            "warning": "yellow",
-            "critical": "red"
-        }.get(level, "white")
+        return {"info": "blue", "warning": "yellow", "critical": "red"}.get(
+            level, "white"
+        )
 
     def _get_level_icon(self, level: AlertLevel) -> str:
         """
@@ -212,11 +211,7 @@ class SpreadAlertsWidget(Widget):
         Returns:
             Icon string
         """
-        return {
-            "info": "ℹ",
-            "warning": "⚠",
-            "critical": "🔴"
-        }.get(level, "•")
+        return {"info": "ℹ", "warning": "⚠", "critical": "🔴"}.get(level, "•")
 
     def add_alert(
         self,
@@ -224,7 +219,7 @@ class SpreadAlertsWidget(Widget):
         alert_type: str,
         message: str,
         level: AlertLevel = "info",
-        data: Optional[dict] = None
+        data: Optional[dict] = None,
     ) -> None:
         """
         Add a new alert
@@ -242,17 +237,14 @@ class SpreadAlertsWidget(Widget):
             message=message,
             level=level,
             timestamp=datetime.now(UTC),
-            data=data
+            data=data,
         )
 
         self.alerts.append(alert)
         self._refresh_display()
 
         self._logger.info(
-            "Alert added",
-            symbol=symbol,
-            alert_type=alert_type,
-            level=level
+            "Alert added", symbol=symbol, alert_type=alert_type, level=level
         )
 
     def add_compression_alert(self, event: SpreadCompressionEvent) -> None:
@@ -277,16 +269,12 @@ class SpreadAlertsWidget(Widget):
             data={
                 "current_spread": float(event.current_spread),
                 "average_spread": float(event.average_spread),
-                "compression_ratio": float(event.compression_ratio)
-            }
+                "compression_ratio": float(event.compression_ratio),
+            },
         )
 
     def add_imbalance_alert(
-        self,
-        symbol: str,
-        ratio: Decimal,
-        bid_weight: Decimal,
-        ask_weight: Decimal
+        self, symbol: str, ratio: Decimal, bid_weight: Decimal, ask_weight: Decimal
     ) -> None:
         """
         Add alert for order imbalance
@@ -315,8 +303,8 @@ class SpreadAlertsWidget(Widget):
             data={
                 "ratio": float(ratio),
                 "bid_weight": float(bid_weight),
-                "ask_weight": float(ask_weight)
-            }
+                "ask_weight": float(ask_weight),
+            },
         )
 
     def add_anomaly_alert(
@@ -325,7 +313,7 @@ class SpreadAlertsWidget(Widget):
         anomaly_type: str,
         severity: Decimal,
         current_value: Decimal,
-        expected_value: Decimal
+        expected_value: Decimal,
     ) -> None:
         """
         Add alert for spread anomaly
@@ -360,8 +348,8 @@ class SpreadAlertsWidget(Widget):
                 "severity": float(severity),
                 "current_value": float(current_value),
                 "expected_value": float(expected_value),
-                "deviation": float(deviation)
-            }
+                "deviation": float(deviation),
+            },
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -418,7 +406,7 @@ class SpreadAlertsWidget(Widget):
         by_level = {
             "info": sum(1 for a in self.alerts if a.level == "info"),
             "warning": sum(1 for a in self.alerts if a.level == "warning"),
-            "critical": sum(1 for a in self.alerts if a.level == "critical")
+            "critical": sum(1 for a in self.alerts if a.level == "critical"),
         }
 
         by_type = {}
@@ -430,5 +418,5 @@ class SpreadAlertsWidget(Widget):
             "by_level": by_level,
             "by_type": by_type,
             "oldest": self.alerts[0].timestamp if self.alerts else None,
-            "newest": self.alerts[-1].timestamp if self.alerts else None
+            "newest": self.alerts[-1].timestamp if self.alerts else None,
         }

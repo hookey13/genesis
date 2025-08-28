@@ -23,6 +23,7 @@ logger = structlog.get_logger(__name__)
 
 class AllocationMethod(str, Enum):
     """Capital allocation methods."""
+
     EQUAL_WEIGHT = "equal_weight"  # Equal allocation across strategies
     RISK_PARITY = "risk_parity"  # Inverse volatility weighting
     PERFORMANCE_WEIGHTED = "performance_weighted"  # Based on historical performance
@@ -32,6 +33,7 @@ class AllocationMethod(str, Enum):
 
 class RebalanceFrequency(str, Enum):
     """Rebalancing frequency options."""
+
     CONTINUOUS = "continuous"  # Rebalance on every update
     DAILY = "daily"
     WEEKLY = "weekly"
@@ -42,6 +44,7 @@ class RebalanceFrequency(str, Enum):
 @dataclass
 class AllocationRule:
     """Rule for capital allocation."""
+
     rule_id: str
     name: str
     condition: str  # e.g., "performance_score > 0.7"
@@ -59,6 +62,7 @@ class AllocationRule:
 @dataclass
 class StrategyAllocation:
     """Capital allocation for a strategy."""
+
     strategy_id: str
     strategy_name: str
     current_allocation: Decimal = Decimal("0")
@@ -73,9 +77,16 @@ class StrategyAllocation:
 
     def __post_init__(self):
         """Ensure Decimal types."""
-        for attr in ['current_allocation', 'target_allocation', 'min_allocation',
-                    'max_allocation', 'locked_capital', 'available_capital',
-                    'performance_score', 'risk_score']:
+        for attr in [
+            "current_allocation",
+            "target_allocation",
+            "min_allocation",
+            "max_allocation",
+            "locked_capital",
+            "available_capital",
+            "performance_score",
+            "risk_score",
+        ]:
             value = getattr(self, attr)
             if not isinstance(value, Decimal):
                 setattr(self, attr, Decimal(str(value)))
@@ -94,8 +105,13 @@ class AllocationConfig(BaseModel):
     use_kelly_sizing: bool = False
     kelly_fraction: Decimal = Field(default=Decimal("0.25"))  # Conservative Kelly
 
-    @field_validator("min_allocation_percent", "max_allocation_percent",
-                     "reserve_percent", "rebalance_threshold_percent", "kelly_fraction")
+    @field_validator(
+        "min_allocation_percent",
+        "max_allocation_percent",
+        "reserve_percent",
+        "rebalance_threshold_percent",
+        "kelly_fraction",
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal."""
@@ -122,7 +138,7 @@ class CapitalAllocator:
         self,
         event_bus: EventBus,
         total_capital: Decimal,
-        config_path: str | None = None
+        config_path: str | None = None,
     ):
         """
         Initialize capital allocator.
@@ -154,15 +170,14 @@ class CapitalAllocator:
             try:
                 with open(config_path) as f:
                     config_data = yaml.safe_load(f)
-                    return AllocationConfig(**config_data.get('allocation', {}))
+                    return AllocationConfig(**config_data.get("allocation", {}))
             except Exception as e:
                 logger.warning(f"Failed to load config from {config_path}: {e}")
 
         return AllocationConfig()
 
     async def allocate_capital(
-        self,
-        strategy_allocations: list[StrategyAllocation]
+        self, strategy_allocations: list[StrategyAllocation]
     ) -> dict[str, Decimal]:
         """
         Allocate capital across strategies.
@@ -206,20 +221,22 @@ class CapitalAllocator:
                     self.allocations[strategy_id].last_updated = datetime.now(UTC)
 
             # Publish allocation event
-            await self.event_bus.publish(Event(
-                event_type=EventType.STRATEGY_CAPITAL_ADJUSTED,
-                event_data={
-                    "allocations": {k: str(v) for k, v in allocations.items()},
-                    "total_allocated": str(sum(allocations.values())),
-                    "method": self.config.method.value
-                }
-            ))
+            await self.event_bus.publish(
+                Event(
+                    event_type=EventType.STRATEGY_CAPITAL_ADJUSTED,
+                    event_data={
+                        "allocations": {k: str(v) for k, v in allocations.items()},
+                        "total_allocated": str(sum(allocations.values())),
+                        "method": self.config.method.value,
+                    },
+                )
+            )
 
             logger.info(
                 "Capital allocated",
                 method=self.config.method.value,
                 num_strategies=len(allocations),
-                total_allocated=sum(allocations.values())
+                total_allocated=sum(allocations.values()),
             )
 
             return allocations
@@ -235,7 +252,9 @@ class CapitalAllocator:
             return {}
 
         # Calculate available capital (excluding reserve)
-        available = self.total_capital * (Decimal("1") - self.config.reserve_percent / Decimal("100"))
+        available = self.total_capital * (
+            Decimal("1") - self.config.reserve_percent / Decimal("100")
+        )
 
         # Equal allocation per strategy
         num_strategies = len(self.allocations)
@@ -243,7 +262,9 @@ class CapitalAllocator:
 
         allocations = {}
         for strategy_id in self.allocations:
-            allocations[strategy_id] = per_strategy.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            allocations[strategy_id] = per_strategy.quantize(
+                Decimal("0.01"), rounding=ROUND_DOWN
+            )
 
         return allocations
 
@@ -259,7 +280,9 @@ class CapitalAllocator:
 
         # Calculate total performance score
         total_score = sum(
-            max(alloc.performance_score, Decimal("0.1"))  # Minimum score to avoid zero allocation
+            max(
+                alloc.performance_score, Decimal("0.1")
+            )  # Minimum score to avoid zero allocation
             for alloc in self.allocations.values()
         )
 
@@ -268,14 +291,18 @@ class CapitalAllocator:
             return await self._allocate_equal_weight()
 
         # Calculate available capital
-        available = self.total_capital * (Decimal("1") - self.config.reserve_percent / Decimal("100"))
+        available = self.total_capital * (
+            Decimal("1") - self.config.reserve_percent / Decimal("100")
+        )
 
         # Allocate proportional to performance
         allocations = {}
         for strategy_id, alloc in self.allocations.items():
             score = max(alloc.performance_score, Decimal("0.1"))
             weight = score / total_score
-            allocations[strategy_id] = (available * weight).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            allocations[strategy_id] = (available * weight).quantize(
+                Decimal("0.01"), rounding=ROUND_DOWN
+            )
 
         return allocations
 
@@ -303,13 +330,17 @@ class CapitalAllocator:
             return await self._allocate_equal_weight()
 
         # Calculate available capital
-        available = self.total_capital * (Decimal("1") - self.config.reserve_percent / Decimal("100"))
+        available = self.total_capital * (
+            Decimal("1") - self.config.reserve_percent / Decimal("100")
+        )
 
         # Allocate inversely proportional to risk
         allocations = {}
         for strategy_id, inverse_risk in inverse_risks.items():
             weight = inverse_risk / total_inverse
-            allocations[strategy_id] = (available * weight).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            allocations[strategy_id] = (available * weight).quantize(
+                Decimal("0.01"), rounding=ROUND_DOWN
+            )
 
         return allocations
 
@@ -338,8 +369,7 @@ class CapitalAllocator:
                 # Conservative Kelly with fraction
                 kelly_percent = edge * self.config.kelly_fraction * Decimal("100")
                 kelly_allocations[strategy_id] = min(
-                    kelly_percent,
-                    self.config.max_allocation_percent
+                    kelly_percent, self.config.max_allocation_percent
                 )
 
         # Normalize if total exceeds 100%
@@ -377,19 +407,24 @@ class CapitalAllocator:
                 # Evaluate rule condition (simplified)
                 if self._evaluate_rule(rule, alloc):
                     # Apply adjustment
-                    adjustment = allocations[strategy_id] * rule.adjustment_percent / Decimal("100")
+                    adjustment = (
+                        allocations[strategy_id]
+                        * rule.adjustment_percent
+                        / Decimal("100")
+                    )
 
                     if "increase" in rule.action:
                         allocations[strategy_id] += adjustment
                     elif "decrease" in rule.action:
                         allocations[strategy_id] = max(
-                            allocations[strategy_id] - adjustment,
-                            Decimal("0")
+                            allocations[strategy_id] - adjustment, Decimal("0")
                         )
 
         return allocations
 
-    def _evaluate_rule(self, rule: AllocationRule, allocation: StrategyAllocation) -> bool:
+    def _evaluate_rule(
+        self, rule: AllocationRule, allocation: StrategyAllocation
+    ) -> bool:
         """
         Evaluate if a rule applies to an allocation.
 
@@ -423,7 +458,9 @@ class CapitalAllocator:
         """
         constrained = {}
         total_allocated = Decimal("0")
-        available = self.total_capital * (Decimal("1") - self.config.reserve_percent / Decimal("100"))
+        available = self.total_capital * (
+            Decimal("1") - self.config.reserve_percent / Decimal("100")
+        )
 
         for strategy_id, amount in allocations.items():
             # Apply min/max percentages
@@ -433,8 +470,12 @@ class CapitalAllocator:
             # Apply strategy-specific constraints
             if strategy_id in self.allocations:
                 alloc = self.allocations[strategy_id]
-                min_amount = max(min_amount, available * alloc.min_allocation / Decimal("100"))
-                max_amount = min(max_amount, available * alloc.max_allocation / Decimal("100"))
+                min_amount = max(
+                    min_amount, available * alloc.min_allocation / Decimal("100")
+                )
+                max_amount = min(
+                    max_amount, available * alloc.max_allocation / Decimal("100")
+                )
 
             # Constrain amount
             constrained_amount = max(min(amount, max_amount), min_amount)
@@ -445,9 +486,9 @@ class CapitalAllocator:
         if total_allocated > available:
             scale = available / total_allocated
             for strategy_id in constrained:
-                constrained[strategy_id] = (
-                    constrained[strategy_id] * scale
-                ).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+                constrained[strategy_id] = (constrained[strategy_id] * scale).quantize(
+                    Decimal("0.01"), rounding=ROUND_DOWN
+                )
 
         return constrained
 
@@ -475,7 +516,7 @@ class CapitalAllocator:
             logger.info(
                 "Portfolio rebalanced",
                 num_strategies=len(new_allocations),
-                total_allocated=sum(new_allocations.values())
+                total_allocated=sum(new_allocations.values()),
             )
 
             return True
@@ -515,7 +556,7 @@ class CapitalAllocator:
         self,
         strategy_id: str,
         performance_score: Decimal,
-        risk_score: Decimal | None = None
+        risk_score: Decimal | None = None,
     ) -> None:
         """
         Update strategy performance metrics.
@@ -526,7 +567,9 @@ class CapitalAllocator:
             risk_score: Optional new risk score (0-1+)
         """
         if strategy_id in self.allocations:
-            self.allocations[strategy_id].performance_score = Decimal(str(performance_score))
+            self.allocations[strategy_id].performance_score = Decimal(
+                str(performance_score)
+            )
             if risk_score is not None:
                 self.allocations[strategy_id].risk_score = Decimal(str(risk_score))
 
@@ -551,7 +594,7 @@ class CapitalAllocator:
                 "Insufficient available capital",
                 strategy_id=strategy_id,
                 requested=amount,
-                available=alloc.available_capital
+                available=alloc.available_capital,
             )
             return False
 
@@ -606,9 +649,7 @@ class CapitalAllocator:
         total_allocated = sum(
             alloc.current_allocation for alloc in self.allocations.values()
         )
-        total_locked = sum(
-            alloc.locked_capital for alloc in self.allocations.values()
-        )
+        total_locked = sum(alloc.locked_capital for alloc in self.allocations.values())
 
         return {
             "total_capital": str(self.total_capital),
@@ -624,10 +665,10 @@ class CapitalAllocator:
                     "target": str(alloc.target_allocation),
                     "locked": str(alloc.locked_capital),
                     "available": str(alloc.available_capital),
-                    "performance": str(alloc.performance_score)
+                    "performance": str(alloc.performance_score),
                 }
                 for sid, alloc in self.allocations.items()
-            }
+            },
         }
 
     def add_rule(self, rule: AllocationRule) -> None:
@@ -640,8 +681,4 @@ class CapitalAllocator:
         self.allocation_rules.append(rule)
         self.allocation_rules.sort(key=lambda r: r.priority)
 
-        logger.info(
-            "Allocation rule added",
-            rule_id=rule.rule_id,
-            rule_name=rule.name
-        )
+        logger.info("Allocation rule added", rule_id=rule.rule_id, rule_name=rule.name)

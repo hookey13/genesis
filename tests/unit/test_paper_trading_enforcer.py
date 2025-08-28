@@ -30,7 +30,10 @@ class TestPaperTradingEnforcer:
     @pytest.fixture
     def enforcer(self, mock_session):
         """Create PaperTradingEnforcer instance with mocked dependencies."""
-        with patch('genesis.engine.paper_trading_enforcer.get_session', return_value=mock_session):
+        with patch(
+            "genesis.engine.paper_trading_enforcer.get_session",
+            return_value=mock_session,
+        ):
             return PaperTradingEnforcer(account_id="test-account-123")
 
     @pytest.mark.asyncio
@@ -44,8 +47,7 @@ class TestPaperTradingEnforcer:
     async def test_require_paper_trading(self, enforcer):
         """Test requiring paper trading for new strategy."""
         session_id = await enforcer.require_paper_trading(
-            strategy="iceberg_orders",
-            duration_hours=24
+            strategy="iceberg_orders", duration_hours=24
         )
 
         assert session_id is not None
@@ -80,7 +82,7 @@ class TestPaperTradingEnforcer:
             entry_price=Decimal("50000"),
             exit_price=Decimal("51000"),
             pnl=Decimal("100"),
-            success=True
+            success=True,
         )
 
         session = enforcer.active_sessions[session_id]
@@ -99,7 +101,7 @@ class TestPaperTradingEnforcer:
                 entry_price=Decimal("50000"),
                 exit_price=Decimal("51000"),
                 pnl=Decimal("100"),
-                success=True
+                success=True,
             )
 
         assert "Session not found" in str(exc_info.value)
@@ -107,7 +109,9 @@ class TestPaperTradingEnforcer:
     @pytest.mark.asyncio
     async def test_check_completion_success(self, enforcer):
         """Test checking completion with successful performance."""
-        session_id = await enforcer.require_paper_trading("iceberg_orders", 1)  # 1 hour for testing
+        session_id = await enforcer.require_paper_trading(
+            "iceberg_orders", 1
+        )  # 1 hour for testing
 
         # Record enough successful trades
         for i in range(10):
@@ -119,7 +123,7 @@ class TestPaperTradingEnforcer:
                 entry_price=Decimal("50000"),
                 exit_price=Decimal("51000") if success else Decimal("49000"),
                 pnl=Decimal("100") if success else Decimal("-100"),
-                success=success
+                success=success,
             )
 
         # Simulate time passing
@@ -146,7 +150,7 @@ class TestPaperTradingEnforcer:
                 entry_price=Decimal("50000"),
                 exit_price=Decimal("51000") if success else Decimal("49000"),
                 pnl=Decimal("100") if success else Decimal("-100"),
-                success=success
+                success=success,
             )
 
         # Simulate time passing
@@ -171,7 +175,7 @@ class TestPaperTradingEnforcer:
                 entry_price=Decimal("50000"),
                 exit_price=Decimal("51000"),
                 pnl=Decimal("100"),
-                success=True
+                success=True,
             )
 
         # Don't simulate time passing - just started
@@ -209,7 +213,7 @@ class TestPaperTradingEnforcer:
                 entry_price=Decimal("50000"),
                 exit_price=Decimal("51000") if i < 3 else Decimal("49000"),
                 pnl=Decimal("100") if i < 3 else Decimal("-100"),
-                success=i < 3
+                success=i < 3,
             )
 
         metrics = await enforcer.get_session_metrics(session_id)
@@ -263,7 +267,7 @@ class TestPaperTradingEnforcer:
             entry_price=Decimal("50000"),
             exit_price=Decimal("51000"),
             pnl=Decimal("100"),
-            success=True
+            success=True,
         )
 
         # Simulate time passing

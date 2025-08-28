@@ -20,6 +20,7 @@ logger = structlog.get_logger(__name__)
 
 class PeriodType(Enum):
     """Performance period types."""
+
     HOURLY = "HOURLY"
     DAILY = "DAILY"
     WEEKLY = "WEEKLY"
@@ -30,6 +31,7 @@ class PeriodType(Enum):
 @dataclass
 class PairMetrics:
     """Metrics for a single trading pair."""
+
     symbol: str
     total_trades: int
     winning_trades: int
@@ -66,6 +68,7 @@ class PairMetrics:
 @dataclass
 class AttributionReport:
     """Performance attribution report across pairs."""
+
     period_start: datetime
     period_end: datetime
     total_pnl_dollars: Decimal
@@ -105,13 +108,15 @@ class PairPerformanceTracker:
             logger.warning(
                 "attempted_to_track_open_position",
                 position_id=position.position_id,
-                symbol=position.symbol
+                symbol=position.symbol,
             )
             return
 
         async with self._lock:
             # Calculate trade metrics
-            hold_time_minutes = (position.closed_at - position.opened_at).total_seconds() / 60
+            hold_time_minutes = (
+                position.closed_at - position.opened_at
+            ).total_seconds() / 60
             is_winner = position.pnl_dollars > Decimal("0")
 
             # Get or create current period metrics
@@ -119,21 +124,27 @@ class PairPerformanceTracker:
 
             try:
                 # Store trade in database
-                await self.repository.save_trade_performance({
-                    "trade_id": str(uuid.uuid4()),
-                    "account_id": self.account_id,
-                    "position_id": position.position_id,
-                    "symbol": position.symbol,
-                    "pnl_dollars": position.pnl_dollars,
-                    "is_winner": is_winner,
-                    "hold_time_minutes": hold_time_minutes,
-                    "volume_base": position.quantity,
-                    "volume_quote": position.dollar_value,
-                    "fees_paid": position.fees_paid if hasattr(position, 'fees_paid') else Decimal("0"),
-                    "closed_at": position.closed_at,
-                    "period_start": period_start,
-                    "period_end": period_end
-                })
+                await self.repository.save_trade_performance(
+                    {
+                        "trade_id": str(uuid.uuid4()),
+                        "account_id": self.account_id,
+                        "position_id": position.position_id,
+                        "symbol": position.symbol,
+                        "pnl_dollars": position.pnl_dollars,
+                        "is_winner": is_winner,
+                        "hold_time_minutes": hold_time_minutes,
+                        "volume_base": position.quantity,
+                        "volume_quote": position.dollar_value,
+                        "fees_paid": (
+                            position.fees_paid
+                            if hasattr(position, "fees_paid")
+                            else Decimal("0")
+                        ),
+                        "closed_at": position.closed_at,
+                        "period_start": period_start,
+                        "period_end": period_end,
+                    }
+                )
 
                 # Invalidate cache for this symbol
                 if position.symbol in self._metrics_cache:
@@ -146,21 +157,21 @@ class PairPerformanceTracker:
                     symbol=position.symbol,
                     pnl=position.pnl_dollars,
                     is_winner=is_winner,
-                    hold_time_minutes=hold_time_minutes
+                    hold_time_minutes=hold_time_minutes,
                 )
 
             except Exception as e:
                 logger.error(
                     "failed_to_track_trade",
                     position_id=position.position_id,
-                    error=str(e)
+                    error=str(e),
                 )
 
     async def get_pair_metrics(
         self,
         symbol: str,
         period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None
+        period_end: Optional[datetime] = None,
     ) -> PairMetrics:
         """Get performance metrics for a specific pair.
 
@@ -181,7 +192,10 @@ class PairPerformanceTracker:
         # Check cache
         cache_key = f"{symbol}_{period_start}_{period_end}"
         if cache_key in self._metrics_cache:
-            if datetime.utcnow() - self._cache_timestamps[cache_key] < self._cache_expiry:
+            if (
+                datetime.utcnow() - self._cache_timestamps[cache_key]
+                < self._cache_expiry
+            ):
                 return self._metrics_cache[cache_key]
 
         async with self._lock:
@@ -190,7 +204,7 @@ class PairPerformanceTracker:
                 account_id=self.account_id,
                 symbol=symbol,
                 start_time=period_start,
-                end_time=period_end
+                end_time=period_end,
             )
 
             if not trades:
@@ -212,7 +226,7 @@ class PairPerformanceTracker:
                     fees_paid_dollars=Decimal("0"),
                     best_trade_pnl=Decimal("0"),
                     worst_trade_pnl=Decimal("0"),
-                    average_hold_time_minutes=0
+                    average_hold_time_minutes=0,
                 )
 
             # Calculate metrics
@@ -227,7 +241,7 @@ class PairPerformanceTracker:
     async def generate_attribution_report(
         self,
         period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None
+        period_end: Optional[datetime] = None,
     ) -> AttributionReport:
         """Generate performance attribution report across all pairs.
 
@@ -246,9 +260,7 @@ class PairPerformanceTracker:
         async with self._lock:
             # Get all traded symbols in period
             symbols = await self.repository.get_traded_symbols(
-                account_id=self.account_id,
-                start_time=period_start,
-                end_time=period_end
+                account_id=self.account_id, start_time=period_start, end_time=period_end
             )
 
             if not symbols:
@@ -261,7 +273,7 @@ class PairPerformanceTracker:
                     best_performer=None,
                     worst_performer=None,
                     correlation_impact=Decimal("0"),
-                    diversification_benefit=Decimal("0")
+                    diversification_benefit=Decimal("0"),
                 )
 
             # Get metrics for each pair
@@ -319,14 +331,11 @@ class PairPerformanceTracker:
                 worst_performer=worst_performer,
                 correlation_impact=correlation_impact,
                 diversification_benefit=diversification_benefit,
-                recommendations=recommendations
+                recommendations=recommendations,
             )
 
     async def get_historical_performance(
-        self,
-        symbol: str,
-        periods: int = 30,
-        period_type: PeriodType = PeriodType.DAILY
+        self, symbol: str, periods: int = 30, period_type: PeriodType = PeriodType.DAILY
     ) -> list[PairMetrics]:
         """Get historical performance for a pair.
 
@@ -370,7 +379,7 @@ class PairPerformanceTracker:
         self,
         symbols: list[str],
         period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None
+        period_end: Optional[datetime] = None,
     ) -> dict[str, dict[str, any]]:
         """Compare performance across multiple pairs.
 
@@ -400,11 +409,17 @@ class PairPerformanceTracker:
                 "max_drawdown": metrics.max_drawdown_dollars,
                 "expectancy": metrics.expectancy,
                 "risk_reward": metrics.risk_reward_ratio,
-                "profit_factor": metrics.profit_factor
+                "profit_factor": metrics.profit_factor,
             }
 
         # Add rankings
-        metrics_to_rank = ["pnl", "win_rate", "sharpe_ratio", "expectancy", "profit_factor"]
+        metrics_to_rank = [
+            "pnl",
+            "win_rate",
+            "sharpe_ratio",
+            "expectancy",
+            "profit_factor",
+        ]
 
         for metric in metrics_to_rank:
             values = [(s, comparison[s][metric]) for s in symbols]
@@ -443,27 +458,30 @@ class PairPerformanceTracker:
 
         # Calculate averages
         average_win = (
-            sum(Decimal(str(t["pnl_dollars"])) for t in winners) / Decimal(winning_trades)
-            if winning_trades > 0 else Decimal("0")
+            sum(Decimal(str(t["pnl_dollars"])) for t in winners)
+            / Decimal(winning_trades)
+            if winning_trades > 0
+            else Decimal("0")
         )
 
         average_loss = (
             sum(Decimal(str(t["pnl_dollars"])) for t in losers) / Decimal(losing_trades)
-            if losing_trades > 0 else Decimal("0")
+            if losing_trades > 0
+            else Decimal("0")
         )
 
         # Calculate win rate
         win_rate = (
             Decimal(winning_trades) / Decimal(total_trades)
-            if total_trades > 0 else Decimal("0")
+            if total_trades > 0
+            else Decimal("0")
         )
 
         # Calculate profit factor
         gross_profit = sum(Decimal(str(t["pnl_dollars"])) for t in winners)
         gross_loss = abs(sum(Decimal(str(t["pnl_dollars"])) for t in losers))
         profit_factor = (
-            gross_profit / gross_loss
-            if gross_loss > Decimal("0") else Decimal("0")
+            gross_profit / gross_loss if gross_loss > Decimal("0") else Decimal("0")
         )
 
         # Calculate Sharpe ratio
@@ -507,10 +525,12 @@ class PairPerformanceTracker:
             fees_paid_dollars=fees_paid,
             best_trade_pnl=best_trade,
             worst_trade_pnl=worst_trade,
-            average_hold_time_minutes=avg_hold_time
+            average_hold_time_minutes=avg_hold_time,
         )
 
-    def _calculate_sharpe_ratio(self, returns: list[float], risk_free_rate: float = 0.0) -> float:
+    def _calculate_sharpe_ratio(
+        self, returns: list[float], risk_free_rate: float = 0.0
+    ) -> float:
         """Calculate Sharpe ratio.
 
         Args:
@@ -572,7 +592,7 @@ class PairPerformanceTracker:
         self,
         pair_metrics: dict[str, PairMetrics],
         period_start: datetime,
-        period_end: datetime
+        period_end: datetime,
     ) -> Decimal:
         """Calculate P&L impact from correlations.
 
@@ -589,9 +609,7 @@ class PairPerformanceTracker:
         return Decimal("0")
 
     def _calculate_diversification_benefit(
-        self,
-        pair_metrics: dict[str, PairMetrics],
-        pair_weights: dict[str, Decimal]
+        self, pair_metrics: dict[str, PairMetrics], pair_weights: dict[str, Decimal]
     ) -> Decimal:
         """Calculate diversification benefit.
 
@@ -627,7 +645,7 @@ class PairPerformanceTracker:
         self,
         pair_metrics: dict[str, PairMetrics],
         pair_weights: dict[str, Decimal],
-        correlation_impact: Decimal
+        correlation_impact: Decimal,
     ) -> list[str]:
         """Generate performance recommendations.
 
@@ -729,5 +747,5 @@ class PairPerformanceTracker:
             fees_paid_dollars=Decimal("0"),
             best_trade_pnl=Decimal("0"),
             worst_trade_pnl=Decimal("0"),
-            average_hold_time_minutes=0
+            average_hold_time_minutes=0,
         )

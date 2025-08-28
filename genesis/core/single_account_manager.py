@@ -28,13 +28,13 @@ class AccountManager:
     """
 
     SYNC_INTERVAL = 60  # seconds
-    SYNC_TIMEOUT = 10   # seconds
+    SYNC_TIMEOUT = 10  # seconds
 
     def __init__(
         self,
         gateway: BinanceGateway,
         account: Optional[Account] = None,
-        auto_sync: bool = True
+        auto_sync: bool = True,
     ):
         """
         Initialize account manager.
@@ -46,8 +46,7 @@ class AccountManager:
         """
         self.gateway = gateway
         self.account = account or Account(
-            balance_usdt=Decimal("0"),
-            tier=TradingTier.SNIPER
+            balance_usdt=Decimal("0"), tier=TradingTier.SNIPER
         )
         self.auto_sync = auto_sync
         self._sync_task: Optional[asyncio.Task] = None
@@ -59,7 +58,7 @@ class AccountManager:
             account_id=self.account.account_id,
             balance=str(self.account.balance_usdt),
             tier=self.account.tier.value,
-            auto_sync=auto_sync
+            auto_sync=auto_sync,
         )
 
     async def initialize(self) -> None:
@@ -123,13 +122,13 @@ class AccountManager:
                     old_balance=str(old_balance),
                     new_balance=str(usdt_balance),
                     change=str(change),
-                    sync_count=self._sync_count
+                    sync_count=self._sync_count,
                 )
             else:
                 logger.debug(
                     "Balance unchanged",
                     balance=str(usdt_balance),
-                    sync_count=self._sync_count
+                    sync_count=self._sync_count,
                 )
 
             return usdt_balance
@@ -139,15 +138,14 @@ class AccountManager:
             logger.error(
                 "Failed to sync account balance",
                 error=str(e),
-                sync_count=self._sync_count
+                sync_count=self._sync_count,
             )
             raise ExchangeError(f"Balance sync failed: {e}")
 
     async def _periodic_sync(self) -> None:
         """Background task for periodic balance synchronization."""
         logger.info(
-            "Starting periodic balance sync",
-            interval_seconds=self.SYNC_INTERVAL
+            "Starting periodic balance sync", interval_seconds=self.SYNC_INTERVAL
         )
 
         while True:
@@ -161,7 +159,7 @@ class AccountManager:
                 logger.error(
                     "Error in periodic sync",
                     error=str(e),
-                    will_retry_in=self.SYNC_INTERVAL
+                    will_retry_in=self.SYNC_INTERVAL,
                 )
 
     def get_balance(self) -> Decimal:
@@ -199,7 +197,7 @@ class AccountManager:
         logger.info(
             "Balance manually updated",
             old_balance=str(old_balance),
-            new_balance=str(new_balance)
+            new_balance=str(new_balance),
         )
 
     @requires_tier(Tier.SNIPER)
@@ -222,7 +220,7 @@ class AccountManager:
         logger.debug(
             "Balance deducted",
             amount=str(amount),
-            new_balance=str(self.account.balance_usdt)
+            new_balance=str(self.account.balance_usdt),
         )
 
     @requires_tier(Tier.SNIPER)
@@ -237,7 +235,7 @@ class AccountManager:
         logger.debug(
             "Balance added",
             amount=str(amount),
-            new_balance=str(self.account.balance_usdt)
+            new_balance=str(self.account.balance_usdt),
         )
 
     def is_sync_healthy(self) -> bool:
@@ -266,12 +264,14 @@ class AccountManager:
             Dictionary with sync status information
         """
         return {
-            "last_sync": self.account.last_sync.isoformat() if self.account.last_sync else None,
+            "last_sync": (
+                self.account.last_sync.isoformat() if self.account.last_sync else None
+            ),
             "sync_count": self._sync_count,
             "last_error": self._last_sync_error,
             "is_healthy": self.is_sync_healthy(),
             "auto_sync_enabled": self.auto_sync,
-            "sync_interval": self.SYNC_INTERVAL
+            "sync_interval": self.SYNC_INTERVAL,
         }
 
     async def validate_balance_constraint(self) -> None:
@@ -298,12 +298,16 @@ class AccountManager:
             "balance_usdt": str(self.account.balance_usdt),
             "tier": self.account.tier.value,
             "locked_features": self.account.locked_features,
-            "last_sync": self.account.last_sync.isoformat() if self.account.last_sync else None,
-            "created_at": self.account.created_at.isoformat()
+            "last_sync": (
+                self.account.last_sync.isoformat() if self.account.last_sync else None
+            ),
+            "created_at": self.account.created_at.isoformat(),
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], gateway: BinanceGateway) -> "AccountManager":
+    def from_dict(
+        cls, data: dict[str, Any], gateway: BinanceGateway
+    ) -> "AccountManager":
         """
         Create AccountManager from dictionary.
 
@@ -319,8 +323,12 @@ class AccountManager:
             balance_usdt=Decimal(data["balance_usdt"]),
             tier=TradingTier[data["tier"]],
             locked_features=data.get("locked_features", []),
-            last_sync=datetime.fromisoformat(data["last_sync"]) if data.get("last_sync") else None,
-            created_at=datetime.fromisoformat(data["created_at"])
+            last_sync=(
+                datetime.fromisoformat(data["last_sync"])
+                if data.get("last_sync")
+                else None
+            ),
+            created_at=datetime.fromisoformat(data["created_at"]),
         )
 
         return cls(gateway=gateway, account=account)

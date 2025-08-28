@@ -204,8 +204,10 @@ class BaseStrategy(ABC):
             data={
                 "strategy_id": str(self.strategy_id),
                 "strategy_name": self.name,
-                "signal": signal.__dict__ if hasattr(signal, '__dict__') else str(signal)
-            }
+                "signal": (
+                    signal.__dict__ if hasattr(signal, "__dict__") else str(signal)
+                ),
+            },
         )
         await self.event_queue.put(event)
 
@@ -226,7 +228,9 @@ class BaseStrategy(ABC):
 
         # Update win rate
         if self.state.trades_count > 0:
-            self.state.win_rate = Decimal(self.state.wins_count) / Decimal(self.state.trades_count)
+            self.state.win_rate = Decimal(self.state.wins_count) / Decimal(
+                self.state.trades_count
+            )
 
         # Update max drawdown
         if pnl < 0 and abs(pnl) > self.state.max_drawdown:
@@ -250,5 +254,5 @@ class BaseStrategy(ABC):
             "max_drawdown": float(self.state.max_drawdown),
             "sharpe_ratio": float(self.state.sharpe_ratio),
             "positions_count": len(self.state.positions),
-            "last_update": self.state.last_update.isoformat()
+            "last_update": self.state.last_update.isoformat(),
         }

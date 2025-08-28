@@ -44,9 +44,7 @@ class TestSharpeRatioCalculator:
     async def test_basic_sharpe_calculation(self, calculator, sample_returns):
         """Test basic Sharpe ratio calculation"""
         result = await calculator.calculate_sharpe_ratio(
-            sample_returns,
-            risk_free_rate=Decimal("0.02"),
-            period=TimePeriod.DAILY
+            sample_returns, risk_free_rate=Decimal("0.02"), period=TimePeriod.DAILY
         )
 
         assert isinstance(result, SharpeRatioResult)
@@ -60,9 +58,7 @@ class TestSharpeRatioCalculator:
     async def test_negative_sharpe_ratio(self, calculator, negative_returns):
         """Test calculation with negative returns"""
         result = await calculator.calculate_sharpe_ratio(
-            negative_returns,
-            risk_free_rate=Decimal("0.02"),
-            period=TimePeriod.DAILY
+            negative_returns, risk_free_rate=Decimal("0.02"), period=TimePeriod.DAILY
         )
 
         # Should have negative Sharpe ratio
@@ -76,14 +72,14 @@ class TestSharpeRatioCalculator:
         constant_returns = [Decimal("0.01")] * 30
 
         result = await calculator.calculate_sharpe_ratio(
-            constant_returns,
-            risk_free_rate=Decimal("0.00"),
-            period=TimePeriod.DAILY
+            constant_returns, risk_free_rate=Decimal("0.00"), period=TimePeriod.DAILY
         )
 
         # Should handle zero volatility gracefully
         assert result.std_deviation == Decimal("0")
-        assert result.sharpe_ratio == Decimal("999")  # Max value for positive excess return
+        assert result.sharpe_ratio == Decimal(
+            "999"
+        )  # Max value for positive excess return
 
     @pytest.mark.asyncio
     async def test_different_time_periods(self, calculator, sample_returns):
@@ -92,15 +88,13 @@ class TestSharpeRatioCalculator:
             TimePeriod.DAILY,
             TimePeriod.WEEKLY,
             TimePeriod.MONTHLY,
-            TimePeriod.YEARLY
+            TimePeriod.YEARLY,
         ]
 
         results = {}
         for period in periods:
             result = await calculator.calculate_sharpe_ratio(
-                sample_returns,
-                risk_free_rate=Decimal("0.02"),
-                period=period
+                sample_returns, risk_free_rate=Decimal("0.02"), period=period
             )
             results[period] = result
 
@@ -108,14 +102,16 @@ class TestSharpeRatioCalculator:
         assert len(results) == 4
 
         # Daily should have different annualization than yearly
-        assert results[TimePeriod.DAILY].sharpe_ratio != results[TimePeriod.YEARLY].sharpe_ratio
+        assert (
+            results[TimePeriod.DAILY].sharpe_ratio
+            != results[TimePeriod.YEARLY].sharpe_ratio
+        )
 
     @pytest.mark.asyncio
     async def test_confidence_intervals(self, calculator, sample_returns):
         """Test confidence interval calculation"""
         result = await calculator.calculate_sharpe_ratio(
-            sample_returns,
-            confidence_level=0.95
+            sample_returns, confidence_level=0.95
         )
 
         # Should have confidence intervals
@@ -132,8 +128,7 @@ class TestSharpeRatioCalculator:
         small_returns = [Decimal("0.01"), Decimal("-0.02")] * 10  # Only 20 periods
 
         result = await calculator.calculate_sharpe_ratio(
-            small_returns,
-            confidence_level=0.95
+            small_returns, confidence_level=0.95
         )
 
         # Should not calculate CI with < 30 periods
@@ -146,8 +141,7 @@ class TestSharpeRatioCalculator:
         window_size = 20
 
         results = await calculator.calculate_rolling_sharpe(
-            sample_returns,
-            window_size=window_size
+            sample_returns, window_size=window_size
         )
 
         # Should have correct number of windows
@@ -218,15 +212,11 @@ class TestSharpeRatioCalculator:
         returns = [Decimal("0.01")] * 50 + [Decimal("-0.01")] * 50
 
         daily_result = await calculator.calculate_sharpe_ratio(
-            returns,
-            period=TimePeriod.DAILY,
-            risk_free_rate=Decimal("0")
+            returns, period=TimePeriod.DAILY, risk_free_rate=Decimal("0")
         )
 
         weekly_result = await calculator.calculate_sharpe_ratio(
-            returns,
-            period=TimePeriod.WEEKLY,
-            risk_free_rate=Decimal("0")
+            returns, period=TimePeriod.WEEKLY, risk_free_rate=Decimal("0")
         )
 
         # Weekly Sharpe should be different due to annualization
@@ -239,23 +229,23 @@ class TestSharpeRatioCalculator:
 
         with pytest.raises(InvalidDataError):
             await calculator.calculate_rolling_sharpe(
-                returns,
-                window_size=20  # Larger than data
+                returns, window_size=20  # Larger than data
             )
 
     @pytest.mark.asyncio
     async def test_performance_requirement(self, calculator):
         """Test calculation completes within performance requirements"""
         # Generate large dataset
-        large_returns = [Decimal(str(np.random.normal(0.001, 0.02)))
-                        for _ in range(1000)]
+        large_returns = [
+            Decimal(str(np.random.normal(0.001, 0.02))) for _ in range(1000)
+        ]
 
         import time
+
         start = time.time()
 
         result = await calculator.calculate_sharpe_ratio(
-            large_returns,
-            confidence_level=0.95  # Include bootstrap CI
+            large_returns, confidence_level=0.95  # Include bootstrap CI
         )
 
         elapsed = time.time() - start

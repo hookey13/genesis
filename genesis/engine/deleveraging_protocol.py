@@ -60,9 +60,13 @@ class Position:
             return Decimal("0")
 
         if self.side == "long":
-            return ((self.current_price - self.entry_price) / self.entry_price) * Decimal("100")
+            return (
+                (self.current_price - self.entry_price) / self.entry_price
+            ) * Decimal("100")
         else:  # short
-            return ((self.entry_price - self.current_price) / self.entry_price) * Decimal("100")
+            return (
+                (self.entry_price - self.current_price) / self.entry_price
+            ) * Decimal("100")
 
     @property
     def position_value(self) -> Decimal:
@@ -113,7 +117,7 @@ class DeleveragingProtocol:
         self,
         event_bus: EventBus,
         max_slippage_pct: Decimal = Decimal("0.02"),  # 2% max slippage
-        execution_delay_ms: int = 100  # Delay between orders
+        execution_delay_ms: int = 100,  # Delay between orders
     ):
         """
         Initialize deleveraging protocol.
@@ -154,7 +158,7 @@ class DeleveragingProtocol:
         logger.info(
             "DeleveragingProtocol initialized",
             max_slippage_pct=float(max_slippage_pct),
-            execution_delay_ms=execution_delay_ms
+            execution_delay_ms=execution_delay_ms,
         )
 
     def update_positions(self, positions: list[Position]) -> None:
@@ -170,7 +174,7 @@ class DeleveragingProtocol:
         logger.debug(
             "Positions updated",
             count=len(positions),
-            total_value=float(sum(p.position_value for p in positions))
+            total_value=float(sum(p.position_value for p in positions)),
         )
 
     def calculate_position_priorities(self) -> list[tuple[Position, ClosurePriority]]:
@@ -210,7 +214,9 @@ class DeleveragingProtocol:
 
             # Check position size relative to others
             if self.total_positions > 0:
-                avg_size = sum(p.position_value for p in self.positions.values()) / len(self.positions)
+                avg_size = sum(p.position_value for p in self.positions.values()) / len(
+                    self.positions
+                )
                 if position.position_value > avg_size * Decimal("2"):
                     # Oversized position
                     if priority in [ClosurePriority.MEDIUM, ClosurePriority.LOW]:
@@ -222,7 +228,7 @@ class DeleveragingProtocol:
         priorities.sort(
             key=lambda x: (
                 self._priority_to_int(x[1]),  # Priority level
-                x[0].pnl_percentage  # P&L (losses first)
+                x[0].pnl_percentage,  # P&L (losses first)
             )
         )
 
@@ -234,13 +240,11 @@ class DeleveragingProtocol:
             ClosurePriority.CRITICAL: 0,
             ClosurePriority.HIGH: 1,
             ClosurePriority.MEDIUM: 2,
-            ClosurePriority.LOW: 3
+            ClosurePriority.LOW: 3,
         }[priority]
 
     async def initiate_deleveraging(
-        self,
-        stage: DeleveragingStage,
-        reason: str = "Emergency deleveraging"
+        self, stage: DeleveragingStage, reason: str = "Emergency deleveraging"
     ) -> list[DeleveragingPlan]:
         """
         Initiate deleveraging at specified stage.
@@ -253,7 +257,9 @@ class DeleveragingProtocol:
             List of deleveraging plans
         """
         if self.active_deleveraging:
-            logger.warning("Deleveraging already active", current_stage=self.current_stage.value)
+            logger.warning(
+                "Deleveraging already active", current_stage=self.current_stage.value
+            )
             return []
 
         self.active_deleveraging = True
@@ -264,7 +270,7 @@ class DeleveragingProtocol:
             "DELEVERAGING INITIATED",
             stage=stage.value,
             reason=reason,
-            positions_count=len(self.positions)
+            positions_count=len(self.positions),
         )
 
         # Calculate reduction percentage based on stage
@@ -272,7 +278,7 @@ class DeleveragingProtocol:
             DeleveragingStage.STAGE_1: Decimal("0.25"),
             DeleveragingStage.STAGE_2: Decimal("0.50"),
             DeleveragingStage.STAGE_3: Decimal("0.75"),
-            DeleveragingStage.STAGE_4: Decimal("1.00")
+            DeleveragingStage.STAGE_4: Decimal("1.00"),
         }.get(stage, Decimal("0"))
 
         # Get position priorities
@@ -302,15 +308,14 @@ class DeleveragingProtocol:
                 reduction_size=reduction_size,
                 expected_slippage=expected_slippage,
                 execution_order=i,
-                reason=reason
+                reason=reason,
             )
 
             self.deleveraging_plans.append(plan)
 
         # Sort plans by execution order
         self.execution_queue = sorted(
-            self.deleveraging_plans,
-            key=lambda p: p.execution_order
+            self.deleveraging_plans, key=lambda p: p.execution_order
         )
 
         # Publish deleveraging event
@@ -322,10 +327,10 @@ class DeleveragingProtocol:
                     "stage": stage.value,
                     "reduction_percentage": float(reduction_pct),
                     "positions_affected": len(self.deleveraging_plans),
-                    "reason": reason
-                }
+                    "reason": reason,
+                },
             ),
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
         return self.deleveraging_plans
@@ -355,7 +360,9 @@ class DeleveragingProtocol:
             # Update progress
             if result.success:
                 self.positions_closed += 1
-                self.total_value_reduced += result.closed_size * plan.position.current_price
+                self.total_value_reduced += (
+                    result.closed_size * plan.position.current_price
+                )
                 self.total_realized_pnl += result.realized_pnl
                 self.total_slippage_cost += result.slippage * result.closed_size
 
@@ -374,8 +381,7 @@ class DeleveragingProtocol:
         return results
 
     async def _execute_position_reduction(
-        self,
-        plan: DeleveragingPlan
+        self, plan: DeleveragingPlan
     ) -> DeleveragingResult:
         """
         Execute a single position reduction.
@@ -395,16 +401,24 @@ class DeleveragingProtocol:
             # Calculate execution price with slippage
             if position.side == "long":
                 # Selling long position, price goes down with slippage
-                execution_price = position.current_price * (Decimal("1") - plan.expected_slippage)
+                execution_price = position.current_price * (
+                    Decimal("1") - plan.expected_slippage
+                )
             else:
                 # Buying back short position, price goes up with slippage
-                execution_price = position.current_price * (Decimal("1") + plan.expected_slippage)
+                execution_price = position.current_price * (
+                    Decimal("1") + plan.expected_slippage
+                )
 
             # Calculate realized P&L
             if position.side == "long":
-                realized_pnl = (execution_price - position.entry_price) * plan.reduction_size
+                realized_pnl = (
+                    execution_price - position.entry_price
+                ) * plan.reduction_size
             else:
-                realized_pnl = (position.entry_price - execution_price) * plan.reduction_size
+                realized_pnl = (
+                    position.entry_price - execution_price
+                ) * plan.reduction_size
 
             # Create result
             result = DeleveragingResult(
@@ -413,9 +427,10 @@ class DeleveragingProtocol:
                 closed_size=plan.reduction_size,
                 remaining_size=position.size - plan.reduction_size,
                 execution_price=execution_price,
-                slippage=abs(execution_price - position.current_price) / position.current_price,
+                slippage=abs(execution_price - position.current_price)
+                / position.current_price,
                 realized_pnl=realized_pnl,
-                success=True
+                success=True,
             )
 
             # Update position
@@ -432,7 +447,7 @@ class DeleveragingProtocol:
                 symbol=position.symbol,
                 closed_size=float(plan.reduction_size),
                 remaining_size=float(result.remaining_size),
-                realized_pnl=float(realized_pnl)
+                realized_pnl=float(realized_pnl),
             )
 
             return result
@@ -442,7 +457,7 @@ class DeleveragingProtocol:
                 "Failed to reduce position",
                 symbol=position.symbol,
                 error=str(e),
-                exc_info=True
+                exc_info=True,
             )
 
             return DeleveragingResult(
@@ -454,13 +469,11 @@ class DeleveragingProtocol:
                 slippage=Decimal("0"),
                 realized_pnl=Decimal("0"),
                 success=False,
-                error_message=str(e)
+                error_message=str(e),
             )
 
     async def _publish_progress_update(
-        self,
-        plan: DeleveragingPlan,
-        result: DeleveragingResult
+        self, plan: DeleveragingPlan, result: DeleveragingResult
     ) -> None:
         """
         Publish deleveraging progress update.
@@ -469,7 +482,11 @@ class DeleveragingProtocol:
             plan: Executed plan
             result: Execution result
         """
-        progress_pct = (self.positions_closed / self.total_positions * 100) if self.total_positions > 0 else 0
+        progress_pct = (
+            (self.positions_closed / self.total_positions * 100)
+            if self.total_positions > 0
+            else 0
+        )
 
         await self.event_bus.publish(
             Event(
@@ -483,13 +500,15 @@ class DeleveragingProtocol:
                     "realized_pnl": float(result.realized_pnl),
                     "progress_percentage": progress_pct,
                     "positions_closed": self.positions_closed,
-                    "positions_total": self.total_positions
-                }
+                    "positions_total": self.total_positions,
+                },
             ),
-            priority=EventPriority.HIGH
+            priority=EventPriority.HIGH,
         )
 
-    async def _publish_completion_event(self, results: list[DeleveragingResult]) -> None:
+    async def _publish_completion_event(
+        self, results: list[DeleveragingResult]
+    ) -> None:
         """
         Publish deleveraging completion event.
 
@@ -510,10 +529,10 @@ class DeleveragingProtocol:
                     "failed": failed,
                     "total_value_reduced": float(self.total_value_reduced),
                     "total_realized_pnl": float(self.total_realized_pnl),
-                    "total_slippage_cost": float(self.total_slippage_cost)
-                }
+                    "total_slippage_cost": float(self.total_slippage_cost),
+                },
             ),
-            priority=EventPriority.HIGH
+            priority=EventPriority.HIGH,
         )
 
         logger.info(
@@ -521,7 +540,7 @@ class DeleveragingProtocol:
             stage=self.current_stage.value,
             successful=successful,
             failed=failed,
-            realized_pnl=float(self.total_realized_pnl)
+            realized_pnl=float(self.total_realized_pnl),
         )
 
     def halt_deleveraging(self) -> None:
@@ -554,10 +573,12 @@ class DeleveragingProtocol:
             "statistics": {
                 "deleveraging_events": self.deleveraging_events,
                 "positions_force_closed": self.positions_force_closed,
-                "average_slippage": float(
-                    self.total_slippage_cost / self.positions_force_closed
-                ) if self.positions_force_closed > 0 else 0
-            }
+                "average_slippage": (
+                    float(self.total_slippage_cost / self.positions_force_closed)
+                    if self.positions_force_closed > 0
+                    else 0
+                ),
+            },
         }
 
     def reset(self) -> None:

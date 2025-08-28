@@ -29,7 +29,7 @@ class TestQueuedSignal:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         queued = QueuedSignal(signal=signal, priority_score=0)
@@ -48,7 +48,7 @@ class TestQueuedSignal:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         queued = QueuedSignal(signal=signal, priority_score=0)
@@ -63,7 +63,7 @@ class TestQueuedSignal:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         # Create signal queued 10 minutes ago
@@ -97,7 +97,7 @@ class TestSignalQueue:
         return SignalQueue(
             repository=mock_repository,
             event_bus=mock_event_bus,
-            conflict_resolution=ConflictResolution.HIGHEST_PRIORITY
+            conflict_resolution=ConflictResolution.HIGHEST_PRIORITY,
         )
 
     @pytest.fixture
@@ -113,11 +113,13 @@ class TestSignalQueue:
             price_target=Decimal("52000"),
             stop_loss=Decimal("48000"),
             strategy_name="mean_reversion",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
     @pytest.mark.asyncio
-    async def test_add_signal(self, queue, sample_signal, mock_repository, mock_event_bus):
+    async def test_add_signal(
+        self, queue, sample_signal, mock_repository, mock_event_bus
+    ):
         """Test adding a signal to the queue."""
         await queue.add_signal(sample_signal)
 
@@ -159,7 +161,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.5"),
             priority=50,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         signal2 = Signal(
@@ -169,7 +171,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         signal3 = Signal(
@@ -179,7 +181,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.9"),
             priority=90,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         # Add in random order
@@ -226,7 +228,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         sell_signal = Signal(
@@ -236,7 +238,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.7"),
             priority=70,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         await queue.add_signal(buy_signal)
@@ -258,7 +260,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.7"),
             priority=70,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         signal2 = Signal(
@@ -268,7 +270,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.8"),
             priority=90,  # Higher priority
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         await queue.add_signal(signal1)
@@ -291,7 +293,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.9"),  # Higher confidence
             priority=70,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         signal2 = Signal(
@@ -301,7 +303,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.7"),
             priority=90,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         await queue.add_signal(signal1)
@@ -322,7 +324,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         signal2 = Signal(
@@ -332,7 +334,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.7"),
             priority=70,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         await queue.add_signal(signal1)
@@ -376,7 +378,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         expired_signal = Signal(
@@ -387,7 +389,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.7"),
             priority=70,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         await queue.add_signal(fresh_signal)
@@ -415,7 +417,7 @@ class TestSignalQueue:
                 confidence_score=Decimal("0.8"),
                 priority=80,
                 strategy_name="test",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             )
             await queue.add_signal(signal)
 
@@ -429,7 +431,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         with pytest.raises(ValidationError, match="Signal queue full"):
@@ -446,7 +448,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         signal2 = Signal(
@@ -456,7 +458,7 @@ class TestSignalQueue:
             confidence_score=Decimal("0.7"),
             priority=70,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         await queue.add_signal(signal1)
@@ -473,6 +475,7 @@ class TestSignalQueue:
     @pytest.mark.asyncio
     async def test_concurrent_operations(self, queue):
         """Test thread safety with concurrent operations."""
+
         async def add_signals():
             for i in range(10):
                 signal = Signal(
@@ -482,7 +485,7 @@ class TestSignalQueue:
                     confidence_score=Decimal("0.8"),
                     priority=50 + i,
                     strategy_name="test",
-                    timestamp=datetime.utcnow()
+                    timestamp=datetime.utcnow(),
                 )
                 await queue.add_signal(signal)
                 await asyncio.sleep(0.01)
@@ -498,9 +501,7 @@ class TestSignalQueue:
 
         # Run concurrently
         results = await asyncio.gather(
-            add_signals(),
-            process_signals(),
-            process_signals()
+            add_signals(), process_signals(), process_signals()
         )
 
         # Should have processed signals without errors

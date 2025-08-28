@@ -21,6 +21,7 @@ logger = structlog.get_logger(__name__)
 
 class ExecutionMetric(str, Enum):
     """Execution quality metrics."""
+
     SLIPPAGE = "SLIPPAGE"
     FEES = "FEES"
     TIME_TO_FILL = "TIME_TO_FILL"
@@ -32,6 +33,7 @@ class ExecutionMetric(str, Enum):
 @dataclass
 class ExecutionQuality:
     """Execution quality data for an order."""
+
     order_id: str
     symbol: str
     order_type: str
@@ -51,6 +53,7 @@ class ExecutionQuality:
 @dataclass
 class ExecutionStats:
     """Aggregated execution statistics."""
+
     period: str  # e.g., "1h", "24h", "7d"
     total_orders: int
     avg_slippage_bps: Decimal
@@ -82,7 +85,7 @@ class ExecutionScorer:
         ExecutionMetric.FEES: 0.25,
         ExecutionMetric.TIME_TO_FILL: 0.20,
         ExecutionMetric.PRICE_IMPROVEMENT: 0.15,
-        ExecutionMetric.FILL_RATE: 0.05
+        ExecutionMetric.FILL_RATE: 0.05,
     }
 
     # Threshold values for scoring
@@ -106,7 +109,7 @@ class ExecutionScorer:
         order: Order,
         actual_price: Decimal,
         time_to_fill_ms: int,
-        market_mid_price: Decimal
+        market_mid_price: Decimal,
     ) -> tuple[float, ExecutionQuality]:
         """
         Calculate execution quality score for an order.
@@ -124,14 +127,14 @@ class ExecutionScorer:
 
         # Calculate slippage score
         slippage_bps = self._calculate_slippage_bps(
-            order.price or market_mid_price,
-            actual_price,
-            order.side
+            order.price or market_mid_price, actual_price, order.side
         )
         scores[ExecutionMetric.SLIPPAGE] = self._score_slippage(slippage_bps)
 
         # Calculate fee score
-        total_fees = (order.maker_fee_paid or Decimal("0")) + (order.taker_fee_paid or Decimal("0"))
+        total_fees = (order.maker_fee_paid or Decimal("0")) + (
+            order.taker_fee_paid or Decimal("0")
+        )
         fee_bps = (total_fees / (order.quantity * actual_price)) * Decimal("10000")
         scores[ExecutionMetric.FEES] = self._score_fees(fee_bps)
 
@@ -140,28 +143,26 @@ class ExecutionScorer:
 
         # Calculate price improvement
         price_improvement_bps = self._calculate_price_improvement_bps(
-            order.price or market_mid_price,
-            actual_price,
-            market_mid_price,
-            order.side
+            order.price or market_mid_price, actual_price, market_mid_price, order.side
         )
-        scores[ExecutionMetric.PRICE_IMPROVEMENT] = self._score_price_improvement(price_improvement_bps)
+        scores[ExecutionMetric.PRICE_IMPROVEMENT] = self._score_price_improvement(
+            price_improvement_bps
+        )
 
         # Calculate fill rate score
         fill_rate = (order.filled_quantity / order.quantity) * Decimal("100")
         scores[ExecutionMetric.FILL_RATE] = self._score_fill_rate(fill_rate)
 
         # Calculate weighted total score
-        total_score = sum(
-            scores[metric] * self.WEIGHTS[metric]
-            for metric in scores
-        )
+        total_score = sum(scores[metric] * self.WEIGHTS[metric] for metric in scores)
 
         # Create quality record
         quality = ExecutionQuality(
             order_id=order.order_id,
             symbol=order.symbol,
-            order_type=order.type.value if isinstance(order.type, OrderType) else order.type,
+            order_type=(
+                order.type.value if isinstance(order.type, OrderType) else order.type
+            ),
             routing_method=order.routing_method,
             timestamp=order.executed_at or datetime.now(UTC),
             slippage_bps=slippage_bps,
@@ -172,7 +173,7 @@ class ExecutionScorer:
             fill_rate=fill_rate,
             price_improvement_bps=price_improvement_bps,
             execution_score=total_score,
-            market_conditions=None  # Can be populated with JSON conditions
+            market_conditions=None,  # Can be populated with JSON conditions
         )
 
         logger.info(
@@ -181,16 +182,13 @@ class ExecutionScorer:
             score=total_score,
             slippage_bps=float(slippage_bps),
             fee_bps=float(fee_bps),
-            time_ms=time_to_fill_ms
+            time_ms=time_to_fill_ms,
         )
 
         return total_score, quality
 
     def _calculate_slippage_bps(
-        self,
-        expected_price: Decimal,
-        actual_price: Decimal,
-        side: OrderSide
+        self, expected_price: Decimal, actual_price: Decimal, side: OrderSide
     ) -> Decimal:
         """
         Calculate slippage in basis points.
@@ -208,10 +206,10 @@ class ExecutionScorer:
 
         if side == OrderSide.BUY:
             # For buys, higher actual price is unfavorable
-            slippage = ((actual_price - expected_price) / expected_price)
+            slippage = (actual_price - expected_price) / expected_price
         else:
             # For sells, lower actual price is unfavorable
-            slippage = ((expected_price - actual_price) / expected_price)
+            slippage = (expected_price - actual_price) / expected_price
 
         return slippage * Decimal("10000")  # Convert to basis points
 
@@ -220,7 +218,7 @@ class ExecutionScorer:
         expected_price: Decimal,
         actual_price: Decimal,
         market_mid_price: Decimal,
-        side: OrderSide
+        side: OrderSide,
     ) -> Decimal:
         """
         Calculate price improvement relative to market.
@@ -239,10 +237,10 @@ class ExecutionScorer:
 
         if side == OrderSide.BUY:
             # For buys, lower actual than mid is favorable
-            improvement = ((market_mid_price - actual_price) / market_mid_price)
+            improvement = (market_mid_price - actual_price) / market_mid_price
         else:
             # For sells, higher actual than mid is favorable
-            improvement = ((actual_price - market_mid_price) / market_mid_price)
+            improvement = (actual_price - market_mid_price) / market_mid_price
 
         return improvement * Decimal("10000")
 
@@ -333,7 +331,7 @@ class ExecutionQualityTracker:
         order: Order,
         actual_price: Decimal,
         time_to_fill_ms: int,
-        market_mid_price: Decimal
+        market_mid_price: Decimal,
     ) -> float:
         """
         Track an order execution and return quality score.
@@ -363,9 +361,7 @@ class ExecutionQualityTracker:
         return score
 
     async def get_statistics(
-        self,
-        period: str = "24h",
-        symbol: Optional[str] = None
+        self, period: str = "24h", symbol: Optional[str] = None
     ) -> ExecutionStats:
         """
         Get aggregated execution statistics.
@@ -408,7 +404,7 @@ class ExecutionQualityTracker:
                 worst_execution_score=0.0,
                 rejection_rate=Decimal("0"),
                 orders_by_type={},
-                orders_by_routing={}
+                orders_by_routing={},
             )
 
         # Calculate aggregates
@@ -421,7 +417,9 @@ class ExecutionQualityTracker:
         avg_fill = sum(r.fill_rate for r in records) / total_orders
 
         improvements = sum(1 for r in records if r.price_improvement_bps > 0)
-        improvement_rate = (Decimal(improvements) / Decimal(total_orders)) * Decimal("100")
+        improvement_rate = (Decimal(improvements) / Decimal(total_orders)) * Decimal(
+            "100"
+        )
 
         scores = [r.execution_score for r in records]
         avg_score = sum(scores) / len(scores)
@@ -433,9 +431,13 @@ class ExecutionQualityTracker:
         orders_by_routing: dict[str, int] = {}
 
         for record in records:
-            orders_by_type[record.order_type] = orders_by_type.get(record.order_type, 0) + 1
+            orders_by_type[record.order_type] = (
+                orders_by_type.get(record.order_type, 0) + 1
+            )
             if record.routing_method:
-                orders_by_routing[record.routing_method] = orders_by_routing.get(record.routing_method, 0) + 1
+                orders_by_routing[record.routing_method] = (
+                    orders_by_routing.get(record.routing_method, 0) + 1
+                )
 
         return ExecutionStats(
             period=period,
@@ -452,7 +454,7 @@ class ExecutionQualityTracker:
             worst_execution_score=worst_score,
             rejection_rate=Decimal("0"),  # TODO: Track rejections
             orders_by_type=orders_by_type,
-            orders_by_routing=orders_by_routing
+            orders_by_routing=orders_by_routing,
         )
 
     async def _persist_quality(self, quality: ExecutionQuality) -> None:
@@ -463,33 +465,30 @@ class ExecutionQualityTracker:
             logger.debug(
                 "Persisted execution quality",
                 order_id=quality.order_id,
-                score=quality.execution_score
+                score=quality.execution_score,
             )
         except Exception as e:
             logger.error(
                 "Failed to persist execution quality",
                 order_id=quality.order_id,
-                error=str(e)
+                error=str(e),
             )
 
     async def _get_quality_records(
-        self,
-        start_time: datetime,
-        symbol: Optional[str] = None
+        self, start_time: datetime, symbol: Optional[str] = None
     ) -> list[ExecutionQuality]:
         """Get quality records from cache and database."""
         # Filter cache records
         records = [
-            r for r in self._quality_cache
-            if r.timestamp >= start_time and
-            (symbol is None or r.symbol == symbol)
+            r
+            for r in self._quality_cache
+            if r.timestamp >= start_time and (symbol is None or r.symbol == symbol)
         ]
 
         # Also fetch from database for complete history
         try:
             db_records = await self.repository.get_execution_quality_records(
-                start_time=start_time,
-                symbol=symbol
+                start_time=start_time, symbol=symbol
             )
             # Combine with cache, avoiding duplicates
             seen_ids = {r.order_id for r in records}
@@ -498,8 +497,7 @@ class ExecutionQualityTracker:
                     records.append(db_record)
         except Exception as e:
             logger.warning(
-                "Failed to fetch execution quality from database",
-                error=str(e)
+                "Failed to fetch execution quality from database", error=str(e)
             )
 
         return records

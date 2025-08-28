@@ -99,6 +99,10 @@ pre-commit:
 	@echo "✓ Pre-commit hooks configured"
 
 # Running the Application
+doctor:
+	@echo "Running Genesis Doctor health checks..."
+	@python -m genesis.cli doctor
+
 run:
 	@echo "Starting Project GENESIS..."
 	@python -m genesis

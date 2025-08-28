@@ -46,9 +46,9 @@ class MarketOrderExecutor(OrderExecutor):
         self,
         gateway: BinanceGateway,
         account: Account,
-        risk_engine: Optional['RiskEngine'] = None,
-        repository: Optional['Repository'] = None,
-        confirmation_timeout: int = 10
+        risk_engine: Optional["RiskEngine"] = None,
+        repository: Optional["Repository"] = None,
+        confirmation_timeout: int = 10,
     ):
         """
         Initialize the market order executor.
@@ -71,15 +71,13 @@ class MarketOrderExecutor(OrderExecutor):
         logger.info(
             "Market order executor initialized",
             account_id=account.account_id,
-            tier=account.tier.value
+            tier=account.tier.value,
         )
 
     @requires_tier(TradingTier.SNIPER)
     @with_timeout(100)  # 100ms execution target
     async def execute_market_order(
-        self,
-        order: Order,
-        confirmation_required: bool = True
+        self, order: Order, confirmation_required: bool = True
     ) -> ExecutionResult:
         """
         Execute a market order with optional confirmation.
@@ -114,7 +112,7 @@ class MarketOrderExecutor(OrderExecutor):
                 order_id=order.order_id,
                 symbol=order.symbol,
                 side=order.side.value,
-                quantity=str(order.quantity)
+                quantity=str(order.quantity),
             )
 
             # Get confirmation if required
@@ -130,12 +128,14 @@ class MarketOrderExecutor(OrderExecutor):
                     success=False,
                     order=order,
                     message="Order cancelled by user",
-                    error="User declined confirmation"
+                    error="User declined confirmation",
                 )
 
             # Get current market price for slippage calculation
             ticker = await self.gateway.get_ticker(order.symbol)
-            expected_price = ticker.ask_price if order.side == OrderSide.BUY else ticker.bid_price
+            expected_price = (
+                ticker.ask_price if order.side == OrderSide.BUY else ticker.bid_price
+            )
 
             # Prepare order request
             request = OrderRequest(
@@ -143,7 +143,7 @@ class MarketOrderExecutor(OrderExecutor):
                 side=order.side.value.lower(),
                 type="market",
                 quantity=order.quantity,
-                client_order_id=order.client_order_id
+                client_order_id=order.client_order_id,
             )
 
             # Place the order
@@ -171,7 +171,9 @@ class MarketOrderExecutor(OrderExecutor):
 
                 # Place automatic stop-loss for entry orders
                 if order.side == OrderSide.BUY and self.risk_engine:
-                    stop_loss_order = await self._place_stop_loss(order, verification_result.actual_price)
+                    stop_loss_order = await self._place_stop_loss(
+                        order, verification_result.actual_price
+                    )
                     if stop_loss_order and self.repository:
                         await self.repository.create_order(stop_loss_order)
 
@@ -181,7 +183,7 @@ class MarketOrderExecutor(OrderExecutor):
                 exchange_order_id=order.exchange_order_id,
                 status=order.status.value,
                 latency_ms=latency_ms,
-                slippage_percent=str(verification_result.slippage_percent)
+                slippage_percent=str(verification_result.slippage_percent),
             )
 
             return ExecutionResult(
@@ -190,14 +192,12 @@ class MarketOrderExecutor(OrderExecutor):
                 message="Market order executed successfully",
                 actual_price=verification_result.actual_price,
                 slippage_percent=verification_result.slippage_percent,
-                latency_ms=latency_ms
+                latency_ms=latency_ms,
             )
 
         except Exception as e:
             logger.error(
-                "Market order execution failed",
-                order_id=order.order_id,
-                error=str(e)
+                "Market order execution failed", order_id=order.order_id, error=str(e)
             )
 
             order.status = OrderStatus.FAILED
@@ -205,8 +205,7 @@ class MarketOrderExecutor(OrderExecutor):
                 del self.pending_orders[order.order_id]
 
             raise OrderExecutionError(
-                f"Failed to execute market order: {e!s}",
-                order_id=order.order_id
+                f"Failed to execute market order: {e!s}", order_id=order.order_id
             )
 
     async def _get_confirmation(self, order: Order) -> bool:
@@ -224,13 +223,13 @@ class MarketOrderExecutor(OrderExecutor):
         """
         # In production, this would integrate with the UI
         # For now, auto-confirm in mock mode
-        if hasattr(self.gateway, 'mock_mode') and self.gateway.mock_mode:
+        if hasattr(self.gateway, "mock_mode") and self.gateway.mock_mode:
             return True
 
         logger.info(
             "Awaiting order confirmation",
             order_id=order.order_id,
-            timeout_seconds=self.confirmation_timeout
+            timeout_seconds=self.confirmation_timeout,
         )
 
         # Simulate confirmation with timeout
@@ -242,7 +241,9 @@ class MarketOrderExecutor(OrderExecutor):
             logger.warning("Order confirmation timed out", order_id=order.order_id)
             return False
 
-    async def _verify_execution(self, order: Order, expected_price: Decimal) -> ExecutionResult:
+    async def _verify_execution(
+        self, order: Order, expected_price: Decimal
+    ) -> ExecutionResult:
         """
         Verify order execution and calculate slippage.
 
@@ -259,8 +260,7 @@ class MarketOrderExecutor(OrderExecutor):
         try:
             # Query order status from exchange
             order_status = await self.gateway.get_order_status(
-                order.exchange_order_id,
-                order.symbol
+                order.exchange_order_id, order.symbol
             )
 
             # Update order with actual fill details
@@ -278,11 +278,10 @@ class MarketOrderExecutor(OrderExecutor):
                     order_id=order.order_id,
                     slippage_percent=str(slippage),
                     expected_price=str(expected_price),
-                    actual_price=str(actual_price)
+                    actual_price=str(actual_price),
                 )
                 raise SlippageAlert(
-                    f"Slippage {slippage}% exceeds threshold 0.5%",
-                    slippage=slippage
+                    f"Slippage {slippage}% exceeds threshold 0.5%", slippage=slippage
                 )
 
             return ExecutionResult(
@@ -290,14 +289,12 @@ class MarketOrderExecutor(OrderExecutor):
                 order=order,
                 message="Execution verified",
                 actual_price=actual_price,
-                slippage_percent=slippage
+                slippage_percent=slippage,
             )
 
         except Exception as e:
             logger.error(
-                "Failed to verify execution",
-                order_id=order.order_id,
-                error=str(e)
+                "Failed to verify execution", order_id=order.order_id, error=str(e)
             )
             # Return best effort result
             return ExecutionResult(
@@ -305,10 +302,12 @@ class MarketOrderExecutor(OrderExecutor):
                 order=order,
                 message="Execution completed but verification failed",
                 actual_price=expected_price,
-                slippage_percent=Decimal("0")
+                slippage_percent=Decimal("0"),
             )
 
-    async def _place_stop_loss(self, entry_order: Order, entry_price: Decimal) -> Optional[Order]:
+    async def _place_stop_loss(
+        self, entry_order: Order, entry_price: Decimal
+    ) -> Optional[Order]:
         """
         Place automatic stop-loss order after entry.
 
@@ -339,14 +338,14 @@ class MarketOrderExecutor(OrderExecutor):
                 side=OrderSide.SELL,
                 price=stop_loss_price,
                 quantity=entry_order.filled_quantity,
-                created_at=datetime.now()
+                created_at=datetime.now(),
             )
 
             logger.info(
                 "Placing automatic stop-loss",
                 parent_order_id=entry_order.order_id,
                 stop_loss_price=str(stop_loss_price),
-                quantity=str(stop_loss_order.quantity)
+                quantity=str(stop_loss_order.quantity),
             )
 
             # Place stop-loss order
@@ -357,7 +356,7 @@ class MarketOrderExecutor(OrderExecutor):
                 quantity=stop_loss_order.quantity,
                 price=stop_loss_price,
                 stop_price=stop_loss_price,
-                client_order_id=stop_loss_order.client_order_id
+                client_order_id=stop_loss_order.client_order_id,
             )
 
             response = await self.gateway.place_order(request)
@@ -368,7 +367,7 @@ class MarketOrderExecutor(OrderExecutor):
             logger.info(
                 "Stop-loss placed successfully",
                 stop_loss_order_id=stop_loss_order.order_id,
-                exchange_order_id=stop_loss_order.exchange_order_id
+                exchange_order_id=stop_loss_order.exchange_order_id,
             )
 
             return stop_loss_order
@@ -377,7 +376,7 @@ class MarketOrderExecutor(OrderExecutor):
             logger.error(
                 "Failed to place stop-loss",
                 parent_order_id=entry_order.order_id,
-                error=str(e)
+                error=str(e),
             )
             return None
 
@@ -425,7 +424,7 @@ class MarketOrderExecutor(OrderExecutor):
             logger.warning(
                 "EMERGENCY: Cancelling all orders",
                 symbol=symbol,
-                pending_count=len(self.pending_orders)
+                pending_count=len(self.pending_orders),
             )
 
             cancelled_count = 0
@@ -442,7 +441,8 @@ class MarketOrderExecutor(OrderExecutor):
             if symbol:
                 # Clear only orders for specific symbol
                 to_clear = [
-                    oid for oid, order in self.pending_orders.items()
+                    oid
+                    for oid, order in self.pending_orders.items()
                     if order.symbol == symbol
                 ]
                 for oid in to_clear:
@@ -455,8 +455,7 @@ class MarketOrderExecutor(OrderExecutor):
                 self.pending_orders.clear()
 
             logger.warning(
-                "Emergency cancellation complete",
-                cancelled_count=cancelled_count
+                "Emergency cancellation complete", cancelled_count=cancelled_count
             )
 
             return cancelled_count
@@ -483,8 +482,7 @@ class MarketOrderExecutor(OrderExecutor):
                     # Update from exchange
                     if order.exchange_order_id:
                         response = await self.gateway.get_order_status(
-                            order.exchange_order_id,
-                            symbol
+                            order.exchange_order_id, symbol
                         )
                         order.status = OrderStatus(response.status.upper())
                         order.filled_quantity = response.filled_quantity
@@ -507,15 +505,11 @@ class MarketOrderExecutor(OrderExecutor):
                 status=OrderStatus(response.status.upper()),
                 created_at=response.created_at,
                 executed_at=response.updated_at,
-                exchange_order_id=response.order_id
+                exchange_order_id=response.order_id,
             )
 
             return order
 
         except Exception as e:
-            logger.error(
-                "Failed to get order status",
-                order_id=order_id,
-                error=str(e)
-            )
+            logger.error("Failed to get order status", order_id=order_id, error=str(e))
             raise OrderExecutionError(f"Failed to get order status: {e!s}")

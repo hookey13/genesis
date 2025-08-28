@@ -59,15 +59,15 @@ def sample_candles():
         close = open_price + Decimal("200")
 
         candle = Candle(
-            open_time=datetime.now(UTC) - timedelta(hours=30-i),
+            open_time=datetime.now(UTC) - timedelta(hours=30 - i),
             open=open_price,
             high=high,
             low=low,
             close=close,
             volume=Decimal("1000") + Decimal(str(i * 10)),
-            close_time=datetime.now(UTC) - timedelta(hours=29-i),
+            close_time=datetime.now(UTC) - timedelta(hours=29 - i),
             quote_volume=Decimal("50000000"),
-            trades=1000 + i * 10
+            trades=1000 + i * 10,
         )
         candles.append(candle)
 
@@ -112,7 +112,7 @@ class TestMarketStateClassifier:
                 volume=Decimal("1000"),
                 close_time=datetime.now(UTC),
                 quote_volume=Decimal("50000000"),
-                trades=1000
+                trades=1000,
             )
         ]
 
@@ -195,7 +195,7 @@ class TestMarketStateClassifier:
             spread_bps=10,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         assert isinstance(context, MarketStateContext)
@@ -216,7 +216,7 @@ class TestMarketStateClassifier:
             spread_bps=10,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=True  # Maintenance detected
+            maintenance_detected=True,  # Maintenance detected
         )
 
         assert context.current_state == MarketState.MAINTENANCE
@@ -328,7 +328,7 @@ class TestStateTransitionManager:
         await manager.transition_to_state(
             symbol="BTCUSDT",
             new_state=MarketState.VOLATILE,
-            reason="High volatility detected"
+            reason="High volatility detected",
         )
 
         assert len(manager._transition_history) == 1
@@ -430,7 +430,7 @@ class TestGlobalMarketStateClassifier:
             btc_change=Decimal("-0.20"),  # 20% drop
             correlation=Decimal("0.9"),
             panic_count=3,
-            fear_greed_index=10
+            fear_greed_index=10,
         )
         assert state == GlobalMarketState.CRASH
 
@@ -439,7 +439,7 @@ class TestGlobalMarketStateClassifier:
             btc_change=Decimal("0.15"),  # 15% rise
             correlation=Decimal("0.5"),
             panic_count=0,
-            fear_greed_index=75
+            fear_greed_index=75,
         )
         assert state == GlobalMarketState.BULL
 
@@ -448,7 +448,7 @@ class TestGlobalMarketStateClassifier:
             btc_change=Decimal("0.02"),  # 2% change
             correlation=Decimal("0.3"),
             panic_count=0,
-            fear_greed_index=50
+            fear_greed_index=50,
         )
         assert state == GlobalMarketState.CRAB
 
@@ -469,7 +469,7 @@ class TestPositionSizeAdjuster:
             base_size=base_size,
             market_state=MarketState.NORMAL,
             global_state=GlobalMarketState.CRAB,
-            volatility_percentile=50
+            volatility_percentile=50,
         )
         assert size == base_size
 
@@ -479,7 +479,7 @@ class TestPositionSizeAdjuster:
             base_size=base_size,
             market_state=MarketState.VOLATILE,
             global_state=None,
-            volatility_percentile=None
+            volatility_percentile=None,
         )
         assert size == Decimal("750")
         assert "VOLATILE" in reason
@@ -490,7 +490,7 @@ class TestPositionSizeAdjuster:
             base_size=base_size,
             market_state=MarketState.PANIC,
             global_state=GlobalMarketState.CRASH,
-            volatility_percentile=None
+            volatility_percentile=None,
         )
         assert size <= Decimal("100")  # Heavy reduction (minimum enforced at 10%)
         assert "PANIC" in reason and "CRASH" in reason
@@ -543,10 +543,7 @@ class TestStrategyStateManager:
     def test_is_strategy_enabled(self):
         """Test checking if strategy is enabled."""
         manager = StrategyStateManager()
-        manager._active_strategies = {
-            "arbitrage": True,
-            "grid_trading": False
-        }
+        manager._active_strategies = {"arbitrage": True, "grid_trading": False}
 
         assert manager.is_strategy_enabled("arbitrage") is True
         assert manager.is_strategy_enabled("grid_trading") is False
@@ -558,7 +555,7 @@ class TestStrategyStateManager:
         manager._active_strategies = {
             "arbitrage": True,
             "grid_trading": False,
-            "momentum": True
+            "momentum": True,
         }
 
         enabled = manager.get_enabled_strategies()
@@ -573,13 +570,12 @@ class TestStrategyStateManager:
         manager._active_strategies = {
             "arbitrage": True,
             "grid_trading": True,
-            "momentum": True
+            "momentum": True,
         }
 
         await manager.emergency_disable_all("System failure")
 
         assert all(not enabled for enabled in manager._active_strategies.values())
         event_bus.publish.assert_called_with(
-            "EmergencyStrategyStopEvent",
-            {"reason": "System failure", "timestamp": ANY}
+            "EmergencyStrategyStopEvent", {"reason": "System failure", "timestamp": ANY}
         )

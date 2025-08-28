@@ -39,7 +39,7 @@ class TestPriceImpactModel:
         impact_model.market_depth_cache["BTC/USDT"] = {
             "avg_spread": Decimal("10"),
             "avg_depth": Decimal("100000"),
-            "volatility": Decimal("0.02")
+            "volatility": Decimal("0.02"),
         }
 
         # Calculate impact
@@ -47,7 +47,7 @@ class TestPriceImpactModel:
             symbol="BTC/USDT",
             order_size=Decimal("0.1"),
             side="BUY",
-            current_price=Decimal("50000")
+            current_price=Decimal("50000"),
         )
 
         # Assertions
@@ -69,7 +69,7 @@ class TestPriceImpactModel:
         impact_model.market_depth_cache["BTC/USDT"] = {
             "avg_spread": Decimal("10"),
             "avg_depth": Decimal("100000"),
-            "volatility": Decimal("0.02")
+            "volatility": Decimal("0.02"),
         }
 
         # Large order relative to market depth
@@ -77,7 +77,7 @@ class TestPriceImpactModel:
             symbol="BTC/USDT",
             order_size=Decimal("100"),  # Large order
             side="SELL",
-            current_price=Decimal("50000")
+            current_price=Decimal("50000"),
         )
 
         # Large orders should have significant impact
@@ -93,23 +93,22 @@ class TestPriceImpactModel:
             {
                 "size": Decimal("1"),
                 "price_change": Decimal("5"),
-                "timestamp": datetime.now(UTC)
+                "timestamp": datetime.now(UTC),
             },
             {
                 "size": Decimal("2"),
                 "price_change": Decimal("12"),
-                "timestamp": datetime.now(UTC)
+                "timestamp": datetime.now(UTC),
             },
             {
                 "size": Decimal("0.5"),
                 "price_change": Decimal("2"),
-                "timestamp": datetime.now(UTC)
-            }
+                "timestamp": datetime.now(UTC),
+            },
         ]
 
         kyle_lambda = await impact_model.estimate_kyle_lambda(
-            symbol="BTC/USDT",
-            executions=executions
+            symbol="BTC/USDT", executions=executions
         )
 
         assert kyle_lambda > 0
@@ -123,7 +122,7 @@ class TestPriceImpactModel:
             bid_depth=Decimal("50000"),
             ask_depth=Decimal("55000"),
             spread=Decimal("5"),
-            volatility=Decimal("0.025")
+            volatility=Decimal("0.025"),
         )
 
         assert "ETH/USDT" in impact_model.market_depth_cache
@@ -140,7 +139,7 @@ class TestPriceImpactModel:
             time_horizon=3600,  # 1 hour
             risk_aversion=Decimal("0.5"),
             volatility=Decimal("0.02"),
-            avg_volume=Decimal("1000")
+            avg_volume=Decimal("1000"),
         )
 
         assert "schedule" in trajectory
@@ -159,7 +158,7 @@ class TestPriceImpactModel:
         impact_model.market_depth_cache["BTC/USDT"] = {
             "avg_spread": Decimal("10"),
             "avg_depth": Decimal("100000"),
-            "volatility": Decimal("0.02")
+            "volatility": Decimal("0.02"),
         }
 
         analysis = await impact_model.pre_trade_analysis(
@@ -167,7 +166,7 @@ class TestPriceImpactModel:
             order_size=Decimal("5"),
             side="BUY",
             current_price=Decimal("50000"),
-            urgency="NORMAL"
+            urgency="NORMAL",
         )
 
         assert "impact_estimate" in analysis
@@ -185,7 +184,7 @@ class TestPriceImpactModel:
             expected_impact=Decimal("0.005"),
             realized_impact=Decimal("0.007"),
             order_size=Decimal("5"),
-            execution_time=120
+            execution_time=120,
         )
 
         assert "impact_accuracy" in analysis
@@ -202,9 +201,7 @@ class TestPriceImpactModel:
     async def test_calculate_slippage(self, impact_model):
         """Test slippage calculation."""
         slippage = await impact_model.calculate_slippage(
-            expected_price=Decimal("50000"),
-            executed_price=Decimal("50050"),
-            side="BUY"
+            expected_price=Decimal("50000"), executed_price=Decimal("50050"), side="BUY"
         )
 
         assert "absolute" in slippage
@@ -220,18 +217,17 @@ class TestPriceImpactModel:
             "bids": [
                 {"price": Decimal("49990"), "quantity": Decimal("10")},
                 {"price": Decimal("49980"), "quantity": Decimal("15")},
-                {"price": Decimal("49970"), "quantity": Decimal("20")}
+                {"price": Decimal("49970"), "quantity": Decimal("20")},
             ],
             "asks": [
                 {"price": Decimal("50010"), "quantity": Decimal("12")},
                 {"price": Decimal("50020"), "quantity": Decimal("18")},
-                {"price": Decimal("50030"), "quantity": Decimal("25")}
-            ]
+                {"price": Decimal("50030"), "quantity": Decimal("25")},
+            ],
         }
 
         depth = await impact_model.estimate_market_depth(
-            order_book=order_book,
-            price_levels=3
+            order_book=order_book, price_levels=3
         )
 
         assert "bid_depth" in depth
@@ -249,7 +245,7 @@ class TestPriceImpactModel:
             symbol="NEW/PAIR",
             order_size=Decimal("1"),
             side="BUY",
-            current_price=Decimal("100")
+            current_price=Decimal("100"),
         )
 
         # Should use default parameters
@@ -263,16 +259,18 @@ class TestPriceImpactModel:
         impact_model.market_depth_cache["VOLATILE/USDT"] = {
             "avg_spread": Decimal("100"),
             "avg_depth": Decimal("1000"),
-            "volatility": Decimal("0.5")  # 50% volatility
+            "volatility": Decimal("0.5"),  # 50% volatility
         }
 
         impact = await impact_model.calculate_impact(
             symbol="VOLATILE/USDT",
             order_size=Decimal("10"),
             side="SELL",
-            current_price=Decimal("1000")
+            current_price=Decimal("1000"),
         )
 
         # High volatility should increase impact
         assert impact["total_impact"] > Decimal("0.05")
-        assert impact["confidence"] < Decimal("0.8")  # Lower confidence in extreme conditions
+        assert impact["confidence"] < Decimal(
+            "0.8"
+        )  # Lower confidence in extreme conditions

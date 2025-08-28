@@ -1,4 +1,5 @@
 """Unit tests for tilt intervention system."""
+
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock
@@ -42,8 +43,8 @@ class TestInterventionManager:
             cooldown_minutes={
                 TiltLevel.LEVEL1: 5,
                 TiltLevel.LEVEL2: 10,
-                TiltLevel.LEVEL3: 30
-            }
+                TiltLevel.LEVEL3: 30,
+            },
         )
 
     def test_get_intervention_message(self, manager):
@@ -90,7 +91,7 @@ class TestInterventionManager:
         event_bus.publish.assert_called_once()
         call_args = event_bus.publish.call_args
         assert call_args[0][0] == EventType.INTERVENTION_APPLIED
-        assert call_args[0][1]['profile_id'] == profile_id
+        assert call_args[0][1]["profile_id"] == profile_id
 
     @pytest.mark.asyncio
     async def test_apply_intervention_level2(self, manager, event_bus):
@@ -150,7 +151,9 @@ class TestInterventionManager:
         profile_id = "test_profile"
 
         # Apply intervention
-        intervention = await manager.apply_intervention(profile_id, TiltLevel.LEVEL1, 30)
+        intervention = await manager.apply_intervention(
+            profile_id, TiltLevel.LEVEL1, 30
+        )
 
         # Manually expire it
         intervention.expires_at = datetime.now(UTC) - timedelta(minutes=1)
@@ -176,7 +179,7 @@ class TestInterventionManager:
             applied_at=datetime.now(UTC),
             expires_at=datetime.now(UTC) + timedelta(minutes=10),
             position_size_multiplier=Decimal("0.5"),
-            is_active=True
+            is_active=True,
         )
         manager.active_interventions[profile_id] = [intervention]
 
@@ -200,7 +203,7 @@ class TestInterventionManager:
             applied_at=datetime.now(UTC),
             expires_at=datetime.now(UTC) + timedelta(minutes=30),
             position_size_multiplier=Decimal("0"),
-            is_active=True
+            is_active=True,
         )
         manager.active_interventions[profile_id] = [intervention]
 
@@ -221,7 +224,7 @@ class TestInterventionManager:
             applied_at=datetime.now(UTC),
             expires_at=datetime.now(UTC) + timedelta(minutes=10),
             position_size_multiplier=Decimal("0.5"),
-            is_active=True
+            is_active=True,
         )
         manager.active_interventions[profile_id] = [intervention]
 
@@ -250,7 +253,7 @@ class TestInterventionManager:
             applied_at=datetime.now(UTC),
             expires_at=datetime.now(UTC) + timedelta(minutes=5),
             position_size_multiplier=None,
-            is_active=True
+            is_active=True,
         )
         manager.active_interventions[profile_id] = [intervention]
 
@@ -267,7 +270,7 @@ class TestInterventionManager:
         event_bus.publish.assert_called()
         call_args = event_bus.publish.call_args
         assert call_args[0][0] == EventType.TILT_RECOVERED
-        assert call_args[0][1]['profile_id'] == profile_id
+        assert call_args[0][1]["profile_id"] == profile_id
 
     def test_most_restrictive_multiplier(self, manager):
         """Test that most restrictive position multiplier is returned."""
@@ -284,7 +287,7 @@ class TestInterventionManager:
                 applied_at=datetime.now(UTC),
                 expires_at=datetime.now(UTC) + timedelta(minutes=5),
                 position_size_multiplier=Decimal("0.8"),
-                is_active=True
+                is_active=True,
             ),
             Intervention(
                 intervention_id="test2",
@@ -295,8 +298,8 @@ class TestInterventionManager:
                 applied_at=datetime.now(UTC),
                 expires_at=datetime.now(UTC) + timedelta(minutes=10),
                 position_size_multiplier=Decimal("0.5"),  # Most restrictive
-                is_active=True
-            )
+                is_active=True,
+            ),
         ]
         manager.active_interventions[profile_id] = interventions
 

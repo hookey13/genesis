@@ -84,7 +84,7 @@ class TiltDetector:
         focus_detector: Optional[FocusPatternDetector] = None,
         inactivity_tracker: Optional[InactivityTracker] = None,
         session_analyzer: Optional[SessionAnalyzer] = None,
-        config_tracker: Optional[ConfigurationChangeTracker] = None
+        config_tracker: Optional[ConfigurationChangeTracker] = None,
     ):
         """Initialize tilt detector.
 
@@ -119,9 +119,7 @@ class TiltDetector:
         self.cache_timestamps: dict[str, datetime] = {}
 
     async def detect_tilt_level(
-        self,
-        profile_id: str,
-        metrics: list[BehavioralMetric]
+        self, profile_id: str, metrics: list[BehavioralMetric]
     ) -> TiltDetectionResult:
         """Detect tilt level from behavioral metrics.
 
@@ -145,7 +143,7 @@ class TiltDetector:
                     tilt_score=0,
                     anomalies=[],
                     detection_time_ms=0,
-                    timestamp=datetime.now(UTC)
+                    timestamp=datetime.now(UTC),
                 )
 
             # Detect anomalies
@@ -168,7 +166,7 @@ class TiltDetector:
                 logger.warning(
                     "Tilt detection exceeded time budget",
                     detection_time_ms=detection_time_ms,
-                    max_ms=self.MAX_DETECTION_TIME_MS
+                    max_ms=self.MAX_DETECTION_TIME_MS,
                 )
 
             result = TiltDetectionResult(
@@ -177,7 +175,7 @@ class TiltDetector:
                 tilt_score=tilt_score,
                 anomalies=anomalies,
                 detection_time_ms=detection_time_ms,
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             )
 
             # Publish event if tilt detected
@@ -233,7 +231,9 @@ class TiltDetector:
 
         return int(tilt_score)
 
-    async def _get_cached_baseline(self, profile_id: str) -> Optional[BehavioralBaseline]:
+    async def _get_cached_baseline(
+        self, profile_id: str
+    ) -> Optional[BehavioralBaseline]:
         """Get baseline from cache or refresh if needed.
 
         Args:
@@ -247,7 +247,10 @@ class TiltDetector:
         # Check if cache is valid
         if profile_id in self.baseline_cache:
             cache_time = self.cache_timestamps.get(profile_id)
-            if cache_time and (now - cache_time).total_seconds() < self.cache_ttl_seconds:
+            if (
+                cache_time
+                and (now - cache_time).total_seconds() < self.cache_ttl_seconds
+            ):
                 return self.baseline_cache[profile_id]
 
         # Refresh cache
@@ -260,9 +263,7 @@ class TiltDetector:
         return None
 
     async def _detect_anomalies(
-        self,
-        baseline: BehavioralBaseline,
-        metrics: list[BehavioralMetric]
+        self, baseline: BehavioralBaseline, metrics: list[BehavioralMetric]
     ) -> list[Anomaly]:
         """Detect anomalies by comparing metrics to baseline.
 
@@ -283,17 +284,17 @@ class TiltDetector:
 
             # Check if value is anomalous using IQR method
             current_value = Decimal(str(metric.value))
-            median = Decimal(str(baseline_stats['median']))
-            iqr = Decimal(str(baseline_stats['iqr']))
+            median = Decimal(str(baseline_stats["median"]))
+            iqr = Decimal(str(baseline_stats["iqr"]))
 
             # Calculate deviation
             deviation = abs(current_value - median)
-            threshold = Decimal('1.5') * iqr if iqr > 0 else Decimal('0.1')
+            threshold = Decimal("1.5") * iqr if iqr > 0 else Decimal("0.1")
 
             if deviation > threshold:
                 # Calculate severity (1-10 scale)
                 if iqr > 0:
-                    severity = min(int((deviation / iqr).quantize(Decimal('1'))), 10)
+                    severity = min(int((deviation / iqr).quantize(Decimal("1"))), 10)
                 else:
                     severity = 5  # Default severity if no IQR
 
@@ -304,7 +305,7 @@ class TiltDetector:
                     deviation=deviation,
                     severity=severity,
                     timestamp=metric.timestamp,
-                    description=f"{metric.metric_name} deviates {deviation:.2f} from baseline {median:.2f}"
+                    description=f"{metric.metric_name} deviates {deviation:.2f} from baseline {median:.2f}",
                 )
                 anomalies.append(anomaly)
 
@@ -313,7 +314,7 @@ class TiltDetector:
                     indicator=metric.metric_name,
                     current=float(current_value),
                     baseline=float(median),
-                    deviation=float(deviation)
+                    deviation=float(deviation),
                 )
 
         # Add behavioral anomalies from Story 3.4 trackers
@@ -334,68 +335,78 @@ class TiltDetector:
         # Check click latency elevation
         if self.click_tracker.is_latency_elevated(threshold_std=2.0):
             metrics = self.click_tracker.get_metrics()
-            anomalies.append(Anomaly(
-                indicator_name="click_latency",
-                current_value=Decimal(str(metrics.current)),
-                baseline_value=Decimal(str(metrics.moving_average)),
-                deviation=Decimal(str(metrics.baseline_deviation)),
-                severity=min(int(metrics.baseline_deviation * 3), 10),
-                timestamp=now,
-                description=f"Click latency elevated: {metrics.current}ms (baseline: {metrics.moving_average:.0f}ms)"
-            ))
+            anomalies.append(
+                Anomaly(
+                    indicator_name="click_latency",
+                    current_value=Decimal(str(metrics.current)),
+                    baseline_value=Decimal(str(metrics.moving_average)),
+                    deviation=Decimal(str(metrics.baseline_deviation)),
+                    severity=min(int(metrics.baseline_deviation * 3), 10),
+                    timestamp=now,
+                    description=f"Click latency elevated: {metrics.current}ms (baseline: {metrics.moving_average:.0f}ms)",
+                )
+            )
 
         # Check distraction level
         if self.focus_detector.is_distracted(threshold=50.0):
             focus_metrics = self.focus_detector.get_focus_metrics()
-            anomalies.append(Anomaly(
-                indicator_name="distraction_level",
-                current_value=Decimal(str(focus_metrics.distraction_score)),
-                baseline_value=Decimal("20"),  # Normal distraction baseline
-                deviation=Decimal(str(focus_metrics.distraction_score - 20)),
-                severity=min(int(focus_metrics.distraction_score / 10), 10),
-                timestamp=now,
-                description=f"High distraction: {focus_metrics.distraction_score:.0f}/100"
-            ))
+            anomalies.append(
+                Anomaly(
+                    indicator_name="distraction_level",
+                    current_value=Decimal(str(focus_metrics.distraction_score)),
+                    baseline_value=Decimal("20"),  # Normal distraction baseline
+                    deviation=Decimal(str(focus_metrics.distraction_score - 20)),
+                    severity=min(int(focus_metrics.distraction_score / 10), 10),
+                    timestamp=now,
+                    description=f"High distraction: {focus_metrics.distraction_score:.0f}/100",
+                )
+            )
 
         # Check configuration instability
         if self.config_tracker.is_configuration_unstable(threshold=50.0):
             config_metrics = self.config_tracker.get_change_metrics()
-            anomalies.append(Anomaly(
-                indicator_name="config_instability",
-                current_value=Decimal(str(100 - config_metrics.stability_score)),
-                baseline_value=Decimal("20"),  # Normal instability
-                deviation=Decimal(str(80 - config_metrics.stability_score)),
-                severity=min(int((100 - config_metrics.stability_score) / 10), 10),
-                timestamp=now,
-                description=f"Configuration unstable: {config_metrics.total_changes} changes"
-            ))
+            anomalies.append(
+                Anomaly(
+                    indicator_name="config_instability",
+                    current_value=Decimal(str(100 - config_metrics.stability_score)),
+                    baseline_value=Decimal("20"),  # Normal instability
+                    deviation=Decimal(str(80 - config_metrics.stability_score)),
+                    severity=min(int((100 - config_metrics.stability_score) / 10), 10),
+                    timestamp=now,
+                    description=f"Configuration unstable: {config_metrics.total_changes} changes",
+                )
+            )
 
         # Check excessive order modifications
         mod_frequencies = self.modification_tracker.calculate_modification_frequency()
         mod_rate = mod_frequencies.get("5min", 0)
         if mod_rate > 3:
-            anomalies.append(Anomaly(
-                indicator_name="order_modifications",
-                current_value=Decimal(str(mod_rate)),
-                baseline_value=Decimal("1"),  # Normal modification rate
-                deviation=Decimal(str(mod_rate - 1)),
-                severity=min(int(mod_rate * 2), 10),
-                timestamp=now,
-                description=f"Excessive modifications: {mod_rate:.1f} per minute"
-            ))
+            anomalies.append(
+                Anomaly(
+                    indicator_name="order_modifications",
+                    current_value=Decimal(str(mod_rate)),
+                    baseline_value=Decimal("1"),  # Normal modification rate
+                    deviation=Decimal(str(mod_rate - 1)),
+                    severity=min(int(mod_rate * 2), 10),
+                    timestamp=now,
+                    description=f"Excessive modifications: {mod_rate:.1f} per minute",
+                )
+            )
 
         # Check inactivity periods
         inactivity = self.inactivity_tracker.check_inactivity()
         if inactivity and inactivity > 120:  # More than 2 minutes inactive
-            anomalies.append(Anomaly(
-                indicator_name="inactivity",
-                current_value=Decimal(str(inactivity)),
-                baseline_value=Decimal("30"),  # Normal brief pauses
-                deviation=Decimal(str(inactivity - 30)),
-                severity=min(int(inactivity / 60), 10),
-                timestamp=now,
-                description=f"Extended inactivity: {inactivity:.0f} seconds"
-            ))
+            anomalies.append(
+                Anomaly(
+                    indicator_name="inactivity",
+                    current_value=Decimal(str(inactivity)),
+                    baseline_value=Decimal("30"),  # Normal brief pauses
+                    deviation=Decimal(str(inactivity - 30)),
+                    severity=min(int(inactivity / 60), 10),
+                    timestamp=now,
+                    description=f"Extended inactivity: {inactivity:.0f} seconds",
+                )
+            )
 
         return anomalies
 
@@ -444,7 +455,7 @@ class TiltDetector:
         event_type_map = {
             TiltLevel.LEVEL1: EventType.TILT_LEVEL1_DETECTED,
             TiltLevel.LEVEL2: EventType.TILT_LEVEL2_DETECTED,
-            TiltLevel.LEVEL3: EventType.TILT_LEVEL3_DETECTED
+            TiltLevel.LEVEL3: EventType.TILT_LEVEL3_DETECTED,
         }
 
         event_type = event_type_map.get(result.tilt_level)
@@ -452,20 +463,20 @@ class TiltDetector:
             await self.event_bus.publish(
                 event_type,
                 {
-                    'profile_id': result.profile_id,
-                    'tilt_level': result.tilt_level.value,
-                    'tilt_score': result.tilt_score,
-                    'anomaly_count': len(result.anomalies),
-                    'anomalies': [
+                    "profile_id": result.profile_id,
+                    "tilt_level": result.tilt_level.value,
+                    "tilt_score": result.tilt_score,
+                    "anomaly_count": len(result.anomalies),
+                    "anomalies": [
                         {
-                            'indicator': a.indicator_name,
-                            'severity': a.severity,
-                            'deviation': float(a.deviation)
+                            "indicator": a.indicator_name,
+                            "severity": a.severity,
+                            "deviation": float(a.deviation),
                         }
                         for a in result.anomalies
                     ],
-                    'timestamp': result.timestamp.isoformat()
-                }
+                    "timestamp": result.timestamp.isoformat(),
+                },
             )
 
             logger.info(
@@ -473,13 +484,11 @@ class TiltDetector:
                 profile_id=result.profile_id,
                 level=result.tilt_level.value,
                 score=result.tilt_score,
-                anomaly_count=len(result.anomalies)
+                anomaly_count=len(result.anomalies),
             )
 
     def get_anomaly_history(
-        self,
-        profile_id: str,
-        limit: Optional[int] = None
+        self, profile_id: str, limit: Optional[int] = None
     ) -> list[Anomaly]:
         """Get anomaly history for profile.
 
@@ -531,9 +540,7 @@ class AnomalyDetector:
         self.indicators[name] = detector
 
     async def detect_anomalies(
-        self,
-        baseline: BehavioralBaseline,
-        current: BehavioralMetric
+        self, baseline: BehavioralBaseline, current: BehavioralMetric
     ) -> list[Anomaly]:
         """Detect all anomalies from current metrics.
 

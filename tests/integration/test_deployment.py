@@ -41,7 +41,7 @@ class TestDeploymentValidation:
             "LOG_LEVEL",
             "DATABASE_URL",
             "BINANCE_API_KEY",
-            "TELEGRAM_BOT_TOKEN"
+            "TELEGRAM_BOT_TOKEN",
         ]
 
         for var in required_vars:
@@ -55,16 +55,18 @@ class TestDeploymentValidation:
             ["docker-compose", "-f", str(prod_compose), "config"],
             capture_output=True,
             text=True,
-            cwd=self.project_root
+            cwd=self.project_root,
         )
 
         assert result.returncode == 0, f"Production config invalid: {result.stderr}"
 
         config = result.stdout
-        assert "restart: always" in config or "restart: unless-stopped" in config, \
-            "Production containers missing restart policy"
-        assert "supervisord" in config.lower() or "supervisor" in config.lower(), \
-            "Supervisor not configured for production"
+        assert (
+            "restart: always" in config or "restart: unless-stopped" in config
+        ), "Production containers missing restart policy"
+        assert (
+            "supervisord" in config.lower() or "supervisor" in config.lower()
+        ), "Supervisor not configured for production"
 
     def test_database_migration_readiness(self):
         """Test database migration setup."""
@@ -79,7 +81,7 @@ class TestDeploymentValidation:
             ["alembic", "history", "--verbose"],
             capture_output=True,
             text=True,
-            cwd=self.project_root
+            cwd=self.project_root,
         )
 
         # Should not crash even if no migrations exist
@@ -91,8 +93,9 @@ class TestDeploymentValidation:
         health_files = list(self.project_root.rglob("*health*.py"))
         observability_files = list(self.project_root.rglob("*observability*.py"))
 
-        assert health_files or observability_files, \
-            "No health check or observability modules found"
+        assert (
+            health_files or observability_files
+        ), "No health check or observability modules found"
 
     def test_backup_strategy(self):
         """Test backup script functionality."""
@@ -104,12 +107,13 @@ class TestDeploymentValidation:
                 ["bash", str(backup_script), "--dry-run"],
                 capture_output=True,
                 text=True,
-                cwd=self.project_root
+                cwd=self.project_root,
             )
 
             # Should complete without critical errors
-            assert "error" not in result.stderr.lower() or result.returncode == 0, \
-                f"Backup script has errors: {result.stderr}"
+            assert (
+                "error" not in result.stderr.lower() or result.returncode == 0
+            ), f"Backup script has errors: {result.stderr}"
 
     def test_deployment_checklist(self):
         """Verify deployment checklist items."""
@@ -150,11 +154,13 @@ class TestDeploymentValidation:
     def _check_docker_configuration(self) -> bool:
         """Check Docker setup."""
         docker_dir = self.project_root / "docker"
-        return all([
-            (docker_dir / "Dockerfile").exists(),
-            (docker_dir / "docker-compose.yml").exists(),
-            (docker_dir / "docker-compose.prod.yml").exists()
-        ])
+        return all(
+            [
+                (docker_dir / "Dockerfile").exists(),
+                (docker_dir / "docker-compose.yml").exists(),
+                (docker_dir / "docker-compose.prod.yml").exists(),
+            ]
+        )
 
     def _check_cicd_pipeline(self) -> bool:
         """Check CI/CD pipeline configuration."""
@@ -172,8 +178,9 @@ class TestDeploymentValidation:
         if docker_compose.exists():
             content = docker_compose.read_text()
             # Should use tags, not latest
-            assert ":latest" not in content or "${VERSION}" in content, \
-                "Production should use versioned images, not :latest"
+            assert (
+                ":latest" not in content or "${VERSION}" in content
+            ), "Production should use versioned images, not :latest"
 
         assert backup_exists, "No backup strategy found for rollback"
 
@@ -205,9 +212,11 @@ class TestDeploymentValidation:
         content = emergency_script.read_text()
 
         # Should have functions for closing positions
-        assert "close" in content.lower() or "emergency" in content.lower(), \
-            "Emergency script missing close functionality"
+        assert (
+            "close" in content.lower() or "emergency" in content.lower()
+        ), "Emergency script missing close functionality"
 
         # Should handle exceptions
-        assert "try:" in content and "except" in content, \
-            "Emergency script should have error handling"
+        assert (
+            "try:" in content and "except" in content
+        ), "Emergency script should have error handling"

@@ -17,10 +17,7 @@ logger = structlog.get_logger(__name__)
 class RecoverySupportMessenger:
     """Provides psychological support messages during recovery."""
 
-    def __init__(
-        self,
-        config_path: Optional[Path] = None
-    ):
+    def __init__(self, config_path: Optional[Path] = None):
         """Initialize recovery support messenger.
 
         Args:
@@ -47,7 +44,7 @@ class RecoverySupportMessenger:
             logger.error(
                 "Failed to load recovery messages",
                 path=str(self.config_path),
-                error=str(e)
+                error=str(e),
             )
             return self._get_default_messages()
 
@@ -60,40 +57,38 @@ class RecoverySupportMessenger:
         return {
             "recovery_stage_messages": {
                 "stage_0": {
-                    "entry": ["Recovery mode activated. Starting with 25% position size."],
+                    "entry": [
+                        "Recovery mode activated. Starting with 25% position size."
+                    ],
                     "milestone": ["Good progress. Keep going."],
-                    "tips": ["Focus on process, not P&L."]
+                    "tips": ["Focus on process, not P&L."],
                 },
                 "stage_1": {
                     "entry": ["Position size increased to 50%. Stay disciplined."],
                     "milestone": ["Halfway recovered!"],
-                    "tips": ["Consistency is key."]
+                    "tips": ["Consistency is key."],
                 },
                 "stage_2": {
                     "entry": ["75% position size restored. Almost there!"],
                     "milestone": ["75% recovered!"],
-                    "tips": ["Maintain your discipline."]
+                    "tips": ["Maintain your discipline."],
                 },
                 "stage_3": {
                     "completion": ["Full recovery complete! Well done."],
-                    "tips": ["Remember these lessons."]
-                }
+                    "tips": ["Remember these lessons."],
+                },
             },
             "drawdown_messages": {
                 "detection": ["Drawdown detected. Recovery protocol initiated."],
                 "encouragement": {
                     "light": ["Small setback. You've got this."],
                     "moderate": ["Stay focused. One trade at a time."],
-                    "severe": ["Focus on quality over quantity."]
-                }
-            }
+                    "severe": ["Focus on quality over quantity."],
+                },
+            },
         }
 
-    def get_recovery_message(
-        self,
-        recovery_stage: RecoveryStage,
-        context: dict
-    ) -> str:
+    def get_recovery_message(self, recovery_stage: RecoveryStage, context: dict) -> str:
         """Get appropriate recovery message based on stage and context.
 
         Args:
@@ -104,7 +99,9 @@ class RecoverySupportMessenger:
             Supportive message string
         """
         stage_key = f"stage_{recovery_stage.value}"
-        stage_messages = self.messages.get("recovery_stage_messages", {}).get(stage_key, {})
+        stage_messages = self.messages.get("recovery_stage_messages", {}).get(
+            stage_key, {}
+        )
 
         # Check context for message type
         if context.get("is_milestone"):
@@ -121,10 +118,7 @@ class RecoverySupportMessenger:
 
         return "Keep following your recovery plan."
 
-    def get_drawdown_message(
-        self,
-        drawdown_pct: Decimal
-    ) -> str:
+    def get_drawdown_message(self, drawdown_pct: Decimal) -> str:
         """Get drawdown detection message.
 
         Args:
@@ -141,10 +135,7 @@ class RecoverySupportMessenger:
 
         return f"Drawdown of {float(drawdown_pct * 100):.1f}% detected."
 
-    def get_encouragement_message(
-        self,
-        drawdown_pct: Decimal
-    ) -> str:
+    def get_encouragement_message(self, drawdown_pct: Decimal) -> str:
         """Get encouragement message based on drawdown severity.
 
         Args:
@@ -153,7 +144,9 @@ class RecoverySupportMessenger:
         Returns:
             Encouragement message
         """
-        encouragement = self.messages.get("drawdown_messages", {}).get("encouragement", {})
+        encouragement = self.messages.get("drawdown_messages", {}).get(
+            "encouragement", {}
+        )
 
         # Determine severity
         if drawdown_pct < Decimal("0.15"):
@@ -171,10 +164,7 @@ class RecoverySupportMessenger:
         return "Stay focused and trust your process."
 
     def get_consecutive_loss_message(
-        self,
-        loss_count: int,
-        is_break: bool = False,
-        duration_minutes: int = 30
+        self, loss_count: int, is_break: bool = False, duration_minutes: int = 30
     ) -> str:
         """Get message for consecutive losses.
 
@@ -187,16 +177,26 @@ class RecoverySupportMessenger:
             Consecutive loss message
         """
         if is_break:
-            messages = self.messages.get("consecutive_loss_messages", {}).get("break_required", [])
+            messages = self.messages.get("consecutive_loss_messages", {}).get(
+                "break_required", []
+            )
             if messages:
                 message = random.choice(messages)
                 return message.format(duration=duration_minutes)
             return f"Trading break required for {duration_minutes} minutes."
 
         if loss_count == 2:
-            messages = self.messages.get("consecutive_loss_messages", {}).get("warning", {}).get("2_losses", [])
+            messages = (
+                self.messages.get("consecutive_loss_messages", {})
+                .get("warning", {})
+                .get("2_losses", [])
+            )
         elif loss_count >= 3:
-            messages = self.messages.get("consecutive_loss_messages", {}).get("warning", {}).get("3_losses", [])
+            messages = (
+                self.messages.get("consecutive_loss_messages", {})
+                .get("warning", {})
+                .get("3_losses", [])
+            )
         else:
             messages = []
 
@@ -205,10 +205,7 @@ class RecoverySupportMessenger:
 
         return f"{loss_count} consecutive losses detected."
 
-    def get_milestone_message(
-        self,
-        milestone_pct: int
-    ) -> str:
+    def get_milestone_message(self, milestone_pct: int) -> str:
         """Get celebration message for recovery milestone.
 
         Args:
@@ -227,10 +224,7 @@ class RecoverySupportMessenger:
 
         return f"{milestone_pct}% recovery milestone reached!"
 
-    def get_educational_tip(
-        self,
-        category: str = None
-    ) -> str:
+    def get_educational_tip(self, category: str = None) -> str:
         """Get educational tip for avoiding revenge trading.
 
         Args:
@@ -255,10 +249,7 @@ class RecoverySupportMessenger:
 
         return "Focus on process, not outcomes."
 
-    def get_journal_prompt(
-        self,
-        prompt_type: str = "after_losses"
-    ) -> str:
+    def get_journal_prompt(self, prompt_type: str = "after_losses") -> str:
         """Get journal prompt for recovery reflection.
 
         Args:
@@ -280,7 +271,7 @@ class RecoverySupportMessenger:
         recovery_stage: RecoveryStage,
         drawdown_pct: Decimal,
         recovery_pct: Decimal,
-        consecutive_losses: int
+        consecutive_losses: int,
     ) -> list[str]:
         """Format comprehensive recovery status message.
 
@@ -300,7 +291,7 @@ class RecoverySupportMessenger:
             RecoveryStage.STAGE_0: 25,
             RecoveryStage.STAGE_1: 50,
             RecoveryStage.STAGE_2: 75,
-            RecoveryStage.STAGE_3: 100
+            RecoveryStage.STAGE_3: 100,
         }
 
         messages.append(

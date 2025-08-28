@@ -22,12 +22,14 @@ from genesis.exchange.gateway import BinanceGateway
 def mock_gateway():
     """Create a mock exchange gateway."""
     gateway = MagicMock(spec=BinanceGateway)
-    gateway.get_account_info = AsyncMock(return_value={
-        "balances": [
-            {"asset": "USDT", "free": "1000.50", "locked": "0"},
-            {"asset": "BTC", "free": "0.01", "locked": "0"}
-        ]
-    })
+    gateway.get_account_info = AsyncMock(
+        return_value={
+            "balances": [
+                {"asset": "USDT", "free": "1000.50", "locked": "0"},
+                {"asset": "BTC", "free": "0.01", "locked": "0"},
+            ]
+        }
+    )
     return gateway
 
 
@@ -35,9 +37,7 @@ def mock_gateway():
 def account():
     """Create a test account."""
     return Account(
-        account_id="test-account",
-        balance_usdt=Decimal("500"),
-        tier=TradingTier.SNIPER
+        account_id="test-account", balance_usdt=Decimal("500"), tier=TradingTier.SNIPER
     )
 
 
@@ -47,7 +47,7 @@ async def account_manager(mock_gateway, account):
     manager = AccountManager(
         gateway=mock_gateway,
         account=account,
-        auto_sync=False  # Disable auto-sync for testing
+        auto_sync=False,  # Disable auto-sync for testing
     )
     return manager
 
@@ -125,9 +125,7 @@ class TestBalanceSynchronization:
     async def test_sync_balance_no_usdt(self, account_manager, mock_gateway):
         """Test sync when USDT balance not found."""
         mock_gateway.get_account_info.return_value = {
-            "balances": [
-                {"asset": "BTC", "free": "0.01", "locked": "0"}
-            ]
+            "balances": [{"asset": "BTC", "free": "0.01", "locked": "0"}]
         }
 
         new_balance = await account_manager.sync_balance()
@@ -153,7 +151,7 @@ class TestBalanceSynchronization:
         mock_gateway.get_account_info.side_effect = [
             Exception("Temporary error"),
             Exception("Another error"),
-            {"balances": [{"asset": "USDT", "free": "750", "locked": "0"}]}
+            {"balances": [{"asset": "USDT", "free": "750", "locked": "0"}]},
         ]
 
         # Retry decorator should handle this
@@ -165,6 +163,7 @@ class TestBalanceSynchronization:
     @pytest.mark.asyncio
     async def test_sync_balance_timeout(self, account_manager, mock_gateway):
         """Test sync with timeout."""
+
         async def slow_response():
             await asyncio.sleep(15)  # Longer than timeout
             return {"balances": []}
@@ -180,7 +179,7 @@ class TestBalanceSynchronization:
         manager = AccountManager(mock_gateway, account, auto_sync=True)
 
         # Mock sleep to speed up test
-        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             mock_sleep.side_effect = [None, asyncio.CancelledError()]
 
             await manager.initialize()
@@ -336,7 +335,7 @@ class TestSerialization:
             "tier": "HUNTER",
             "locked_features": ["feature1", "feature2"],
             "last_sync": "2024-01-01T12:00:00",
-            "created_at": "2024-01-01T10:00:00"
+            "created_at": "2024-01-01T10:00:00",
         }
 
         manager = AccountManager.from_dict(data, mock_gateway)
@@ -390,9 +389,7 @@ class TestEdgeCases:
     async def test_sync_with_malformed_balance(self, account_manager, mock_gateway):
         """Test sync with malformed balance data."""
         mock_gateway.get_account_info.return_value = {
-            "balances": [
-                {"asset": "USDT", "free": "not_a_number", "locked": "0"}
-            ]
+            "balances": [{"asset": "USDT", "free": "not_a_number", "locked": "0"}]
         }
 
         with pytest.raises(Exception):
@@ -414,7 +411,7 @@ class TestEdgeCases:
         tasks = [
             account_manager.sync_balance(),
             account_manager.sync_balance(),
-            account_manager.sync_balance()
+            account_manager.sync_balance(),
         ]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)

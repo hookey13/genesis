@@ -1,4 +1,5 @@
 """Unit tests for the lockout management system."""
+
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -54,13 +55,21 @@ class TestLockoutDurationCalculation:
         """Test graduated duration increases with occurrences."""
         # Level 1 with multiple occurrences
         assert lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL1, 1) == 5
-        assert lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL1, 2) == 7  # 5 * 1.5
-        assert lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL1, 3) == 11  # 5 * 1.5^2
+        assert (
+            lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL1, 2) == 7
+        )  # 5 * 1.5
+        assert (
+            lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL1, 3) == 11
+        )  # 5 * 1.5^2
 
         # Level 2 with multiple occurrences
         assert lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL2, 1) == 30
-        assert lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL2, 2) == 45  # 30 * 1.5
-        assert lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL2, 3) == 67  # 30 * 1.5^2
+        assert (
+            lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL2, 2) == 45
+        )  # 30 * 1.5
+        assert (
+            lockout_manager.calculate_lockout_duration(TiltLevel.LEVEL2, 3) == 67
+        )  # 30 * 1.5^2
 
     def test_maximum_duration_cap(self, lockout_manager):
         """Test that duration is capped at maximum."""
@@ -104,7 +113,9 @@ class TestLockoutEnforcement:
         mock_event_bus.publish.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_enforce_lockout_multiple_occurrences(self, mock_repository, mock_event_bus):
+    async def test_enforce_lockout_multiple_occurrences(
+        self, mock_repository, mock_event_bus
+    ):
         """Test enforcing lockout with increasing occurrences."""
         manager = LockoutManager(repository=mock_repository, event_bus=mock_event_bus)
         profile_id = "test_profile"
@@ -129,10 +140,12 @@ class TestLockoutEnforcement:
         """Test that expiration times are calculated correctly."""
         profile_id = "test_profile"
 
-        with patch('genesis.tilt.lockout_manager.datetime') as mock_datetime:
+        with patch("genesis.tilt.lockout_manager.datetime") as mock_datetime:
             now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = now
-            mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+            mock_datetime.side_effect = lambda *args, **kwargs: datetime(
+                *args, **kwargs
+            )
 
             lockout = await lockout_manager.enforce_lockout(
                 profile_id=profile_id,
@@ -166,11 +179,13 @@ class TestLockoutStatusChecking:
         profile_id = "test_profile"
 
         # Create a lockout that's already expired
-        with patch('genesis.tilt.lockout_manager.datetime') as mock_datetime:
+        with patch("genesis.tilt.lockout_manager.datetime") as mock_datetime:
             # Set time to past for creation
             past = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = past
-            mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+            mock_datetime.side_effect = lambda *args, **kwargs: datetime(
+                *args, **kwargs
+            )
 
             await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL1)
 
@@ -213,10 +228,12 @@ class TestLockoutRetrieval:
         # No lockout initially
         assert lockout_manager.get_remaining_minutes(profile_id) == 0
 
-        with patch('genesis.tilt.lockout_manager.datetime') as mock_datetime:
+        with patch("genesis.tilt.lockout_manager.datetime") as mock_datetime:
             now = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
             mock_datetime.now.return_value = now
-            mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+            mock_datetime.side_effect = lambda *args, **kwargs: datetime(
+                *args, **kwargs
+            )
 
             # Enforce 30-minute lockout
             await lockout_manager.enforce_lockout(profile_id, TiltLevel.LEVEL2)
@@ -350,7 +367,9 @@ class TestLockoutPersistence:
         assert lockout.occurrence_count == 2
 
     @pytest.mark.asyncio
-    async def test_persist_lockout_error_handling(self, mock_repository, mock_event_bus):
+    async def test_persist_lockout_error_handling(
+        self, mock_repository, mock_event_bus
+    ):
         """Test error handling when persisting lockout."""
         mock_repository.save_lockout.side_effect = Exception("Database error")
 

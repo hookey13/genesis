@@ -38,7 +38,7 @@ class TestAttributionResult:
             max_consecutive_losses=3,
             largest_win=Decimal("500"),
             largest_loss=Decimal("-300"),
-            total_volume=Decimal("100000")
+            total_volume=Decimal("100000"),
         )
 
         assert result.total_trades == 100
@@ -65,7 +65,7 @@ class TestAttributionResult:
             largest_win=Decimal("300"),
             largest_loss=Decimal("-150"),
             total_volume=Decimal("50000"),
-            metadata={"extra": "data"}
+            metadata={"extra": "data"},
         )
 
         result_dict = result.to_dict()
@@ -102,40 +102,46 @@ class TestPerformanceAttributionEngine:
 
         # Create winning trades
         for i in range(6):
-            trades.append(Trade(
-                trade_id=f"trade_{i}",
-                order_id=f"order_{i}",
-                strategy_id="strategy_1",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("51000"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=Decimal("100"),
-                pnl_percent=Decimal("2"),
-                timestamp=base_time + timedelta(hours=i)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"trade_{i}",
+                    order_id=f"order_{i}",
+                    strategy_id="strategy_1",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("51000"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=Decimal("100"),
+                    pnl_percent=Decimal("2"),
+                    timestamp=base_time + timedelta(hours=i),
+                )
+            )
 
         # Create losing trades
         for i in range(4):
-            trades.append(Trade(
-                trade_id=f"trade_loss_{i}",
-                order_id=f"order_loss_{i}",
-                strategy_id="strategy_1",
-                symbol="BTC/USDT",
-                side=OrderSide.SELL,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("49500"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=Decimal("-50"),
-                pnl_percent=Decimal("-1"),
-                timestamp=base_time + timedelta(hours=6 + i)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"trade_loss_{i}",
+                    order_id=f"order_loss_{i}",
+                    strategy_id="strategy_1",
+                    symbol="BTC/USDT",
+                    side=OrderSide.SELL,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("49500"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=Decimal("-50"),
+                    pnl_percent=Decimal("-1"),
+                    timestamp=base_time + timedelta(hours=6 + i),
+                )
+            )
 
         return trades
 
     @pytest.mark.asyncio
-    async def test_attribute_by_strategy(self, attribution_engine, mock_repository, sample_trades):
+    async def test_attribute_by_strategy(
+        self, attribution_engine, mock_repository, sample_trades
+    ):
         """Test attribution by strategy."""
         # Setup mock to return trade events
         mock_events = [
@@ -151,9 +157,9 @@ class TestPerformanceAttributionEngine:
                     "exit_price": str(trade.exit_price),
                     "quantity": str(trade.quantity),
                     "pnl_dollars": str(trade.pnl_dollars),
-                    "pnl_percent": str(trade.pnl_percent)
+                    "pnl_percent": str(trade.pnl_percent),
                 },
-                "created_at": trade.timestamp.isoformat()
+                "created_at": trade.timestamp.isoformat(),
             }
             for trade in sample_trades
         ]
@@ -195,9 +201,9 @@ class TestPerformanceAttributionEngine:
                     "exit_price": "51000",
                     "quantity": "0.1",
                     "pnl_dollars": "100",
-                    "pnl_percent": "2"
+                    "pnl_percent": "2",
                 },
-                "created_at": datetime(2024, 1, 1, tzinfo=UTC).isoformat()
+                "created_at": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
             }
         ]
 
@@ -213,9 +219,9 @@ class TestPerformanceAttributionEngine:
                     "exit_price": "3100",
                     "quantity": "1",
                     "pnl_dollars": "100",
-                    "pnl_percent": "3.33"
+                    "pnl_percent": "3.33",
                 },
-                "created_at": datetime(2024, 1, 2, tzinfo=UTC).isoformat()
+                "created_at": datetime(2024, 1, 2, tzinfo=UTC).isoformat(),
             }
         ]
 
@@ -241,27 +247,31 @@ class TestPerformanceAttributionEngine:
         assert eth_result.total_pnl == Decimal("100")
 
     @pytest.mark.asyncio
-    async def test_attribute_by_time_period_daily(self, attribution_engine, mock_repository):
+    async def test_attribute_by_time_period_daily(
+        self, attribution_engine, mock_repository
+    ):
         """Test attribution by daily time period."""
         # Create trades across different days
         trades = []
         for day in range(3):
             timestamp = datetime(2024, 1, day + 1, 12, 0, tzinfo=UTC)
-            trades.append({
-                "event_data": {
-                    "trade_id": f"t{day}",
-                    "order_id": f"o{day}",
-                    "strategy_id": "s1",
-                    "symbol": "BTC/USDT",
-                    "side": "BUY",
-                    "entry_price": "50000",
-                    "exit_price": "51000",
-                    "quantity": "0.1",
-                    "pnl_dollars": "100",
-                    "pnl_percent": "2"
-                },
-                "created_at": timestamp.isoformat()
-            })
+            trades.append(
+                {
+                    "event_data": {
+                        "trade_id": f"t{day}",
+                        "order_id": f"o{day}",
+                        "strategy_id": "s1",
+                        "symbol": "BTC/USDT",
+                        "side": "BUY",
+                        "entry_price": "50000",
+                        "exit_price": "51000",
+                        "quantity": "0.1",
+                        "pnl_dollars": "100",
+                        "pnl_percent": "2",
+                    },
+                    "created_at": timestamp.isoformat(),
+                }
+            )
 
         mock_repository.query_events.return_value = trades
 
@@ -288,7 +298,7 @@ class TestPerformanceAttributionEngine:
             start_date=datetime(2024, 1, 1, tzinfo=UTC),
             end_date=datetime(2024, 1, 31, tzinfo=UTC),
             attribution_type="strategy",
-            attribution_key="empty_strategy"
+            attribution_key="empty_strategy",
         )
 
         assert result.total_trades == 0
@@ -305,7 +315,7 @@ class TestPerformanceAttributionEngine:
             start_date=datetime(2024, 1, 1, tzinfo=UTC),
             end_date=datetime(2024, 1, 31, tzinfo=UTC),
             attribution_type="strategy",
-            attribution_key="test_strategy"
+            attribution_key="test_strategy",
         )
 
         assert result.total_trades == 10
@@ -331,22 +341,22 @@ class TestPerformanceAttributionEngine:
                 "strategy_id": "s1",
                 "symbol": "BTC/USDT",
                 "max_adverse_excursion": Decimal("100"),
-                "pnl_dollars": Decimal("200")  # Recovered
+                "pnl_dollars": Decimal("200"),  # Recovered
             },
             {
                 "position_id": "p2",
                 "strategy_id": "s1",
                 "symbol": "ETH/USDT",
                 "max_adverse_excursion": Decimal("150"),
-                "pnl_dollars": Decimal("-50")  # Did not recover
+                "pnl_dollars": Decimal("-50"),  # Did not recover
             },
             {
                 "position_id": "p3",
                 "strategy_id": "s2",
                 "symbol": "BTC/USDT",
                 "max_adverse_excursion": Decimal("75"),
-                "pnl_dollars": Decimal("100")  # Recovered
-            }
+                "pnl_dollars": Decimal("100"),  # Recovered
+            },
         ]
 
         mock_repository.query_positions_with_mae.return_value = positions
@@ -403,29 +413,39 @@ class TestPerformanceAttributionEngine:
 
     def test_get_period_bounds_daily(self, attribution_engine):
         """Test period bounds calculation for daily periods."""
-        start, end = attribution_engine._get_period_bounds("2024-01-15", AttributionPeriod.DAILY)
+        start, end = attribution_engine._get_period_bounds(
+            "2024-01-15", AttributionPeriod.DAILY
+        )
         assert start == datetime(2024, 1, 15, tzinfo=UTC)
         assert end == datetime(2024, 1, 16, tzinfo=UTC)
 
     def test_get_period_bounds_monthly(self, attribution_engine):
         """Test period bounds calculation for monthly periods."""
-        start, end = attribution_engine._get_period_bounds("2024-01", AttributionPeriod.MONTHLY)
+        start, end = attribution_engine._get_period_bounds(
+            "2024-01", AttributionPeriod.MONTHLY
+        )
         assert start == datetime(2024, 1, 1, tzinfo=UTC)
         assert end == datetime(2024, 2, 1, tzinfo=UTC)
 
     def test_get_period_bounds_quarterly(self, attribution_engine):
         """Test period bounds calculation for quarterly periods."""
-        start, end = attribution_engine._get_period_bounds("2024-Q2", AttributionPeriod.QUARTERLY)
+        start, end = attribution_engine._get_period_bounds(
+            "2024-Q2", AttributionPeriod.QUARTERLY
+        )
         assert start == datetime(2024, 4, 1, tzinfo=UTC)
         assert end == datetime(2024, 7, 1, tzinfo=UTC)
 
     def test_get_period_bounds_yearly(self, attribution_engine):
         """Test period bounds calculation for yearly periods."""
-        start, end = attribution_engine._get_period_bounds("2024", AttributionPeriod.YEARLY)
+        start, end = attribution_engine._get_period_bounds(
+            "2024", AttributionPeriod.YEARLY
+        )
         assert start == datetime(2024, 1, 1, tzinfo=UTC)
         assert end == datetime(2025, 1, 1, tzinfo=UTC)
 
-    async def test_mae_recovery_edge_case_no_recovery(self, attribution_engine, mock_repository):
+    async def test_mae_recovery_edge_case_no_recovery(
+        self, attribution_engine, mock_repository
+    ):
         """Test MAE analysis when no positions recover from drawdown."""
         positions = [
             {
@@ -434,7 +454,7 @@ class TestPerformanceAttributionEngine:
                 "symbol": "BTC/USDT",
                 "max_adverse_excursion": Decimal("500"),
                 "recovered_from_mae": False,
-                "pnl_dollars": Decimal("-500")
+                "pnl_dollars": Decimal("-500"),
             },
             {
                 "position_id": "p2",
@@ -442,15 +462,14 @@ class TestPerformanceAttributionEngine:
                 "symbol": "ETH/USDT",
                 "max_adverse_excursion": Decimal("300"),
                 "recovered_from_mae": False,
-                "pnl_dollars": Decimal("-300")
-            }
+                "pnl_dollars": Decimal("-300"),
+            },
         ]
 
         mock_repository.query_positions_with_mae.return_value = positions
 
         mae_stats = await attribution_engine.get_mae_analysis(
-            datetime(2024, 1, 1, tzinfo=UTC),
-            datetime(2024, 1, 31, tzinfo=UTC)
+            datetime(2024, 1, 1, tzinfo=UTC), datetime(2024, 1, 31, tzinfo=UTC)
         )
 
         assert mae_stats["total_positions"] == 2
@@ -458,7 +477,9 @@ class TestPerformanceAttributionEngine:
         assert mae_stats["recovery_rate"] == Decimal("0")
         assert mae_stats["average_mae"] == Decimal("400")
 
-    async def test_mae_recovery_edge_case_all_recover(self, attribution_engine, mock_repository):
+    async def test_mae_recovery_edge_case_all_recover(
+        self, attribution_engine, mock_repository
+    ):
         """Test MAE analysis when all positions recover from drawdown."""
         positions = [
             {
@@ -467,7 +488,7 @@ class TestPerformanceAttributionEngine:
                 "symbol": "BTC/USDT",
                 "max_adverse_excursion": Decimal("200"),
                 "recovered_from_mae": True,
-                "pnl_dollars": Decimal("100")
+                "pnl_dollars": Decimal("100"),
             },
             {
                 "position_id": "p2",
@@ -475,15 +496,14 @@ class TestPerformanceAttributionEngine:
                 "symbol": "ETH/USDT",
                 "max_adverse_excursion": Decimal("150"),
                 "recovered_from_mae": True,
-                "pnl_dollars": Decimal("75")
-            }
+                "pnl_dollars": Decimal("75"),
+            },
         ]
 
         mock_repository.query_positions_with_mae.return_value = positions
 
         mae_stats = await attribution_engine.get_mae_analysis(
-            datetime(2024, 1, 1, tzinfo=UTC),
-            datetime(2024, 1, 31, tzinfo=UTC)
+            datetime(2024, 1, 1, tzinfo=UTC), datetime(2024, 1, 31, tzinfo=UTC)
         )
 
         assert mae_stats["total_positions"] == 2
@@ -491,7 +511,9 @@ class TestPerformanceAttributionEngine:
         assert mae_stats["recovery_rate"] == Decimal("1.0")
         assert mae_stats["average_mae"] == Decimal("175")
 
-    async def test_mae_recovery_edge_case_zero_mae(self, attribution_engine, mock_repository):
+    async def test_mae_recovery_edge_case_zero_mae(
+        self, attribution_engine, mock_repository
+    ):
         """Test MAE analysis with positions having zero MAE."""
         positions = [
             {
@@ -500,15 +522,14 @@ class TestPerformanceAttributionEngine:
                 "symbol": "BTC/USDT",
                 "max_adverse_excursion": Decimal("0"),
                 "recovered_from_mae": True,
-                "pnl_dollars": Decimal("500")
+                "pnl_dollars": Decimal("500"),
             }
         ]
 
         mock_repository.query_positions_with_mae.return_value = positions
 
         mae_stats = await attribution_engine.get_mae_analysis(
-            datetime(2024, 1, 1, tzinfo=UTC),
-            datetime(2024, 1, 31, tzinfo=UTC)
+            datetime(2024, 1, 1, tzinfo=UTC), datetime(2024, 1, 31, tzinfo=UTC)
         )
 
         assert mae_stats["total_positions"] == 1
@@ -516,7 +537,9 @@ class TestPerformanceAttributionEngine:
         assert mae_stats["min_mae"] == Decimal("0")
         assert mae_stats["max_mae"] == Decimal("0")
 
-    async def test_mae_recovery_edge_case_large_drawdowns(self, attribution_engine, mock_repository):
+    async def test_mae_recovery_edge_case_large_drawdowns(
+        self, attribution_engine, mock_repository
+    ):
         """Test MAE analysis with extremely large drawdowns."""
         positions = [
             {
@@ -525,7 +548,7 @@ class TestPerformanceAttributionEngine:
                 "symbol": "BTC/USDT",
                 "max_adverse_excursion": Decimal("10000"),
                 "recovered_from_mae": False,
-                "pnl_dollars": Decimal("-8000")
+                "pnl_dollars": Decimal("-8000"),
             },
             {
                 "position_id": "p2",
@@ -533,15 +556,14 @@ class TestPerformanceAttributionEngine:
                 "symbol": "ETH/USDT",
                 "max_adverse_excursion": Decimal("15000"),
                 "recovered_from_mae": True,
-                "pnl_dollars": Decimal("500")
-            }
+                "pnl_dollars": Decimal("500"),
+            },
         ]
 
         mock_repository.query_positions_with_mae.return_value = positions
 
         mae_stats = await attribution_engine.get_mae_analysis(
-            datetime(2024, 1, 1, tzinfo=UTC),
-            datetime(2024, 1, 31, tzinfo=UTC)
+            datetime(2024, 1, 1, tzinfo=UTC), datetime(2024, 1, 31, tzinfo=UTC)
         )
 
         assert mae_stats["total_positions"] == 2

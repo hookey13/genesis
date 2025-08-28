@@ -42,24 +42,24 @@ class TestMicrostructureAnalyzer:
     async def test_analyze_microstructure(self, analyzer, event_bus):
         """Test comprehensive microstructure analysis."""
         # Mock component results
-        analyzer.execution_optimizer.analyze_timing = AsyncMock(return_value={
-            "optimal_time": "09:30",
-            "liquidity_score": Decimal("0.8")
-        })
-        analyzer.market_maker_analyzer.analyze_behavior = AsyncMock(return_value={
-            "mm_present": True,
-            "spread_control": Decimal("0.7")
-        })
-        analyzer.toxicity_scorer.calculate_toxicity = AsyncMock(return_value={
-            "toxicity_score": Decimal("0.3"),
-            "adverse_selection": Decimal("0.2")
-        })
+        analyzer.execution_optimizer.analyze_timing = AsyncMock(
+            return_value={"optimal_time": "09:30", "liquidity_score": Decimal("0.8")}
+        )
+        analyzer.market_maker_analyzer.analyze_behavior = AsyncMock(
+            return_value={"mm_present": True, "spread_control": Decimal("0.7")}
+        )
+        analyzer.toxicity_scorer.calculate_toxicity = AsyncMock(
+            return_value={
+                "toxicity_score": Decimal("0.3"),
+                "adverse_selection": Decimal("0.2"),
+            }
+        )
 
         result = await analyzer.analyze_microstructure(
             symbol="BTC/USDT",
             order_flow_metrics={"ofi": Decimal("0.6")},
             large_trades=[],
-            manipulation_events=[]
+            manipulation_events=[],
         )
 
         assert "regime" in result
@@ -78,7 +78,7 @@ class TestMicrostructureAnalyzer:
             flow_imbalance=Decimal("0.1"),
             volatility=Decimal("0.02"),
             manipulation_count=0,
-            whale_activity=False
+            whale_activity=False,
         )
 
         assert regime["regime"] == MarketRegime.NORMAL
@@ -91,7 +91,7 @@ class TestMicrostructureAnalyzer:
             flow_imbalance=Decimal("0.8"),
             volatility=Decimal("0.05"),
             manipulation_count=2,
-            whale_activity=True
+            whale_activity=True,
         )
 
         assert regime["regime"] == MarketRegime.STRESSED
@@ -107,7 +107,7 @@ class TestMicrostructureAnalyzer:
             flow_imbalance=Decimal("0.6"),
             volatility=Decimal("0.03"),
             manipulation_count=0,
-            whale_activity=False
+            whale_activity=False,
         )
 
         assert regime["regime"] in [MarketRegime.TRENDING, MarketRegime.NORMAL]
@@ -119,7 +119,7 @@ class TestMicrostructureAnalyzer:
             flow_imbalance=Decimal("0.9"),
             volatility=Decimal("0.1"),
             manipulation_count=5,
-            whale_activity=True
+            whale_activity=True,
         )
 
         assert regime["regime"] == MarketRegime.TOXIC
@@ -132,7 +132,7 @@ class TestMicrostructureAnalyzer:
             order_flow={"ofi": Decimal("0.5"), "pressure": Decimal("0.3")},
             large_trader={"whale_detected": True, "cluster_count": 2},
             manipulation={"spoofing_detected": False, "layering_score": Decimal("0.1")},
-            price_impact={"total_impact": Decimal("0.02")}
+            price_impact={"total_impact": Decimal("0.02")},
         )
 
         assert "flow_strength" in integrated
@@ -150,8 +150,8 @@ class TestMicrostructureAnalyzer:
                 "flow_strength": Decimal("0.3"),
                 "institutional_presence": Decimal("0.2"),
                 "manipulation_risk": Decimal("0.1"),
-                "toxicity_score": Decimal("0.2")
-            }
+                "toxicity_score": Decimal("0.2"),
+            },
         )
 
         assert "execution_strategy" in recommendations
@@ -168,8 +168,8 @@ class TestMicrostructureAnalyzer:
                 "flow_strength": Decimal("0.9"),
                 "institutional_presence": Decimal("0.8"),
                 "manipulation_risk": Decimal("0.7"),
-                "toxicity_score": Decimal("0.9")
-            }
+                "toxicity_score": Decimal("0.9"),
+            },
         )
 
         assert recommendations["execution_strategy"] == "AVOID"
@@ -195,10 +195,10 @@ class TestExecutionOptimizer:
                 {"hour": 9, "volume": Decimal("1000")},
                 {"hour": 10, "volume": Decimal("1500")},
                 {"hour": 14, "volume": Decimal("2000")},
-                {"hour": 15, "volume": Decimal("1800")}
+                {"hour": 15, "volume": Decimal("1800")},
             ],
             current_spread=Decimal("10"),
-            volatility=Decimal("0.02")
+            volatility=Decimal("0.02"),
         )
 
         assert "optimal_hours" in analysis
@@ -213,7 +213,7 @@ class TestExecutionOptimizer:
             order_size=Decimal("100"),
             avg_volume=Decimal("10000"),
             urgency="NORMAL",
-            market_impact_tolerance=Decimal("0.01")
+            market_impact_tolerance=Decimal("0.01"),
         )
 
         assert rate > 0
@@ -226,7 +226,7 @@ class TestExecutionOptimizer:
             total_size=Decimal("1000"),
             time_horizon=3600,  # 1 hour
             participation_rate=Decimal("0.05"),
-            volume_profile=[Decimal("100")] * 12  # 5-minute bins
+            volume_profile=[Decimal("100")] * 12,  # 5-minute bins
         )
 
         assert len(schedule) > 0
@@ -258,13 +258,11 @@ class TestMarketMakerAnalyzer:
             "asks": [
                 {"price": Decimal("50010"), "quantity": Decimal("100")},
                 {"price": Decimal("50020"), "quantity": Decimal("100")},
-            ]
+            ],
         }
 
         analysis = await mm_analyzer.analyze_behavior(
-            symbol="BTC/USDT",
-            order_book_history=[order_book] * 5,
-            trade_history=[]
+            symbol="BTC/USDT", order_book_history=[order_book] * 5, trade_history=[]
         )
 
         assert "mm_present" in analysis
@@ -279,7 +277,7 @@ class TestMarketMakerAnalyzer:
         patterns = await mm_analyzer.detect_patterns(
             bid_sizes=[Decimal("100"), Decimal("100"), Decimal("100")],
             ask_sizes=[Decimal("100"), Decimal("100"), Decimal("100")],
-            spread_history=[Decimal("20"), Decimal("20"), Decimal("20")]
+            spread_history=[Decimal("20"), Decimal("20"), Decimal("20")],
         )
 
         assert patterns["symmetric_quotes"] == True
@@ -292,7 +290,7 @@ class TestMarketMakerAnalyzer:
         prediction = await mm_analyzer.predict_liquidity_withdrawal(
             volatility_spike=Decimal("0.1"),
             order_cancellation_rate=Decimal("0.8"),
-            spread_widening=Decimal("2.0")
+            spread_widening=Decimal("2.0"),
         )
 
         assert prediction["withdrawal_probability"] > Decimal("0.7")
@@ -316,7 +314,7 @@ class TestToxicityScorer:
             adverse_selection=Decimal("0.3"),
             manipulation_frequency=Decimal("0.1"),
             spread_volatility=Decimal("0.2"),
-            order_rejection_rate=Decimal("0.05")
+            order_rejection_rate=Decimal("0.05"),
         )
 
         assert "toxicity_score" in toxicity
@@ -335,8 +333,7 @@ class TestToxicityScorer:
         ]
 
         pin = await toxicity_scorer.calculate_pin(
-            trades=trades,
-            time_window=300  # 5 minutes
+            trades=trades, time_window=300  # 5 minutes
         )
 
         assert 0 <= pin <= 1
@@ -349,18 +346,17 @@ class TestToxicityScorer:
             {
                 "price": Decimal("50000"),
                 "post_trade_price": Decimal("50050"),
-                "side": "BUY"
+                "side": "BUY",
             },
             {
                 "price": Decimal("50100"),
                 "post_trade_price": Decimal("50080"),
-                "side": "SELL"
-            }
+                "side": "SELL",
+            },
         ]
 
         adverse_selection = await toxicity_scorer.measure_adverse_selection(
-            executions=executions,
-            time_horizon=60  # 1 minute
+            executions=executions, time_horizon=60  # 1 minute
         )
 
         assert "realized_spread" in adverse_selection
@@ -376,7 +372,7 @@ class TestToxicityScorer:
             adverse_selection=Decimal("0.05"),
             manipulation_frequency=Decimal("0.01"),
             spread_volatility=Decimal("0.1"),
-            order_rejection_rate=Decimal("0.01")
+            order_rejection_rate=Decimal("0.01"),
         )
         assert result["trading_recommendation"] == "SAFE"
 
@@ -386,6 +382,6 @@ class TestToxicityScorer:
             adverse_selection=Decimal("0.8"),
             manipulation_frequency=Decimal("0.5"),
             spread_volatility=Decimal("0.6"),
-            order_rejection_rate=Decimal("0.3")
+            order_rejection_rate=Decimal("0.3"),
         )
         assert result["trading_recommendation"] == "AVOID"

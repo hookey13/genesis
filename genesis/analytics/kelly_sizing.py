@@ -4,6 +4,7 @@ Kelly Criterion-based position sizing calculator.
 Implements fractional Kelly sizing for optimal portfolio growth while managing risk.
 Hunter+ tier feature for sophisticated position sizing.
 """
+
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -77,7 +78,7 @@ class KellyCalculator:
         default_fraction: Decimal = Decimal("0.25"),
         min_trades: int = 20,
         lookback_days: int = 30,
-        max_kelly: Decimal = Decimal("0.5")
+        max_kelly: Decimal = Decimal("0.5"),
     ):
         """
         Initialize Kelly calculator.
@@ -96,9 +97,7 @@ class KellyCalculator:
         self._cache_ttl = timedelta(minutes=1)
 
     def calculate_kelly_fraction(
-        self,
-        win_rate: Decimal,
-        win_loss_ratio: Decimal
+        self, win_rate: Decimal, win_loss_ratio: Decimal
     ) -> Decimal:
         """
         Calculate raw Kelly fraction.
@@ -141,10 +140,7 @@ class KellyCalculator:
         return kelly_f.quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
 
     def calculate_position_size(
-        self,
-        kelly_f: Decimal,
-        balance: Decimal,
-        fraction: Optional[Decimal] = None
+        self, kelly_f: Decimal, balance: Decimal, fraction: Optional[Decimal] = None
     ) -> Decimal:
         """
         Calculate position size using fractional Kelly.
@@ -170,9 +166,7 @@ class KellyCalculator:
         return position_size.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
 
     def estimate_edge(
-        self,
-        trades: list[Trade],
-        confidence_level: Decimal = Decimal("0.95")
+        self, trades: list[Trade], confidence_level: Decimal = Decimal("0.95")
     ) -> dict[str, Decimal]:
         """
         Estimate trading edge from historical trades.
@@ -189,7 +183,7 @@ class KellyCalculator:
                 "win_rate": Decimal("0"),
                 "win_loss_ratio": Decimal("0"),
                 "sample_size": 0,
-                "confidence": Decimal("0")
+                "confidence": Decimal("0"),
             }
 
         wins = []
@@ -204,7 +198,9 @@ class KellyCalculator:
 
         # Calculate win rate
         total_trades = len(trades)
-        win_rate = Decimal(str(len(wins) / total_trades)) if total_trades > 0 else Decimal("0")
+        win_rate = (
+            Decimal(str(len(wins) / total_trades)) if total_trades > 0 else Decimal("0")
+        )
 
         # Calculate win/loss ratio
         avg_win = Decimal(str(np.mean(wins))) if wins else Decimal("0")
@@ -213,23 +209,18 @@ class KellyCalculator:
 
         # Calculate confidence interval for win rate
         confidence = self._calculate_confidence(
-            win_rate,
-            total_trades,
-            confidence_level
+            win_rate, total_trades, confidence_level
         )
 
         return {
             "win_rate": win_rate.quantize(Decimal("0.0001")),
             "win_loss_ratio": win_loss_ratio.quantize(Decimal("0.01")),
             "sample_size": total_trades,
-            "confidence": confidence
+            "confidence": confidence,
         }
 
     def _calculate_confidence(
-        self,
-        win_rate: Decimal,
-        sample_size: int,
-        confidence_level: Decimal
+        self, win_rate: Decimal, sample_size: int, confidence_level: Decimal
     ) -> Decimal:
         """
         Calculate confidence interval for win rate.
@@ -256,10 +247,7 @@ class KellyCalculator:
         return Decimal(str(confidence_score)).quantize(Decimal("0.0001"))
 
     def calculate_strategy_edge(
-        self,
-        strategy_id: str,
-        trades: list[Trade],
-        window_days: Optional[int] = None
+        self, strategy_id: str, trades: list[Trade], window_days: Optional[int] = None
     ) -> StrategyEdge:
         """
         Calculate edge for a specific strategy.
@@ -284,10 +272,7 @@ class KellyCalculator:
 
         # Filter trades by window
         cutoff_date = datetime.now(UTC) - timedelta(days=window_days)
-        recent_trades = [
-            t for t in trades
-            if t.timestamp >= cutoff_date
-        ]
+        recent_trades = [t for t in trades if t.timestamp >= cutoff_date]
 
         # Estimate edge
         edge_metrics = self.estimate_edge(recent_trades)
@@ -301,8 +286,10 @@ class KellyCalculator:
             se = float(np.sqrt(float(win_rate * (1 - win_rate)) / sample_size))
             lower = Decimal(str(max(0, float(win_rate) - z * se)))
             upper = Decimal(str(min(1, float(win_rate) + z * se)))
-            confidence_interval = (lower.quantize(Decimal("0.0001")),
-                                 upper.quantize(Decimal("0.0001")))
+            confidence_interval = (
+                lower.quantize(Decimal("0.0001")),
+                upper.quantize(Decimal("0.0001")),
+            )
         else:
             confidence_interval = (Decimal("0"), Decimal("1"))
 
@@ -313,17 +300,14 @@ class KellyCalculator:
             win_loss_ratio=edge_metrics["win_loss_ratio"],
             sample_size=edge_metrics["sample_size"],
             confidence_interval=confidence_interval,
-            last_calculated=datetime.now(UTC)
+            last_calculated=datetime.now(UTC),
         )
 
         self._strategy_edges[strategy_id] = strategy_edge
         return strategy_edge
 
     def adjust_kelly_for_performance(
-        self,
-        base_kelly: Decimal,
-        recent_trades: list[Trade],
-        window_size: int = 20
+        self, base_kelly: Decimal, recent_trades: list[Trade], window_size: int = 20
     ) -> Decimal:
         """
         Adjust Kelly fraction based on recent performance.
@@ -342,13 +326,17 @@ class KellyCalculator:
             return base_kelly
 
         # Get last N trades
-        window_trades = recent_trades[-window_size:] if len(recent_trades) >= window_size else recent_trades
+        window_trades = (
+            recent_trades[-window_size:]
+            if len(recent_trades) >= window_size
+            else recent_trades
+        )
 
         # Calculate recent performance metrics
         returns = [float(t.pnl_percent) for t in window_trades]
 
         # Check for drawdown
-        cumulative_return = np.cumprod([1 + r/100 for r in returns])
+        cumulative_return = np.cumprod([1 + r / 100 for r in returns])
         peak = np.maximum.accumulate(cumulative_return)
         drawdown = (peak - cumulative_return) / peak
         max_drawdown = np.max(drawdown)
@@ -357,16 +345,23 @@ class KellyCalculator:
         if max_drawdown > 0.2:  # 20% drawdown
             adjustment = Decimal(str(1 - max_drawdown))
             adjusted_kelly = base_kelly * adjustment
-            logger.info("Reducing Kelly from %s to %s due to %.1f%% drawdown",
-                       base_kelly, adjusted_kelly, max_drawdown * 100)
+            logger.info(
+                "Reducing Kelly from %s to %s due to %.1f%% drawdown",
+                base_kelly,
+                adjusted_kelly,
+                max_drawdown * 100,
+            )
         else:
             # Check winning streak
             recent_wins = sum(1 for t in window_trades[-5:] if t.pnl_dollars > 0)
             if recent_wins >= 4:  # 4+ wins in last 5 trades
                 adjustment = Decimal("1.1")  # Slight increase
                 adjusted_kelly = min(base_kelly * adjustment, self.max_kelly)
-                logger.info("Increasing Kelly from %s to %s due to winning streak",
-                           base_kelly, adjusted_kelly)
+                logger.info(
+                    "Increasing Kelly from %s to %s due to winning streak",
+                    base_kelly,
+                    adjusted_kelly,
+                )
             else:
                 adjusted_kelly = base_kelly
 
@@ -376,7 +371,7 @@ class KellyCalculator:
         self,
         kelly_size: Decimal,
         conviction: ConvictionLevel,
-        multipliers: Optional[dict[ConvictionLevel, Decimal]] = None
+        multipliers: Optional[dict[ConvictionLevel, Decimal]] = None,
     ) -> Decimal:
         """
         Apply conviction multiplier to Kelly-based position size.
@@ -394,7 +389,7 @@ class KellyCalculator:
         default_multipliers = {
             ConvictionLevel.LOW: Decimal("0.5"),
             ConvictionLevel.MEDIUM: Decimal("1.0"),
-            ConvictionLevel.HIGH: Decimal("1.5")
+            ConvictionLevel.HIGH: Decimal("1.5"),
         }
 
         if multipliers:
@@ -403,8 +398,12 @@ class KellyCalculator:
         multiplier = default_multipliers.get(conviction, Decimal("1.0"))
         adjusted_size = kelly_size * multiplier
 
-        logger.info("Applied %s conviction multiplier: %s -> %s",
-                   conviction.value, kelly_size, adjusted_size)
+        logger.info(
+            "Applied %s conviction multiplier: %s -> %s",
+            conviction.value,
+            kelly_size,
+            adjusted_size,
+        )
 
         return adjusted_size.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
 
@@ -413,7 +412,7 @@ class KellyCalculator:
         calculated_size: Decimal,
         balance: Decimal,
         tier: TradingTier,
-        boundaries: Optional[dict[str, Decimal]] = None
+        boundaries: Optional[dict[str, Decimal]] = None,
     ) -> Decimal:
         """
         Enforce minimum and maximum position size boundaries.
@@ -431,10 +430,15 @@ class KellyCalculator:
         default_boundaries = {
             TradingTier.SNIPER: {"min_pct": Decimal("2.0"), "max_pct": Decimal("5.0")},
             TradingTier.HUNTER: {"min_pct": Decimal("1.0"), "max_pct": Decimal("10.0")},
-            TradingTier.STRATEGIST: {"min_pct": Decimal("0.5"), "max_pct": Decimal("15.0")}
+            TradingTier.STRATEGIST: {
+                "min_pct": Decimal("0.5"),
+                "max_pct": Decimal("15.0"),
+            },
         }
 
-        tier_boundaries = boundaries or default_boundaries.get(tier, default_boundaries[TradingTier.HUNTER])
+        tier_boundaries = boundaries or default_boundaries.get(
+            tier, default_boundaries[TradingTier.HUNTER]
+        )
 
         min_size = balance * tier_boundaries["min_pct"] / 100
         max_size = balance * tier_boundaries["max_pct"] / 100
@@ -443,8 +447,12 @@ class KellyCalculator:
         bounded_size = max(min_size, min(calculated_size, max_size))
 
         if bounded_size != calculated_size:
-            logger.info("Applied position boundaries: %s -> %s (tier: %s)",
-                       calculated_size, bounded_size, tier.value)
+            logger.info(
+                "Applied position boundaries: %s -> %s (tier: %s)",
+                calculated_size,
+                bounded_size,
+                tier.value,
+            )
 
         return bounded_size.quantize(Decimal("0.01"), rounding=ROUND_DOWN)
 
@@ -452,7 +460,7 @@ class KellyCalculator:
         self,
         returns: list[float],
         lookback: int = 14,
-        max_reduction: Decimal = Decimal("0.5")
+        max_reduction: Decimal = Decimal("0.5"),
     ) -> tuple[Decimal, VolatilityRegime]:
         """
         Calculate position size multiplier based on volatility.
@@ -487,8 +495,12 @@ class KellyCalculator:
             reduction_factor = min(1.0, (annual_vol - 0.30) / 0.30)
             multiplier = Decimal(str(1.0 - float(max_reduction) * reduction_factor))
 
-        logger.debug("Volatility regime: %s (%.1f%% annual), multiplier: %s",
-                    regime.value, annual_vol * 100, multiplier)
+        logger.debug(
+            "Volatility regime: %s (%.1f%% annual), multiplier: %s",
+            regime.value,
+            annual_vol * 100,
+            multiplier,
+        )
 
         return multiplier.quantize(Decimal("0.01")), regime
 
@@ -499,7 +511,7 @@ class KellyCalculator:
         kelly_fraction: Decimal,
         initial_balance: Decimal = Decimal("10000"),
         iterations: int = 10000,
-        trades_per_iteration: int = 100
+        trades_per_iteration: int = 100,
     ) -> SimulationResult:
         """
         Run Monte Carlo simulation to validate Kelly parameters.
@@ -552,9 +564,13 @@ class KellyCalculator:
         # Expected growth rate (geometric mean)
         positive_balances = final_balances[final_balances > 0]
         if len(positive_balances) > 0:
-            growth_rate = Decimal(str(
-                (np.mean(positive_balances) / float(initial_balance)) ** (1/trades_per_iteration) - 1
-            ))
+            growth_rate = Decimal(
+                str(
+                    (np.mean(positive_balances) / float(initial_balance))
+                    ** (1 / trades_per_iteration)
+                    - 1
+                )
+            )
         else:
             growth_rate = Decimal("-1")
 
@@ -574,7 +590,7 @@ class KellyCalculator:
             expected_growth_rate=growth_rate.quantize(Decimal("0.0001")),
             median_final_balance=median.quantize(Decimal("0.01")),
             percentile_5=p5.quantize(Decimal("0.01")),
-            percentile_95=p95.quantize(Decimal("0.01"))
+            percentile_95=p95.quantize(Decimal("0.01")),
         )
 
     def _find_optimal_kelly_simulation(
@@ -583,7 +599,7 @@ class KellyCalculator:
         win_loss_ratio: float,
         initial_balance: float,
         trades: int,
-        iterations: int = 1000
+        iterations: int = 1000,
     ) -> float:
         """Find optimal Kelly fraction through simulation."""
         best_kelly = 0
@@ -594,7 +610,11 @@ class KellyCalculator:
             balances = []
 
             for _ in range(iterations):
-                balance = float(initial_balance) if isinstance(initial_balance, Decimal) else initial_balance
+                balance = (
+                    float(initial_balance)
+                    if isinstance(initial_balance, Decimal)
+                    else initial_balance
+                )
 
                 for _ in range(trades):
                     if balance <= 0:

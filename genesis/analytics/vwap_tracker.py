@@ -50,13 +50,13 @@ class VWAPMetrics:
     def to_dict(self) -> dict:
         """Convert to dictionary for event emission."""
         return {
-            'symbol': self.symbol.value,
-            'timestamp': self.timestamp.isoformat(),
-            'vwap': str(self.vwap),
-            'total_volume': str(self.total_volume),
-            'total_value': str(self.total_value),
-            'trade_count': self.trade_count,
-            'time_window_minutes': self.time_window_minutes
+            "symbol": self.symbol.value,
+            "timestamp": self.timestamp.isoformat(),
+            "vwap": str(self.vwap),
+            "total_volume": str(self.total_volume),
+            "total_value": str(self.total_value),
+            "trade_count": self.trade_count,
+            "time_window_minutes": self.time_window_minutes,
         }
 
 
@@ -79,17 +79,17 @@ class ExecutionPerformance:
     def to_dict(self) -> dict:
         """Convert to dictionary for reporting."""
         return {
-            'symbol': self.symbol.value,
-            'execution_id': self.execution_id,
-            'start_time': self.start_time.isoformat(),
-            'end_time': self.end_time.isoformat() if self.end_time else None,
-            'executed_volume': str(self.executed_volume),
-            'executed_value': str(self.executed_value),
-            'execution_vwap': str(self.execution_vwap),
-            'market_vwap': str(self.market_vwap),
-            'slippage_bps': str(self.slippage_bps),
-            'fill_rate': str(self.fill_rate),
-            'trades_executed': self.trades_executed
+            "symbol": self.symbol.value,
+            "execution_id": self.execution_id,
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "executed_volume": str(self.executed_volume),
+            "executed_value": str(self.executed_value),
+            "execution_vwap": str(self.execution_vwap),
+            "market_vwap": str(self.market_vwap),
+            "slippage_bps": str(self.slippage_bps),
+            "fill_rate": str(self.fill_rate),
+            "trades_executed": self.trades_executed,
         }
 
 
@@ -207,14 +207,14 @@ class VWAPTracker:
         trades = self._trades[symbol]
 
         # Calculate totals
-        total_volume = Decimal('0')
-        total_value = Decimal('0')
+        total_volume = Decimal("0")
+        total_value = Decimal("0")
 
         for trade in trades:
             total_volume += trade.volume
             total_value += trade.value
 
-        if total_volume == Decimal('0'):
+        if total_volume == Decimal("0"):
             return None
 
         vwap = total_value / total_volume
@@ -226,7 +226,7 @@ class VWAPTracker:
             total_volume=total_volume,
             total_value=total_value,
             trade_count=len(trades),
-            time_window_minutes=self.window_minutes
+            time_window_minutes=self.window_minutes,
         )
 
     async def _emit_metrics(self, metrics: VWAPMetrics):
@@ -238,10 +238,7 @@ class VWAPTracker:
         event = Event(
             event_type=EventType.METRICS_UPDATE,
             created_at=metrics.timestamp,
-            event_data={
-                'metric_type': 'vwap',
-                **metrics.to_dict()
-            }
+            event_data={"metric_type": "vwap", **metrics.to_dict()},
         )
 
         await self.event_bus.emit(event)
@@ -269,10 +266,7 @@ class VWAPTracker:
         return None
 
     def start_execution_tracking(
-        self,
-        symbol: Symbol,
-        execution_id: str,
-        target_volume: Decimal
+        self, symbol: Symbol, execution_id: str, target_volume: Decimal
     ) -> ExecutionPerformance:
         """Start tracking an execution against VWAP benchmark.
 
@@ -289,13 +283,13 @@ class VWAPTracker:
             execution_id=execution_id,
             start_time=datetime.now(UTC),
             end_time=None,
-            executed_volume=Decimal('0'),
-            executed_value=Decimal('0'),
-            execution_vwap=Decimal('0'),
-            market_vwap=self.get_current_vwap(symbol) or Decimal('0'),
-            slippage_bps=Decimal('0'),
-            fill_rate=Decimal('0'),
-            trades_executed=0
+            executed_volume=Decimal("0"),
+            executed_value=Decimal("0"),
+            execution_vwap=Decimal("0"),
+            market_vwap=self.get_current_vwap(symbol) or Decimal("0"),
+            slippage_bps=Decimal("0"),
+            fill_rate=Decimal("0"),
+            trades_executed=0,
         )
 
         self._executions[execution_id] = performance
@@ -304,17 +298,12 @@ class VWAPTracker:
             "execution_tracking_started",
             symbol=symbol.value,
             execution_id=execution_id,
-            target_volume=str(target_volume)
+            target_volume=str(target_volume),
         )
 
         return performance
 
-    def update_execution(
-        self,
-        execution_id: str,
-        price: Decimal,
-        volume: Decimal
-    ):
+    def update_execution(self, execution_id: str, price: Decimal, volume: Decimal):
         """Update execution with a new fill.
 
         Args:
@@ -335,7 +324,9 @@ class VWAPTracker:
 
         # Recalculate execution VWAP
         if performance.executed_volume > 0:
-            performance.execution_vwap = performance.executed_value / performance.executed_volume
+            performance.execution_vwap = (
+                performance.executed_value / performance.executed_volume
+            )
 
         # Update market VWAP
         current_market_vwap = self.get_current_vwap(performance.symbol)
@@ -344,13 +335,13 @@ class VWAPTracker:
 
             # Calculate slippage in basis points
             if performance.market_vwap > 0:
-                slippage_ratio = (performance.execution_vwap - performance.market_vwap) / performance.market_vwap
-                performance.slippage_bps = slippage_ratio * Decimal('10000')
+                slippage_ratio = (
+                    performance.execution_vwap - performance.market_vwap
+                ) / performance.market_vwap
+                performance.slippage_bps = slippage_ratio * Decimal("10000")
 
     def complete_execution(
-        self,
-        execution_id: str,
-        target_volume: Decimal
+        self, execution_id: str, target_volume: Decimal
     ) -> Optional[ExecutionPerformance]:
         """Complete execution tracking and return final performance.
 
@@ -370,7 +361,9 @@ class VWAPTracker:
 
         # Calculate fill rate
         if target_volume > 0:
-            performance.fill_rate = (performance.executed_volume / target_volume) * Decimal('100')
+            performance.fill_rate = (
+                performance.executed_volume / target_volume
+            ) * Decimal("100")
 
         # Move to history
         self._performance_history.append(performance)
@@ -384,15 +377,13 @@ class VWAPTracker:
             execution_vwap=str(performance.execution_vwap),
             market_vwap=str(performance.market_vwap),
             slippage_bps=str(performance.slippage_bps),
-            fill_rate=str(performance.fill_rate)
+            fill_rate=str(performance.fill_rate),
         )
 
         return performance
 
     def get_performance_stats(
-        self,
-        symbol: Optional[Symbol] = None,
-        hours: int = 24
+        self, symbol: Optional[Symbol] = None, hours: int = 24
     ) -> dict:
         """Get aggregated performance statistics.
 
@@ -407,17 +398,19 @@ class VWAPTracker:
 
         # Filter relevant executions
         relevant = [
-            p for p in self._performance_history
-            if p.end_time and p.end_time > cutoff_time
+            p
+            for p in self._performance_history
+            if p.end_time
+            and p.end_time > cutoff_time
             and (symbol is None or p.symbol == symbol)
         ]
 
         if not relevant:
             return {
-                'executions': 0,
-                'avg_slippage_bps': '0',
-                'avg_fill_rate': '0',
-                'total_volume': '0'
+                "executions": 0,
+                "avg_slippage_bps": "0",
+                "avg_fill_rate": "0",
+                "total_volume": "0",
             }
 
         # Calculate statistics
@@ -426,18 +419,24 @@ class VWAPTracker:
         total_volume = sum(p.executed_volume for p in relevant)
 
         return {
-            'executions': len(relevant),
-            'avg_slippage_bps': str(total_slippage / len(relevant)),
-            'avg_fill_rate': str(total_fill_rate / len(relevant)),
-            'total_volume': str(total_volume),
-            'best_execution': min(relevant, key=lambda x: x.slippage_bps).execution_id if relevant else None,
-            'worst_execution': max(relevant, key=lambda x: x.slippage_bps).execution_id if relevant else None
+            "executions": len(relevant),
+            "avg_slippage_bps": str(total_slippage / len(relevant)),
+            "avg_fill_rate": str(total_fill_rate / len(relevant)),
+            "total_volume": str(total_volume),
+            "best_execution": (
+                min(relevant, key=lambda x: x.slippage_bps).execution_id
+                if relevant
+                else None
+            ),
+            "worst_execution": (
+                max(relevant, key=lambda x: x.slippage_bps).execution_id
+                if relevant
+                else None
+            ),
         }
 
     async def calculate_real_time_vwap(
-        self,
-        trades: list[Trade],
-        time_window: Optional[timedelta] = None
+        self, trades: list[Trade], time_window: Optional[timedelta] = None
     ) -> Decimal:
         """Calculate VWAP from a list of trades.
 
@@ -449,7 +448,7 @@ class VWAPTracker:
             Calculated VWAP
         """
         if not trades:
-            return Decimal('0')
+            return Decimal("0")
 
         # Filter by time window if specified
         if time_window:
@@ -457,12 +456,12 @@ class VWAPTracker:
             trades = [t for t in trades if t.timestamp > cutoff]
 
         if not trades:
-            return Decimal('0')
+            return Decimal("0")
 
         total_volume = sum(t.volume for t in trades)
         total_value = sum(t.value for t in trades)
 
-        if total_volume == Decimal('0'):
-            return Decimal('0')
+        if total_volume == Decimal("0"):
+            return Decimal("0")
 
         return total_value / total_volume

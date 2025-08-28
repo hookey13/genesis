@@ -18,7 +18,12 @@ logger = structlog.get_logger(__name__)
 class ExchangeError(Exception):
     """Base exception for exchange-related errors."""
 
-    def __init__(self, message: str, code: Optional[int] = None, retry_after: Optional[int] = None):
+    def __init__(
+        self,
+        message: str,
+        code: Optional[int] = None,
+        retry_after: Optional[int] = None,
+    ):
         """
         Initialize exchange error.
 
@@ -34,56 +39,67 @@ class ExchangeError(Exception):
 
 class RateLimitError(ExchangeError):
     """Rate limit exceeded error."""
+
     pass
 
 
 class AuthenticationError(ExchangeError):
     """Authentication failed error."""
+
     pass
 
 
 class InsufficientBalanceError(ExchangeError):
     """Insufficient balance for operation."""
+
     pass
 
 
 class OrderNotFoundError(ExchangeError):
     """Order not found error."""
+
     pass
 
 
 class InvalidOrderError(ExchangeError):
     """Invalid order parameters error."""
+
     pass
 
 
 class NetworkError(ExchangeError):
     """Network-related error."""
+
     pass
 
 
 class MaintenanceError(ExchangeError):
     """Exchange under maintenance error."""
+
     pass
 
 
 class TimeoutError(ExchangeError):
     """Request timeout error."""
+
     pass
 
 
 class UnknownSymbolError(ExchangeError):
     """Unknown trading symbol error."""
+
     pass
 
 
 class MinOrderSizeError(ExchangeError):
     """Order size below minimum error."""
+
     pass
 
 
 class MaxOrderSizeError(ExchangeError):
     """Order size above maximum error."""
+
     pass
 
 
@@ -111,7 +127,6 @@ class ErrorTranslator:
         -1010: (NetworkError, "Server is currently busy"),
         -1011: (NetworkError, "This IP cannot access this route"),
         -1012: (MaintenanceError, "System maintenance"),
-
         # 11xx - Request issues
         -1100: (InvalidOrderError, "Illegal characters found in parameter"),
         -1101: (InvalidOrderError, "Too many parameters"),
@@ -133,10 +148,12 @@ class ErrorTranslator:
         -1125: (InvalidOrderError, "Invalid listenKey"),
         -1127: (InvalidOrderError, "Invalid quantity"),
         -1128: (InvalidOrderError, "Invalid price"),
-
         # 20xx - Processing issues
         -2008: (InvalidOrderError, "Invalid API-key format"),
-        -2009: (InvalidOrderError, "Margin account are not allowed to trade this trading pair"),
+        -2009: (
+            InvalidOrderError,
+            "Margin account are not allowed to trade this trading pair",
+        ),
         -2010: (InsufficientBalanceError, "Account has insufficient balance"),
         -2011: (OrderNotFoundError, "Order does not exist"),
         -2012: (InvalidOrderError, "API-key not found"),
@@ -155,19 +172,14 @@ class ErrorTranslator:
         -2026: (InvalidOrderError, "This order type is not supported"),
         -2027: (InvalidOrderError, "Exceeded the maximum allowable position"),
         -2028: (InvalidOrderError, "Position is not sufficient"),
-
         # Filters
         -9000: (InvalidOrderError, "Filter failure"),
-
         # LOT_SIZE
         -1013: (MinOrderSizeError, "Order quantity below minimum"),
-
         # MIN_NOTIONAL
         -1016: (MinOrderSizeError, "Order value below minimum"),
-
         # MARKET_LOT_SIZE
         -1020: (InvalidOrderError, "Market order quantity precision invalid"),
-
         # MAX_NUM_ORDERS
         -1021: (InvalidOrderError, "Maximum number of orders exceeded"),
     }
@@ -232,12 +244,7 @@ def is_transient_error(error: Exception) -> bool:
     Returns:
         True if error is transient
     """
-    transient_types = (
-        NetworkError,
-        TimeoutError,
-        RateLimitError,
-        MaintenanceError
-    )
+    transient_types = (NetworkError, TimeoutError, RateLimitError, MaintenanceError)
 
     return isinstance(error, transient_types)
 
@@ -246,7 +253,7 @@ def retry_on_transient_error(
     max_retries: int = 3,
     initial_delay: float = 1.0,
     max_delay: float = 30.0,
-    backoff_factor: float = 2.0
+    backoff_factor: float = 2.0,
 ):
     """
     Decorator to retry function on transient errors.
@@ -257,6 +264,7 @@ def retry_on_transient_error(
         max_delay: Maximum delay between retries
         backoff_factor: Multiplier for exponential backoff
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
@@ -275,7 +283,10 @@ def retry_on_transient_error(
                     # Check if we should retry
                     if attempt < max_retries and is_transient_error(translated_error):
                         # Use retry_after if provided
-                        if hasattr(translated_error, "retry_after") and translated_error.retry_after:
+                        if (
+                            hasattr(translated_error, "retry_after")
+                            and translated_error.retry_after
+                        ):
                             wait_time = translated_error.retry_after
                         else:
                             wait_time = min(delay, max_delay)
@@ -284,7 +295,7 @@ def retry_on_transient_error(
                             f"Transient error on attempt {attempt + 1}/{max_retries + 1}, "
                             f"retrying in {wait_time}s",
                             error=str(translated_error),
-                            function=func.__name__
+                            function=func.__name__,
                         )
 
                         await asyncio.sleep(wait_time)
@@ -302,4 +313,5 @@ def retry_on_transient_error(
                 raise ExchangeError("Unknown error after retries")
 
         return wrapper
+
     return decorator

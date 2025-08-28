@@ -1,6 +1,7 @@
 """
 Integration tests for Kelly Criterion position sizing workflow.
 """
+
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock
@@ -26,7 +27,7 @@ class TestKellySizingWorkflow:
             balance_usdt=Decimal("5000"),
             tier=TradingTier.HUNTER,
             locked_features=[],
-            last_sync=datetime.now(UTC)
+            last_sync=datetime.now(UTC),
         )
 
     @pytest.fixture
@@ -37,7 +38,7 @@ class TestKellySizingWorkflow:
             balance_usdt=Decimal("15000"),
             tier=TradingTier.STRATEGIST,
             locked_features=[],
-            last_sync=datetime.now(UTC)
+            last_sync=datetime.now(UTC),
         )
 
     @pytest.fixture
@@ -47,7 +48,7 @@ class TestKellySizingWorkflow:
             account_id=test_account_hunter.account_id,
             starting_balance=test_account_hunter.balance_usdt,
             current_balance=test_account_hunter.balance_usdt,
-            daily_loss_limit=Decimal("100")
+            daily_loss_limit=Decimal("100"),
         )
 
     @pytest.fixture
@@ -61,42 +62,50 @@ class TestKellySizingWorkflow:
         # Average win: $50, Average loss: $25 (2:1 ratio)
 
         for i in range(21):  # Wins
-            trades.append(Trade(
-                trade_id=f"win_{i}",
-                order_id=f"order_win_{i}",
-                strategy_id="momentum_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("50100"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("50"),
-                pnl_percent=Decimal("0.2"),
-                timestamp=base_time - timedelta(days=30-i)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"win_{i}",
+                    order_id=f"order_win_{i}",
+                    strategy_id="momentum_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("50100"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("50"),
+                    pnl_percent=Decimal("0.2"),
+                    timestamp=base_time - timedelta(days=30 - i),
+                )
+            )
 
         for i in range(9):  # Losses
-            trades.append(Trade(
-                trade_id=f"loss_{i}",
-                order_id=f"order_loss_{i}",
-                strategy_id="momentum_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("49950"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("-25"),
-                pnl_percent=Decimal("-0.05"),
-                timestamp=base_time - timedelta(days=10-i)
-            ))
+            trades.append(
+                Trade(
+                    trade_id=f"loss_{i}",
+                    order_id=f"order_loss_{i}",
+                    strategy_id="momentum_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("49950"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("-25"),
+                    pnl_percent=Decimal("-0.05"),
+                    timestamp=base_time - timedelta(days=10 - i),
+                )
+            )
 
         return trades
 
     @pytest.mark.asyncio
-    async def test_kelly_sizing_hunter_tier(self, test_account_hunter, test_session, mock_trades):
+    async def test_kelly_sizing_hunter_tier(
+        self, test_account_hunter, test_session, mock_trades
+    ):
         """Test Kelly sizing workflow for Hunter tier."""
         # Initialize risk engine with Kelly sizing
-        risk_engine = RiskEngine(test_account_hunter, test_session, use_kelly_sizing=True)
+        risk_engine = RiskEngine(
+            test_account_hunter, test_session, use_kelly_sizing=True
+        )
 
         # Record historical trades
         for trade in mock_trades:
@@ -108,7 +117,7 @@ class TestKellySizingWorkflow:
             symbol="BTC/USDT",
             entry_price=entry_price,
             strategy_id="momentum_strategy",
-            conviction=ConvictionLevel.MEDIUM
+            conviction=ConvictionLevel.MEDIUM,
         )
 
         # Verify Kelly sizing was used
@@ -126,7 +135,9 @@ class TestKellySizingWorkflow:
         assert abs(position_size - expected_quantity) < Decimal("0.001")
 
     @pytest.mark.asyncio
-    async def test_kelly_with_conviction_override(self, test_account_strategist, mock_trades):
+    async def test_kelly_with_conviction_override(
+        self, test_account_strategist, mock_trades
+    ):
         """Test Kelly sizing with conviction override (Strategist feature)."""
         risk_engine = RiskEngine(test_account_strategist, None, use_kelly_sizing=True)
 
@@ -142,7 +153,7 @@ class TestKellySizingWorkflow:
             symbol="BTC/USDT",
             entry_price=entry_price,
             strategy_id="momentum_strategy",
-            conviction=ConvictionLevel.LOW
+            conviction=ConvictionLevel.LOW,
         )
 
         # Medium conviction
@@ -150,7 +161,7 @@ class TestKellySizingWorkflow:
             symbol="BTC/USDT",
             entry_price=entry_price,
             strategy_id="momentum_strategy",
-            conviction=ConvictionLevel.MEDIUM
+            conviction=ConvictionLevel.MEDIUM,
         )
 
         # High conviction
@@ -158,16 +169,18 @@ class TestKellySizingWorkflow:
             symbol="BTC/USDT",
             entry_price=entry_price,
             strategy_id="momentum_strategy",
-            conviction=ConvictionLevel.HIGH
+            conviction=ConvictionLevel.HIGH,
         )
 
         # Verify conviction multipliers work
         assert size_low < size_medium < size_high
         assert size_high / size_medium == Decimal("1.5")  # High = 1.5x Medium
-        assert size_medium / size_low == Decimal("2.0")   # Medium = 2x Low
+        assert size_medium / size_low == Decimal("2.0")  # Medium = 2x Low
 
     @pytest.mark.asyncio
-    async def test_kelly_with_volatility_adjustment(self, test_account_hunter, mock_trades):
+    async def test_kelly_with_volatility_adjustment(
+        self, test_account_hunter, mock_trades
+    ):
         """Test Kelly sizing with volatility adjustment."""
         risk_engine = RiskEngine(test_account_hunter, None, use_kelly_sizing=True)
 
@@ -177,19 +190,21 @@ class TestKellySizingWorkflow:
             pnl = Decimal("100") if i % 2 == 0 else Decimal("-90")
             pnl_pct = Decimal("5") if i % 2 == 0 else Decimal("-4.5")
 
-            volatile_trades.append(Trade(
-                trade_id=f"vol_{i}",
-                order_id=f"order_vol_{i}",
-                strategy_id="volatile_strategy",
-                symbol="ETH/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("3000"),
-                exit_price=Decimal("3150") if pnl > 0 else Decimal("2865"),
-                quantity=Decimal("0.1"),
-                pnl_dollars=pnl,
-                pnl_percent=pnl_pct,
-                timestamp=datetime.now(UTC) - timedelta(days=20-i)
-            ))
+            volatile_trades.append(
+                Trade(
+                    trade_id=f"vol_{i}",
+                    order_id=f"order_vol_{i}",
+                    strategy_id="volatile_strategy",
+                    symbol="ETH/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("3000"),
+                    exit_price=Decimal("3150") if pnl > 0 else Decimal("2865"),
+                    quantity=Decimal("0.1"),
+                    pnl_dollars=pnl,
+                    pnl_percent=pnl_pct,
+                    timestamp=datetime.now(UTC) - timedelta(days=20 - i),
+                )
+            )
 
         # Record volatile trades
         for trade in volatile_trades:
@@ -200,7 +215,7 @@ class TestKellySizingWorkflow:
             symbol="ETH/USDT",
             entry_price=Decimal("3000"),
             strategy_id="volatile_strategy",
-            use_volatility_adjustment=True
+            use_volatility_adjustment=True,
         )
 
         # Calculate without volatility adjustment
@@ -208,7 +223,7 @@ class TestKellySizingWorkflow:
             symbol="ETH/USDT",
             entry_price=Decimal("3000"),
             strategy_id="volatile_strategy",
-            use_volatility_adjustment=False
+            use_volatility_adjustment=False,
         )
 
         # High volatility should reduce position size
@@ -225,7 +240,7 @@ class TestKellySizingWorkflow:
             symbol="BTC/USDT",
             entry_price=entry_price,
             strategy_id="new_strategy",  # No history
-            conviction=ConvictionLevel.MEDIUM
+            conviction=ConvictionLevel.MEDIUM,
         )
 
         # Should use fixed 5% risk
@@ -246,35 +261,39 @@ class TestKellySizingWorkflow:
         # Create a series of losing trades (drawdown)
         losing_streak = []
         for i in range(10):
-            losing_streak.append(Trade(
-                trade_id=f"drawdown_{i}",
-                order_id=f"order_dd_{i}",
-                strategy_id="drawdown_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("49000"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("-50"),
-                pnl_percent=Decimal("-2"),
-                timestamp=datetime.now(UTC) - timedelta(hours=10-i)
-            ))
+            losing_streak.append(
+                Trade(
+                    trade_id=f"drawdown_{i}",
+                    order_id=f"order_dd_{i}",
+                    strategy_id="drawdown_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("49000"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("-50"),
+                    pnl_percent=Decimal("-2"),
+                    timestamp=datetime.now(UTC) - timedelta(hours=10 - i),
+                )
+            )
 
         # Add some historical wins for Kelly calculation
         for i in range(20):
-            losing_streak.append(Trade(
-                trade_id=f"hist_win_{i}",
-                order_id=f"order_hw_{i}",
-                strategy_id="drawdown_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("50500"),
-                quantity=Decimal("0.01"),
-                pnl_dollars=Decimal("25"),
-                pnl_percent=Decimal("1"),
-                timestamp=datetime.now(UTC) - timedelta(days=30-i)
-            ))
+            losing_streak.append(
+                Trade(
+                    trade_id=f"hist_win_{i}",
+                    order_id=f"order_hw_{i}",
+                    strategy_id="drawdown_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("50500"),
+                    quantity=Decimal("0.01"),
+                    pnl_dollars=Decimal("25"),
+                    pnl_percent=Decimal("1"),
+                    timestamp=datetime.now(UTC) - timedelta(days=30 - i),
+                )
+            )
 
         # Record all trades
         for trade in losing_streak:
@@ -284,7 +303,7 @@ class TestKellySizingWorkflow:
         position_size = risk_engine.calculate_position_size(
             symbol="BTC/USDT",
             entry_price=Decimal("50000"),
-            strategy_id="drawdown_strategy"
+            strategy_id="drawdown_strategy",
         )
 
         # Position should be reduced due to recent drawdown
@@ -302,9 +321,7 @@ class TestKellySizingWorkflow:
         # Test with very low entry price (would give huge quantity)
         low_price = Decimal("10")
         position_size = risk_engine.calculate_position_size(
-            symbol="PENNY/USDT",
-            entry_price=low_price,
-            strategy_id="bounded_strategy"
+            symbol="PENNY/USDT", entry_price=low_price, strategy_id="bounded_strategy"
         )
 
         # Check boundaries are enforced
@@ -330,7 +347,7 @@ class TestKellySizingWorkflow:
             win_loss_ratio=win_loss_ratio,
             kelly_fraction=kelly_fraction,
             iterations=1000,
-            trades_per_iteration=100
+            trades_per_iteration=100,
         )
 
         # Verify simulation results
@@ -373,7 +390,7 @@ class TestKellySizingWorkflow:
                     quantity=Decimal("0.01"),
                     pnl_dollars=win_amount,
                     pnl_percent=Decimal("0.1"),
-                    timestamp=datetime.now(UTC) - timedelta(days=20-i)
+                    timestamp=datetime.now(UTC) - timedelta(days=20 - i),
                 )
                 risk_engine.record_trade_result(strategy_id, trade)
 
@@ -389,21 +406,17 @@ class TestKellySizingWorkflow:
                     quantity=Decimal("0.01"),
                     pnl_dollars=-loss_amount,
                     pnl_percent=Decimal("-0.05"),
-                    timestamp=datetime.now(UTC) - timedelta(days=10-i)
+                    timestamp=datetime.now(UTC) - timedelta(days=10 - i),
                 )
                 risk_engine.record_trade_result(strategy_id, trade)
 
         # Calculate position sizes for each strategy
         size_a = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("50000"),
-            strategy_id="strategy_a"
+            symbol="BTC/USDT", entry_price=Decimal("50000"), strategy_id="strategy_a"
         )
 
         size_b = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("50000"),
-            strategy_id="strategy_b"
+            symbol="BTC/USDT", entry_price=Decimal("50000"), strategy_id="strategy_b"
         )
 
         # Better performing strategy should get larger position
@@ -425,10 +438,7 @@ class TestKellySizingWorkflow:
             tracker.record_trade("test_strategy", trade)
 
         # Calculate and save edge
-        edge = calculator.calculate_strategy_edge(
-            "test_strategy",
-            mock_trades
-        )
+        edge = calculator.calculate_strategy_edge("test_strategy", mock_trades)
 
         # Save to repository
         kelly_repo.save_kelly_parameters(edge)
@@ -454,9 +464,7 @@ class TestKellySizingWorkflow:
         # Phase 1: Initial trades with no history (should use fixed sizing)
         entry_price = Decimal("50000")
         initial_size = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=entry_price,
-            strategy_id="new_strategy"
+            symbol="BTC/USDT", entry_price=entry_price, strategy_id="new_strategy"
         )
 
         assert initial_size > 0
@@ -480,7 +488,7 @@ class TestKellySizingWorkflow:
                 quantity=initial_size,
                 pnl_dollars=pnl,
                 pnl_percent=pnl / Decimal("500"),
-                timestamp=datetime.now(UTC) - timedelta(days=25-i)
+                timestamp=datetime.now(UTC) - timedelta(days=25 - i),
             )
             risk_engine.record_trade_result("new_strategy", trade)
 
@@ -489,7 +497,7 @@ class TestKellySizingWorkflow:
             symbol="BTC/USDT",
             entry_price=entry_price,
             strategy_id="new_strategy",
-            conviction=ConvictionLevel.MEDIUM
+            conviction=ConvictionLevel.MEDIUM,
         )
 
         # Phase 4: Test with high conviction
@@ -497,7 +505,7 @@ class TestKellySizingWorkflow:
             symbol="BTC/USDT",
             entry_price=entry_price,
             strategy_id="new_strategy",
-            conviction=ConvictionLevel.HIGH
+            conviction=ConvictionLevel.HIGH,
         )
 
         # Verify Kelly is being used and conviction matters
@@ -508,19 +516,21 @@ class TestKellySizingWorkflow:
         volatile_trades = []
         for i in range(10):
             pnl = Decimal("200") if i % 2 == 0 else Decimal("-180")
-            volatile_trades.append(Trade(
-                trade_id=f"vol_trade_{i}",
-                order_id=f"vol_order_{i}",
-                strategy_id="new_strategy",
-                symbol="BTC/USDT",
-                side=OrderSide.BUY,
-                entry_price=Decimal("50000"),
-                exit_price=Decimal("50000") + (pnl * 10),
-                quantity=kelly_size_medium,
-                pnl_dollars=pnl,
-                pnl_percent=pnl / Decimal("500"),
-                timestamp=datetime.now(UTC) - timedelta(hours=10-i)
-            ))
+            volatile_trades.append(
+                Trade(
+                    trade_id=f"vol_trade_{i}",
+                    order_id=f"vol_order_{i}",
+                    strategy_id="new_strategy",
+                    symbol="BTC/USDT",
+                    side=OrderSide.BUY,
+                    entry_price=Decimal("50000"),
+                    exit_price=Decimal("50000") + (pnl * 10),
+                    quantity=kelly_size_medium,
+                    pnl_dollars=pnl,
+                    pnl_percent=pnl / Decimal("500"),
+                    timestamp=datetime.now(UTC) - timedelta(hours=10 - i),
+                )
+            )
 
         for trade in volatile_trades:
             risk_engine.record_trade_result("new_strategy", trade)
@@ -531,7 +541,7 @@ class TestKellySizingWorkflow:
             entry_price=entry_price,
             strategy_id="new_strategy",
             conviction=ConvictionLevel.MEDIUM,
-            use_volatility_adjustment=True
+            use_volatility_adjustment=True,
         )
 
         # Volatility adjustment should reduce size

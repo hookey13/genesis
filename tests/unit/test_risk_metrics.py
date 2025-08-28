@@ -25,7 +25,7 @@ class TestRiskMetrics:
             value_at_risk_95=Decimal("0.05"),
             conditional_value_at_risk_95=Decimal("0.08"),
             beta=Decimal("1.2"),
-            alpha=Decimal("0.05")
+            alpha=Decimal("0.05"),
         )
 
         assert metrics.sharpe_ratio == Decimal("1.5")
@@ -44,7 +44,7 @@ class TestRiskMetrics:
             volatility=Decimal("0.2"),
             downside_deviation=Decimal("0.1"),
             value_at_risk_95=Decimal("0.05"),
-            conditional_value_at_risk_95=Decimal("0.08")
+            conditional_value_at_risk_95=Decimal("0.08"),
         )
 
         result = metrics.to_dict()
@@ -68,24 +68,29 @@ class TestRiskMetricsCalculator:
         """Create sample returns for testing."""
         # Mix of positive and negative returns
         returns = [
-            Decimal("0.01"),   # 1% gain
-            Decimal("0.02"),   # 2% gain
-            Decimal("-0.015"), # 1.5% loss
+            Decimal("0.01"),  # 1% gain
+            Decimal("0.02"),  # 2% gain
+            Decimal("-0.015"),  # 1.5% loss
             Decimal("0.005"),  # 0.5% gain
             Decimal("-0.01"),  # 1% loss
-            Decimal("0.03"),   # 3% gain
-            Decimal("-0.005"), # 0.5% loss
+            Decimal("0.03"),  # 3% gain
+            Decimal("-0.005"),  # 0.5% loss
             Decimal("0.015"),  # 1.5% gain
-            Decimal("0.01"),   # 1% gain
-            Decimal("-0.02")   # 2% loss
+            Decimal("0.01"),  # 1% gain
+            Decimal("-0.02"),  # 2% loss
         ]
         return returns
 
     @pytest.fixture
     def positive_returns(self):
         """Create all positive returns for testing."""
-        return [Decimal("0.01"), Decimal("0.02"), Decimal("0.015"),
-                Decimal("0.025"), Decimal("0.01")]
+        return [
+            Decimal("0.01"),
+            Decimal("0.02"),
+            Decimal("0.015"),
+            Decimal("0.025"),
+            Decimal("0.01"),
+        ]
 
     @pytest.fixture
     def benchmark_returns(self):
@@ -95,12 +100,12 @@ class TestRiskMetricsCalculator:
             Decimal("0.015"),  # 1.5% gain
             Decimal("-0.01"),  # 1% loss
             Decimal("0.003"),  # 0.3% gain
-            Decimal("-0.008"), # 0.8% loss
-            Decimal("0.02"),   # 2% gain
-            Decimal("-0.003"), # 0.3% loss
-            Decimal("0.01"),   # 1% gain
+            Decimal("-0.008"),  # 0.8% loss
+            Decimal("0.02"),  # 2% gain
+            Decimal("-0.003"),  # 0.3% loss
+            Decimal("0.01"),  # 1% gain
             Decimal("0.008"),  # 0.8% gain
-            Decimal("-0.015")  # 1.5% loss
+            Decimal("-0.015"),  # 1.5% loss
         ]
         return returns
 
@@ -180,6 +185,7 @@ class TestRiskMetricsCalculator:
     def test_extremely_negative_risk_free_rate_warning(self, caplog):
         """Test warning for extremely negative risk-free rate."""
         import logging
+
         caplog.set_level(logging.WARNING)
 
         # This should trigger a warning
@@ -192,11 +198,11 @@ class TestRiskMetricsCalculator:
         """Test maximum drawdown calculation."""
         # Create returns that will produce a drawdown
         returns = [
-            Decimal("0.1"),    # 10% gain (cum: 1.1)
-            Decimal("0.05"),   # 5% gain (cum: 1.155)
-            Decimal("-0.2"),   # 20% loss (cum: 0.924)
-            Decimal("-0.1"),   # 10% loss (cum: 0.8316)
-            Decimal("0.05")    # 5% gain (cum: 0.87318)
+            Decimal("0.1"),  # 10% gain (cum: 1.1)
+            Decimal("0.05"),  # 5% gain (cum: 1.155)
+            Decimal("-0.2"),  # 20% loss (cum: 0.924)
+            Decimal("-0.1"),  # 10% loss (cum: 0.8316)
+            Decimal("0.05"),  # 5% gain (cum: 0.87318)
         ]
 
         max_dd, duration = calculator.calculate_max_drawdown(returns)
@@ -271,16 +277,16 @@ class TestRiskMetricsCalculator:
     def test_calculate_alpha(self, calculator, sample_returns, benchmark_returns):
         """Test Jensen's alpha calculation."""
         beta = calculator.calculate_beta(sample_returns, benchmark_returns)
-        alpha = calculator.calculate_alpha(
-            sample_returns, benchmark_returns, beta
-        )
+        alpha = calculator.calculate_alpha(sample_returns, benchmark_returns, beta)
 
         # Alpha represents excess return
         assert isinstance(alpha, Decimal)
         # Can be positive or negative
         assert abs(alpha) < Decimal("1")  # Sanity check
 
-    def test_calculate_information_ratio(self, calculator, sample_returns, benchmark_returns):
+    def test_calculate_information_ratio(
+        self, calculator, sample_returns, benchmark_returns
+    ):
         """Test Information Ratio calculation."""
         info_ratio = calculator.calculate_information_ratio(
             sample_returns, benchmark_returns
@@ -308,12 +314,12 @@ class TestRiskMetricsCalculator:
         treynor = calculator.calculate_treynor_ratio(mean_return, beta)
         assert treynor == Decimal("0")
 
-    def test_calculate_metrics_comprehensive(self, calculator, sample_returns, benchmark_returns):
+    def test_calculate_metrics_comprehensive(
+        self, calculator, sample_returns, benchmark_returns
+    ):
         """Test comprehensive metrics calculation."""
         metrics = calculator.calculate_metrics(
-            sample_returns,
-            period="daily",
-            benchmark_returns=benchmark_returns
+            sample_returns, period="daily", benchmark_returns=benchmark_returns
         )
 
         # Check all metrics are calculated
@@ -358,9 +364,7 @@ class TestRiskMetricsCalculator:
         """Test rolling window metrics calculation."""
         window_size = 5
         rolling = calculator.calculate_rolling_metrics(
-            sample_returns,
-            window_size,
-            period="daily"
+            sample_returns, window_size, period="daily"
         )
 
         # Should have (len - window + 1) results
@@ -377,9 +381,7 @@ class TestRiskMetricsCalculator:
         returns = [Decimal("0.01"), Decimal("0.02")]
         window_size = 5
 
-        rolling = calculator.calculate_rolling_metrics(
-            returns, window_size
-        )
+        rolling = calculator.calculate_rolling_metrics(returns, window_size)
 
         assert len(rolling) == 0
 

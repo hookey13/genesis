@@ -25,6 +25,7 @@ logger = structlog.get_logger(__name__)
 
 class ChecklistCategory(Enum):
     """Categories for checklist items."""
+
     RISK_MANAGEMENT = "risk_management"
     STRATEGY_UNDERSTANDING = "strategy_understanding"
     EMOTIONAL_PREPARATION = "emotional_preparation"
@@ -35,6 +36,7 @@ class ChecklistCategory(Enum):
 
 class ChecklistStatus(Enum):
     """Status of a checklist item."""
+
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
@@ -43,93 +45,94 @@ class ChecklistStatus(Enum):
 
 # Checklist items by target tier
 TIER_CHECKLIST_ITEMS = {
-    'HUNTER': [
+    "HUNTER": [
         {
-            'name': 'risk_acknowledgment',
-            'description': 'I understand that Hunter tier strategies involve more complex execution methods and higher capital at risk.',
-            'prompt': 'Describe your understanding of the increased risks at Hunter tier and how you will manage them:',
-            'min_response_length': 100,
-            'is_required': True
+            "name": "risk_acknowledgment",
+            "description": "I understand that Hunter tier strategies involve more complex execution methods and higher capital at risk.",
+            "prompt": "Describe your understanding of the increased risks at Hunter tier and how you will manage them:",
+            "min_response_length": 100,
+            "is_required": True,
         },
         {
-            'name': 'strategy_understanding',
-            'description': 'I have studied and understand iceberg orders and order slicing techniques.',
-            'prompt': 'Explain in your own words how iceberg orders work and when to use them:',
-            'min_response_length': 150,
-            'is_required': True
+            "name": "strategy_understanding",
+            "description": "I have studied and understand iceberg orders and order slicing techniques.",
+            "prompt": "Explain in your own words how iceberg orders work and when to use them:",
+            "min_response_length": 150,
+            "is_required": True,
         },
         {
-            'name': 'emotional_preparation',
-            'description': 'I am emotionally prepared for larger position sizes and potential drawdowns.',
-            'prompt': 'Describe your emotional preparation plan for handling larger trades:',
-            'min_response_length': 100,
-            'is_required': True
+            "name": "emotional_preparation",
+            "description": "I am emotionally prepared for larger position sizes and potential drawdowns.",
+            "prompt": "Describe your emotional preparation plan for handling larger trades:",
+            "min_response_length": 100,
+            "is_required": True,
         },
         {
-            'name': 'journal_reflection',
-            'description': 'I have reviewed my trading journal and identified key lessons from Sniper tier.',
-            'prompt': 'What are the three most important lessons you learned at Sniper tier?',
-            'min_response_length': 150,
-            'is_required': True
+            "name": "journal_reflection",
+            "description": "I have reviewed my trading journal and identified key lessons from Sniper tier.",
+            "prompt": "What are the three most important lessons you learned at Sniper tier?",
+            "min_response_length": 150,
+            "is_required": True,
         },
         {
-            'name': 'goal_setting',
-            'description': 'I have set clear, measurable goals for Hunter tier.',
-            'prompt': 'List your specific goals for the first 30 days at Hunter tier:',
-            'min_response_length': 100,
-            'is_required': True
-        }
+            "name": "goal_setting",
+            "description": "I have set clear, measurable goals for Hunter tier.",
+            "prompt": "List your specific goals for the first 30 days at Hunter tier:",
+            "min_response_length": 100,
+            "is_required": True,
+        },
     ],
-    'STRATEGIST': [
+    "STRATEGIST": [
         {
-            'name': 'risk_acknowledgment',
-            'description': 'I understand that Strategist tier involves market making and statistical arbitrage with significant capital exposure.',
-            'prompt': 'Describe your risk management framework for Strategist tier strategies:',
-            'min_response_length': 200,
-            'is_required': True
+            "name": "risk_acknowledgment",
+            "description": "I understand that Strategist tier involves market making and statistical arbitrage with significant capital exposure.",
+            "prompt": "Describe your risk management framework for Strategist tier strategies:",
+            "min_response_length": 200,
+            "is_required": True,
         },
         {
-            'name': 'strategy_mastery',
-            'description': 'I have mastered Hunter tier strategies and am ready for advanced techniques.',
-            'prompt': 'Provide examples of successful Hunter tier trades and what you learned:',
-            'min_response_length': 200,
-            'is_required': True
+            "name": "strategy_mastery",
+            "description": "I have mastered Hunter tier strategies and am ready for advanced techniques.",
+            "prompt": "Provide examples of successful Hunter tier trades and what you learned:",
+            "min_response_length": 200,
+            "is_required": True,
         },
         {
-            'name': 'psychological_stability',
-            'description': 'I have demonstrated consistent emotional control and tilt resistance.',
-            'prompt': 'Describe your tilt management system and recent successes:',
-            'min_response_length': 150,
-            'is_required': True
+            "name": "psychological_stability",
+            "description": "I have demonstrated consistent emotional control and tilt resistance.",
+            "prompt": "Describe your tilt management system and recent successes:",
+            "min_response_length": 150,
+            "is_required": True,
         },
         {
-            'name': 'capital_management',
-            'description': 'I understand position sizing and portfolio management at scale.',
-            'prompt': 'Explain your approach to managing multiple concurrent positions:',
-            'min_response_length': 150,
-            'is_required': True
+            "name": "capital_management",
+            "description": "I understand position sizing and portfolio management at scale.",
+            "prompt": "Explain your approach to managing multiple concurrent positions:",
+            "min_response_length": 150,
+            "is_required": True,
         },
         {
-            'name': 'continuous_improvement',
-            'description': 'I commit to continuous learning and strategy refinement.',
-            'prompt': 'Describe your learning plan for Strategist tier:',
-            'min_response_length': 100,
-            'is_required': True
+            "name": "continuous_improvement",
+            "description": "I commit to continuous learning and strategy refinement.",
+            "prompt": "Describe your learning plan for Strategist tier:",
+            "min_response_length": 100,
+            "is_required": True,
         },
         {
-            'name': 'emergency_protocols',
-            'description': 'I have defined emergency protocols for system failures or black swan events.',
-            'prompt': 'Detail your emergency response procedures:',
-            'min_response_length': 150,
-            'is_required': True
-        }
-    ]
+            "name": "emergency_protocols",
+            "description": "I have defined emergency protocols for system failures or black swan events.",
+            "prompt": "Detail your emergency response procedures:",
+            "min_response_length": 150,
+            "is_required": True,
+        },
+    ],
 }
 
 
 @dataclass
 class ChecklistItem:
     """Represents a single checklist item."""
+
     item_id: str
     name: str
     description: str
@@ -147,10 +150,10 @@ class ChecklistItem:
         if not self.is_required:
             return True
         return (
-            self.response is not None and
-            len(self.response) >= self.min_response_length and
-            self.completed_at is not None and
-            self.status == ChecklistStatus.COMPLETED
+            self.response is not None
+            and len(self.response) >= self.min_response_length
+            and self.completed_at is not None
+            and self.status == ChecklistStatus.COMPLETED
         )
 
     def validate_response(self, response: str) -> tuple[bool, Optional[str]]:
@@ -166,13 +169,19 @@ class ChecklistItem:
             return False, "Response cannot be empty"
 
         if len(response) < self.min_response_length:
-            return False, f"Response must be at least {self.min_response_length} characters (current: {len(response)})"
+            return (
+                False,
+                f"Response must be at least {self.min_response_length} characters (current: {len(response)})",
+            )
 
         # Check for low-effort responses
         words = response.split()
         unique_words = set(words)
         if len(unique_words) < 10:
-            return False, "Response appears to be low-effort. Please provide a thoughtful answer."
+            return (
+                False,
+                "Response appears to be low-effort. Please provide a thoughtful answer.",
+            )
 
         return True, None
 
@@ -180,6 +189,7 @@ class ChecklistItem:
 @dataclass
 class ChecklistProgress:
     """Tracks checklist completion progress."""
+
     transition_id: str
     total_items: int
     completed_items: int
@@ -192,14 +202,14 @@ class ChecklistProgress:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            'transition_id': self.transition_id,
-            'total_items': self.total_items,
-            'completed_items': self.completed_items,
-            'required_items': self.required_items,
-            'required_completed': self.required_completed,
-            'completion_percentage': self.completion_percentage,
-            'is_complete': self.is_complete,
-            'pending_items': self.pending_items
+            "transition_id": self.transition_id,
+            "total_items": self.total_items,
+            "completed_items": self.completed_items,
+            "required_items": self.required_items,
+            "required_completed": self.required_completed,
+            "completion_percentage": self.completion_percentage,
+            "is_complete": self.is_complete,
+            "pending_items": self.pending_items,
         }
 
 
@@ -216,9 +226,7 @@ class TransitionChecklist:
         self._active_checklists: dict[str, list[ChecklistItem]] = {}
 
     async def create_checklist(
-        self,
-        transition_id: str,
-        target_tier: str
+        self, transition_id: str, target_tier: str
     ) -> list[ChecklistItem]:
         """Create a checklist for tier transition.
 
@@ -248,10 +256,10 @@ class TransitionChecklist:
             db_item = TransitionChecklist(
                 checklist_id=item_id,
                 transition_id=transition_id,
-                item_name=item_template['name'],
-                item_description=item_template['description'],
-                is_required=item_template['is_required'],
-                created_at=datetime.utcnow()
+                item_name=item_template["name"],
+                item_description=item_template["description"],
+                is_required=item_template["is_required"],
+                created_at=datetime.utcnow(),
             )
 
             try:
@@ -260,11 +268,11 @@ class TransitionChecklist:
                 # Create in-memory item
                 item = ChecklistItem(
                     item_id=item_id,
-                    name=item_template['name'],
-                    description=item_template['description'],
-                    prompt=item_template['prompt'],
-                    min_response_length=item_template['min_response_length'],
-                    is_required=item_template['is_required']
+                    name=item_template["name"],
+                    description=item_template["description"],
+                    prompt=item_template["prompt"],
+                    min_response_length=item_template["min_response_length"],
+                    is_required=item_template["is_required"],
                 )
                 checklist_items.append(item)
 
@@ -272,8 +280,8 @@ class TransitionChecklist:
                 logger.error(
                     "Failed to create checklist item",
                     transition_id=transition_id,
-                    item_name=item_template['name'],
-                    error=str(e)
+                    item_name=item_template["name"],
+                    error=str(e),
                 )
                 self.session.rollback()
                 raise
@@ -287,16 +295,13 @@ class TransitionChecklist:
             "Transition checklist created",
             transition_id=transition_id,
             target_tier=target_tier,
-            item_count=len(checklist_items)
+            item_count=len(checklist_items),
         )
 
         return checklist_items
 
     async def complete_item(
-        self,
-        transition_id: str,
-        item_name: str,
-        response: str
+        self, transition_id: str, item_name: str, response: str
     ) -> ChecklistItem:
         """Complete a checklist item with response.
 
@@ -341,10 +346,11 @@ class TransitionChecklist:
         item.status = ChecklistStatus.COMPLETED
 
         # Update database
-        db_item = self.session.query(TransitionChecklist).filter_by(
-            transition_id=transition_id,
-            item_name=item_name
-        ).first()
+        db_item = (
+            self.session.query(TransitionChecklist)
+            .filter_by(transition_id=transition_id, item_name=item_name)
+            .first()
+        )
 
         if db_item:
             db_item.item_response = response
@@ -355,7 +361,7 @@ class TransitionChecklist:
                 "Checklist item completed",
                 transition_id=transition_id,
                 item_name=item_name,
-                response_length=len(response)
+                response_length=len(response),
             )
 
         # Check if entire checklist is complete
@@ -388,19 +394,20 @@ class TransitionChecklist:
                 required_completed=0,
                 completion_percentage=0.0,
                 is_complete=True,  # No checklist = nothing to complete
-                pending_items=[]
+                pending_items=[],
             )
 
         # Calculate progress
         total_items = len(checklist)
         completed_items = sum(1 for item in checklist if item.is_complete)
         required_items = sum(1 for item in checklist if item.is_required)
-        required_completed = sum(1 for item in checklist if item.is_required and item.is_complete)
+        required_completed = sum(
+            1 for item in checklist if item.is_required and item.is_complete
+        )
 
         # Pending items
         pending_items = [
-            item.name for item in checklist
-            if item.is_required and not item.is_complete
+            item.name for item in checklist if item.is_required and not item.is_complete
         ]
 
         # Completion percentage (based on required items)
@@ -419,13 +426,10 @@ class TransitionChecklist:
             required_completed=required_completed,
             completion_percentage=completion_percentage,
             is_complete=is_complete,
-            pending_items=pending_items
+            pending_items=pending_items,
         )
 
-    async def get_checklist_items(
-        self,
-        transition_id: str
-    ) -> list[ChecklistItem]:
+    async def get_checklist_items(self, transition_id: str) -> list[ChecklistItem]:
         """Get all checklist items for a transition.
 
         Args:
@@ -462,24 +466,28 @@ class TransitionChecklist:
             transition_id: Transition ID to load
         """
         # Get checklist items from database
-        db_items = self.session.query(TransitionChecklist).filter_by(
-            transition_id=transition_id
-        ).all()
+        db_items = (
+            self.session.query(TransitionChecklist)
+            .filter_by(transition_id=transition_id)
+            .all()
+        )
 
         if not db_items:
             return
 
         # Get target tier from transition
-        transition = self.session.query(TierTransition).filter_by(
-            transition_id=transition_id
-        ).first()
+        transition = (
+            self.session.query(TierTransition)
+            .filter_by(transition_id=transition_id)
+            .first()
+        )
 
         if not transition:
             return
 
         # Get template for prompts
         template_items = TIER_CHECKLIST_ITEMS.get(transition.to_tier, [])
-        template_map = {item['name']: item for item in template_items}
+        template_map = {item["name"]: item for item in template_items}
 
         # Convert to ChecklistItems
         checklist_items = []
@@ -489,12 +497,12 @@ class TransitionChecklist:
             item = ChecklistItem(
                 item_id=db_item.checklist_id,
                 name=db_item.item_name,
-                description=db_item.item_description or template.get('description', ''),
-                prompt=template.get('prompt', ''),
-                min_response_length=template.get('min_response_length', 100),
+                description=db_item.item_description or template.get("description", ""),
+                prompt=template.get("prompt", ""),
+                min_response_length=template.get("min_response_length", 100),
                 is_required=db_item.is_required,
                 response=db_item.item_response,
-                completed_at=db_item.completed_at
+                completed_at=db_item.completed_at,
             )
             checklist_items.append(item)
 
@@ -510,9 +518,11 @@ class TransitionChecklist:
 
         if progress.is_complete:
             # Update transition record
-            transition = self.session.query(TierTransition).filter_by(
-                transition_id=transition_id
-            ).first()
+            transition = (
+                self.session.query(TierTransition)
+                .filter_by(transition_id=transition_id)
+                .first()
+            )
 
             if transition and not transition.checklist_completed:
                 transition.checklist_completed = True
@@ -520,15 +530,10 @@ class TransitionChecklist:
                 self.session.commit()
 
                 logger.info(
-                    "Transition checklist completed",
-                    transition_id=transition_id
+                    "Transition checklist completed", transition_id=transition_id
                 )
 
-    def get_item_prompt(
-        self,
-        target_tier: str,
-        item_name: str
-    ) -> Optional[str]:
+    def get_item_prompt(self, target_tier: str, item_name: str) -> Optional[str]:
         """Get the prompt for a specific checklist item.
 
         Args:
@@ -540,8 +545,8 @@ class TransitionChecklist:
         """
         items = TIER_CHECKLIST_ITEMS.get(target_tier, [])
         for item in items:
-            if item['name'] == item_name:
-                return item['prompt']
+            if item["name"] == item_name:
+                return item["prompt"]
         return None
 
     async def clear_checklist(self, transition_id: str) -> None:

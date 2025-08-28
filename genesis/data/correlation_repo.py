@@ -50,7 +50,7 @@ class CorrelationRepository:
         position_2_id: UUID,
         correlation_coefficient: Decimal,
         calculation_window: int,
-        alert_triggered: bool = False
+        alert_triggered: bool = False,
     ) -> UUID:
         """Save correlation data to database.
 
@@ -94,21 +94,23 @@ class CorrelationRepository:
             str(correlation_coefficient),
             calculation_window,
             datetime.now(UTC).isoformat(),
-            alert_triggered
+            alert_triggered,
         )
 
         async with self.get_connection() as conn:
             await conn.execute(query, params)
             await conn.commit()
 
-        logger.info(f"Saved correlation: {position_1_id} <-> {position_2_id} = {correlation_coefficient}")
+        logger.info(
+            f"Saved correlation: {position_1_id} <-> {position_2_id} = {correlation_coefficient}"
+        )
         return correlation_id
 
     async def save_correlation_matrix(
         self,
         positions: list[UUID],
         correlation_matrix: list[list[float]],
-        calculation_window: int = 30
+        calculation_window: int = 30,
     ) -> int:
         """Save entire correlation matrix to database.
 
@@ -133,16 +135,14 @@ class CorrelationRepository:
                         positions[j],
                         correlation,
                         calculation_window,
-                        alert_triggered=abs(correlation) > Decimal("0.6")
+                        alert_triggered=abs(correlation) > Decimal("0.6"),
                     )
                     saved_count += 1
 
         return saved_count
 
     async def get_correlation(
-        self,
-        position_1_id: UUID,
-        position_2_id: UUID
+        self, position_1_id: UUID, position_2_id: UUID
     ) -> Optional[dict]:
         """Get correlation between two positions.
 
@@ -178,15 +178,13 @@ class CorrelationRepository:
                 "correlation_coefficient": Decimal(row[1]),
                 "calculation_window": row[2],
                 "last_calculated": datetime.fromisoformat(row[3]),
-                "alert_triggered": bool(row[4])
+                "alert_triggered": bool(row[4]),
             }
 
         return None
 
     async def get_position_correlations(
-        self,
-        position_id: UUID,
-        threshold: Optional[Decimal] = None
+        self, position_id: UUID, threshold: Optional[Decimal] = None
     ) -> list[dict]:
         """Get all correlations for a specific position.
 
@@ -222,19 +220,19 @@ class CorrelationRepository:
 
         correlations = []
         for row in rows:
-            correlations.append({
-                "correlation_id": UUID(row[0]),
-                "other_position_id": UUID(row[2]),
-                "correlation_coefficient": Decimal(row[3]),
-                "last_calculated": datetime.fromisoformat(row[4])
-            })
+            correlations.append(
+                {
+                    "correlation_id": UUID(row[0]),
+                    "other_position_id": UUID(row[2]),
+                    "correlation_coefficient": Decimal(row[3]),
+                    "last_calculated": datetime.fromisoformat(row[4]),
+                }
+            )
 
         return correlations
 
     async def get_high_correlations(
-        self,
-        threshold: Decimal = Decimal("0.6"),
-        limit: int = 10
+        self, threshold: Decimal = Decimal("0.6"), limit: int = 10
     ) -> list[dict]:
         """Get positions with high correlations.
 
@@ -265,14 +263,16 @@ class CorrelationRepository:
 
         correlations = []
         for row in rows:
-            correlations.append({
-                "correlation_id": UUID(row[0]),
-                "position_1_id": UUID(row[1]),
-                "position_2_id": UUID(row[2]),
-                "correlation_coefficient": Decimal(row[3]),
-                "last_calculated": datetime.fromisoformat(row[4]),
-                "alert_triggered": bool(row[5])
-            })
+            correlations.append(
+                {
+                    "correlation_id": UUID(row[0]),
+                    "position_1_id": UUID(row[1]),
+                    "position_2_id": UUID(row[2]),
+                    "correlation_coefficient": Decimal(row[3]),
+                    "last_calculated": datetime.fromisoformat(row[4]),
+                    "alert_triggered": bool(row[5]),
+                }
+            )
 
         return correlations
 
@@ -289,7 +289,7 @@ class CorrelationRepository:
                 alert.affected_positions[1],
                 alert.correlation_level,
                 calculation_window=30,  # Default window
-                alert_triggered=True
+                alert_triggered=True,
             )
 
         # Save alert to alerts table (if it exists)
@@ -310,7 +310,7 @@ class CorrelationRepository:
             alert.severity,
             alert.message,
             str(alert.correlation_level),
-            alert.timestamp.isoformat()
+            alert.timestamp.isoformat(),
         )
 
         try:
@@ -324,10 +324,7 @@ class CorrelationRepository:
             logger.warning(f"Could not save alert to alerts table: {e}")
 
     async def get_correlation_history(
-        self,
-        position_1_id: UUID,
-        position_2_id: UUID,
-        days: int = 30
+        self, position_1_id: UUID, position_2_id: UUID, days: int = 30
     ) -> list[dict]:
         """Get historical correlation data for position pair.
 

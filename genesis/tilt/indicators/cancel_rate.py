@@ -81,7 +81,7 @@ class CancelRateIndicator:
             "Order event recorded",
             event_type=event_type,
             order_id=order_id,
-            total_events=len(self.order_events)
+            total_events=len(self.order_events),
         )
 
     def calculate_cancel_rate(self) -> Decimal:
@@ -98,7 +98,9 @@ class CancelRateIndicator:
         cutoff = now - timedelta(minutes=self.window_minutes)
 
         # Filter recent events
-        recent_events = [(ts, et, oid) for ts, et, oid in self.order_events if ts >= cutoff]
+        recent_events = [
+            (ts, et, oid) for ts, et, oid in self.order_events if ts >= cutoff
+        ]
 
         if not recent_events:
             return Decimal("0")
@@ -136,27 +138,21 @@ class CancelRateIndicator:
             Dictionary with pattern analysis
         """
         if not self.order_events:
-            return {
-                "has_data": False,
-                "event_count": 0
-            }
+            return {"has_data": False, "event_count": 0}
 
         now = datetime.now(UTC)
 
         # Calculate rates for different time windows
-        windows = {
-            "5min": 5,
-            "15min": 15,
-            "30min": 30,
-            "60min": 60
-        }
+        windows = {"5min": 5, "15min": 15, "30min": 30, "60min": 60}
 
         rates = {}
         event_counts = {}
 
         for window_name, minutes in windows.items():
             cutoff = now - timedelta(minutes=minutes)
-            window_events = [(ts, et, oid) for ts, et, oid in self.order_events if ts >= cutoff]
+            window_events = [
+                (ts, et, oid) for ts, et, oid in self.order_events if ts >= cutoff
+            ]
 
             # Track outcomes per order
             order_outcomes = {}
@@ -199,7 +195,7 @@ class CancelRateIndicator:
             "is_increasing": is_increasing,
             "rapid_cancels_detected": rapid_cancels > 2,
             "rapid_cancel_count": rapid_cancels,
-            "avg_cancel_time_seconds": float(avg_cancel_time)
+            "avg_cancel_time_seconds": float(avg_cancel_time),
         }
 
     def _detect_rapid_cancels(self, threshold_seconds: int = 5) -> int:
@@ -238,7 +234,7 @@ class CancelRateIndicator:
                     logger.debug(
                         "Rapid cancel detected",
                         order_id=order_id,
-                        time_to_cancel=time_to_cancel
+                        time_to_cancel=time_to_cancel,
                     )
 
         return rapid_count
@@ -292,7 +288,7 @@ class CancelRateIndicator:
             logger.warning(
                 "Indecision pattern detected",
                 cancel_rate=float(current_rate),
-                threshold=float(threshold)
+                threshold=float(threshold),
             )
 
         return indecision
@@ -305,9 +301,7 @@ class CancelRateIndicator:
             Streak analysis data
         """
         if not self.order_events:
-            return {
-                "has_data": False
-            }
+            return {"has_data": False}
 
         # Sort events by timestamp and order
         sorted_events = sorted(self.order_events, key=lambda x: x[0])
@@ -317,15 +311,15 @@ class CancelRateIndicator:
         processed_orders = set()
 
         for timestamp, event_type, order_id in sorted_events:
-            if order_id not in processed_orders and event_type in ["cancelled", "filled"]:
+            if order_id not in processed_orders and event_type in [
+                "cancelled",
+                "filled",
+            ]:
                 outcomes.append(event_type)
                 processed_orders.add(order_id)
 
         if not outcomes:
-            return {
-                "has_data": True,
-                "insufficient_data": True
-            }
+            return {"has_data": True, "insufficient_data": True}
 
         # Find longest cancel streak
         max_streak = 0
@@ -351,7 +345,7 @@ class CancelRateIndicator:
             "total_outcomes": len(outcomes),
             "max_cancel_streak": max_streak,
             "current_cancel_streak": current_cancel_streak,
-            "streak_warning": max_streak >= 3 or current_cancel_streak >= 3
+            "streak_warning": max_streak >= 3 or current_cancel_streak >= 3,
         }
 
     def reset(self):

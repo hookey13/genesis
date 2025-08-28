@@ -48,7 +48,7 @@ def strategy_metadata():
         max_capital_percent=Decimal("20"),
         min_capital_usdt=Decimal("100"),
         compatible_symbols=["BTC/USDT", "ETH/USDT"],
-        conflicting_strategies={"incompatible_strategy"}
+        conflicting_strategies={"incompatible_strategy"},
     )
 
 
@@ -71,6 +71,7 @@ class TestStrategyHealth:
 
         # Wait briefly to ensure time difference
         import time
+
         time.sleep(0.01)
 
         health.update_heartbeat()
@@ -114,7 +115,7 @@ class TestStrategyMetadata:
         metadata = StrategyMetadata(
             name="test",
             max_capital_percent=20,  # Pass as int
-            min_capital_usdt=100  # Pass as int
+            min_capital_usdt=100,  # Pass as int
         )
 
         assert isinstance(metadata.max_capital_percent, Decimal)
@@ -146,7 +147,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id=account_id,
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         assert strategy_id == strategy_metadata.strategy_id
@@ -163,7 +164,9 @@ class TestStrategyRegistry:
         # Check event published
         mock_event_bus.publish.assert_called_once()
 
-    async def test_register_disabled_strategy(self, registry, strategy_metadata, mock_strategy_loader):
+    async def test_register_disabled_strategy(
+        self, registry, strategy_metadata, mock_strategy_loader
+    ):
         """Test registering a disabled strategy fails."""
         mock_strategy_loader.is_strategy_enabled.return_value = False
 
@@ -171,21 +174,16 @@ class TestStrategyRegistry:
             await registry.register_strategy(
                 account_id="test_account",
                 strategy_name="test_strategy",
-                metadata=strategy_metadata
+                metadata=strategy_metadata,
             )
 
     async def test_register_conflicting_strategy(self, registry, strategy_metadata):
         """Test registering conflicting strategies."""
         # Register first strategy
-        meta1 = StrategyMetadata(
-            name="strategy1",
-            conflicting_strategies={"strategy2"}
-        )
+        meta1 = StrategyMetadata(name="strategy1", conflicting_strategies={"strategy2"})
 
         strategy1_id = await registry.register_strategy(
-            account_id="account1",
-            strategy_name="strategy1",
-            metadata=meta1
+            account_id="account1", strategy_name="strategy1", metadata=meta1
         )
 
         # Start first strategy
@@ -197,18 +195,18 @@ class TestStrategyRegistry:
 
         with pytest.raises(ValueError, match="conflicts with running strategy"):
             await registry.register_strategy(
-                account_id="account1",
-                strategy_name="strategy2",
-                metadata=meta2
+                account_id="account1", strategy_name="strategy2", metadata=meta2
             )
 
-    async def test_unregister_strategy(self, registry, strategy_metadata, mock_event_bus):
+    async def test_unregister_strategy(
+        self, registry, strategy_metadata, mock_event_bus
+    ):
         """Test strategy unregistration."""
         # Register strategy
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         # Unregister
@@ -228,7 +226,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         await registry.start_strategy(strategy_id)
@@ -244,7 +242,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         # Start strategy
@@ -265,7 +263,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         await registry.start_strategy(strategy_id)
@@ -280,7 +278,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         await registry.start_strategy(strategy_id)
@@ -300,7 +298,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         result = await registry.pause_strategy(strategy_id)
@@ -312,7 +310,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         await registry.start_strategy(strategy_id)
@@ -325,7 +323,9 @@ class TestStrategyRegistry:
         assert registry._strategies[strategy_id].state == StrategyState.RUNNING
 
         # Check event published
-        assert mock_event_bus.publish.call_count == 4  # Register + start + pause + resume
+        assert (
+            mock_event_bus.publish.call_count == 4
+        )  # Register + start + pause + resume
 
     async def test_get_active_strategies(self, registry):
         """Test getting active strategies."""
@@ -357,7 +357,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         # Check initial state
@@ -379,7 +379,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         health = registry.get_strategy_health(strategy_id)
@@ -398,7 +398,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         await registry.start_strategy(strategy_id)
@@ -408,16 +408,20 @@ class TestStrategyRegistry:
         health.last_heartbeat = datetime.now(UTC) - timedelta(seconds=35)
 
         # Mock recovery
-        with patch.object(registry, '_recover_strategy', new_callable=AsyncMock) as mock_recover:
+        with patch.object(
+            registry, "_recover_strategy", new_callable=AsyncMock
+        ) as mock_recover:
             # Manually trigger the health check logic
             current_time = datetime.now(UTC)
             for sid, health in registry._health.items():
                 instance = registry._strategies.get(sid)
                 if instance and instance.state == StrategyState.RUNNING:
-                    time_since_heartbeat = (current_time - health.last_heartbeat).total_seconds()
+                    time_since_heartbeat = (
+                        current_time - health.last_heartbeat
+                    ).total_seconds()
                     if time_since_heartbeat > 30 and health.restart_count < 3:
                         await registry._recover_strategy(sid)
-            
+
             # Should attempt recovery
             mock_recover.assert_called_once_with(strategy_id)
 
@@ -427,7 +431,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         # Simulate error state
@@ -444,7 +448,7 @@ class TestStrategyRegistry:
 
         # Check recovery event published
         event_calls = mock_event_bus.publish.call_args_list
-        assert any('STRATEGY_RECOVERED' in str(call) for call in event_calls)
+        assert any("STRATEGY_RECOVERED" in str(call) for call in event_calls)
 
     async def test_recovery_limit(self, registry, strategy_metadata):
         """Test recovery limit enforcement."""
@@ -452,7 +456,7 @@ class TestStrategyRegistry:
         strategy_id = await registry.register_strategy(
             account_id="test_account",
             strategy_name="test_strategy",
-            metadata=strategy_metadata
+            metadata=strategy_metadata,
         )
 
         # Set restart count to limit
@@ -460,7 +464,7 @@ class TestStrategyRegistry:
         health.restart_count = 3
 
         # Mock recovery attempt
-        with patch.object(registry, '_recover_strategy') as mock_recover:
+        with patch.object(registry, "_recover_strategy") as mock_recover:
             # Simulate heartbeat timeout with max restarts
             registry._strategies[strategy_id].state = StrategyState.RUNNING
             health.last_heartbeat = datetime.now(UTC) - timedelta(seconds=35)

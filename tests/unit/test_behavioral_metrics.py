@@ -117,7 +117,9 @@ class TestClickLatencyTracker:
 
         # Establish baseline with some variance
         for i in range(10):
-            tracker.track_click_latency("test", 100 + i % 3 * 10)  # 100, 110, 120 pattern
+            tracker.track_click_latency(
+                "test", 100 + i % 3 * 10
+            )  # 100, 110, 120 pattern
 
         # Normal latencies
         tracker.track_click_latency("test", 110)
@@ -161,7 +163,7 @@ class TestOrderModificationTracker:
         old_mod = {
             "order_id": "old",
             "modification_type": "cancel",
-            "timestamp": datetime.utcnow() - timedelta(hours=3)
+            "timestamp": datetime.utcnow() - timedelta(hours=3),
         }
         tracker.modifications.append(old_mod)
 
@@ -182,7 +184,7 @@ class TestOrderModificationTracker:
             mod = {
                 "order_id": f"order{i}",
                 "modification_type": "price",
-                "timestamp": now - timedelta(minutes=i)
+                "timestamp": now - timedelta(minutes=i),
             }
             tracker.modifications.append(mod)
 
@@ -198,7 +200,7 @@ class TestOrderModificationTracker:
         tracker.update_baseline("5min", 0.5)
         assert tracker.baseline_rates["5min"] == 0.5
 
-    @patch('genesis.analytics.behavioral_metrics.logger')
+    @patch("genesis.analytics.behavioral_metrics.logger")
     def test_excessive_modification_warning(self, mock_logger):
         """Test warning for excessive modifications."""
         tracker = OrderModificationTracker()
@@ -292,8 +294,16 @@ class TestInactivityTracker:
         # Add inactivity periods
         now = datetime.utcnow()
         periods = [
-            {"start": now - timedelta(minutes=30), "end": now - timedelta(minutes=25), "duration_seconds": 300},
-            {"start": now - timedelta(minutes=20), "end": now - timedelta(minutes=15), "duration_seconds": 300},
+            {
+                "start": now - timedelta(minutes=30),
+                "end": now - timedelta(minutes=25),
+                "duration_seconds": 300,
+            },
+            {
+                "start": now - timedelta(minutes=20),
+                "end": now - timedelta(minutes=15),
+                "duration_seconds": 300,
+            },
         ]
         tracker.inactivity_periods = periods
 
@@ -346,7 +356,7 @@ class TestSessionAnalyzer:
         assert len(analyzer.sessions) == 1
         assert analyzer.current_session_start is None
 
-    @patch('genesis.analytics.behavioral_metrics.logger')
+    @patch("genesis.analytics.behavioral_metrics.logger")
     def test_long_session_warning(self, mock_logger):
         """Test warning for long sessions."""
         analyzer = SessionAnalyzer()
@@ -361,7 +371,7 @@ class TestSessionAnalyzer:
         mock_logger.warning.assert_called_with(
             "long_session_detected",
             session_id="session1",
-            duration_hours=pytest.approx(5.0, rel=0.01)
+            duration_hours=pytest.approx(5.0, rel=0.01),
         )
 
     def test_analyze_session_duration(self):
@@ -374,14 +384,14 @@ class TestSessionAnalyzer:
             "start": datetime.utcnow() - timedelta(hours=2),
             "end": datetime.utcnow(),
             "duration_seconds": 7200,
-            "duration_hours": 2.0
+            "duration_hours": 2.0,
         }
         session2 = {
             "session_id": "session2",
             "start": datetime.utcnow() - timedelta(hours=4),
             "end": datetime.utcnow() - timedelta(hours=2),
             "duration_seconds": 7200,
-            "duration_hours": 2.0
+            "duration_hours": 2.0,
         }
         analyzer.sessions = [session1, session2]
 

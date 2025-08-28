@@ -64,7 +64,7 @@ class FlashCrashDetector:
         event_bus: EventBus,
         window_seconds: int = 60,
         crash_threshold: Decimal = Decimal("0.10"),  # 10% drop
-        recovery_window_seconds: int = 300  # 5 minutes
+        recovery_window_seconds: int = 300,  # 5 minutes
     ):
         """
         Initialize flash crash detector.
@@ -95,7 +95,7 @@ class FlashCrashDetector:
         self.crashes_detected = 0
         self.false_positives = 0
         self.worst_crash_pct = Decimal("0")
-        self.fastest_crash_seconds = float('inf')
+        self.fastest_crash_seconds = float("inf")
 
         # Order cancellation tracking
         self.symbols_with_cancelled_orders: set[str] = set()
@@ -104,7 +104,7 @@ class FlashCrashDetector:
             "FlashCrashDetector initialized",
             window_seconds=window_seconds,
             crash_threshold=float(crash_threshold),
-            recovery_window=recovery_window_seconds
+            recovery_window=recovery_window_seconds,
         )
 
     async def process_price(
@@ -113,7 +113,7 @@ class FlashCrashDetector:
         price: Decimal,
         volume: Decimal = Decimal("0"),
         trades_count: int = 0,
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> Optional[FlashCrashEvent]:
         """
         Process a new price and check for flash crash.
@@ -139,7 +139,7 @@ class FlashCrashDetector:
             symbol=symbol,
             price=price,
             volume=volume,
-            trades_count=trades_count
+            trades_count=trades_count,
         )
 
         # Initialize history if needed
@@ -173,8 +173,10 @@ class FlashCrashDetector:
         )
 
         # Remove old prices from front of deque
-        while (self.price_history[symbol] and
-               self.price_history[symbol][0].timestamp < cutoff):
+        while (
+            self.price_history[symbol]
+            and self.price_history[symbol][0].timestamp < cutoff
+        ):
             self.price_history[symbol].popleft()
 
     async def _detect_flash_crash(self, symbol: str) -> Optional[FlashCrashEvent]:
@@ -210,8 +212,7 @@ class FlashCrashDetector:
         window_start = now - timedelta(seconds=self.window_seconds)
 
         window_prices = [
-            s for s in self.price_history[symbol]
-            if s.timestamp >= window_start
+            s for s in self.price_history[symbol] if s.timestamp >= window_start
         ]
 
         if len(window_prices) < 2:
@@ -238,11 +239,14 @@ class FlashCrashDetector:
         # Check if exceeds threshold
         if drop_pct >= self.crash_threshold:
             # Calculate crash duration
-            duration_seconds = (min_snapshot.timestamp - max_snapshot.timestamp).total_seconds()
+            duration_seconds = (
+                min_snapshot.timestamp - max_snapshot.timestamp
+            ).total_seconds()
 
             # Calculate volume during crash
             crash_volume = sum(
-                s.volume for s in window_prices
+                s.volume
+                for s in window_prices
                 if max_snapshot.timestamp <= s.timestamp <= min_snapshot.timestamp
             )
 
@@ -268,7 +272,7 @@ class FlashCrashDetector:
                 max_price=max_price,
                 min_price=min_price,
                 volume_during_crash=crash_volume,
-                severity=severity
+                severity=severity,
             )
 
             # Store crash
@@ -305,7 +309,7 @@ class FlashCrashDetector:
             symbol=crash.symbol,
             drop_percentage=float(crash.drop_percentage),
             duration_seconds=crash.duration_seconds,
-            severity=crash.severity
+            severity=crash.severity,
         )
 
         await self.event_bus.publish(
@@ -322,10 +326,10 @@ class FlashCrashDetector:
                     "severity": crash.severity,
                     "volume_during_crash": float(crash.volume_during_crash),
                     "action": "cancel_all_orders",
-                    "recommendation": self._get_recommendation(crash)
-                }
+                    "recommendation": self._get_recommendation(crash),
+                },
             ),
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
     async def _trigger_protective_actions(self, crash: FlashCrashEvent) -> None:
@@ -347,16 +351,16 @@ class FlashCrashDetector:
                     "reason": "flash_crash_protection",
                     "symbol": crash.symbol,
                     "action": "cancel_all_open_orders",
-                    "severity": crash.severity
-                }
+                    "severity": crash.severity,
+                },
             ),
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
         logger.info(
             "Protective actions triggered",
             symbol=crash.symbol,
-            action="cancel_all_orders"
+            action="cancel_all_orders",
         )
 
     def _get_recommendation(self, crash: FlashCrashEvent) -> str:
@@ -396,14 +400,10 @@ class FlashCrashDetector:
             "orders_cancelled": 0,  # Would be actual count
             "success": True,
             "timestamp": datetime.now(UTC).isoformat(),
-            "reason": "flash_crash_protection"
+            "reason": "flash_crash_protection",
         }
 
-        logger.info(
-            "Order cancellation requested",
-            symbol=symbol,
-            reason="flash_crash"
-        )
+        logger.info("Order cancellation requested", symbol=symbol, reason="flash_crash")
 
         return result
 
@@ -432,7 +432,7 @@ class FlashCrashDetector:
                 "severity": c.severity,
                 "start_price": float(c.start_price),
                 "end_price": float(c.end_price),
-                "volume": float(c.volume_during_crash)
+                "volume": float(c.volume_during_crash),
             }
             for c in crashes
         ]
@@ -449,13 +449,17 @@ class FlashCrashDetector:
             "crashes_detected": self.crashes_detected,
             "false_positives": self.false_positives,
             "worst_crash_percentage": float(self.worst_crash_pct),
-            "fastest_crash_seconds": self.fastest_crash_seconds if self.fastest_crash_seconds != float('inf') else None,
+            "fastest_crash_seconds": (
+                self.fastest_crash_seconds
+                if self.fastest_crash_seconds != float("inf")
+                else None
+            ),
             "active_crashes": len(self.active_crashes),
             "symbols_monitored": len(self.price_history),
             "symbols_with_cancelled_orders": list(self.symbols_with_cancelled_orders),
             "detection_window_seconds": self.window_seconds,
             "crash_threshold": float(self.crash_threshold),
-            "recovery_window_seconds": self.recovery_window_seconds
+            "recovery_window_seconds": self.recovery_window_seconds,
         }
 
     def is_in_crash_recovery(self, symbol: str) -> bool:
@@ -486,6 +490,6 @@ class FlashCrashDetector:
         self.crashes_detected = 0
         self.false_positives = 0
         self.worst_crash_pct = Decimal("0")
-        self.fastest_crash_seconds = float('inf')
+        self.fastest_crash_seconds = float("inf")
 
         logger.info("Flash crash detector reset")

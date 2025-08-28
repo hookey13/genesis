@@ -38,7 +38,7 @@ def test_config():
         min_allocation_percent=Decimal("10"),
         max_allocation_percent=Decimal("40"),
         reserve_percent=Decimal("10"),
-        rebalance_threshold_percent=Decimal("5")
+        rebalance_threshold_percent=Decimal("5"),
     )
 
 
@@ -50,20 +50,20 @@ def strategy_allocations():
             strategy_id="strategy_1",
             strategy_name="Test Strategy 1",
             performance_score=Decimal("0.8"),
-            risk_score=Decimal("1.2")
+            risk_score=Decimal("1.2"),
         ),
         StrategyAllocation(
             strategy_id="strategy_2",
             strategy_name="Test Strategy 2",
             performance_score=Decimal("0.6"),
-            risk_score=Decimal("0.8")
+            risk_score=Decimal("0.8"),
         ),
         StrategyAllocation(
             strategy_id="strategy_3",
             strategy_name="Test Strategy 3",
             performance_score=Decimal("0.4"),
-            risk_score=Decimal("1.5")
-        )
+            risk_score=Decimal("1.5"),
+        ),
     ]
 
 
@@ -71,8 +71,7 @@ def strategy_allocations():
 async def allocator(mock_event_bus):
     """Create capital allocator instance."""
     allocator = CapitalAllocator(
-        event_bus=mock_event_bus,
-        total_capital=Decimal("10000")
+        event_bus=mock_event_bus, total_capital=Decimal("10000")
     )
     return allocator
 
@@ -87,7 +86,7 @@ class TestAllocationConfig:
             max_allocation_percent=40,
             reserve_percent=10,
             rebalance_threshold_percent=5,
-            kelly_fraction=0.25
+            kelly_fraction=0.25,
         )
 
         assert isinstance(config.min_allocation_percent, Decimal)
@@ -100,7 +99,7 @@ class TestAllocationConfig:
         with pytest.raises(ValueError, match="Max allocation must be greater"):
             AllocationConfig(
                 min_allocation_percent=Decimal("40"),
-                max_allocation_percent=Decimal("30")
+                max_allocation_percent=Decimal("30"),
             )
 
 
@@ -114,7 +113,7 @@ class TestStrategyAllocation:
             strategy_name="Test Strategy",
             current_allocation=1000,
             performance_score=0.8,
-            risk_score=1.2
+            risk_score=1.2,
         )
 
         assert isinstance(alloc.current_allocation, Decimal)
@@ -126,7 +125,9 @@ class TestStrategyAllocation:
 class TestCapitalAllocator:
     """Test capital allocator operations."""
 
-    async def test_equal_weight_allocation(self, allocator, strategy_allocations, mock_event_bus):
+    async def test_equal_weight_allocation(
+        self, allocator, strategy_allocations, mock_event_bus
+    ):
         """Test equal weight allocation method."""
         allocator.config.method = AllocationMethod.EQUAL_WEIGHT
 
@@ -140,7 +141,9 @@ class TestCapitalAllocator:
         # Check event published
         mock_event_bus.publish.assert_called_once()
 
-    async def test_performance_weighted_allocation(self, allocator, strategy_allocations, mock_event_bus):
+    async def test_performance_weighted_allocation(
+        self, allocator, strategy_allocations, mock_event_bus
+    ):
         """Test performance-weighted allocation."""
         allocator.config.method = AllocationMethod.PERFORMANCE_WEIGHTED
 
@@ -156,7 +159,9 @@ class TestCapitalAllocator:
         assert allocations["strategy_2"] == Decimal("3000")
         assert allocations["strategy_3"] == Decimal("2000")
 
-    async def test_risk_parity_allocation(self, allocator, strategy_allocations, mock_event_bus):
+    async def test_risk_parity_allocation(
+        self, allocator, strategy_allocations, mock_event_bus
+    ):
         """Test risk parity allocation."""
         allocator.config.method = AllocationMethod.RISK_PARITY
 
@@ -172,7 +177,9 @@ class TestCapitalAllocator:
         assert allocations["strategy_2"] > allocations["strategy_1"]
         assert allocations["strategy_1"] > allocations["strategy_3"]
 
-    async def test_kelly_allocation(self, allocator, strategy_allocations, mock_event_bus):
+    async def test_kelly_allocation(
+        self, allocator, strategy_allocations, mock_event_bus
+    ):
         """Test Kelly criterion allocation."""
         allocator.config.method = AllocationMethod.KELLY_CRITERION
         allocator.config.use_kelly_sizing = True
@@ -230,9 +237,7 @@ class TestCapitalAllocator:
         await allocator.allocate_capital(strategy_allocations)
 
         allocator.update_strategy_performance(
-            "strategy_1",
-            performance_score=Decimal("0.9"),
-            risk_score=Decimal("1.0")
+            "strategy_1", performance_score=Decimal("0.9"), risk_score=Decimal("1.0")
         )
 
         assert allocator.allocations["strategy_1"].performance_score == Decimal("0.9")
@@ -288,7 +293,7 @@ class TestCapitalAllocator:
         allocator.allocations["test_strategy"] = StrategyAllocation(
             strategy_id="test_strategy",
             strategy_name="Test",
-            available_capital=Decimal("5000")
+            available_capital=Decimal("5000"),
         )
 
         capital = allocator.get_available_capital("test_strategy")
@@ -314,7 +319,7 @@ class TestCapitalAllocator:
             condition="performance_score > 0.7",
             action="increase_allocation",
             adjustment_percent=Decimal("10"),
-            priority=1
+            priority=1,
         )
 
         allocator.add_rule(rule)
@@ -332,7 +337,7 @@ class TestCapitalAllocator:
             name="Boost High Performers",
             condition="performance_score > 0.7",
             action="increase_allocation",
-            adjustment_percent=Decimal("20")
+            adjustment_percent=Decimal("20"),
         )
         allocator.add_rule(rule)
 
@@ -351,18 +356,18 @@ class TestCapitalAllocator:
             "allocation": {
                 "method": "performance_weighted",
                 "max_strategies": 8,
-                "reserve_percent": 15
+                "reserve_percent": 15,
             }
         }
 
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             yaml.dump(config_data, f)
 
         # Create allocator with config file
         allocator = CapitalAllocator(
             event_bus=mock_event_bus,
             total_capital=Decimal("10000"),
-            config_path=str(config_file)
+            config_path=str(config_file),
         )
 
         assert allocator.config.method == AllocationMethod.PERFORMANCE_WEIGHTED
@@ -372,17 +377,18 @@ class TestCapitalAllocator:
     async def test_zero_total_capital(self, mock_event_bus):
         """Test handling zero total capital."""
         allocator = CapitalAllocator(
-            event_bus=mock_event_bus,
-            total_capital=Decimal("0")
+            event_bus=mock_event_bus, total_capital=Decimal("0")
         )
 
-        allocations = await allocator.allocate_capital([
-            StrategyAllocation(
-                strategy_id="test",
-                strategy_name="Test",
-                performance_score=Decimal("1.0")
-            )
-        ])
+        allocations = await allocator.allocate_capital(
+            [
+                StrategyAllocation(
+                    strategy_id="test",
+                    strategy_name="Test",
+                    performance_score=Decimal("1.0"),
+                )
+            ]
+        )
 
         assert allocations["test"] == Decimal("0")
 

@@ -56,7 +56,7 @@ class OrderFrequencyIndicator:
             "Order recorded",
             timestamp=timestamp,
             window_count=len(self.order_timestamps),
-            orders_per_hour=float(orders_per_hour)
+            orders_per_hour=float(orders_per_hour),
         )
 
         return orders_per_hour
@@ -81,7 +81,9 @@ class OrderFrequencyIndicator:
 
         if hours == 0:
             # All orders at same timestamp
-            return Decimal(str(len(self.order_timestamps) * 60))  # Assume 1 minute window
+            return Decimal(
+                str(len(self.order_timestamps) * 60)
+            )  # Assume 1 minute window
 
         rate = Decimal(str(len(self.order_timestamps))) / hours
 
@@ -111,10 +113,7 @@ class OrderFrequencyIndicator:
             Dictionary with pattern analysis
         """
         if not self.order_timestamps:
-            return {
-                "has_data": False,
-                "order_count": 0
-            }
+            return {"has_data": False, "order_count": 0}
 
         now = datetime.now(UTC)
 
@@ -158,7 +157,7 @@ class OrderFrequencyIndicator:
             "current_rate_per_hour": float(self.get_current_rate()),
             "rates": {k: float(v) for k, v in rates.items()},
             "is_accelerating": is_accelerating,
-            "burst_detected": burst_detected
+            "burst_detected": burst_detected,
         }
 
     def detect_overtrading(self, threshold: Decimal) -> bool:
@@ -178,7 +177,7 @@ class OrderFrequencyIndicator:
             logger.warning(
                 "Overtrading detected",
                 current_rate=float(current_rate),
-                threshold=float(threshold)
+                threshold=float(threshold),
             )
 
         return overtrading
@@ -197,7 +196,7 @@ class OrderFrequencyIndicator:
         timestamps = list(self.order_timestamps)
 
         for i in range(1, len(timestamps)):
-            delta = (timestamps[i] - timestamps[i-1]).total_seconds()
+            delta = (timestamps[i] - timestamps[i - 1]).total_seconds()
             times.append(Decimal(str(delta)))
 
         return times

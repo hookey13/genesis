@@ -21,6 +21,7 @@ logger = structlog.get_logger(__name__)
 
 class FIXMessageType(str, Enum):
     """FIX message types."""
+
     LOGON = "A"
     LOGOUT = "5"
     NEW_ORDER_SINGLE = "D"
@@ -29,7 +30,7 @@ class FIXMessageType(str, Enum):
     ORDER_CANCEL_REJECT = "9"
     MARKET_DATA_REQUEST = "V"
     MARKET_DATA_SNAPSHOT = "W"
-    
+
 
 class FIXGateway:
     """FIX protocol gateway stub for future integration."""
@@ -56,7 +57,7 @@ class FIXGateway:
         """Send order via FIX (stub)."""
         if not self.connected:
             raise ConnectionError("FIX session not connected")
-        
+
         # Create FIX message structure
         fix_message = {
             "35": FIXMessageType.NEW_ORDER_SINGLE,
@@ -72,15 +73,15 @@ class FIXGateway:
             "44": str(order.get("price", 0)),
             "59": order.get("time_in_force", "0"),
         }
-        
+
         self.sequence_number += 1
-        
+
         logger.info(
             "fix_order_sent",
             order_id=fix_message["11"],
             symbol=order["symbol"],
         )
-        
+
         return fix_message["11"]
 
     @requires_tier(TradingTier.STRATEGIST)

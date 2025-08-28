@@ -57,7 +57,7 @@ def market_data_service(mock_websocket_manager, mock_gateway, mock_event_bus):
     service = MarketDataService(
         websocket_manager=mock_websocket_manager,
         gateway=mock_gateway,
-        event_bus=mock_event_bus
+        event_bus=mock_event_bus,
     )
     return service
 
@@ -72,7 +72,7 @@ class TestTick:
             price=Decimal("50000.00"),
             quantity=Decimal("0.1"),
             timestamp=1234567890.0,
-            is_buyer_maker=True
+            is_buyer_maker=True,
         )
 
         assert tick.symbol == "BTCUSDT"
@@ -287,7 +287,7 @@ class TestMarketDataService:
                 low=Decimal("49900"),
                 close=Decimal("50050"),
                 volume=Decimal("100"),
-                timestamp=datetime.now() - timedelta(minutes=i)
+                timestamp=datetime.now() - timedelta(minutes=i),
             )
             market_data_service.candles["BTCUSDT"].append(candle)
 
@@ -308,7 +308,7 @@ class TestMarketDataService:
                 "p": "50000.00",
                 "q": "0.1",
                 "T": 1234567890000,
-                "m": False
+                "m": False,
             }
         }
 
@@ -333,15 +333,9 @@ class TestMarketDataService:
             "stream": "btcusdt@depth20",
             "data": {
                 "lastUpdateId": 12345,
-                "bids": [
-                    ["49900.00", "1.0"],
-                    ["49800.00", "2.0"]
-                ],
-                "asks": [
-                    ["50000.00", "0.5"],
-                    ["50100.00", "1.5"]
-                ]
-            }
+                "bids": [["49900.00", "1.0"], ["49800.00", "2.0"]],
+                "asks": [["50000.00", "0.5"], ["50100.00", "1.5"]],
+            },
         }
 
         await market_data_service._handle_depth(depth_data)
@@ -371,7 +365,7 @@ class TestMarketDataService:
                     "v": "100.0",
                     "t": 1234567890000,
                     "n": 500,
-                    "x": True  # Closed candle
+                    "x": True,  # Closed candle
                 }
             }
         }
@@ -400,7 +394,7 @@ class TestMarketDataService:
             price=Decimal("50000"),
             quantity=Decimal("0.1"),
             timestamp=1234567890.0,
-            is_buyer_maker=True
+            is_buyer_maker=True,
         )
         market_data_service.ticks["BTCUSDT"].append(tick1)
 
@@ -422,8 +416,8 @@ class TestMarketDataService:
             "data": {
                 "lastUpdateId": 12345,
                 "bids": [["49995.00", "1.0"]],  # Tight spread
-                "asks": [["50000.00", "0.5"]]
-            }
+                "asks": [["50000.00", "0.5"]],
+            },
         }
 
         await market_data_service._handle_depth(depth_data)
@@ -454,7 +448,7 @@ class TestMarketDataService:
                 price=Decimal(f"{50000 + i * 10}"),
                 quantity=Decimal("0.1"),
                 timestamp=base_time + i,
-                is_buyer_maker=True
+                is_buyer_maker=True,
             )
             await market_data_service._update_candle_aggregator("BTCUSDT", tick)
 

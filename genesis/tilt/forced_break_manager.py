@@ -35,10 +35,7 @@ class ForcedBreakManager:
         self._loss_counters: dict[str, int] = {}
 
     @requires_tier(TradingTier.HUNTER)
-    def check_consecutive_losses(
-        self,
-        account_id: str
-    ) -> int:
+    def check_consecutive_losses(self, account_id: str) -> int:
         """Check consecutive loss count for account.
 
         Args:
@@ -59,23 +56,19 @@ class ForcedBreakManager:
             logger.debug(
                 "Consecutive losses checked",
                 account_id=account_id,
-                count=consecutive_losses
+                count=consecutive_losses,
             )
 
             return consecutive_losses
 
         except Exception as e:
             logger.error(
-                "Error checking consecutive losses",
-                account_id=account_id,
-                error=str(e)
+                "Error checking consecutive losses", account_id=account_id, error=str(e)
             )
             return 0
 
     def record_trade_result(
-        self,
-        account_id: str,
-        is_profitable: bool
+        self, account_id: str, is_profitable: bool
     ) -> Optional[datetime]:
         """Record trade result and check for forced break trigger.
 
@@ -97,14 +90,10 @@ class ForcedBreakManager:
 
                 # Update database
                 self.repository.update_tilt_profile(
-                    account_id,
-                    {"consecutive_losses": 0}
+                    account_id, {"consecutive_losses": 0}
                 )
 
-                logger.info(
-                    "Consecutive loss streak broken",
-                    account_id=account_id
-                )
+                logger.info("Consecutive loss streak broken", account_id=account_id)
             else:
                 # Increment consecutive loss counter
                 current_losses += 1
@@ -112,14 +101,13 @@ class ForcedBreakManager:
 
                 # Update database
                 self.repository.update_tilt_profile(
-                    account_id,
-                    {"consecutive_losses": current_losses}
+                    account_id, {"consecutive_losses": current_losses}
                 )
 
                 logger.warning(
                     "Consecutive loss recorded",
                     account_id=account_id,
-                    streak=current_losses
+                    streak=current_losses,
                 )
 
                 # Check if break threshold reached (default: 3 losses)
@@ -130,16 +118,12 @@ class ForcedBreakManager:
 
         except Exception as e:
             logger.error(
-                "Error recording trade result",
-                account_id=account_id,
-                error=str(e)
+                "Error recording trade result", account_id=account_id, error=str(e)
             )
             return None
 
     def enforce_trading_break(
-        self,
-        account_id: str,
-        duration_minutes: int = 30
+        self, account_id: str, duration_minutes: int = 30
     ) -> datetime:
         """Enforce a trading break for the account.
 
@@ -159,34 +143,33 @@ class ForcedBreakManager:
             {
                 "lockout_expiration": expiration,
                 "journal_entries_required": 1,  # Require journal entry
-                "recovery_required": True
-            }
+                "recovery_required": True,
+            },
         )
 
         # Publish break event
-        self.event_bus.publish({
-            "type": EventType.FORCED_BREAK_INITIATED,
-            "account_id": account_id,
-            "duration_minutes": duration_minutes,
-            "expiration": expiration.isoformat(),
-            "reason": "consecutive_losses",
-            "consecutive_losses": self._loss_counters.get(account_id, 3),
-            "timestamp": datetime.now(UTC)
-        })
+        self.event_bus.publish(
+            {
+                "type": EventType.FORCED_BREAK_INITIATED,
+                "account_id": account_id,
+                "duration_minutes": duration_minutes,
+                "expiration": expiration.isoformat(),
+                "reason": "consecutive_losses",
+                "consecutive_losses": self._loss_counters.get(account_id, 3),
+                "timestamp": datetime.now(UTC),
+            }
+        )
 
         logger.warning(
             "Trading break enforced",
             account_id=account_id,
             duration_minutes=duration_minutes,
-            expiration=expiration.isoformat()
+            expiration=expiration.isoformat(),
         )
 
         return expiration
 
-    def is_on_break(
-        self,
-        account_id: str
-    ) -> bool:
+    def is_on_break(self, account_id: str) -> bool:
         """Check if account is currently on forced break.
 
         Args:
@@ -217,10 +200,7 @@ class ForcedBreakManager:
 
         return False
 
-    def get_break_status(
-        self,
-        account_id: str
-    ) -> dict:
+    def get_break_status(self, account_id: str) -> dict:
         """Get detailed break status for account.
 
         Args:
@@ -246,15 +226,15 @@ class ForcedBreakManager:
             "expiration": expiration.isoformat() if expiration else None,
             "remaining_minutes": remaining_minutes,
             "consecutive_losses": self._loss_counters.get(account_id, 0),
-            "journal_required": profile.get("journal_entries_required", 0) > 0 if profile else False,
-            "recovery_required": profile.get("recovery_required", False) if profile else False
+            "journal_required": (
+                profile.get("journal_entries_required", 0) > 0 if profile else False
+            ),
+            "recovery_required": (
+                profile.get("recovery_required", False) if profile else False
+            ),
         }
 
-    def clear_break(
-        self,
-        account_id: str,
-        journal_completed: bool = False
-    ) -> bool:
+    def clear_break(self, account_id: str, journal_completed: bool = False) -> bool:
         """Clear forced break for account.
 
         Args:
@@ -269,8 +249,7 @@ class ForcedBreakManager:
         if profile and profile.get("journal_entries_required", 0) > 0:
             if not journal_completed:
                 logger.warning(
-                    "Cannot clear break without journal entry",
-                    account_id=account_id
+                    "Cannot clear break without journal entry", account_id=account_id
                 )
                 return False
 
@@ -288,22 +267,24 @@ class ForcedBreakManager:
                 "lockout_expiration": None,
                 "consecutive_losses": 0,
                 "journal_entries_required": 0,
-                "recovery_required": False
-            }
+                "recovery_required": False,
+            },
         )
 
         # Publish break cleared event
-        self.event_bus.publish({
-            "type": EventType.FORCED_BREAK_CLEARED,
-            "account_id": account_id,
-            "journal_completed": journal_completed,
-            "timestamp": datetime.now(UTC)
-        })
+        self.event_bus.publish(
+            {
+                "type": EventType.FORCED_BREAK_CLEARED,
+                "account_id": account_id,
+                "journal_completed": journal_completed,
+                "timestamp": datetime.now(UTC),
+            }
+        )
 
         logger.info(
             "Trading break cleared",
             account_id=account_id,
-            journal_completed=journal_completed
+            journal_completed=journal_completed,
         )
 
         return True
@@ -324,15 +305,11 @@ class ForcedBreakManager:
 
                     if datetime.now(UTC) < expiration:
                         self._active_breaks[account_id] = expiration
-                        self._loss_counters[account_id] = profile.get("consecutive_losses", 0)
+                        self._loss_counters[account_id] = profile.get(
+                            "consecutive_losses", 0
+                        )
 
-            logger.info(
-                "Active breaks loaded",
-                count=len(self._active_breaks)
-            )
+            logger.info("Active breaks loaded", count=len(self._active_breaks))
 
         except Exception as e:
-            logger.error(
-                "Failed to load active breaks",
-                error=str(e)
-            )
+            logger.error("Failed to load active breaks", error=str(e))

@@ -21,6 +21,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class CorrelationAlert:
     """Alert for high correlation detection."""
+
     alert_id: str
     symbol1: str
     symbol2: str
@@ -34,6 +35,7 @@ class CorrelationAlert:
 @dataclass
 class PriceHistory:
     """Price history for correlation calculation."""
+
     symbol: str
     prices: deque[Decimal] = field(default_factory=lambda: deque(maxlen=1000))
     timestamps: deque[datetime] = field(default_factory=lambda: deque(maxlen=1000))
@@ -50,10 +52,7 @@ class PriceHistory:
 
         # Filter by time window
         cutoff_time = datetime.utcnow() - timedelta(minutes=window_minutes)
-        valid_indices = [
-            i for i, ts in enumerate(self.timestamps)
-            if ts >= cutoff_time
-        ]
+        valid_indices = [i for i, ts in enumerate(self.timestamps) if ts >= cutoff_time]
 
         if len(valid_indices) < 2:
             return np.array([])
@@ -82,12 +81,16 @@ class CorrelationMonitor:
         """
         self.repository = repository
         self._price_histories: dict[str, PriceHistory] = {}
-        self._correlation_cache: dict[tuple[str, str, int], tuple[Decimal, datetime]] = {}
+        self._correlation_cache: dict[
+            tuple[str, str, int], tuple[Decimal, datetime]
+        ] = {}
         self._cache_ttl_seconds = 60  # Cache correlations for 1 minute
         self._alerts: list[CorrelationAlert] = []
         self._lock = asyncio.Lock()
 
-    async def update_price(self, symbol: str, price: Decimal, timestamp: Optional[datetime] = None) -> None:
+    async def update_price(
+        self, symbol: str, price: Decimal, timestamp: Optional[datetime] = None
+    ) -> None:
         """Update price for a symbol.
 
         Args:
@@ -103,17 +106,11 @@ class CorrelationMonitor:
             self._price_histories[symbol].add_price(price, timestamp)
 
             logger.debug(
-                "price_updated",
-                symbol=symbol,
-                price=price,
-                timestamp=timestamp
+                "price_updated", symbol=symbol, price=price, timestamp=timestamp
             )
 
     async def calculate_pair_correlation(
-        self,
-        symbol1: str,
-        symbol2: str,
-        window_minutes: int = None
+        self, symbol1: str, symbol2: str, window_minutes: int = None
     ) -> Decimal:
         """Calculate correlation between two symbols.
 
@@ -136,7 +133,9 @@ class CorrelationMonitor:
             for key in [cache_key, reverse_key]:
                 if key in self._correlation_cache:
                     cached_corr, cached_time = self._correlation_cache[key]
-                    if (datetime.utcnow() - cached_time).total_seconds() < self._cache_ttl_seconds:
+                    if (
+                        datetime.utcnow() - cached_time
+                    ).total_seconds() < self._cache_ttl_seconds:
                         return cached_corr
 
             # Load historical data if not in memory
@@ -151,9 +150,7 @@ class CorrelationMonitor:
 
             if not history1 or not history2:
                 logger.warning(
-                    "missing_price_history",
-                    symbol1=symbol1,
-                    symbol2=symbol2
+                    "missing_price_history", symbol1=symbol1, symbol2=symbol2
                 )
                 return Decimal("0")
 
@@ -169,7 +166,7 @@ class CorrelationMonitor:
                     symbol1=symbol1,
                     symbol2=symbol2,
                     data_points=min_length,
-                    required=self.MIN_DATA_POINTS
+                    required=self.MIN_DATA_POINTS,
                 )
                 return Decimal("0")
 
@@ -189,13 +186,20 @@ class CorrelationMonitor:
                 correlation_decimal = Decimal(str(round(correlation, 4)))
 
                 # Cache the result
-                self._correlation_cache[cache_key] = (correlation_decimal, datetime.utcnow())
+                self._correlation_cache[cache_key] = (
+                    correlation_decimal,
+                    datetime.utcnow(),
+                )
 
                 # Check for alerts
-                await self._check_correlation_alert(symbol1, symbol2, correlation_decimal)
+                await self._check_correlation_alert(
+                    symbol1, symbol2, correlation_decimal
+                )
 
                 # Store in database
-                await self._store_correlation(symbol1, symbol2, correlation_decimal, window_minutes)
+                await self._store_correlation(
+                    symbol1, symbol2, correlation_decimal, window_minutes
+                )
 
                 logger.info(
                     "correlation_calculated",
@@ -203,7 +207,7 @@ class CorrelationMonitor:
                     symbol2=symbol2,
                     correlation=correlation_decimal,
                     window_minutes=window_minutes,
-                    data_points=min_length
+                    data_points=min_length,
                 )
 
                 return correlation_decimal
@@ -213,11 +217,13 @@ class CorrelationMonitor:
                     "correlation_calculation_error",
                     symbol1=symbol1,
                     symbol2=symbol2,
-                    error=str(e)
+                    error=str(e),
                 )
                 return Decimal("0")
 
-    async def get_correlation_matrix(self, symbols: Optional[list[str]] = None) -> np.ndarray:
+    async def get_correlation_matrix(
+        self, symbols: Optional[list[str]] = None
+    ) -> np.ndarray:
         """Get correlation matrix for specified symbols.
 
         Args:
@@ -240,8 +246,7 @@ class CorrelationMonitor:
             for i in range(n):
                 for j in range(i + 1, n):
                     correlation = await self.calculate_pair_correlation(
-                        symbols[i],
-                        symbols[j]
+                        symbols[i], symbols[j]
                     )
                     matrix[i, j] = float(correlation)
                     matrix[j, i] = float(correlation)  # Symmetric
@@ -249,8 +254,7 @@ class CorrelationMonitor:
             return matrix
 
     async def get_highly_correlated_pairs(
-        self,
-        threshold: Optional[Decimal] = None
+        self, threshold: Optional[Decimal] = None
     ) -> list[tuple[str, str, Decimal]]:
         """Get pairs with correlation above threshold.
 
@@ -269,14 +273,11 @@ class CorrelationMonitor:
             for i in range(len(symbols)):
                 for j in range(i + 1, len(symbols)):
                     correlation = await self.calculate_pair_correlation(
-                        symbols[i],
-                        symbols[j]
+                        symbols[i], symbols[j]
                     )
 
                     if abs(correlation) >= threshold:
-                        high_correlations.append(
-                            (symbols[i], symbols[j], correlation)
-                        )
+                        high_correlations.append((symbols[i], symbols[j], correlation))
 
             # Sort by correlation strength
             high_correlations.sort(key=lambda x: abs(x[2]), reverse=True)
@@ -284,8 +285,7 @@ class CorrelationMonitor:
         return high_correlations
 
     async def analyze_portfolio_correlation(
-        self,
-        positions: list[Position]
+        self, positions: list[Position]
     ) -> dict[str, any]:
         """Analyze correlation across portfolio positions.
 
@@ -300,7 +300,7 @@ class CorrelationMonitor:
                 "max_correlation": Decimal("0"),
                 "avg_correlation": Decimal("0"),
                 "correlation_pairs": [],
-                "risk_level": "LOW"
+                "risk_level": "LOW",
             }
 
         symbols = [p.symbol for p in positions]
@@ -315,7 +315,9 @@ class CorrelationMonitor:
                 correlation_pairs.append((symbols[i], symbols[j], corr))
 
         max_correlation = max(correlations) if correlations else Decimal("0")
-        avg_correlation = sum(correlations) / len(correlations) if correlations else Decimal("0")
+        avg_correlation = (
+            sum(correlations) / len(correlations) if correlations else Decimal("0")
+        )
 
         # Determine risk level
         if max_correlation >= self.CRITICAL_THRESHOLD:
@@ -335,7 +337,7 @@ class CorrelationMonitor:
             "risk_level": risk_level,
             "positions_analyzed": len(positions),
             "threshold_warning": self.WARNING_THRESHOLD,
-            "threshold_critical": self.CRITICAL_THRESHOLD
+            "threshold_critical": self.CRITICAL_THRESHOLD,
         }
 
     async def get_recent_alerts(self, limit: int = 10) -> list[CorrelationAlert]:
@@ -367,11 +369,11 @@ class CorrelationMonitor:
         """
         try:
             # Load from repository
-            start_time = datetime.utcnow() - timedelta(minutes=window_minutes * 2)  # Load extra for buffer
+            start_time = datetime.utcnow() - timedelta(
+                minutes=window_minutes * 2
+            )  # Load extra for buffer
             price_data = await self.repository.get_price_history(
-                symbol=symbol,
-                start_time=start_time,
-                end_time=datetime.utcnow()
+                symbol=symbol, start_time=start_time, end_time=datetime.utcnow()
             )
 
             if price_data:
@@ -382,22 +384,13 @@ class CorrelationMonitor:
                 self._price_histories[symbol] = history
 
                 logger.debug(
-                    "price_history_loaded",
-                    symbol=symbol,
-                    data_points=len(price_data)
+                    "price_history_loaded", symbol=symbol, data_points=len(price_data)
                 )
         except Exception as e:
-            logger.error(
-                "failed_to_load_price_history",
-                symbol=symbol,
-                error=str(e)
-            )
+            logger.error("failed_to_load_price_history", symbol=symbol, error=str(e))
 
     async def _check_correlation_alert(
-        self,
-        symbol1: str,
-        symbol2: str,
-        correlation: Decimal
+        self, symbol1: str, symbol2: str, correlation: Decimal
     ) -> None:
         """Check if correlation triggers an alert.
 
@@ -410,12 +403,16 @@ class CorrelationMonitor:
 
         if abs_correlation >= self.CRITICAL_THRESHOLD:
             severity = "CRITICAL"
-            message = (f"Critical correlation detected between {symbol1} and {symbol2}: "
-                      f"{correlation:.2%}. Consider reducing exposure.")
+            message = (
+                f"Critical correlation detected between {symbol1} and {symbol2}: "
+                f"{correlation:.2%}. Consider reducing exposure."
+            )
         elif abs_correlation >= self.WARNING_THRESHOLD:
             severity = "WARNING"
-            message = (f"High correlation detected between {symbol1} and {symbol2}: "
-                      f"{correlation:.2%}. Monitor closely.")
+            message = (
+                f"High correlation detected between {symbol1} and {symbol2}: "
+                f"{correlation:.2%}. Monitor closely."
+            )
         else:
             return  # No alert needed
 
@@ -424,10 +421,14 @@ class CorrelationMonitor:
             symbol1=symbol1,
             symbol2=symbol2,
             correlation=correlation,
-            threshold=self.CRITICAL_THRESHOLD if severity == "CRITICAL" else self.WARNING_THRESHOLD,
+            threshold=(
+                self.CRITICAL_THRESHOLD
+                if severity == "CRITICAL"
+                else self.WARNING_THRESHOLD
+            ),
             timestamp=datetime.utcnow(),
             message=message,
-            severity=severity
+            severity=severity,
         )
 
         self._alerts.append(alert)
@@ -442,15 +443,11 @@ class CorrelationMonitor:
             symbol1=symbol1,
             symbol2=symbol2,
             correlation=correlation,
-            message=message
+            message=message,
         )
 
     async def _store_correlation(
-        self,
-        symbol1: str,
-        symbol2: str,
-        correlation: Decimal,
-        window_minutes: int
+        self, symbol1: str, symbol2: str, correlation: Decimal, window_minutes: int
     ) -> None:
         """Store correlation in database.
 
@@ -466,12 +463,12 @@ class CorrelationMonitor:
                 symbol2=symbol2,
                 correlation=correlation,
                 window_minutes=window_minutes,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             )
         except Exception as e:
             logger.error(
                 "failed_to_store_correlation",
                 symbol1=symbol1,
                 symbol2=symbol2,
-                error=str(e)
+                error=str(e),
             )

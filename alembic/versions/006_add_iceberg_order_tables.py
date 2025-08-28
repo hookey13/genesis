@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import sqlite
 
 # revision identifiers, used by Alembic.
-revision: str = '006_iceberg_orders'
-down_revision: Union[str, None] = '005_add_tier_transition_tables'
+revision: str = '006'
+down_revision: Union[str, None] = '005'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -139,8 +139,7 @@ def upgrade() -> None:
         existing_columns = [col['name'] for col in inspector.get_columns('orders')]
         
         if 'iceberg_execution_id' not in existing_columns:
-            batch_op.add_column(sa.Column('iceberg_execution_id', sa.String(36), 
-                                         sa.ForeignKey('iceberg_executions.execution_id'), nullable=True))
+            batch_op.add_column(sa.Column('iceberg_execution_id', sa.String(36), nullable=True))
         
         if 'is_iceberg_slice' not in existing_columns:
             batch_op.add_column(sa.Column('is_iceberg_slice', sa.Boolean, nullable=False, server_default='0'))

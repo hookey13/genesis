@@ -39,7 +39,7 @@ class TiltIndicator(Widget):
         TiltLevel.NORMAL: "",
         TiltLevel.LEVEL1: "border: solid yellow;",
         TiltLevel.LEVEL2: "border: solid orange;",
-        TiltLevel.LEVEL3: "border: solid red;"
+        TiltLevel.LEVEL3: "border: solid red;",
     }
 
     # Colors for different elements
@@ -47,14 +47,10 @@ class TiltIndicator(Widget):
         TiltLevel.NORMAL: "green",
         TiltLevel.LEVEL1: "yellow",
         TiltLevel.LEVEL2: "dark_orange",
-        TiltLevel.LEVEL3: "red"
+        TiltLevel.LEVEL3: "red",
     }
 
-    def __init__(
-        self,
-        event_bus: Optional[EventBus] = None,
-        **kwargs
-    ):
+    def __init__(self, event_bus: Optional[EventBus] = None, **kwargs):
         """Initialize tilt indicator.
 
         Args:
@@ -94,7 +90,7 @@ class TiltIndicator(Widget):
             TiltLevel.NORMAL: "✓ Normal",
             TiltLevel.LEVEL1: "⚠ Level 1 - Caution",
             TiltLevel.LEVEL2: "⚠ Level 2 - Warning",
-            TiltLevel.LEVEL3: "⛔ Level 3 - Lockout"
+            TiltLevel.LEVEL3: "⛔ Level 3 - Lockout",
         }[self.tilt_level]
 
         return Text(level_text, style=f"bold {color}")
@@ -154,7 +150,7 @@ class TiltIndicator(Widget):
             table.add_row(
                 anomaly.get("indicator", "Unknown"),
                 Text(str(severity), style=severity_style),
-                anomaly.get("description", "")[:40]
+                anomaly.get("description", "")[:40],
             )
 
         return Panel(table, title="Active Anomalies", border_style="dim")
@@ -164,7 +160,7 @@ class TiltIndicator(Widget):
         level: TiltLevel,
         score: int,
         anomalies: list[dict],
-        message: Optional[str] = None
+        message: Optional[str] = None,
     ) -> None:
         """Update the tilt status display.
 
@@ -256,28 +252,28 @@ class TiltIndicator(Widget):
                     TiltLevel.LEVEL1,
                     data.get("tilt_score", 0),
                     data.get("anomalies", []),
-                    "Taking a moment to breathe can improve your trading decisions."
+                    "Taking a moment to breathe can improve your trading decisions.",
                 )
             elif event_type == EventType.TILT_LEVEL2_DETECTED:
                 self.update_tilt_status(
                     TiltLevel.LEVEL2,
                     data.get("tilt_score", 0),
                     data.get("anomalies", []),
-                    "Your trading patterns suggest heightened stress. Position sizes reduced for safety."
+                    "Your trading patterns suggest heightened stress. Position sizes reduced for safety.",
                 )
             elif event_type == EventType.TILT_LEVEL3_DETECTED:
                 self.update_tilt_status(
                     TiltLevel.LEVEL3,
                     data.get("tilt_score", 0),
                     data.get("anomalies", []),
-                    "Let's take a break. Trading paused to protect your capital."
+                    "Let's take a break. Trading paused to protect your capital.",
                 )
             elif event_type == EventType.TILT_RECOVERED:
                 self.update_tilt_status(
                     TiltLevel.NORMAL,
                     0,
                     [],
-                    "Well done! You've recovered your composure."
+                    "Well done! You've recovered your composure.",
                 )
 
         # Register event handlers
@@ -322,5 +318,5 @@ class TiltIndicator(Widget):
             "trading_allowed": self.is_trading_allowed,
             "position_multiplier": float(self.position_size_multiplier),
             "has_intervention": bool(self.intervention_message),
-            "last_update": self.last_update.isoformat()
+            "last_update": self.last_update.isoformat(),
         }

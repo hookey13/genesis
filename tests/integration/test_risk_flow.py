@@ -53,11 +53,7 @@ def mock_exchange():
 @pytest.fixture
 async def gateway(mock_exchange):
     """Create a gateway with mock exchange."""
-    gateway = BinanceGateway(
-        api_key="test_key",
-        api_secret="test_secret",
-        testnet=True
-    )
+    gateway = BinanceGateway(api_key="test_key", api_secret="test_secret", testnet=True)
     # Replace exchange with mock
     gateway.exchange = mock_exchange
     await gateway.initialize()
@@ -72,16 +68,12 @@ async def integrated_system(temp_db, gateway):
     account = Account(
         account_id="integration-test",
         balance_usdt=Decimal("1000"),
-        tier=TradingTier.SNIPER
+        tier=TradingTier.SNIPER,
     )
     await temp_db.create_account(account)
 
     # Create account manager
-    account_manager = AccountManager(
-        gateway=gateway,
-        account=account,
-        auto_sync=False
-    )
+    account_manager = AccountManager(gateway=gateway, account=account, auto_sync=False)
 
     # Create trading session
     session = TradingSession(
@@ -90,7 +82,7 @@ async def integrated_system(temp_db, gateway):
         session_date=datetime.now(),
         starting_balance=account.balance_usdt,
         current_balance=account.balance_usdt,
-        daily_loss_limit=Decimal("25")
+        daily_loss_limit=Decimal("25"),
     )
     await temp_db.create_session(session)
 
@@ -103,7 +95,7 @@ async def integrated_system(temp_db, gateway):
         "account_manager": account_manager,
         "risk_engine": risk_engine,
         "account": account,
-        "session": session
+        "session": session,
     }
 
 
@@ -121,8 +113,7 @@ class TestFullRiskFlow:
         entry_price = Decimal("50000")
 
         position_size = risk_engine.calculate_position_size(
-            symbol=symbol,
-            entry_price=entry_price
+            symbol=symbol, entry_price=entry_price
         )
 
         # Validate order risk
@@ -130,7 +121,7 @@ class TestFullRiskFlow:
             symbol=symbol,
             side=PositionSide.LONG,
             quantity=position_size,
-            entry_price=entry_price
+            entry_price=entry_price,
         )
 
         # Create position
@@ -142,7 +133,7 @@ class TestFullRiskFlow:
             entry_price=entry_price,
             quantity=position_size,
             dollar_value=position_size * entry_price,
-            stop_loss=stop_loss
+            stop_loss=stop_loss,
         )
 
         # Save to database
@@ -191,7 +182,7 @@ class TestFullRiskFlow:
             side=PositionSide.LONG,
             entry_price=Decimal("3000"),
             quantity=Decimal("0.1"),
-            dollar_value=Decimal("300")
+            dollar_value=Decimal("300"),
         )
 
         position_id = await repo.create_position(position)
@@ -228,7 +219,7 @@ class TestFullRiskFlow:
             symbol="BTC/USDT",
             side=PositionSide.LONG,
             quantity=Decimal("0.001"),
-            entry_price=Decimal("50000")
+            entry_price=Decimal("50000"),
         )
 
         # Hit the daily limit
@@ -242,7 +233,7 @@ class TestFullRiskFlow:
                 symbol="BTC/USDT",
                 side=PositionSide.LONG,
                 quantity=Decimal("0.001"),
-                entry_price=Decimal("50000")
+                entry_price=Decimal("50000"),
             )
 
     @pytest.mark.asyncio
@@ -260,7 +251,7 @@ class TestFullRiskFlow:
             side=PositionSide.LONG,
             entry_price=Decimal("50000"),
             quantity=Decimal("0.01"),
-            dollar_value=Decimal("500")
+            dollar_value=Decimal("500"),
         )
 
         position_id = await repo.create_position(position)
@@ -314,7 +305,7 @@ class TestMultiPositionScenarios:
             side=PositionSide.LONG,
             entry_price=Decimal("50000"),
             quantity=Decimal("0.001"),
-            dollar_value=Decimal("50")
+            dollar_value=Decimal("50"),
         )
 
         await repo.create_position(position)
@@ -326,7 +317,7 @@ class TestMultiPositionScenarios:
                 symbol="ETH/USDT",
                 side=PositionSide.LONG,
                 quantity=Decimal("0.01"),
-                entry_price=Decimal("3000")
+                entry_price=Decimal("3000"),
             )
 
         assert exc_info.value.limit_type == "max_positions"
@@ -336,7 +327,9 @@ class TestMultiPositionScenarios:
         """Test total exposure across positions."""
         # Upgrade to Hunter tier for multiple positions
         integrated_system["account"].tier = TradingTier.HUNTER
-        integrated_system["risk_engine"].tier_limits = RiskEngine.TIER_LIMITS[TradingTier.HUNTER]
+        integrated_system["risk_engine"].tier_limits = RiskEngine.TIER_LIMITS[
+            TradingTier.HUNTER
+        ]
 
         risk_engine = integrated_system["risk_engine"]
         repo = integrated_system["repo"]
@@ -349,7 +342,7 @@ class TestMultiPositionScenarios:
                 side=PositionSide.LONG,
                 entry_price=Decimal("50000"),
                 quantity=Decimal("0.002"),
-                dollar_value=Decimal("100")
+                dollar_value=Decimal("100"),
             ),
             Position(
                 account_id=integrated_system["account"].account_id,
@@ -357,8 +350,8 @@ class TestMultiPositionScenarios:
                 side=PositionSide.SHORT,
                 entry_price=Decimal("3000"),
                 quantity=Decimal("0.05"),
-                dollar_value=Decimal("150")
-            )
+                dollar_value=Decimal("150"),
+            ),
         ]
 
         for position in positions:
@@ -372,7 +365,7 @@ class TestMultiPositionScenarios:
         # Update prices and check total P&L
         price_updates = {
             "BTC/USDT": Decimal("51000"),  # 2% gain
-            "ETH/USDT": Decimal("2900")     # 3.33% gain (short)
+            "ETH/USDT": Decimal("2900"),  # 3.33% gain (short)
         }
 
         risk_engine.update_all_pnl(price_updates)
@@ -386,8 +379,7 @@ class TestMultiPositionScenarios:
         # Upgrade to Hunter tier
         integrated_system["account"].tier = TradingTier.HUNTER
         risk_engine = RiskEngine(
-            integrated_system["account"],
-            integrated_system["session"]
+            integrated_system["account"], integrated_system["session"]
         )
 
         # Create correlated positions
@@ -399,7 +391,7 @@ class TestMultiPositionScenarios:
                 side=PositionSide.LONG,
                 entry_price=Decimal("50000"),
                 quantity=Decimal("0.001"),
-                dollar_value=Decimal("50")
+                dollar_value=Decimal("50"),
             ),
             Position(
                 position_id="pos-btc2",
@@ -408,8 +400,8 @@ class TestMultiPositionScenarios:
                 side=PositionSide.LONG,
                 entry_price=Decimal("50100"),
                 quantity=Decimal("0.001"),
-                dollar_value=Decimal("50.1")
-            )
+                dollar_value=Decimal("50.1"),
+            ),
         ]
 
         for position in positions:
@@ -442,7 +434,7 @@ class TestSessionManagement:
             session_date=datetime.now() + timedelta(days=1),
             starting_balance=integrated_system["account"].balance_usdt,
             current_balance=integrated_system["account"].balance_usdt,
-            daily_loss_limit=Decimal("25")
+            daily_loss_limit=Decimal("25"),
         )
 
         await repo.create_session(new_session)
@@ -452,7 +444,9 @@ class TestSessionManagement:
         assert not old_session.is_active
 
         # Verify new session is active
-        active_session = await repo.get_active_session(integrated_system["account"].account_id)
+        active_session = await repo.get_active_session(
+            integrated_system["account"].account_id
+        )
         assert active_session.session_id == new_session.session_id
         assert active_session.is_active
 
@@ -464,11 +458,11 @@ class TestSessionManagement:
 
         # Simulate multiple trades
         trades = [
-            Decimal("10"),   # Win
-            Decimal("-5"),   # Loss
-            Decimal("15"),   # Win
-            Decimal("-8"),   # Loss
-            Decimal("20"),   # Win
+            Decimal("10"),  # Win
+            Decimal("-5"),  # Loss
+            Decimal("15"),  # Win
+            Decimal("-8"),  # Loss
+            Decimal("20"),  # Win
         ]
 
         for pnl in trades:
@@ -502,7 +496,7 @@ class TestErrorRecovery:
                 side=PositionSide.LONG,
                 entry_price=Decimal("50000"),
                 quantity=Decimal("0.01"),
-                dollar_value=Decimal("500")
+                dollar_value=Decimal("500"),
             )
             await repo.create_position(position)
 
@@ -513,7 +507,9 @@ class TestErrorRecovery:
             await repo.rollback_transaction()
 
         # Position should not exist
-        positions = await repo.get_positions_by_account(integrated_system["account"].account_id)
+        positions = await repo.get_positions_by_account(
+            integrated_system["account"].account_id
+        )
         assert len(positions) == 0
 
     @pytest.mark.asyncio
@@ -537,9 +533,7 @@ class TestErrorRecovery:
         # Restore connection
         account_manager.gateway.get_account_info = AsyncMock(
             return_value={
-                "balances": [
-                    {"asset": "USDT", "free": "1000", "locked": "0"}
-                ]
+                "balances": [{"asset": "USDT", "free": "1000", "locked": "0"}]
             }
         )
 
@@ -563,7 +557,7 @@ class TestErrorRecovery:
                 side=PositionSide.LONG,
                 entry_price=Decimal("100"),
                 quantity=Decimal("1"),
-                dollar_value=Decimal("100")
+                dollar_value=Decimal("100"),
             )
             for i in range(3)
         ]
@@ -574,14 +568,12 @@ class TestErrorRecovery:
 
         # Simulate restart - create new risk engine
         new_risk_engine = RiskEngine(
-            integrated_system["account"],
-            integrated_system["session"]
+            integrated_system["account"], integrated_system["session"]
         )
 
         # Recover positions from database
         saved_positions = await repo.get_positions_by_account(
-            integrated_system["account"].account_id,
-            status="OPEN"
+            integrated_system["account"].account_id, status="OPEN"
         )
 
         for position in saved_positions:
@@ -599,13 +591,13 @@ class TestPerformance:
     async def test_risk_calculation_performance(self, integrated_system):
         """Test that risk calculations complete within 10ms."""
         import time
+
         risk_engine = integrated_system["risk_engine"]
 
         # Measure position size calculation
         start = time.perf_counter()
         risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("50000")
+            symbol="BTC/USDT", entry_price=Decimal("50000")
         )
         elapsed = (time.perf_counter() - start) * 1000  # Convert to ms
 
@@ -617,7 +609,7 @@ class TestPerformance:
             symbol="BTC/USDT",
             side=PositionSide.LONG,
             quantity=Decimal("0.001"),
-            entry_price=Decimal("50000")
+            entry_price=Decimal("50000"),
         )
         elapsed = (time.perf_counter() - start) * 1000
 
@@ -627,6 +619,7 @@ class TestPerformance:
     async def test_database_query_performance(self, integrated_system):
         """Test database query performance."""
         import time
+
         repo = integrated_system["repo"]
 
         # Create multiple positions for testing
@@ -638,7 +631,7 @@ class TestPerformance:
                 side=PositionSide.LONG,
                 entry_price=Decimal("100"),
                 quantity=Decimal("1"),
-                dollar_value=Decimal("100")
+                dollar_value=Decimal("100"),
             )
             await repo.create_position(position)
 

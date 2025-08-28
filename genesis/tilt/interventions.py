@@ -50,21 +50,21 @@ class InterventionManager:
         "Taking a moment to breathe can improve your trading decisions.",
         "Your focus is your edge. A brief pause helps maintain clarity.",
         "Market opportunities are constant. Patience creates better entries.",
-        "Consider reviewing your trading plan before the next position."
+        "Consider reviewing your trading plan before the next position.",
     ]
 
     LEVEL2_MESSAGES = [
         "Your trading patterns suggest heightened stress. Position sizes reduced for safety.",
         "Risk management protocol activated. Position sizing adjusted to protect capital.",
         "Emotional state detected. Trading with reduced exposure for better control.",
-        "Safety measures engaged. Smaller positions help maintain discipline."
+        "Safety measures engaged. Smaller positions help maintain discipline.",
     ]
 
     LEVEL3_MESSAGES = [
         "Let's take a break. Trading paused to protect your capital.",
         "Trading lockout activated. This pause is protecting your account.",
         "Time for a reset. Your future self will thank you for this break.",
-        "Account protection mode. Trading will resume after cooldown period."
+        "Account protection mode. Trading will resume after cooldown period.",
     ]
 
     def __init__(
@@ -72,7 +72,7 @@ class InterventionManager:
         event_bus: Optional[EventBus] = None,
         cooldown_minutes: dict[TiltLevel, int] = None,
         emergency_contact_enabled: bool = False,
-        emergency_contact_info: Optional[dict[str, str]] = None
+        emergency_contact_info: Optional[dict[str, str]] = None,
     ):
         """Initialize intervention manager.
 
@@ -86,7 +86,7 @@ class InterventionManager:
         self.cooldown_minutes = cooldown_minutes or {
             TiltLevel.LEVEL1: 5,
             TiltLevel.LEVEL2: 15,
-            TiltLevel.LEVEL3: 30
+            TiltLevel.LEVEL3: 30,
         }
 
         # Track active interventions per profile
@@ -123,10 +123,7 @@ class InterventionManager:
         return messages[0]  # Simple rotation for now
 
     async def apply_intervention(
-        self,
-        profile_id: str,
-        level: TiltLevel,
-        tilt_score: int
+        self, profile_id: str, level: TiltLevel, tilt_score: int
     ) -> Intervention:
         """Apply intervention based on tilt level.
 
@@ -157,7 +154,7 @@ class InterventionManager:
             applied_at=now,
             expires_at=now + timedelta(minutes=cooldown) if cooldown > 0 else None,
             position_size_multiplier=params.get("position_size_multiplier"),
-            is_active=True
+            is_active=True,
         )
 
         # Store intervention
@@ -177,14 +174,13 @@ class InterventionManager:
             profile_id=profile_id,
             level=level.value,
             type=intervention_type.value,
-            message=message[:50]
+            message=message[:50],
         )
 
         return intervention
 
     def _determine_intervention_params(
-        self,
-        level: TiltLevel
+        self, level: TiltLevel
     ) -> tuple[InterventionType, dict]:
         """Determine intervention type and parameters based on level.
 
@@ -225,7 +221,7 @@ class InterventionManager:
             logger.debug(
                 "Position size reduction applied",
                 profile_id=intervention.profile_id,
-                multiplier=float(intervention.position_size_multiplier)
+                multiplier=float(intervention.position_size_multiplier),
             )
 
         elif intervention.intervention_type == InterventionType.TRADING_LOCKOUT:
@@ -234,13 +230,15 @@ class InterventionManager:
             logger.debug(
                 "Trading lockout applied",
                 profile_id=intervention.profile_id,
-                expires_at=intervention.expires_at.isoformat() if intervention.expires_at else None
+                expires_at=(
+                    intervention.expires_at.isoformat()
+                    if intervention.expires_at
+                    else None
+                ),
             )
 
     async def _publish_intervention_event(
-        self,
-        intervention: Intervention,
-        tilt_score: int
+        self, intervention: Intervention, tilt_score: int
     ) -> None:
         """Publish intervention event.
 
@@ -254,18 +252,24 @@ class InterventionManager:
         await self.event_bus.publish(
             EventType.INTERVENTION_APPLIED,
             {
-                'profile_id': intervention.profile_id,
-                'intervention_id': intervention.intervention_id,
-                'tilt_level': intervention.tilt_level.value,
-                'intervention_type': intervention.intervention_type.value,
-                'message': intervention.message,
-                'tilt_score': tilt_score,
-                'position_size_multiplier': float(intervention.position_size_multiplier)
-                    if intervention.position_size_multiplier else None,
-                'expires_at': intervention.expires_at.isoformat()
-                    if intervention.expires_at else None,
-                'timestamp': intervention.applied_at.isoformat()
-            }
+                "profile_id": intervention.profile_id,
+                "intervention_id": intervention.intervention_id,
+                "tilt_level": intervention.tilt_level.value,
+                "intervention_type": intervention.intervention_type.value,
+                "message": intervention.message,
+                "tilt_score": tilt_score,
+                "position_size_multiplier": (
+                    float(intervention.position_size_multiplier)
+                    if intervention.position_size_multiplier
+                    else None
+                ),
+                "expires_at": (
+                    intervention.expires_at.isoformat()
+                    if intervention.expires_at
+                    else None
+                ),
+                "timestamp": intervention.applied_at.isoformat(),
+            },
         )
 
     def get_active_interventions(self, profile_id: str) -> list[Intervention]:
@@ -365,10 +369,7 @@ class InterventionManager:
 
         # Check if all interventions have expired
         now = datetime.now(UTC)
-        all_expired = all(
-            i.expires_at and i.expires_at <= now
-            for i in active
-        )
+        all_expired = all(i.expires_at and i.expires_at <= now for i in active)
 
         if all_expired:
             # Clear expired interventions
@@ -378,10 +379,7 @@ class InterventionManager:
             if self.event_bus:
                 await self.event_bus.publish(
                     EventType.TILT_RECOVERED,
-                    {
-                        'profile_id': profile_id,
-                        'timestamp': now.isoformat()
-                    }
+                    {"profile_id": profile_id, "timestamp": now.isoformat()},
                 )
 
             logger.info("Tilt recovery detected", profile_id=profile_id)
@@ -390,10 +388,7 @@ class InterventionManager:
         return False
 
     async def notify_emergency_contact(
-        self,
-        profile_id: str,
-        tilt_level: TiltLevel,
-        message: Optional[str] = None
+        self, profile_id: str, tilt_level: TiltLevel, message: Optional[str] = None
     ) -> bool:
         """Notify emergency contact about severe tilt episode (placeholder).
 
@@ -413,16 +408,13 @@ class InterventionManager:
             True if notification would be sent (always False in placeholder)
         """
         if not self.emergency_contact_enabled:
-            logger.debug(
-                "Emergency contact not enabled",
-                profile_id=profile_id
-            )
+            logger.debug("Emergency contact not enabled", profile_id=profile_id)
             return False
 
         if not self.emergency_contact_info:
             logger.warning(
                 "Emergency contact enabled but no contact info configured",
-                profile_id=profile_id
+                profile_id=profile_id,
             )
             return False
 
@@ -440,7 +432,7 @@ class InterventionManager:
             tilt_level=tilt_level.value,
             enabled=self.emergency_contact_enabled,
             has_contact_info=bool(self.emergency_contact_info),
-            message="Feature not yet implemented"
+            message="Feature not yet implemented",
         )
 
         # Placeholder always returns False (not actually sent)

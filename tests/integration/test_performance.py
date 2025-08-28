@@ -51,9 +51,13 @@ class PerformanceBenchmark:
             "mean_ms": statistics.mean(self.results),
             "median_ms": statistics.median(self.results),
             "stdev_ms": statistics.stdev(self.results) if len(self.results) > 1 else 0,
-            "p95_ms": statistics.quantiles(self.results, n=20)[18] if len(self.results) > 1 else self.results[0],
+            "p95_ms": (
+                statistics.quantiles(self.results, n=20)[18]
+                if len(self.results) > 1
+                else self.results[0]
+            ),
             "target_ms": self.target_ms,
-            "passed": statistics.mean(self.results) <= self.target_ms
+            "passed": statistics.mean(self.results) <= self.target_ms,
         }
 
 
@@ -78,7 +82,9 @@ class TestCriticalPathPerformance:
                     print(f"  Target: {stats['target_ms']:.2f}ms")
                     print(f"  Mean: {stats['mean_ms']:.2f}ms")
                     print(f"  P95: {stats['p95_ms']:.2f}ms")
-                    print(f"  Min/Max: {stats['min_ms']:.2f}ms / {stats['max_ms']:.2f}ms")
+                    print(
+                        f"  Min/Max: {stats['min_ms']:.2f}ms / {stats['max_ms']:.2f}ms"
+                    )
 
     def test_configuration_loading_performance(self):
         """Test configuration loading speed."""
@@ -91,7 +97,9 @@ class TestCriticalPathPerformance:
             benchmark.measure(Settings)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"Configuration loading too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"Configuration loading too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     def test_decimal_calculation_performance(self):
         """Test Decimal arithmetic performance for money calculations."""
@@ -113,7 +121,9 @@ class TestCriticalPathPerformance:
             benchmark.measure(calculate_position_size)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"Decimal calculations too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"Decimal calculations too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     @pytest.mark.asyncio
     async def test_async_order_placement_performance(self):
@@ -130,7 +140,9 @@ class TestCriticalPathPerformance:
             await benchmark.measure_async(simulate_order_placement)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"Order placement too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"Order placement too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     def test_risk_calculation_performance(self):
         """Test risk management calculation performance."""
@@ -139,7 +151,11 @@ class TestCriticalPathPerformance:
 
         def calculate_risk_metrics():
             positions = [
-                {"symbol": "BTC/USDT", "size": Decimal("0.5"), "entry": Decimal("45000")},
+                {
+                    "symbol": "BTC/USDT",
+                    "size": Decimal("0.5"),
+                    "entry": Decimal("45000"),
+                },
                 {"symbol": "ETH/USDT", "size": Decimal("10"), "entry": Decimal("3000")},
             ]
 
@@ -150,14 +166,16 @@ class TestCriticalPathPerformance:
             return {
                 "total_exposure": total_exposure,
                 "max_position": max_position,
-                "risk_score": risk_score
+                "risk_score": risk_score,
             }
 
         for _ in range(100):
             benchmark.measure(calculate_risk_metrics)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"Risk calculations too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"Risk calculations too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     def test_json_serialization_performance(self):
         """Test JSON serialization for API responses."""
@@ -175,15 +193,17 @@ class TestCriticalPathPerformance:
                 "total_trades": 150,
                 "win_rate": 0.65,
                 "sharpe_ratio": 1.8,
-                "max_drawdown": 0.15
-            }
+                "max_drawdown": 0.15,
+            },
         }
 
         for _ in range(100):
             benchmark.measure(json.dumps, test_data)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"JSON serialization too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"JSON serialization too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     def test_logging_performance(self):
         """Test structured logging performance."""
@@ -201,14 +221,16 @@ class TestCriticalPathPerformance:
                 side="buy",
                 size=0.5,
                 price=45678.90,
-                timestamp=datetime.utcnow().isoformat()
+                timestamp=datetime.utcnow().isoformat(),
             )
 
         for _ in range(100):
             benchmark.measure(log_trade_event)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"Logging too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"Logging too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     @pytest.mark.asyncio
     async def test_concurrent_operations_performance(self):
@@ -229,7 +251,9 @@ class TestCriticalPathPerformance:
             await benchmark.measure_async(run_concurrent)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"Concurrent ops too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"Concurrent ops too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     def test_dataframe_operations_performance(self):
         """Test pandas DataFrame operations performance."""
@@ -240,26 +264,30 @@ class TestCriticalPathPerformance:
         self.benchmarks.append(benchmark)
 
         # Create test data
-        df = pd.DataFrame({
-            'timestamp': pd.date_range('2024-01-01', periods=1000, freq='1min'),
-            'open': np.random.uniform(45000, 46000, 1000),
-            'high': np.random.uniform(45500, 46500, 1000),
-            'low': np.random.uniform(44500, 45500, 1000),
-            'close': np.random.uniform(45000, 46000, 1000),
-            'volume': np.random.uniform(100, 1000, 1000)
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2024-01-01", periods=1000, freq="1min"),
+                "open": np.random.uniform(45000, 46000, 1000),
+                "high": np.random.uniform(45500, 46500, 1000),
+                "low": np.random.uniform(44500, 45500, 1000),
+                "close": np.random.uniform(45000, 46000, 1000),
+                "volume": np.random.uniform(100, 1000, 1000),
+            }
+        )
 
         def calculate_indicators():
-            df['sma_20'] = df['close'].rolling(window=20).mean()
-            df['rsi'] = 100 - (100 / (1 + df['close'].pct_change().rolling(14).mean()))
-            df['vwap'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
+            df["sma_20"] = df["close"].rolling(window=20).mean()
+            df["rsi"] = 100 - (100 / (1 + df["close"].pct_change().rolling(14).mean()))
+            df["vwap"] = (df["close"] * df["volume"]).cumsum() / df["volume"].cumsum()
             return df
 
         for _ in range(10):
             benchmark.measure(calculate_indicators)
 
         stats = benchmark.get_stats()
-        assert stats["passed"], f"DataFrame ops too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
+        assert stats[
+            "passed"
+        ], f"DataFrame ops too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
 
     def test_performance_summary(self):
         """Generate and validate overall performance summary."""
@@ -273,4 +301,6 @@ class TestCriticalPathPerformance:
             if stats and not stats["passed"]:
                 failed_benchmarks.append(stats["name"])
 
-        assert not failed_benchmarks, f"Performance benchmarks failed: {failed_benchmarks}"
+        assert (
+            not failed_benchmarks
+        ), f"Performance benchmarks failed: {failed_benchmarks}"

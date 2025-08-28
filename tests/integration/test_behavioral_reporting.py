@@ -33,7 +33,7 @@ class TestBehavioralReportingWorkflow:
             "inactivity_tracker": InactivityTracker(),
             "session_analyzer": SessionAnalyzer(),
             "config_tracker": ConfigurationChangeTracker(),
-            "correlator": BehaviorPnLCorrelator()
+            "correlator": BehaviorPnLCorrelator(),
         }
         return components
 
@@ -51,27 +51,24 @@ class TestBehavioralReportingWorkflow:
         # Add click latency data
         for i in range(100):
             report_generator.click_tracker.track_click_latency(
-                "market_buy",
-                150 + i % 50  # Varying latency
+                "market_buy", 150 + i % 50  # Varying latency
             )
 
         # Add order modifications
         for i in range(20):
             report_generator.modification_tracker.track_order_modification(
-                f"order_{i}",
-                "price" if i % 2 == 0 else "quantity"
+                f"order_{i}", "price" if i % 2 == 0 else "quantity"
             )
 
         # Add focus events
         for i in range(30):
             report_generator.focus_detector.track_window_focus(
-                window_active=i % 2 == 0,
-                duration_ms=5000 + i * 100
+                window_active=i % 2 == 0, duration_ms=5000 + i * 100
             )
 
         # Add inactivity periods
         for i in range(5):
-            start = base_time - timedelta(hours=i*12)
+            start = base_time - timedelta(hours=i * 12)
             end = start + timedelta(minutes=45)
             report_generator.inactivity_tracker.track_inactivity_period(start, end)
 
@@ -79,34 +76,28 @@ class TestBehavioralReportingWorkflow:
         for i in range(3):
             session_id = f"session_{i}"
             report_generator.session_analyzer.start_session(session_id)
-            report_generator.session_analyzer.current_session_start = base_time - timedelta(hours=i*24+2)
+            report_generator.session_analyzer.current_session_start = (
+                base_time - timedelta(hours=i * 24 + 2)
+            )
             report_generator.session_analyzer.end_session(session_id)
 
         # Add config changes
         for i in range(10):
             report_generator.config_tracker.track_config_change(
-                "position_size",
-                1000 + i * 100,
-                1000 + (i + 1) * 100
+                "position_size", 1000 + i * 100, 1000 + (i + 1) * 100
             )
 
         # Add behavior and P&L data for correlation
         for i in range(50):
             time = base_time - timedelta(hours=i)
             report_generator.correlator.add_behavior_data(
-                "click_latency",
-                time,
-                150 + i * 5
+                "click_latency", time, 150 + i * 5
             )
-            report_generator.correlator.add_pnl_data(
-                time,
-                Decimal(str(100 - i * 2))
-            )
+            report_generator.correlator.add_pnl_data(time, Decimal(str(100 - i * 2)))
 
         # Generate report
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Verify report structure
@@ -141,8 +132,7 @@ class TestBehavioralReportingWorkflow:
         # Generate a simple report
         week_start = datetime.utcnow() - timedelta(days=7)
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Export as JSON
@@ -150,6 +140,7 @@ class TestBehavioralReportingWorkflow:
 
         # Verify JSON structure
         import json
+
         data = json.loads(json_str)
 
         assert data["profile_id"] == "test_trader"
@@ -163,8 +154,7 @@ class TestBehavioralReportingWorkflow:
         # Generate a simple report
         week_start = datetime.utcnow() - timedelta(days=7)
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Export as text
@@ -189,8 +179,7 @@ class TestBehavioralReportingWorkflow:
             report_generator.click_tracker.track_click_latency("test", 100)
 
         report1 = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week1_start
+            profile_id="test_trader", week_start=week1_start
         )
 
         # Clear and add different data for week 2
@@ -200,8 +189,7 @@ class TestBehavioralReportingWorkflow:
 
         week2_start = base_time - timedelta(days=7)
         report2 = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week2_start
+            profile_id="test_trader", week_start=week2_start
         )
 
         # Verify comparison exists
@@ -228,7 +216,7 @@ class TestBehavioralReportingWorkflow:
             config_changes=2,
             config_stability_score=80.0,
             strongest_loss_behavior=None,
-            loss_behavior_correlation=None
+            loss_behavior_correlation=None,
         )
 
         report_generator.set_baseline(baseline)
@@ -241,8 +229,7 @@ class TestBehavioralReportingWorkflow:
             report_generator.click_tracker.track_click_latency("test", 150)
 
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Verify baseline comparison
@@ -258,36 +245,30 @@ class TestBehavioralReportingWorkflow:
         # High distraction
         for i in range(50):
             report_generator.focus_detector.track_window_focus(
-                window_active=i % 2 == 0,
-                duration_ms=1000  # Rapid switching
+                window_active=i % 2 == 0, duration_ms=1000  # Rapid switching
             )
 
         # Excessive modifications
         for i in range(100):
             report_generator.modification_tracker.track_order_modification(
-                f"order_{i}",
-                "cancel"
+                f"order_{i}", "cancel"
             )
 
         # Configuration instability
         for i in range(30):
             report_generator.config_tracker.track_config_change(
-                f"setting_{i % 5}",
-                i,
-                i + 1
+                f"setting_{i % 5}", i, i + 1
             )
 
         # Long sessions
         for i in range(3):
-            report_generator.session_analyzer.sessions.append({
-                "session_id": f"session_{i}",
-                "duration_seconds": 6 * 3600  # 6 hours
-            })
+            report_generator.session_analyzer.sessions.append(
+                {"session_id": f"session_{i}", "duration_seconds": 6 * 3600}  # 6 hours
+            )
 
         # Generate report
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Should detect high risk
@@ -311,8 +292,7 @@ class TestBehavioralReportingWorkflow:
         # Low modification rate
         for i in range(5):
             report_generator.modification_tracker.track_order_modification(
-                f"order_{i}",
-                "price"
+                f"order_{i}", "price"
             )
 
         # Good focus
@@ -323,8 +303,7 @@ class TestBehavioralReportingWorkflow:
 
         # Generate report
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Should detect low risk
@@ -348,20 +327,12 @@ class TestBehavioralReportingWorkflow:
             latency = 100 if i < 25 else 300
             pnl = 100 if i < 25 else -100
 
-            report_generator.correlator.add_behavior_data(
-                "high_latency",
-                time,
-                latency
-            )
-            report_generator.correlator.add_pnl_data(
-                time,
-                Decimal(str(pnl))
-            )
+            report_generator.correlator.add_behavior_data("high_latency", time, latency)
+            report_generator.correlator.add_pnl_data(time, Decimal(str(pnl)))
 
         # Generate report
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Should identify loss-correlated behavior
@@ -369,8 +340,7 @@ class TestBehavioralReportingWorkflow:
 
         # Should have insight about correlation
         correlation_insights = [
-            i for i in report.insights
-            if "correlated" in i.description.lower()
+            i for i in report.insights if "correlated" in i.description.lower()
         ]
         assert len(correlation_insights) > 0
 
@@ -386,32 +356,20 @@ class TestBehavioralReportingWorkflow:
 
         async def add_focus_data():
             for i in range(100):
-                report_generator.focus_detector.track_window_focus(
-                    i % 2 == 0,
-                    5000
-                )
+                report_generator.focus_detector.track_window_focus(i % 2 == 0, 5000)
                 await asyncio.sleep(0.001)
 
         async def add_config_data():
             for i in range(50):
-                report_generator.config_tracker.track_config_change(
-                    "setting",
-                    i,
-                    i + 1
-                )
+                report_generator.config_tracker.track_config_change("setting", i, i + 1)
                 await asyncio.sleep(0.002)
 
         # Run concurrent updates
-        await asyncio.gather(
-            add_click_data(),
-            add_focus_data(),
-            add_config_data()
-        )
+        await asyncio.gather(add_click_data(), add_focus_data(), add_config_data())
 
         # Generate report
         report = report_generator.generate_weekly_report(
-            profile_id="test_trader",
-            week_start=week_start
+            profile_id="test_trader", week_start=week_start
         )
 
         # Verify data was collected

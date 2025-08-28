@@ -174,11 +174,11 @@ class TestOrderFrequencyIndicator:
 
         # Add orders with increasing frequency
         for i in range(5):
-            timestamp = base_time - timedelta(minutes=30-i*5)
+            timestamp = base_time - timedelta(minutes=30 - i * 5)
             indicator.record_order(timestamp)
 
         for i in range(10):
-            timestamp = base_time - timedelta(minutes=5-i*0.5)
+            timestamp = base_time - timedelta(minutes=5 - i * 0.5)
             indicator.record_order(timestamp)
 
         pattern = indicator.get_pattern_analysis()
@@ -215,10 +215,7 @@ class TestPositionSizingIndicator:
         sizes = [1000, 1100, 900, 1200, 800, 1000, 1050, 950]
 
         for size in sizes:
-            indicator.record_position(
-                Decimal(str(size)),
-                datetime.now(UTC)
-            )
+            indicator.record_position(Decimal(str(size)), datetime.now(UTC))
 
         metrics = indicator.calculate_variance()
 
@@ -253,10 +250,7 @@ class TestPositionSizingIndicator:
         base_size = 1000
         for i in range(20):
             size = base_size + (i * 50)  # Gradual increase
-            indicator.record_position(
-                Decimal(str(size)),
-                datetime.now(UTC)
-            )
+            indicator.record_position(Decimal(str(size)), datetime.now(UTC))
 
         metrics = indicator.calculate_variance()
 
@@ -336,12 +330,18 @@ class TestCancelRateIndicator:
         # High cancellation rate
         for i in range(10):
             order_id = f"order{i}"
-            indicator.record_order_placed(order_id, base_time + timedelta(seconds=i*10))
+            indicator.record_order_placed(
+                order_id, base_time + timedelta(seconds=i * 10)
+            )
 
             if i < 7:  # Cancel 70% of orders
-                indicator.record_order_cancelled(order_id, base_time + timedelta(seconds=i*10+5))
+                indicator.record_order_cancelled(
+                    order_id, base_time + timedelta(seconds=i * 10 + 5)
+                )
             else:
-                indicator.record_order_filled(order_id, base_time + timedelta(seconds=i*10+15))
+                indicator.record_order_filled(
+                    order_id, base_time + timedelta(seconds=i * 10 + 15)
+                )
 
         assert indicator.detect_indecision_pattern(threshold=Decimal("0.5")) is True
 
@@ -352,14 +352,22 @@ class TestCancelRateIndicator:
         # Create a streak of cancellations
         for i in range(5):
             order_id = f"cancel{i}"
-            indicator.record_order_placed(order_id, base_time + timedelta(seconds=i*10))
-            indicator.record_order_cancelled(order_id, base_time + timedelta(seconds=i*10+5))
+            indicator.record_order_placed(
+                order_id, base_time + timedelta(seconds=i * 10)
+            )
+            indicator.record_order_cancelled(
+                order_id, base_time + timedelta(seconds=i * 10 + 5)
+            )
 
         # Then some fills
         for i in range(2):
             order_id = f"fill{i}"
-            indicator.record_order_placed(order_id, base_time + timedelta(seconds=100+i*10))
-            indicator.record_order_filled(order_id, base_time + timedelta(seconds=100+i*10+5))
+            indicator.record_order_placed(
+                order_id, base_time + timedelta(seconds=100 + i * 10)
+            )
+            indicator.record_order_filled(
+                order_id, base_time + timedelta(seconds=100 + i * 10 + 5)
+            )
 
         streak = indicator.get_streak_analysis()
 

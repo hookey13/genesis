@@ -38,8 +38,9 @@ logger = structlog.get_logger(__name__)
 
 class ExecutionMode(str, Enum):
     """VWAP execution modes."""
+
     PASSIVE = "PASSIVE"  # Post-only orders, minimal market impact
-    NORMAL = "NORMAL"    # Mix of limit and market orders
+    NORMAL = "NORMAL"  # Mix of limit and market orders
     AGGRESSIVE = "AGGRESSIVE"  # More aggressive fills, accept slippage
 
 
@@ -55,7 +56,7 @@ class VWAPSlice:
         quantity: Decimal,
         target_price: Optional[Decimal],
         scheduled_time: datetime,
-        bucket_minute: int
+        bucket_minute: int,
     ):
         self.slice_id = slice_id
         self.parent_order_id = parent_order_id
@@ -65,8 +66,8 @@ class VWAPSlice:
         self.target_price = target_price
         self.scheduled_time = scheduled_time
         self.bucket_minute = bucket_minute
-        self.executed_quantity = Decimal('0')
-        self.executed_value = Decimal('0')
+        self.executed_quantity = Decimal("0")
+        self.executed_value = Decimal("0")
         self.status = OrderStatus.PENDING
         self.order: Optional[Order] = None
         self.attempts = 0
@@ -83,7 +84,7 @@ class VWAPExecutor(OrderExecutor):
         volume_analyzer: VolumeAnalyzer,
         vwap_tracker: VWAPTracker,
         event_bus: EventBus,
-        config: dict
+        config: dict,
     ):
         """Initialize VWAP executor.
 
@@ -103,11 +104,17 @@ class VWAPExecutor(OrderExecutor):
         self.config = config
 
         # Default configuration values
-        self.default_participation_rate = Decimal(str(config.get('vwap_participation_rate_percent', 10))) / 100
-        self.min_slice_size_usd = Decimal(str(config.get('vwap_min_slice_size_usd', 50)))
-        self.max_slices = config.get('vwap_max_slices', 100)
-        self.time_window_minutes = config.get('vwap_time_window_minutes', 240)
-        self.aggressive_threshold = Decimal(str(config.get('vwap_aggressive_threshold_percent', 5))) / 100
+        self.default_participation_rate = (
+            Decimal(str(config.get("vwap_participation_rate_percent", 10))) / 100
+        )
+        self.min_slice_size_usd = Decimal(
+            str(config.get("vwap_min_slice_size_usd", 50))
+        )
+        self.max_slices = config.get("vwap_max_slices", 100)
+        self.time_window_minutes = config.get("vwap_time_window_minutes", 240)
+        self.aggressive_threshold = (
+            Decimal(str(config.get("vwap_aggressive_threshold_percent", 5))) / 100
+        )
 
         # Active executions
         self._active_executions: dict[str, list[VWAPSlice]] = {}
@@ -117,7 +124,7 @@ class VWAPExecutor(OrderExecutor):
             "vwap_executor_initialized",
             tier=tier.value,
             participation_rate=str(self.default_participation_rate),
-            max_slices=self.max_slices
+            max_slices=self.max_slices,
         )
 
     @requires_tier(TradingTier.STRATEGIST)
@@ -127,7 +134,7 @@ class VWAPExecutor(OrderExecutor):
         mode: ExecutionMode = ExecutionMode.NORMAL,
         time_horizon_minutes: Optional[int] = None,
         participation_rate: Optional[Decimal] = None,
-        use_iceberg: bool = True
+        use_iceberg: bool = True,
     ) -> ExecutionResult:
         """Execute an order using VWAP algorithm.
 
@@ -147,7 +154,7 @@ class VWAPExecutor(OrderExecutor):
                 order_id=order.order_id,
                 symbol=order.symbol,
                 quantity=str(order.quantity),
-                mode=mode.value
+                mode=mode.value,
             )
 
             # Validate order
@@ -174,7 +181,7 @@ class VWAPExecutor(OrderExecutor):
                     success=False,
                     order=order,
                     message="Unable to calculate VWAP slices",
-                    error="Insufficient volume predictions"
+                    error="Insufficient volume predictions",
                 )
 
             # Store slices for tracking
@@ -199,7 +206,7 @@ class VWAPExecutor(OrderExecutor):
                 logger.error(
                     "vwap_execution_timeout",
                     order_id=order.order_id,
-                    timeout_seconds=timeout
+                    timeout_seconds=timeout,
                 )
                 # Clean up and return partial result
                 await self._cleanup_execution(order.order_id)
@@ -216,16 +223,12 @@ class VWAPExecutor(OrderExecutor):
             return result
 
         except Exception as e:
-            logger.error(
-                "vwap_execution_error",
-                order_id=order.order_id,
-                error=str(e)
-            )
+            logger.error("vwap_execution_error", order_id=order.order_id, error=str(e))
             return ExecutionResult(
                 success=False,
                 order=order,
                 message=f"VWAP execution failed: {e!s}",
-                error=str(e)
+                error=str(e),
             )
 
     async def _calculate_slices(
@@ -234,7 +237,7 @@ class VWAPExecutor(OrderExecutor):
         prediction: VolumePrediction,
         participation_rate: Decimal,
         mode: ExecutionMode,
-        horizon_minutes: int
+        horizon_minutes: int,
     ) -> list[VWAPSlice]:
         """Calculate order slices based on volume predictions.
 
@@ -261,11 +264,11 @@ class VWAPExecutor(OrderExecutor):
         if mode == ExecutionMode.AGGRESSIVE:
             # Front-load execution
             for bucket in participation_rates:
-                participation_rates[bucket] *= Decimal('1.2')
+                participation_rates[bucket] *= Decimal("1.2")
         elif mode == ExecutionMode.PASSIVE:
             # Spread out more evenly
             for bucket in participation_rates:
-                participation_rates[bucket] *= Decimal('0.8')
+                participation_rates[bucket] *= Decimal("0.8")
 
         # Create slices for each time bucket
         slice_number = 0
@@ -280,11 +283,13 @@ class VWAPExecutor(OrderExecutor):
                 break
 
             # Calculate slice size based on participation
-            bucket_participation = participation_rates.get(bucket_minute, participation_rate)
+            bucket_participation = participation_rates.get(
+                bucket_minute, participation_rate
+            )
             slice_quantity = predicted_volume * bucket_participation
 
             # Apply minimum slice size
-            min_slice = self.min_slice_size_usd / Decimal('100')  # Rough conversion
+            min_slice = self.min_slice_size_usd / Decimal("100")  # Rough conversion
             if slice_quantity < min_slice:
                 continue
 
@@ -296,7 +301,7 @@ class VWAPExecutor(OrderExecutor):
                 hour=bucket_minute // 60,
                 minute=bucket_minute % 60,
                 second=0,
-                microsecond=0
+                microsecond=0,
             )
 
             # Add random offset within bucket to avoid detection
@@ -315,7 +320,7 @@ class VWAPExecutor(OrderExecutor):
                 quantity=slice_quantity,
                 target_price=order.price,  # May be None for market orders
                 scheduled_time=scheduled_time,
-                bucket_minute=bucket_minute
+                bucket_minute=bucket_minute,
             )
 
             slices.append(slice_obj)
@@ -332,7 +337,7 @@ class VWAPExecutor(OrderExecutor):
             "calculated_vwap_slices",
             order_id=order.order_id,
             total_slices=len(slices),
-            total_quantity=str(sum(s.quantity for s in slices))
+            total_quantity=str(sum(s.quantity for s in slices)),
         )
 
         return slices
@@ -342,7 +347,7 @@ class VWAPExecutor(OrderExecutor):
         parent_order: Order,
         slices: list[VWAPSlice],
         mode: ExecutionMode,
-        use_iceberg: bool
+        use_iceberg: bool,
     ) -> ExecutionResult:
         """Execute VWAP slices according to schedule.
 
@@ -369,9 +374,7 @@ class VWAPExecutor(OrderExecutor):
                 )
 
                 # Update parent order
-                parent_order.filled_quantity = sum(
-                    s.executed_quantity for s in slices
-                )
+                parent_order.filled_quantity = sum(s.executed_quantity for s in slices)
 
                 # Check if we should switch to aggressive mode
                 if await self._should_switch_to_aggressive(parent_order, slices):
@@ -379,17 +382,19 @@ class VWAPExecutor(OrderExecutor):
                     logger.info(
                         "switching_to_aggressive_mode",
                         order_id=parent_order.order_id,
-                        filled_pct=str(parent_order.filled_quantity / parent_order.quantity)
+                        filled_pct=str(
+                            parent_order.filled_quantity / parent_order.quantity
+                        ),
                     )
 
             # Build final result
-            return self._build_final_result(parent_order, slices, "VWAP execution completed")
+            return self._build_final_result(
+                parent_order, slices, "VWAP execution completed"
+            )
 
         except Exception as e:
             logger.error(
-                "slice_execution_error",
-                order_id=parent_order.order_id,
-                error=str(e)
+                "slice_execution_error", order_id=parent_order.order_id, error=str(e)
             )
             return self._build_final_result(
                 parent_order, slices, f"Slice execution failed: {e!s}"
@@ -400,7 +405,7 @@ class VWAPExecutor(OrderExecutor):
         slice_obj: VWAPSlice,
         parent_order: Order,
         mode: ExecutionMode,
-        use_iceberg: bool
+        use_iceberg: bool,
     ):
         """Execute a single VWAP slice.
 
@@ -421,14 +426,18 @@ class VWAPExecutor(OrderExecutor):
                 side=slice_obj.side,
                 price=slice_obj.target_price,
                 quantity=slice_obj.quantity,
-                slice_number=slices.index(slice_obj) + 1 if 'slices' in locals() else 1,
-                total_slices=len(self._active_executions.get(parent_order.order_id, []))
+                slice_number=slices.index(slice_obj) + 1 if "slices" in locals() else 1,
+                total_slices=len(
+                    self._active_executions.get(parent_order.order_id, [])
+                ),
             )
 
             # Execute based on mode and settings
             if use_iceberg and mode != ExecutionMode.AGGRESSIVE:
                 # Use iceberg for passive/normal modes
-                sub_slices = max(3, min(10, int(slice_obj.quantity / self.min_slice_size_usd)))
+                sub_slices = max(
+                    3, min(10, int(slice_obj.quantity / self.min_slice_size_usd))
+                )
                 result = await self._execute_iceberg_slice(slice_order, sub_slices)
             else:
                 # Direct execution
@@ -438,7 +447,7 @@ class VWAPExecutor(OrderExecutor):
             if result.success:
                 slice_obj.executed_quantity = result.order.filled_quantity
                 slice_obj.executed_value = result.order.filled_quantity * (
-                    result.actual_price or slice_obj.target_price or Decimal('0')
+                    result.actual_price or slice_obj.target_price or Decimal("0")
                 )
                 slice_obj.status = OrderStatus.FILLED
                 slice_obj.order = result.order
@@ -446,8 +455,8 @@ class VWAPExecutor(OrderExecutor):
                 # Update VWAP tracker
                 self.vwap_tracker.update_execution(
                     parent_order.order_id,
-                    result.actual_price or Decimal('0'),
-                    result.order.filled_quantity
+                    result.actual_price or Decimal("0"),
+                    result.order.filled_quantity,
                 )
             else:
                 slice_obj.status = OrderStatus.FAILED
@@ -456,7 +465,7 @@ class VWAPExecutor(OrderExecutor):
 
                 # Retry if not exceeded max attempts
                 if slice_obj.attempts < 3:
-                    await asyncio.sleep(2 ** slice_obj.attempts)  # Exponential backoff
+                    await asyncio.sleep(2**slice_obj.attempts)  # Exponential backoff
                     await self._execute_single_slice(
                         slice_obj, parent_order, ExecutionMode.AGGRESSIVE, False
                     )
@@ -465,15 +474,13 @@ class VWAPExecutor(OrderExecutor):
             logger.error(
                 "single_slice_execution_error",
                 slice_id=slice_obj.slice_id,
-                error=str(e)
+                error=str(e),
             )
             slice_obj.status = OrderStatus.FAILED
             slice_obj.last_error = str(e)
 
     async def _execute_iceberg_slice(
-        self,
-        order: Order,
-        sub_slices: int
+        self, order: Order, sub_slices: int
     ) -> ExecutionResult:
         """Execute slice as iceberg order.
 
@@ -487,18 +494,14 @@ class VWAPExecutor(OrderExecutor):
         # This would integrate with iceberg executor
         # For now, simulate iceberg execution
         logger.info(
-            "executing_iceberg_slice",
-            order_id=order.order_id,
-            sub_slices=sub_slices
+            "executing_iceberg_slice", order_id=order.order_id, sub_slices=sub_slices
         )
 
         # Placeholder - would call actual iceberg executor
         return await self.execute_market_order(order)
 
     async def _execute_direct_slice(
-        self,
-        order: Order,
-        mode: ExecutionMode
+        self, order: Order, mode: ExecutionMode
     ) -> ExecutionResult:
         """Execute slice directly based on mode.
 
@@ -539,9 +542,7 @@ class VWAPExecutor(OrderExecutor):
             return OrderType.LIMIT
 
     async def _should_switch_to_aggressive(
-        self,
-        order: Order,
-        slices: list[VWAPSlice]
+        self, order: Order, slices: list[VWAPSlice]
     ) -> bool:
         """Determine if should switch to aggressive mode.
 
@@ -553,20 +554,21 @@ class VWAPExecutor(OrderExecutor):
             True if should switch to aggressive
         """
         # Calculate progress
-        filled_pct = order.filled_quantity / order.quantity if order.quantity > 0 else Decimal('0')
+        filled_pct = (
+            order.filled_quantity / order.quantity
+            if order.quantity > 0
+            else Decimal("0")
+        )
 
         # Calculate time progress
         executed_slices = sum(1 for s in slices if s.status == OrderStatus.FILLED)
-        time_progress = executed_slices / len(slices) if slices else Decimal('0')
+        time_progress = executed_slices / len(slices) if slices else Decimal("0")
 
         # Switch if falling behind schedule
         return filled_pct < time_progress - self.aggressive_threshold
 
     def _build_final_result(
-        self,
-        order: Order,
-        slices: list[VWAPSlice],
-        message: str
+        self, order: Order, slices: list[VWAPSlice], message: str
     ) -> ExecutionResult:
         """Build final execution result from slices.
 
@@ -581,10 +583,14 @@ class VWAPExecutor(OrderExecutor):
         total_executed = sum(s.executed_quantity for s in slices)
         total_value = sum(s.executed_value for s in slices)
 
-        avg_price = total_value / total_executed if total_executed > 0 else Decimal('0')
+        avg_price = total_value / total_executed if total_executed > 0 else Decimal("0")
 
         order.filled_quantity = total_executed
-        order.status = OrderStatus.FILLED if total_executed >= order.quantity * Decimal('0.99') else OrderStatus.PARTIAL
+        order.status = (
+            OrderStatus.FILLED
+            if total_executed >= order.quantity * Decimal("0.99")
+            else OrderStatus.PARTIAL
+        )
 
         # Calculate slippage if we have a target price
         slippage = None
@@ -597,14 +603,11 @@ class VWAPExecutor(OrderExecutor):
             message=message,
             actual_price=avg_price,
             slippage_percent=slippage,
-            latency_ms=None  # Would calculate from execution times
+            latency_ms=None,  # Would calculate from execution times
         )
 
     async def _emit_completion_event(
-        self,
-        order: Order,
-        result: ExecutionResult,
-        performance
+        self, order: Order, result: ExecutionResult, performance
     ):
         """Emit VWAP execution completion event.
 
@@ -614,12 +617,12 @@ class VWAPExecutor(OrderExecutor):
             performance: Execution performance metrics
         """
         event_data = {
-            'order_id': order.order_id,
-            'symbol': order.symbol,
-            'quantity': str(order.quantity),
-            'filled_quantity': str(order.filled_quantity),
-            'success': result.success,
-            'message': result.message
+            "order_id": order.order_id,
+            "symbol": order.symbol,
+            "quantity": str(order.quantity),
+            "filled_quantity": str(order.filled_quantity),
+            "success": result.success,
+            "message": result.message,
         }
 
         if performance:
@@ -628,7 +631,7 @@ class VWAPExecutor(OrderExecutor):
         event = Event(
             event_type=EventType.ORDER_EXECUTED,
             created_at=datetime.now(UTC),
-            event_data=event_data
+            event_data=event_data,
         )
 
         await self.event_bus.emit(event)
@@ -650,9 +653,7 @@ class VWAPExecutor(OrderExecutor):
 
     # Required abstract methods from OrderExecutor
     async def execute_market_order(
-        self,
-        order: Order,
-        confirmation_required: bool = True
+        self, order: Order, confirmation_required: bool = True
     ) -> ExecutionResult:
         """Execute a market order through exchange.
 
@@ -669,7 +670,7 @@ class VWAPExecutor(OrderExecutor):
             "executing_market_order",
             order_id=order.order_id,
             symbol=order.symbol,
-            quantity=str(order.quantity)
+            quantity=str(order.quantity),
         )
 
         # Simulate execution
@@ -681,9 +682,9 @@ class VWAPExecutor(OrderExecutor):
             success=True,
             order=order,
             message="Market order executed",
-            actual_price=order.price or Decimal('100'),  # Would get from exchange
-            slippage_percent=Decimal('0'),
-            latency_ms=50
+            actual_price=order.price or Decimal("100"),  # Would get from exchange
+            slippage_percent=Decimal("0"),
+            latency_ms=50,
         )
 
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
@@ -697,11 +698,7 @@ class VWAPExecutor(OrderExecutor):
             True if cancelled successfully
         """
         # Would integrate with exchange
-        logger.info(
-            "cancelling_order",
-            order_id=order_id,
-            symbol=symbol
-        )
+        logger.info("cancelling_order", order_id=order_id, symbol=symbol)
         return True
 
     async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
@@ -720,11 +717,7 @@ class VWAPExecutor(OrderExecutor):
                 await self._cleanup_execution(order_id)
                 count += len(slices)
 
-        logger.info(
-            "cancelled_all_orders",
-            symbol=symbol,
-            count=count
-        )
+        logger.info("cancelled_all_orders", symbol=symbol, count=count)
         return count
 
     async def get_order_status(self, order_id: str, symbol: str) -> Order:
@@ -755,7 +748,11 @@ class VWAPExecutor(OrderExecutor):
                 price=None,
                 quantity=total_quantity,
                 filled_quantity=total_filled,
-                status=OrderStatus.PARTIAL if total_filled < total_quantity else OrderStatus.FILLED
+                status=(
+                    OrderStatus.PARTIAL
+                    if total_filled < total_quantity
+                    else OrderStatus.FILLED
+                ),
             )
 
         # Default placeholder
@@ -767,6 +764,6 @@ class VWAPExecutor(OrderExecutor):
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal('0'),
-            status=OrderStatus.PENDING
+            quantity=Decimal("0"),
+            status=OrderStatus.PENDING,
         )

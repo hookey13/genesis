@@ -23,7 +23,7 @@ class TestGateProgressBar:
             gate_name="Minimum Balance",
             current_value=1500,
             required_value=2000,
-            unit="USDT"
+            unit="USDT",
         )
 
         assert bar.gate_name == "Minimum Balance"
@@ -62,10 +62,7 @@ class TestTierCeremonyAnimation:
 
     def test_initialization(self):
         """Test ceremony animation initialization."""
-        animation = TierCeremonyAnimation(
-            from_tier="SNIPER",
-            to_tier="HUNTER"
-        )
+        animation = TierCeremonyAnimation(from_tier="SNIPER", to_tier="HUNTER")
 
         assert animation.from_tier == "SNIPER"
         assert animation.to_tier == "HUNTER"
@@ -101,7 +98,7 @@ class TestFeatureTutorial:
         """Test tutorial initialization."""
         tutorial = FeatureTutorial(
             feature_name="Iceberg Orders",
-            description="Split large orders into smaller chunks."
+            description="Split large orders into smaller chunks.",
         )
 
         assert tutorial.feature_name == "Iceberg Orders"
@@ -116,15 +113,15 @@ class TestTierGateProgressWidget:
         """Create mock state machine."""
         machine = Mock(spec=TierStateMachine)
         machine.get_tier_requirements.return_value = {
-            'min_balance': 2000,
-            'min_trades': 50,
-            'max_tilt_events': 2,
-            'paper_trading_required': True
+            "min_balance": 2000,
+            "min_trades": 50,
+            "max_tilt_events": 2,
+            "paper_trading_required": True,
         }
         machine.get_next_tier.return_value = "HUNTER"
         machine.get_available_features.return_value = [
             "iceberg_orders",
-            "multi_pair_trading"
+            "multi_pair_trading",
         ]
         return machine
 
@@ -160,10 +157,7 @@ class TestTierGateProgressWidget:
         widget.mount = Mock()
 
         # Add some progress bars to clear
-        widget.gate_bars = {
-            "balance": Mock(),
-            "trades": Mock()
-        }
+        widget.gate_bars = {"balance": Mock(), "trades": Mock()}
 
         await widget.trigger_ceremony("SNIPER", "HUNTER")
 
@@ -200,7 +194,7 @@ class TestTierTransitionHistory:
                 "from_tier": "SNIPER",
                 "to_tier": "HUNTER",
                 "reason": "Balance threshold met",
-                "duration": "30 days"
+                "duration": "30 days",
             }
         ]
 
@@ -215,15 +209,15 @@ class TestTierTransitionHistory:
                 "from_tier": "SNIPER",
                 "to_tier": "HUNTER",
                 "reason": "Balance threshold met",
-                "duration": "30 days"
+                "duration": "30 days",
             },
             {
                 "date": "2024-02-01",
                 "from_tier": "HUNTER",
                 "to_tier": "STRATEGIST",
                 "reason": "All gates passed",
-                "duration": "31 days"
-            }
+                "duration": "31 days",
+            },
         ]
 
         widget = TierTransitionHistory(transitions)

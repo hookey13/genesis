@@ -39,7 +39,7 @@ class PriorityQueue:
             EventPriority.CRITICAL: asyncio.Queue(),
             EventPriority.HIGH: asyncio.Queue(),
             EventPriority.NORMAL: asyncio.Queue(),
-            EventPriority.LOW: asyncio.Queue()
+            EventPriority.LOW: asyncio.Queue(),
         }
 
     async def put(self, event: Event, priority: EventPriority) -> None:
@@ -49,8 +49,12 @@ class PriorityQueue:
     async def get(self) -> Event:
         """Get next event respecting priority."""
         # Check queues in priority order
-        for priority in [EventPriority.CRITICAL, EventPriority.HIGH,
-                        EventPriority.NORMAL, EventPriority.LOW]:
+        for priority in [
+            EventPriority.CRITICAL,
+            EventPriority.HIGH,
+            EventPriority.NORMAL,
+            EventPriority.LOW,
+        ]:
             queue = self.queues[priority]
             if not queue.empty():
                 return await queue.get()
@@ -60,10 +64,7 @@ class PriorityQueue:
 
     def qsize(self) -> dict[EventPriority, int]:
         """Get size of each queue."""
-        return {
-            priority: queue.qsize()
-            for priority, queue in self.queues.items()
-        }
+        return {priority: queue.qsize() for priority, queue in self.queues.items()}
 
 
 class EventBus:
@@ -127,7 +128,7 @@ class EventBus:
             "EventBus stopped",
             events_published=self.events_published,
             events_delivered=self.events_delivered,
-            events_dropped=self.events_dropped
+            events_dropped=self.events_dropped,
         )
 
     def subscribe(
@@ -135,7 +136,7 @@ class EventBus:
         event_type_or_callback: Any,
         callback_or_event_types: Any = None,
         filter_func: Optional[Callable[[Event], bool]] = None,
-        priority: EventPriority = EventPriority.NORMAL
+        priority: EventPriority = EventPriority.NORMAL,
     ) -> str:
         """
         Subscribe to events.
@@ -174,7 +175,7 @@ class EventBus:
             event_types=event_types or set(),
             callback=callback,
             filter_func=filter_func,
-            priority=priority
+            priority=priority,
         )
 
         if event_types:
@@ -188,7 +189,7 @@ class EventBus:
         logger.info(
             "Subscription added",
             subscription_id=subscription.subscription_id,
-            event_types=[e.value for e in (event_types or [])]
+            event_types=[e.value for e in (event_types or [])],
         )
 
         return subscription.subscription_id
@@ -224,9 +225,7 @@ class EventBus:
         return removed
 
     async def publish(
-        self,
-        event: Event,
-        priority: EventPriority = EventPriority.NORMAL
+        self, event: Event, priority: EventPriority = EventPriority.NORMAL
     ) -> None:
         """
         Publish an event.
@@ -243,7 +242,7 @@ class EventBus:
                 "Event dropped - queue full",
                 event_type=event.event_type.value,
                 priority=priority.value,
-                queue_size=queue_sizes[priority]
+                queue_size=queue_sizes[priority],
             )
             return
 
@@ -255,7 +254,7 @@ class EventBus:
             "Event published",
             event_type=event.event_type.value,
             priority=priority.value,
-            aggregate_id=event.aggregate_id
+            aggregate_id=event.aggregate_id,
         )
 
     async def _process_events(self) -> None:
@@ -268,8 +267,7 @@ class EventBus:
                 # Get next event with timeout
                 try:
                     event = await asyncio.wait_for(
-                        self.priority_queue.get(),
-                        timeout=self.batch_timeout
+                        self.priority_queue.get(), timeout=self.batch_timeout
                     )
                     batch.append(event)
                 except TimeoutError:
@@ -278,9 +276,9 @@ class EventBus:
                 # Check if we should process batch
                 current_time = asyncio.get_event_loop().time()
                 should_process = (
-                    len(batch) >= self.batch_size or
-                    (current_time - last_batch_time) >= self.batch_timeout or
-                    (batch and not self.running)
+                    len(batch) >= self.batch_size
+                    or (current_time - last_batch_time) >= self.batch_timeout
+                    or (batch and not self.running)
                 )
 
                 if should_process and batch:
@@ -328,7 +326,7 @@ class EventBus:
                     "Error delivering event",
                     subscription_id=subscription.subscription_id,
                     event_type=event.event_type.value,
-                    error=str(e)
+                    error=str(e),
                 )
 
     def get_statistics(self) -> dict[str, Any]:
@@ -342,21 +340,20 @@ class EventBus:
             "events_dropped": self.events_dropped,
             "delivery_errors": self.delivery_errors,
             "queue_sizes": {
-                priority.value: size
-                for priority, size in queue_sizes.items()
+                priority.value: size for priority, size in queue_sizes.items()
             },
             "subscriptions": {
                 event_type.value: len(subs)
                 for event_type, subs in self.subscriptions.items()
             },
-            "global_subscriptions": len(self.global_subscriptions)
+            "global_subscriptions": len(self.global_subscriptions),
         }
 
     async def wait_for_event(
         self,
         event_type: EventType,
         timeout: Optional[float] = None,
-        filter_func: Optional[Callable[[Event], bool]] = None
+        filter_func: Optional[Callable[[Event], bool]] = None,
     ) -> Optional[Event]:
         """
         Wait for a specific event type.
@@ -379,10 +376,7 @@ class EventBus:
                 event_received.set()
 
         # Subscribe
-        sub_id = self.subscribe(
-            callback=callback,
-            event_types={event_type}
-        )
+        sub_id = self.subscribe(callback=callback, event_types={event_type})
 
         try:
             # Wait for event

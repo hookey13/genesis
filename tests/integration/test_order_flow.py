@@ -47,9 +47,7 @@ async def repository(test_db_path):
 async def account(repository):
     """Create test account."""
     account = Account(
-        account_id=str(uuid4()),
-        balance_usdt=Decimal("1000"),
-        tier=TradingTier.SNIPER
+        account_id=str(uuid4()), balance_usdt=Decimal("1000"), tier=TradingTier.SNIPER
     )
     await repository.create_account(account)
     return account
@@ -63,7 +61,7 @@ async def trading_session(repository, account):
         account_id=account.account_id,
         starting_balance=account.balance_usdt,
         current_balance=account.balance_usdt,
-        daily_loss_limit=Decimal("25")
+        daily_loss_limit=Decimal("25"),
     )
     await repository.create_session(session)
     return session
@@ -88,10 +86,7 @@ def risk_engine(account, trading_session):
 def executor(gateway, account, risk_engine, repository):
     """Create executor with all dependencies."""
     return MarketOrderExecutor(
-        gateway=gateway,
-        account=account,
-        risk_engine=risk_engine,
-        repository=repository
+        gateway=gateway, account=account, risk_engine=risk_engine, repository=repository
     )
 
 
@@ -110,7 +105,7 @@ class TestOrderFlowIntegration:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         # Execute order
@@ -140,7 +135,7 @@ class TestOrderFlowIntegration:
             side=PositionSide.LONG,
             entry_price=Decimal("50000"),
             quantity=Decimal("0.001"),
-            dollar_value=Decimal("50")
+            dollar_value=Decimal("50"),
         )
         await repository.create_position(position)
 
@@ -153,7 +148,7 @@ class TestOrderFlowIntegration:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         # Execute order
@@ -184,10 +179,12 @@ class TestOrderFlowIntegration:
                 type=OrderType.MARKET,
                 side=OrderSide.BUY if i % 2 == 0 else OrderSide.SELL,
                 price=None,
-                quantity=Decimal("0.001")
+                quantity=Decimal("0.001"),
             )
 
-            result = await executor.execute_market_order(order, confirmation_required=False)
+            result = await executor.execute_market_order(
+                order, confirmation_required=False
+            )
             assert result.success is True
             orders_executed.append(order.order_id)
 
@@ -209,12 +206,16 @@ class TestOrderFlowIntegration:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         # Mock confirmation decline
-        with pytest.mock.patch.object(executor, '_get_confirmation', return_value=False):
-            result = await executor.execute_market_order(order, confirmation_required=True)
+        with pytest.mock.patch.object(
+            executor, "_get_confirmation", return_value=False
+        ):
+            result = await executor.execute_market_order(
+                order, confirmation_required=True
+            )
 
         # Verify cancellation
         assert result.success is False
@@ -238,11 +239,13 @@ class TestOrderFlowIntegration:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         # Execute buy order
-        result = await executor.execute_market_order(buy_order, confirmation_required=False)
+        result = await executor.execute_market_order(
+            buy_order, confirmation_required=False
+        )
         assert result.success is True
 
         # Wait for stop-loss to be created
@@ -274,14 +277,14 @@ class TestOrderFlowIntegration:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.01")  # $500 at $50k BTC
+            quantity=Decimal("0.01"),  # $500 at $50k BTC
         )
 
         # Validate position size with risk engine
         position_size = risk_engine.calculate_position_size(
             symbol="BTC/USDT",
             entry_price=Decimal("50000"),
-            stop_loss_price=Decimal("49000")
+            stop_loss_price=Decimal("49000"),
         )
 
         # Should be limited by 5% rule
@@ -303,7 +306,7 @@ class TestOrderFlowIntegration:
             side=OrderSide.BUY,
             price=Decimal("49000"),
             quantity=Decimal("0.001"),
-            status=OrderStatus.PENDING
+            status=OrderStatus.PENDING,
         )
         await repository.create_order(pending_order)
         orders.append(pending_order)
@@ -319,7 +322,7 @@ class TestOrderFlowIntegration:
             price=Decimal("3000"),
             quantity=Decimal("0.1"),
             filled_quantity=Decimal("0.05"),
-            status=OrderStatus.PARTIAL
+            status=OrderStatus.PARTIAL,
         )
         await repository.create_order(partial_order)
         orders.append(partial_order)
@@ -335,7 +338,7 @@ class TestOrderFlowIntegration:
             price=None,
             quantity=Decimal("0.001"),
             filled_quantity=Decimal("0.001"),
-            status=OrderStatus.FILLED
+            status=OrderStatus.FILLED,
         )
         await repository.create_order(filled_order)
 
@@ -363,7 +366,7 @@ class TestOrderFlowIntegration:
                 side=OrderSide.BUY,
                 price=Decimal("49000"),
                 quantity=Decimal("0.001"),
-                status=OrderStatus.PENDING
+                status=OrderStatus.PENDING,
             )
             await repository.create_order(order)
             order_ids.append(order.order_id)
@@ -391,7 +394,7 @@ class TestOrderFlowIntegration:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         try:
@@ -417,7 +420,7 @@ class TestOrderFlowIntegration:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.001")
+            quantity=Decimal("0.001"),
         )
 
         # Execute order

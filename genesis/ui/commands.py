@@ -12,6 +12,7 @@ from textual.widgets import Input
 @dataclass
 class CommandResult:
     """Result of command parsing and execution."""
+
     success: bool
     message: str
     command_type: Optional[str] = None
@@ -31,23 +32,32 @@ class CommandInput(Input):
     def __init__(self, **kwargs):
         """Initialize the command input widget."""
         super().__init__(
-            placeholder="Enter command (e.g., b100u, s50u, cancel, status)",
-            **kwargs
+            placeholder="Enter command (e.g., b100u, s50u, cancel, status)", **kwargs
         )
         self.command_history: list[str] = []
         self.history_index = -1
 
         # Autocomplete suggestions
         self.suggestions = [
-            "buy", "sell", "cancel", "status", "help",
-            "b100u", "s50u", "b1000u", "s500u"
+            "buy",
+            "sell",
+            "cancel",
+            "status",
+            "help",
+            "b100u",
+            "s50u",
+            "b1000u",
+            "s500u",
         ]
 
     async def on_key(self, event) -> None:
         """Handle special keys for history and autocomplete."""
         if event.key == "up":
             # Navigate history up
-            if self.command_history and self.history_index < len(self.command_history) - 1:
+            if (
+                self.command_history
+                and self.history_index < len(self.command_history) - 1
+            ):
                 self.history_index += 1
                 self.value = self.command_history[-(self.history_index + 1)]
                 event.stop()
@@ -84,7 +94,7 @@ class CommandInput(Input):
 
             # Process command through dashboard
             screen = self.screen
-            if hasattr(screen, 'handle_command'):
+            if hasattr(screen, "handle_command"):
                 await screen.handle_command(command)
 
 
@@ -92,18 +102,18 @@ class CommandParser:
     """Parse and validate trading commands."""
 
     # Regex patterns for shorthand commands
-    BUY_PATTERN = re.compile(r'^b(\d+(?:\.\d+)?)([u|U])$')  # b100u = buy $100 USDT
-    SELL_PATTERN = re.compile(r'^s(\d+(?:\.\d+)?)([u|U])$')  # s50u = sell $50 USDT
+    BUY_PATTERN = re.compile(r"^b(\d+(?:\.\d+)?)([u|U])$")  # b100u = buy $100 USDT
+    SELL_PATTERN = re.compile(r"^s(\d+(?:\.\d+)?)([u|U])$")  # s50u = sell $50 USDT
 
     def __init__(self, integration=None):
         """Initialize the command parser."""
         self.integration = integration
         self.commands = {
-            'buy': self._parse_buy,
-            'sell': self._parse_sell,
-            'cancel': self._parse_cancel,
-            'status': self._parse_status,
-            'help': self._parse_help,
+            "buy": self._parse_buy,
+            "sell": self._parse_sell,
+            "cancel": self._parse_cancel,
+            "status": self._parse_status,
+            "help": self._parse_help,
         }
 
     async def parse(self, command: str) -> CommandResult:
@@ -133,8 +143,7 @@ class CommandParser:
             return await self.commands[cmd](args)
         else:
             return CommandResult(
-                False,
-                f"Unknown command: {cmd}. Type 'help' for available commands"
+                False, f"Unknown command: {cmd}. Type 'help' for available commands"
             )
 
     async def _parse_buy(self, args: list[str]) -> CommandResult:
@@ -162,21 +171,13 @@ class CommandParser:
     async def _parse_cancel(self, args: list[str]) -> CommandResult:
         """Parse cancel command."""
         # TODO: Connect to OrderExecutor.cancel_all_orders()
-        return CommandResult(
-            True,
-            "Cancelling all orders...",
-            "cancel",
-            {}
-        )
+        return CommandResult(True, "Cancelling all orders...", "cancel", {})
 
     async def _parse_status(self, args: list[str]) -> CommandResult:
         """Parse status command."""
         # TODO: Connect to system status
         return CommandResult(
-            True,
-            "System Status: Connected | Trading Active",
-            "status",
-            {}
+            True, "System Status: Connected | Trading Active", "status", {}
         )
 
     async def _parse_help(self, args: list[str]) -> CommandResult:
@@ -190,12 +191,7 @@ class CommandParser:
         status - Show system status
         help - Show this help"""
 
-        return CommandResult(
-            True,
-            help_text,
-            "help",
-            {}
-        )
+        return CommandResult(True, help_text, "help", {})
 
     async def _execute_buy(self, amount: Decimal) -> CommandResult:
         """Execute buy order."""
@@ -211,7 +207,7 @@ class CommandParser:
             True,
             f"Buy order placed: ${amount:.2f} USDT",
             "buy",
-            {"amount": amount, "side": "BUY"}
+            {"amount": amount, "side": "BUY"},
         )
 
     async def _execute_sell(self, amount: Decimal) -> CommandResult:
@@ -228,5 +224,5 @@ class CommandParser:
             True,
             f"Sell order placed: ${amount:.2f} USDT",
             "sell",
-            {"amount": amount, "side": "SELL"}
+            {"amount": amount, "side": "SELL"},
         )

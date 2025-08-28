@@ -19,6 +19,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class PortfolioRisk:
     """Portfolio-level risk metrics."""
+
     total_exposure_dollars: Decimal
     position_count: int
     max_drawdown_dollars: Decimal
@@ -37,9 +38,12 @@ class PortfolioRisk:
 @dataclass
 class PortfolioLimits:
     """Portfolio and per-pair trading limits."""
+
     max_positions_global: int
     max_exposure_global_dollars: Decimal
-    per_pair_limits: dict[str, tuple[Decimal, Decimal]]  # symbol -> (max_size, max_dollars)
+    per_pair_limits: dict[
+        str, tuple[Decimal, Decimal]
+    ]  # symbol -> (max_size, max_dollars)
     default_pair_limit_size: Decimal
     default_pair_limit_dollars: Decimal
 
@@ -52,10 +56,7 @@ class MultiPairManager:
     MAX_CORRELATION_RISK_ADJUST = Decimal("0.8")
 
     def __init__(
-        self,
-        repository: Repository,
-        state_manager: StateManager,
-        account_id: str
+        self, repository: Repository, state_manager: StateManager, account_id: str
     ):
         """Initialize multi-pair manager.
 
@@ -92,7 +93,7 @@ class MultiPairManager:
             "multi_pair_manager_initialized",
             account_id=self.account_id,
             tier=current_tier.value,
-            max_positions=self._limits.max_positions_global if self._limits else 0
+            max_positions=self._limits.max_positions_global if self._limits else 0,
         )
 
     async def can_open_position(self, symbol: str, size: Decimal) -> bool:
@@ -114,7 +115,7 @@ class MultiPairManager:
                 logger.warning(
                     "max_positions_reached",
                     current=len(self._active_positions),
-                    max=self._limits.max_positions_global
+                    max=self._limits.max_positions_global,
                 )
                 return False
 
@@ -138,7 +139,7 @@ class MultiPairManager:
                         existing_size=existing_position.quantity,
                         new_size=size,
                         limit_size=pair_limit_size,
-                        limit_dollars=pair_limit_dollars
+                        limit_dollars=pair_limit_dollars,
                     )
                     return False
             else:
@@ -149,18 +150,20 @@ class MultiPairManager:
                         size=size,
                         dollar_value=dollar_value,
                         limit_size=pair_limit_size,
-                        limit_dollars=pair_limit_dollars
+                        limit_dollars=pair_limit_dollars,
                     )
                     return False
 
             # Check global exposure limit
-            total_exposure = sum(p.dollar_value for p in self._active_positions.values())
+            total_exposure = sum(
+                p.dollar_value for p in self._active_positions.values()
+            )
             if total_exposure + dollar_value > self._limits.max_exposure_global_dollars:
                 logger.warning(
                     "global_exposure_exceeded",
                     current_exposure=total_exposure,
                     new_value=dollar_value,
-                    max_exposure=self._limits.max_exposure_global_dollars
+                    max_exposure=self._limits.max_exposure_global_dollars,
                 )
                 return False
 
@@ -186,10 +189,11 @@ class MultiPairManager:
             available_capital = account.balance
 
             # Calculate total exposure
-            total_exposure = sum(p.dollar_value for p in self._active_positions.values())
+            total_exposure = sum(
+                p.dollar_value for p in self._active_positions.values()
+            )
             remaining_capital = max(
-                Decimal("0"),
-                self._limits.max_exposure_global_dollars - total_exposure
+                Decimal("0"), self._limits.max_exposure_global_dollars - total_exposure
             )
 
             # Use the lesser of account balance and exposure room
@@ -199,15 +203,13 @@ class MultiPairManager:
                 logger.warning(
                     "no_capital_available",
                     account_balance=available_capital,
-                    exposure_room=remaining_capital
+                    exposure_room=remaining_capital,
                 )
                 return {}
 
             # Sort signals by confidence/priority
             sorted_signals = sorted(
-                signals,
-                key=lambda s: (s.priority, s.confidence_score),
-                reverse=True
+                signals, key=lambda s: (s.priority, s.confidence_score), reverse=True
             )
 
             # Apply Kelly Criterion-inspired allocation with correlation adjustment
@@ -216,11 +218,14 @@ class MultiPairManager:
 
             for signal in sorted_signals:
                 # Base weight from confidence and priority
-                base_weight = (signal.confidence_score * Decimal("0.6") +
-                              Decimal(signal.priority) / Decimal("100") * Decimal("0.4"))
+                base_weight = signal.confidence_score * Decimal("0.6") + Decimal(
+                    signal.priority
+                ) / Decimal("100") * Decimal("0.4")
 
                 # Adjust for correlation with existing positions
-                correlation_penalty = await self._calculate_correlation_penalty(signal.symbol)
+                correlation_penalty = await self._calculate_correlation_penalty(
+                    signal.symbol
+                )
                 adjusted_weight = base_weight * (Decimal("1") - correlation_penalty)
 
                 signal_weights[signal.symbol] = adjusted_weight
@@ -237,7 +242,9 @@ class MultiPairManager:
 
                     # Apply per-pair limits
                     _, pair_limit_dollars = self._get_pair_limits(symbol)
-                    existing_exposure = self._active_positions.get(symbol, Position()).dollar_value
+                    existing_exposure = self._active_positions.get(
+                        symbol, Position()
+                    ).dollar_value
                     max_additional = pair_limit_dollars - existing_exposure
 
                     allocation = min(allocation, max_additional)
@@ -253,7 +260,7 @@ class MultiPairManager:
                         amount=allocation,
                         weight=weight,
                         confidence=signal.confidence_score,
-                        priority=signal.priority
+                        priority=signal.priority,
                     )
 
             return allocations
@@ -284,7 +291,7 @@ class MultiPairManager:
                     correlation_risk=Decimal("0"),
                     concentration_risk=Decimal("0"),
                     available_capital=Decimal("0"),
-                    risk_score=Decimal("0")
+                    risk_score=Decimal("0"),
                 )
 
             # Calculate basic metrics
@@ -300,8 +307,7 @@ class MultiPairManager:
             # Calculate concentration risk (Herfindahl index)
             if total_exposure > Decimal("0"):
                 concentration_scores = [
-                    (p.dollar_value / total_exposure) ** 2
-                    for p in positions
+                    (p.dollar_value / total_exposure) ** 2 for p in positions
                 ]
                 concentration_risk = sum(concentration_scores)
             else:
@@ -341,9 +347,13 @@ class MultiPairManager:
             if correlation_risk > self.MAX_CORRELATION_WARNING:
                 warnings.append(f"High correlation risk: {correlation_risk:.2%}")
             if concentration_risk > Decimal("0.3"):
-                warnings.append(f"High concentration in few positions: {concentration_risk:.2%}")
+                warnings.append(
+                    f"High concentration in few positions: {concentration_risk:.2%}"
+                )
             if position_count >= self._limits.max_positions_global * Decimal("0.8"):
-                warnings.append(f"Approaching max position limit: {position_count}/{self._limits.max_positions_global}")
+                warnings.append(
+                    f"Approaching max position limit: {position_count}/{self._limits.max_positions_global}"
+                )
             if available_capital < total_exposure * Decimal("0.1"):
                 warnings.append(f"Low available capital: ${available_capital:.2f}")
 
@@ -355,7 +365,7 @@ class MultiPairManager:
                 concentration_risk=concentration_risk,
                 available_capital=available_capital,
                 risk_score=risk_score,
-                warnings=warnings
+                warnings=warnings,
             )
 
     async def add_position(self, position: Position) -> None:
@@ -370,7 +380,7 @@ class MultiPairManager:
                 "position_added",
                 symbol=position.symbol,
                 size=position.quantity,
-                value=position.dollar_value
+                value=position.dollar_value,
             )
 
     async def remove_position(self, symbol: str) -> None:
@@ -384,7 +394,9 @@ class MultiPairManager:
                 del self._active_positions[symbol]
                 logger.info("position_removed", symbol=symbol)
 
-    async def update_correlations(self, correlations: dict[tuple[str, str], Decimal]) -> None:
+    async def update_correlations(
+        self, correlations: dict[tuple[str, str], Decimal]
+    ) -> None:
         """Update position correlation matrix.
 
         Args:
@@ -400,7 +412,7 @@ class MultiPairManager:
                         "high_correlation_detected",
                         symbol1=sym1,
                         symbol2=sym2,
-                        correlation=corr
+                        correlation=corr,
                     )
 
     # Private methods
@@ -435,20 +447,20 @@ class MultiPairManager:
                 "max_positions": 5,
                 "max_exposure": Decimal("10000"),
                 "per_pair_size": Decimal("2"),
-                "per_pair_dollars": Decimal("3000")
+                "per_pair_dollars": Decimal("3000"),
             },
             Tier.STRATEGIST: {
                 "max_positions": 10,
                 "max_exposure": Decimal("50000"),
                 "per_pair_size": Decimal("5"),
-                "per_pair_dollars": Decimal("10000")
+                "per_pair_dollars": Decimal("10000"),
             },
             Tier.ARCHITECT: {
                 "max_positions": 20,
                 "max_exposure": Decimal("200000"),
                 "per_pair_size": Decimal("10"),
-                "per_pair_dollars": Decimal("30000")
-            }
+                "per_pair_dollars": Decimal("30000"),
+            },
         }
 
         defaults = tier_defaults.get(tier, tier_defaults[Tier.HUNTER])
@@ -458,7 +470,7 @@ class MultiPairManager:
             max_exposure_global_dollars=defaults["max_exposure"],
             per_pair_limits={},
             default_pair_limit_size=defaults["per_pair_size"],
-            default_pair_limit_dollars=defaults["per_pair_dollars"]
+            default_pair_limit_dollars=defaults["per_pair_dollars"],
         )
 
     def _get_pair_limits(self, symbol: str) -> tuple[Decimal, Decimal]:
@@ -474,7 +486,7 @@ class MultiPairManager:
             return self._limits.per_pair_limits[symbol]
         return (
             self._limits.default_pair_limit_size,
-            self._limits.default_pair_limit_dollars
+            self._limits.default_pair_limit_dollars,
         )
 
     async def _get_current_price(self, symbol: str) -> Decimal:
@@ -508,8 +520,12 @@ class MultiPairManager:
                 continue
 
             # Check both orderings
-            corr1 = self._position_correlations.get((symbol, existing_symbol), Decimal("0"))
-            corr2 = self._position_correlations.get((existing_symbol, symbol), Decimal("0"))
+            corr1 = self._position_correlations.get(
+                (symbol, existing_symbol), Decimal("0")
+            )
+            corr2 = self._position_correlations.get(
+                (existing_symbol, symbol), Decimal("0")
+            )
             correlation = max(abs(corr1), abs(corr2))
 
             max_correlation = max(max_correlation, correlation)
@@ -556,9 +572,13 @@ class MultiPairManager:
 
         correlations = []
         for i, pos1 in enumerate(positions):
-            for pos2 in positions[i+1:]:
-                corr1 = self._position_correlations.get((pos1.symbol, pos2.symbol), Decimal("0"))
-                corr2 = self._position_correlations.get((pos2.symbol, pos1.symbol), Decimal("0"))
+            for pos2 in positions[i + 1 :]:
+                corr1 = self._position_correlations.get(
+                    (pos1.symbol, pos2.symbol), Decimal("0")
+                )
+                corr2 = self._position_correlations.get(
+                    (pos2.symbol, pos1.symbol), Decimal("0")
+                )
                 correlation = max(abs(corr1), abs(corr2))
 
                 # Weight by position sizes

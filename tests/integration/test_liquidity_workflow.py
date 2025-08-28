@@ -46,56 +46,48 @@ def mock_api_data():
                 "quoteVolume": "15000000",
                 "bidPrice": "50000",
                 "askPrice": "50010",
-                "volume": "300"
+                "volume": "300",
             },
             {
                 "symbol": "ETHUSDT",
                 "quoteVolume": "8000000",
                 "bidPrice": "3000",
                 "askPrice": "3002",
-                "volume": "2500"
+                "volume": "2500",
             },
             {
                 "symbol": "BNBUSDT",
                 "quoteVolume": "3000000",
                 "bidPrice": "400",
                 "askPrice": "400.5",
-                "volume": "7000"
+                "volume": "7000",
             },
             {
                 "symbol": "MATICUSDT",
                 "quoteVolume": "500000",
                 "bidPrice": "1.00",
                 "askPrice": "1.002",
-                "volume": "450000"
+                "volume": "450000",
             },
             {
                 "symbol": "DOGEUSDT",
                 "quoteVolume": "250000",
                 "bidPrice": "0.10",
                 "askPrice": "0.1002",
-                "volume": "2400000"
+                "volume": "2400000",
             },
             {
                 "symbol": "SHIBUSDT",
                 "quoteVolume": "80000",
                 "bidPrice": "0.00001",
                 "askPrice": "0.0000101",
-                "volume": "7000000000"
-            }
+                "volume": "7000000000",
+            },
         ],
         "depth_data": {
-            "bids": [
-                ["1", "100"],
-                ["0.99", "200"],
-                ["0.98", "150"]
-            ],
-            "asks": [
-                ["1.01", "100"],
-                ["1.02", "200"],
-                ["1.03", "150"]
-            ]
-        }
+            "bids": [["1", "100"], ["0.99", "200"], ["0.98", "150"]],
+            "asks": [["1.01", "100"], ["1.02", "200"], ["1.03", "150"]],
+        },
     }
 
 
@@ -120,12 +112,12 @@ class TestLiquidityScannerWorkflow:
 
         mock_session.get.return_value.__aenter__.side_effect = [
             ticker_response,  # Ticker data
-            depth_response,   # Depth for each symbol
+            depth_response,  # Depth for each symbol
             depth_response,
             depth_response,
             depth_response,
             depth_response,
-            depth_response
+            depth_response,
         ]
 
         # Perform scan
@@ -155,7 +147,7 @@ class TestLiquidityScannerWorkflow:
                 "bid_depth_10": metrics.bid_depth_10,
                 "ask_depth_10": metrics.ask_depth_10,
                 "spread_persistence_score": Decimal("50"),  # Default
-                "scanned_at": datetime.utcnow()
+                "scanned_at": datetime.utcnow(),
             }
             await test_repository.save_liquidity_snapshot(snapshot_data)
 
@@ -189,7 +181,7 @@ class TestLiquidityScannerWorkflow:
                 ask_depth_10=Decimal("8000"),
                 tier=LiquidityTier.LOW,
                 depth_score=Decimal("70"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             "DOGEUSDT": LiquidityMetrics(
                 symbol="DOGEUSDT",
@@ -199,7 +191,7 @@ class TestLiquidityScannerWorkflow:
                 ask_depth_10=Decimal("9000"),
                 tier=LiquidityTier.LOW,
                 depth_score=Decimal("75"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             "MATICUSDT": LiquidityMetrics(
                 symbol="MATICUSDT",
@@ -209,7 +201,7 @@ class TestLiquidityScannerWorkflow:
                 ask_depth_10=Decimal("50000"),
                 tier=LiquidityTier.MEDIUM,
                 depth_score=Decimal("85"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             "ADAUSDT": LiquidityMetrics(
                 symbol="ADAUSDT",
@@ -219,7 +211,7 @@ class TestLiquidityScannerWorkflow:
                 ask_depth_10=Decimal("60000"),
                 tier=LiquidityTier.MEDIUM,
                 depth_score=Decimal("90"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
             "BTCUSDT": LiquidityMetrics(
                 symbol="BTCUSDT",
@@ -229,7 +221,7 @@ class TestLiquidityScannerWorkflow:
                 ask_depth_10=Decimal("1500000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("100"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             ),
         }
 
@@ -238,9 +230,15 @@ class TestLiquidityScannerWorkflow:
         hunter_capital = Decimal("5000")
         strategist_capital = Decimal("15000")
 
-        sniper_recs = engine.recommend_pairs_for_tier("SNIPER", sniper_capital, liquidity_data)
-        hunter_recs = engine.recommend_pairs_for_tier("HUNTER", hunter_capital, liquidity_data)
-        strategist_recs = engine.recommend_pairs_for_tier("STRATEGIST", strategist_capital, liquidity_data)
+        sniper_recs = engine.recommend_pairs_for_tier(
+            "SNIPER", sniper_capital, liquidity_data
+        )
+        hunter_recs = engine.recommend_pairs_for_tier(
+            "HUNTER", hunter_capital, liquidity_data
+        )
+        strategist_recs = engine.recommend_pairs_for_tier(
+            "STRATEGIST", strategist_capital, liquidity_data
+        )
 
         # Save recommendations to repository
         for symbol in sniper_recs:
@@ -249,7 +247,7 @@ class TestLiquidityScannerWorkflow:
                 "symbol": symbol,
                 "volume_24h": liquidity_data[symbol].volume_24h,
                 "liquidity_score": liquidity_data[symbol].depth_score,
-                "recommended_at": datetime.utcnow()
+                "recommended_at": datetime.utcnow(),
             }
             await test_repository.save_tier_recommendation(rec_data)
 
@@ -259,7 +257,7 @@ class TestLiquidityScannerWorkflow:
                 "symbol": symbol,
                 "volume_24h": liquidity_data[symbol].volume_24h,
                 "liquidity_score": liquidity_data[symbol].depth_score,
-                "recommended_at": datetime.utcnow()
+                "recommended_at": datetime.utcnow(),
             }
             await test_repository.save_tier_recommendation(rec_data)
 
@@ -269,7 +267,7 @@ class TestLiquidityScannerWorkflow:
                 "symbol": symbol,
                 "volume_24h": liquidity_data[symbol].volume_24h,
                 "liquidity_score": liquidity_data[symbol].depth_score,
-                "recommended_at": datetime.utcnow()
+                "recommended_at": datetime.utcnow(),
             }
             await test_repository.save_tier_recommendation(rec_data)
 
@@ -302,13 +300,13 @@ class TestLiquidityScannerWorkflow:
         for day in range(6):
             metrics = LiquidityMetrics(
                 symbol="BADCOIN",
-                volume_24h=Decimal(str(100000 * (0.5 ** day))),  # Halving each day
-                spread_bps=int(10 * (2 ** day)),  # Doubling spread
-                bid_depth_10=Decimal(str(10000 * (0.5 ** day))),
-                ask_depth_10=Decimal(str(10000 * (0.5 ** day))),
+                volume_24h=Decimal(str(100000 * (0.5**day))),  # Halving each day
+                spread_bps=int(10 * (2**day)),  # Doubling spread
+                bid_depth_10=Decimal(str(10000 * (0.5**day))),
+                ask_depth_10=Decimal(str(10000 * (0.5**day))),
                 tier=LiquidityTier.LOW,
-                depth_score=Decimal(str(80 * (0.5 ** day))),
-                timestamp=datetime.now() - timedelta(days=5-day)
+                depth_score=Decimal(str(80 * (0.5**day))),
+                timestamp=datetime.now() - timedelta(days=5 - day),
             )
             metrics_history.append(metrics)
 
@@ -318,7 +316,9 @@ class TestLiquidityScannerWorkflow:
             historical = metrics_history[:i]
 
             if len(historical) >= 5:
-                status = monitor.monitor_pair_health("BADCOIN", current, historical[-5:])
+                status = monitor.monitor_pair_health(
+                    "BADCOIN", current, historical[-5:]
+                )
             else:
                 status = monitor.monitor_pair_health("BADCOIN", current, historical)
 
@@ -331,7 +331,7 @@ class TestLiquidityScannerWorkflow:
             "blacklist_reason": "5 consecutive days of unhealthy status",
             "consecutive_losses": 5,
             "blacklisted_at": datetime.utcnow(),
-            "expires_at": datetime.utcnow() + timedelta(days=30)
+            "expires_at": datetime.utcnow() + timedelta(days=30),
         }
         await test_repository.save_pair_blacklist(blacklist_data)
 
@@ -365,7 +365,7 @@ class TestLiquidityScannerWorkflow:
             current_tier=alert.current_tier,
             recommended_tier=alert.recommended_tier,
             current_capital=alert.current_capital,
-            message=alert.message
+            message=alert.message,
         )
 
         await event_bus.publish(grad_event)
@@ -402,7 +402,7 @@ class TestLiquidityScannerWorkflow:
                 ask_depth_10=Decimal("1000000"),
                 tier=LiquidityTier.HIGH,
                 depth_score=Decimal("95"),
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
         }
 
@@ -432,21 +432,21 @@ class TestLiquidityScannerWorkflow:
         # Add profitable spreads (>= 10 bps) for 30 minutes
         for i in range(6):  # 6 observations, 5 minutes apart
             tracker.record_spread(
-                "ETHUSDT",
-                15,  # 15 basis points
-                base_time + timedelta(minutes=i*5)
+                "ETHUSDT", 15, base_time + timedelta(minutes=i * 5)  # 15 basis points
             )
 
         # Calculate persistence score
         score = tracker.calculate_spread_persistence_score("ETHUSDT")
-        assert score > Decimal("80")  # Should be high due to consistent profitable spreads
+        assert score > Decimal(
+            "80"
+        )  # Should be high due to consistent profitable spreads
 
         # Add unprofitable spreads for next 30 minutes
         for i in range(6, 12):
             tracker.record_spread(
                 "ETHUSDT",
                 5,  # 5 basis points (unprofitable)
-                base_time + timedelta(minutes=i*5)
+                base_time + timedelta(minutes=i * 5),
             )
 
         # Recalculate score
@@ -457,9 +457,7 @@ class TestLiquidityScannerWorkflow:
         future_time = base_time + timedelta(hours=2)
         for i in range(6):
             tracker.record_spread(
-                "ETHUSDT",
-                20,  # 20 basis points
-                future_time + timedelta(minutes=i*5)
+                "ETHUSDT", 20, future_time + timedelta(minutes=i * 5)  # 20 basis points
             )
 
         # Old data should be removed, score should be high again
@@ -481,7 +479,7 @@ class TestLiquidityScannerWorkflow:
                     "bid_depth_10": Decimal("100000") * (hour + 1),
                     "ask_depth_10": Decimal("100000") * (hour + 1),
                     "spread_persistence_score": Decimal("80") + Decimal(str(hour * 5)),
-                    "scanned_at": datetime.utcnow() - timedelta(hours=2-hour)
+                    "scanned_at": datetime.utcnow() - timedelta(hours=2 - hour),
                 }
                 await test_repository.save_liquidity_snapshot(snapshot_data)
 
@@ -490,29 +488,35 @@ class TestLiquidityScannerWorkflow:
         assert len(recent) == 3  # Only the most recent hour for each symbol
 
         # Query specific symbol
-        btc_snapshots = await test_repository.get_liquidity_snapshots(symbol="BTCUSDT", hours_back=24)
+        btc_snapshots = await test_repository.get_liquidity_snapshots(
+            symbol="BTCUSDT", hours_back=24
+        )
         assert len(btc_snapshots) == 3
         assert all(s["symbol"] == "BTCUSDT" for s in btc_snapshots)
 
         # Test blacklist functionality
-        await test_repository.save_pair_blacklist({
-            "symbol": "SCAMCOIN",
-            "blacklist_reason": "Rug pull detected",
-            "consecutive_losses": 10,
-            "expires_at": datetime.utcnow() + timedelta(days=90)
-        })
+        await test_repository.save_pair_blacklist(
+            {
+                "symbol": "SCAMCOIN",
+                "blacklist_reason": "Rug pull detected",
+                "consecutive_losses": 10,
+                "expires_at": datetime.utcnow() + timedelta(days=90),
+            }
+        )
 
         assert await test_repository.is_pair_blacklisted("SCAMCOIN")
         assert not await test_repository.is_pair_blacklisted("BTCUSDT")
 
         # Test tier recommendations
         for tier in ["SNIPER", "HUNTER", "STRATEGIST"]:
-            await test_repository.save_tier_recommendation({
-                "tier": tier,
-                "symbol": f"TEST{tier}",
-                "volume_24h": Decimal("1000000"),
-                "liquidity_score": Decimal("85")
-            })
+            await test_repository.save_tier_recommendation(
+                {
+                    "tier": tier,
+                    "symbol": f"TEST{tier}",
+                    "volume_24h": Decimal("1000000"),
+                    "liquidity_score": Decimal("85"),
+                }
+            )
 
         sniper_recs = await test_repository.get_tier_recommendations("SNIPER")
         assert len(sniper_recs) == 1

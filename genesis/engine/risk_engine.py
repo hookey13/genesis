@@ -36,6 +36,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class RiskDecision:
     """Result of a risk check."""
+
     approved: bool
     reason: Optional[str] = None
     adjusted_quantity: Optional[Decimal] = None
@@ -56,32 +57,36 @@ class RiskEngine:
             "daily_loss_limit": Decimal("25"),
             "position_risk_percent": Decimal("5"),
             "max_positions": 1,
-            "stop_loss_percent": Decimal("2")
+            "stop_loss_percent": Decimal("2"),
         },
         TradingTier.HUNTER: {
             "daily_loss_limit": Decimal("100"),
             "position_risk_percent": Decimal("5"),
             "max_positions": 3,
-            "stop_loss_percent": Decimal("2")
+            "stop_loss_percent": Decimal("2"),
         },
         TradingTier.STRATEGIST: {
             "daily_loss_limit": Decimal("500"),
             "position_risk_percent": Decimal("5"),
             "max_positions": 5,
-            "stop_loss_percent": Decimal("2")
+            "stop_loss_percent": Decimal("2"),
         },
         TradingTier.ARCHITECT: {
             "daily_loss_limit": Decimal("1000"),
             "position_risk_percent": Decimal("5"),
             "max_positions": 10,
-            "stop_loss_percent": Decimal("2")
-        }
+            "stop_loss_percent": Decimal("2"),
+        },
     }
 
     MINIMUM_POSITION_SIZE = Decimal("10")  # $10 minimum
 
-    def __init__(self, account: Account, session: Optional[TradingSession] = None,
-                 use_kelly_sizing: bool = True):
+    def __init__(
+        self,
+        account: Account,
+        session: Optional[TradingSession] = None,
+        use_kelly_sizing: bool = True,
+    ):
         """
         Initialize risk engine with account and session.
 
@@ -102,7 +107,7 @@ class RiskEngine:
                 default_fraction=Decimal("0.25"),
                 min_trades=20,
                 lookback_days=30,
-                max_kelly=Decimal("0.5")
+                max_kelly=Decimal("0.5"),
             )
             self.performance_tracker = StrategyPerformanceTracker()
         else:
@@ -114,7 +119,7 @@ class RiskEngine:
             account_id=account.account_id,
             tier=account.tier.value,
             balance=str(account.balance_usdt),
-            kelly_sizing_enabled=self.use_kelly_sizing
+            kelly_sizing_enabled=self.use_kelly_sizing,
         )
 
     def calculate_position_size(
@@ -125,7 +130,7 @@ class RiskEngine:
         custom_risk_percent: Optional[Decimal] = None,
         strategy_id: Optional[str] = None,
         conviction: ConvictionLevel = ConvictionLevel.MEDIUM,
-        use_volatility_adjustment: bool = True
+        use_volatility_adjustment: bool = True,
     ) -> Decimal:
         """
         Calculate position size based on risk parameters.
@@ -154,7 +159,7 @@ class RiskEngine:
             raise InsufficientBalance(
                 "Account balance is zero or negative",
                 required_amount=self.MINIMUM_POSITION_SIZE,
-                available_amount=self.account.balance_usdt
+                available_amount=self.account.balance_usdt,
             )
 
         # Check if balance is too low to meet minimum position size
@@ -162,25 +167,28 @@ class RiskEngine:
             raise MinimumPositionSize(
                 f"Account balance ${self.account.balance_usdt:.2f} is below minimum position size ${self.MINIMUM_POSITION_SIZE}",
                 position_size=self.account.balance_usdt,
-                minimum_size=self.MINIMUM_POSITION_SIZE
+                minimum_size=self.MINIMUM_POSITION_SIZE,
             )
 
         # Try Kelly sizing first if enabled and strategy provided
         if self.use_kelly_sizing and strategy_id and self.kelly_calculator:
             try:
                 # Get strategy performance metrics
-                edge_metrics = self.performance_tracker.calculate_strategy_edge(strategy_id)
+                edge_metrics = self.performance_tracker.calculate_strategy_edge(
+                    strategy_id
+                )
 
                 # Check if we have enough data for Kelly
                 if edge_metrics["sample_size"] >= self.kelly_calculator.min_trades:
                     # Calculate Kelly fraction
                     kelly_f = self.kelly_calculator.calculate_kelly_fraction(
-                        edge_metrics["win_rate"],
-                        edge_metrics["win_loss_ratio"]
+                        edge_metrics["win_rate"], edge_metrics["win_loss_ratio"]
                     )
 
                     # Get recent trades for performance adjustment
-                    recent_trades = self.performance_tracker.get_recent_trades(strategy_id)
+                    recent_trades = self.performance_tracker.get_recent_trades(
+                        strategy_id
+                    )
                     if recent_trades:
                         kelly_f = self.kelly_calculator.adjust_kelly_for_performance(
                             kelly_f, recent_trades
@@ -201,7 +209,11 @@ class RiskEngine:
                     if use_volatility_adjustment and recent_trades:
                         returns = [float(t.pnl_percent) for t in recent_trades[-14:]]
                         if len(returns) >= 14:
-                            vol_multiplier, _ = self.kelly_calculator.calculate_volatility_multiplier(returns)
+                            vol_multiplier, _ = (
+                                self.kelly_calculator.calculate_volatility_multiplier(
+                                    returns
+                                )
+                            )
                             kelly_size = kelly_size * vol_multiplier
 
                     # Enforce position boundaries
@@ -221,7 +233,7 @@ class RiskEngine:
                         kelly_fraction=str(kelly_f),
                         position_value=str(kelly_size),
                         quantity=str(quantity),
-                        conviction=conviction.value
+                        conviction=conviction.value,
                     )
 
                     return quantity
@@ -230,13 +242,13 @@ class RiskEngine:
                         "Insufficient trade history for Kelly sizing",
                         strategy_id=strategy_id,
                         sample_size=edge_metrics["sample_size"],
-                        min_required=self.kelly_calculator.min_trades
+                        min_required=self.kelly_calculator.min_trades,
                     )
             except Exception as e:
                 logger.warning(
                     "Kelly sizing failed, falling back to fixed percentage",
                     error=str(e),
-                    strategy_id=strategy_id
+                    strategy_id=strategy_id,
                 )
 
         # Fall back to fixed percentage sizing
@@ -285,13 +297,13 @@ class RiskEngine:
                     raise MinimumPositionSize(
                         "Cannot meet minimum position size with available balance",
                         position_size=position_value,
-                        minimum_size=self.MINIMUM_POSITION_SIZE
+                        minimum_size=self.MINIMUM_POSITION_SIZE,
                     )
             else:
                 raise MinimumPositionSize(
                     f"Position size ${position_value:.2f} is below minimum ${self.MINIMUM_POSITION_SIZE}",
                     position_size=position_value,
-                    minimum_size=self.MINIMUM_POSITION_SIZE
+                    minimum_size=self.MINIMUM_POSITION_SIZE,
                 )
 
         logger.info(
@@ -301,7 +313,7 @@ class RiskEngine:
             stop_loss=str(stop_loss_price),
             risk_percent=str(risk_percent),
             position_value=str(position_value),
-            quantity=str(quantity)
+            quantity=str(quantity),
         )
 
         return quantity
@@ -310,7 +322,7 @@ class RiskEngine:
         self,
         entry_price: Decimal,
         side: PositionSide,
-        stop_loss_percent: Optional[Decimal] = None
+        stop_loss_percent: Optional[Decimal] = None,
     ) -> Decimal:
         """
         Calculate stop loss price based on entry and percentage.
@@ -340,12 +352,14 @@ class RiskEngine:
             entry_price=str(entry_price),
             side=side.value,
             stop_loss_percent=str(sl_percent),
-            stop_loss_price=str(stop_loss)
+            stop_loss_price=str(stop_loss),
         )
 
         return stop_loss
 
-    def calculate_pnl(self, position: Position, current_price: Decimal) -> dict[str, Decimal]:
+    def calculate_pnl(
+        self, position: Position, current_price: Decimal
+    ) -> dict[str, Decimal]:
         """
         Calculate P&L for a position.
 
@@ -368,10 +382,7 @@ class RiskEngine:
             Decimal("0.0001"), rounding=ROUND_DOWN
         )
 
-        return {
-            "pnl_dollars": pnl_dollars,
-            "pnl_percent": pnl_percent
-        }
+        return {"pnl_dollars": pnl_dollars, "pnl_percent": pnl_percent}
 
     async def check_risk_limits(self, order_params: dict) -> RiskDecision:
         """
@@ -391,43 +402,37 @@ class RiskEngine:
             # Validate basic parameters
             if not all([symbol, side, quantity]):
                 return RiskDecision(
-                    approved=False,
-                    reason="Missing required order parameters"
+                    approved=False, reason="Missing required order parameters"
                 )
 
             # Check daily loss limit
-            if self.session and self.session.total_pnl < -self.tier_limits["max_daily_loss"]:
-                return RiskDecision(
-                    approved=False,
-                    reason="Daily loss limit reached"
-                )
+            if (
+                self.session
+                and self.session.total_pnl < -self.tier_limits["max_daily_loss"]
+            ):
+                return RiskDecision(approved=False, reason="Daily loss limit reached")
 
             # Check position limit
             position_value = quantity * Decimal("50000")  # Approximate value
             if position_value > self.tier_limits["max_position_value"]:
                 return RiskDecision(
                     approved=False,
-                    reason=f"Position size exceeds tier limit of ${self.tier_limits['max_position_value']}"
+                    reason=f"Position size exceeds tier limit of ${self.tier_limits['max_position_value']}",
                 )
 
             # Check balance
-            if self.account.balance_usdt < position_value * Decimal("0.01"):  # 1% margin
+            if self.account.balance_usdt < position_value * Decimal(
+                "0.01"
+            ):  # 1% margin
                 return RiskDecision(
-                    approved=False,
-                    reason="Insufficient balance for margin"
+                    approved=False, reason="Insufficient balance for margin"
                 )
 
-            return RiskDecision(
-                approved=True,
-                adjusted_quantity=quantity
-            )
+            return RiskDecision(approved=True, adjusted_quantity=quantity)
 
         except Exception as e:
             logger.error("Risk check failed", error=str(e))
-            return RiskDecision(
-                approved=False,
-                reason=f"Risk check error: {e}"
-            )
+            return RiskDecision(approved=False, reason=f"Risk check error: {e}")
 
     def validate_order_risk(
         self,
@@ -435,7 +440,7 @@ class RiskEngine:
         side: PositionSide,
         quantity: Decimal,
         entry_price: Decimal,
-        is_iceberg: bool = False
+        is_iceberg: bool = False,
     ) -> None:
         """
         Validate an order against risk limits.
@@ -460,7 +465,7 @@ class RiskEngine:
                 "Validating iceberg order risk",
                 symbol=symbol,
                 total_value=str(position_value),
-                quantity=str(quantity)
+                quantity=str(quantity),
             )
 
         # Check minimum position size
@@ -468,7 +473,7 @@ class RiskEngine:
             raise MinimumPositionSize(
                 f"Position size ${position_value:.2f} is below minimum",
                 position_size=position_value,
-                minimum_size=self.MINIMUM_POSITION_SIZE
+                minimum_size=self.MINIMUM_POSITION_SIZE,
             )
 
         # Check account balance
@@ -476,7 +481,7 @@ class RiskEngine:
             raise InsufficientBalance(
                 "Insufficient balance for position",
                 required_amount=position_value,
-                available_amount=self.account.balance_usdt
+                available_amount=self.account.balance_usdt,
             )
 
         # Check position risk percentage
@@ -488,7 +493,7 @@ class RiskEngine:
                 f"Position risk {risk_percent:.2f}% exceeds maximum {max_risk}%",
                 limit_type="position_risk",
                 current_value=risk_percent,
-                limit_value=max_risk
+                limit_value=max_risk,
             )
 
         # Check daily loss limit if session exists
@@ -496,7 +501,7 @@ class RiskEngine:
             raise DailyLossLimitReached(
                 f"Daily loss limit of ${self.tier_limits['daily_loss_limit']} reached",
                 current_loss=abs(self.session.realized_pnl),
-                daily_limit=self.tier_limits["daily_loss_limit"]
+                daily_limit=self.tier_limits["daily_loss_limit"],
             )
 
         # Check maximum positions
@@ -505,7 +510,7 @@ class RiskEngine:
                 f"Maximum positions ({self.tier_limits['max_positions']}) reached for {self.account.tier.value} tier",
                 limit_type="max_positions",
                 current_value=Decimal(len(self.positions)),
-                limit_value=Decimal(self.tier_limits["max_positions"])
+                limit_value=Decimal(self.tier_limits["max_positions"]),
             )
 
         logger.info(
@@ -515,7 +520,7 @@ class RiskEngine:
             quantity=str(quantity),
             entry_price=str(entry_price),
             position_value=str(position_value),
-            risk_percent=str(risk_percent)
+            risk_percent=str(risk_percent),
         )
 
     def prevent_exceeding_limits(self) -> bool:
@@ -530,7 +535,7 @@ class RiskEngine:
             logger.warning(
                 "Daily loss limit reached",
                 current_loss=str(abs(self.session.realized_pnl)),
-                limit=str(self.tier_limits["daily_loss_limit"])
+                limit=str(self.tier_limits["daily_loss_limit"]),
             )
             return False
 
@@ -539,7 +544,7 @@ class RiskEngine:
             logger.warning(
                 "Maximum positions reached",
                 current_positions=len(self.positions),
-                max_positions=self.tier_limits["max_positions"]
+                max_positions=self.tier_limits["max_positions"],
             )
             return False
 
@@ -552,7 +557,7 @@ class RiskEngine:
             "Position added to risk engine",
             position_id=position.position_id,
             symbol=position.symbol,
-            side=position.side.value
+            side=position.side.value,
         )
 
     def remove_position(self, position_id: str) -> None:
@@ -588,8 +593,12 @@ class RiskEngine:
             total_percent = Decimal("0")
 
         return {
-            "total_pnl_dollars": total_dollars.quantize(Decimal("0.01"), rounding=ROUND_DOWN),
-            "total_pnl_percent": total_percent.quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
+            "total_pnl_dollars": total_dollars.quantize(
+                Decimal("0.01"), rounding=ROUND_DOWN
+            ),
+            "total_pnl_percent": total_percent.quantize(
+                Decimal("0.0001"), rounding=ROUND_DOWN
+            ),
         }
 
     @requires_tier(TradingTier.HUNTER)
@@ -606,7 +615,7 @@ class RiskEngine:
         positions_list = list(self.positions.values())
 
         for i, pos_a in enumerate(positions_list):
-            for pos_b in positions_list[i+1:]:
+            for pos_b in positions_list[i + 1 :]:
                 # Simplified correlation based on symbol similarity
                 if pos_a.symbol[:3] == pos_b.symbol[:3]:
                     correlation = Decimal("0.8")
@@ -631,7 +640,7 @@ class RiskEngine:
                 "Trade recorded for Kelly sizing",
                 strategy_id=strategy_id,
                 trade_id=trade.trade_id,
-                pnl_dollars=str(trade.pnl_dollars)
+                pnl_dollars=str(trade.pnl_dollars),
             )
 
     def validate_portfolio_risk(self, positions: list[Position]) -> dict:
@@ -650,7 +659,7 @@ class RiskEngine:
             "rejections": [],
             "portfolio_exposure": Decimal("0"),
             "correlation_risk": Decimal("0"),
-            "adjusted_limits": {}
+            "adjusted_limits": {},
         }
 
         # Calculate total exposure
@@ -674,7 +683,11 @@ class RiskEngine:
 
         # Check for concentrated positions
         for position in positions:
-            position_weight = position.dollar_value / total_exposure if total_exposure > 0 else Decimal("0")
+            position_weight = (
+                position.dollar_value / total_exposure
+                if total_exposure > 0
+                else Decimal("0")
+            )
             if position_weight > Decimal("0.4"):  # 40% concentration warning
                 risk_decision["warnings"].append(
                     f"High concentration in {position.symbol}: {position_weight:.1%}"
@@ -700,7 +713,7 @@ class RiskEngine:
             exposure=str(total_exposure),
             position_count=len(positions),
             warnings=len(risk_decision["warnings"]),
-            rejections=len(risk_decision["rejections"])
+            rejections=len(risk_decision["rejections"]),
         )
 
         return risk_decision

@@ -21,6 +21,7 @@ logger = structlog.get_logger(__name__)
 
 class LiquidityLevel(str, Enum):
     """Liquidity level classification."""
+
     DEEP = "DEEP"  # Can absorb large orders
     MODERATE = "MODERATE"  # Requires careful slicing
     SHALLOW = "SHALLOW"  # Very limited liquidity
@@ -30,6 +31,7 @@ class LiquidityLevel(str, Enum):
 @dataclass
 class LiquidityProfile:
     """Comprehensive liquidity analysis result."""
+
     symbol: str
     timestamp: datetime
 
@@ -90,9 +92,7 @@ class OrderBookAnalyzer:
         logger.info("Order book analyzer initialized")
 
     def analyze_liquidity_depth(
-        self,
-        order_book: OrderBook,
-        side: Optional[OrderSide] = None
+        self, order_book: OrderBook, side: Optional[OrderSide] = None
     ) -> LiquidityProfile:
         """
         Perform comprehensive liquidity analysis on order book.
@@ -114,12 +114,17 @@ class OrderBookAnalyzer:
                 return cached_profile
 
         # Calculate basic metrics
-        best_bid = Decimal(str(order_book.bids[0][0])) if order_book.bids else Decimal("0")
-        best_ask = Decimal(str(order_book.asks[0][0])) if order_book.asks else Decimal("0")
+        best_bid = (
+            Decimal(str(order_book.bids[0][0])) if order_book.bids else Decimal("0")
+        )
+        best_ask = (
+            Decimal(str(order_book.asks[0][0])) if order_book.asks else Decimal("0")
+        )
         spread_absolute = best_ask - best_bid
         spread_percent = (
             (spread_absolute / best_bid * Decimal("100"))
-            if best_bid > 0 else Decimal("0")
+            if best_bid > 0
+            else Decimal("0")
         )
 
         # Calculate volume metrics
@@ -127,37 +132,34 @@ class OrderBookAnalyzer:
         total_ask_volume = self._calculate_total_volume(order_book.asks, best_ask)
 
         imbalance_ratio = self._calculate_imbalance_ratio(
-            total_bid_volume,
-            total_ask_volume
+            total_bid_volume, total_ask_volume
         )
 
         # Calculate depth metrics
-        bid_depths = self._calculate_depth_levels(order_book.bids, best_bid, is_bid=True)
-        ask_depths = self._calculate_depth_levels(order_book.asks, best_ask, is_bid=False)
+        bid_depths = self._calculate_depth_levels(
+            order_book.bids, best_bid, is_bid=True
+        )
+        ask_depths = self._calculate_depth_levels(
+            order_book.asks, best_ask, is_bid=False
+        )
 
         # Analyze liquidity distribution
         concentration_risk = self._calculate_concentration_risk(
-            order_book.bids,
-            order_book.asks
+            order_book.bids, order_book.asks
         )
 
         depth_consistency = self._calculate_depth_consistency(
-            order_book.bids,
-            order_book.asks
+            order_book.bids, order_book.asks
         )
 
         # Classify liquidity level
         liquidity_level = self._classify_liquidity_level(
-            total_bid_volume,
-            total_ask_volume,
-            spread_percent,
-            depth_consistency
+            total_bid_volume, total_ask_volume, spread_percent, depth_consistency
         )
 
         # Calculate safe order size
         max_safe_order_size = self._calculate_max_safe_order_size(
-            bid_depths[1] if side == OrderSide.SELL else ask_depths[1],
-            liquidity_level
+            bid_depths[1] if side == OrderSide.SELL else ask_depths[1], liquidity_level
         )
 
         # Calculate slicing recommendations based on liquidity
@@ -174,13 +176,13 @@ class OrderBookAnalyzer:
         expected_slippage_1x = self._estimate_slippage(
             max_safe_order_size,
             order_book.asks if side == OrderSide.BUY else order_book.bids,
-            best_ask if side == OrderSide.BUY else best_bid
+            best_ask if side == OrderSide.BUY else best_bid,
         )
 
         expected_slippage_2x = self._estimate_slippage(
             max_safe_order_size * Decimal("2"),
             order_book.asks if side == OrderSide.BUY else order_book.bids,
-            best_ask if side == OrderSide.BUY else best_bid
+            best_ask if side == OrderSide.BUY else best_bid,
         )
 
         # Create profile
@@ -206,7 +208,7 @@ class OrderBookAnalyzer:
             expected_slippage_1x=expected_slippage_1x,
             expected_slippage_2x=expected_slippage_2x,
             concentration_risk=concentration_risk,
-            depth_consistency=depth_consistency
+            depth_consistency=depth_consistency,
         )
 
         # Cache the profile
@@ -217,15 +219,13 @@ class OrderBookAnalyzer:
             symbol=symbol,
             liquidity_level=liquidity_level.value,
             optimal_slices=optimal_slice_count,
-            max_safe_size=str(max_safe_order_size)
+            max_safe_size=str(max_safe_order_size),
         )
 
         return profile
 
     def calculate_optimal_slice_count(
-        self,
-        order_value: Decimal,
-        liquidity_profile: LiquidityProfile
+        self, order_value: Decimal, liquidity_profile: LiquidityProfile
     ) -> int:
         """
         Calculate optimal number of slices for an order.
@@ -271,15 +271,13 @@ class OrderBookAnalyzer:
             order_value=str(order_value),
             safe_size=str(liquidity_profile.max_safe_order_size),
             liquidity_level=liquidity_profile.liquidity_level.value,
-            slices=slices
+            slices=slices,
         )
 
         return slices
 
     def _calculate_total_volume(
-        self,
-        levels: list[list[float]],
-        reference_price: Decimal
+        self, levels: list[list[float]], reference_price: Decimal
     ) -> Decimal:
         """Calculate total volume in USDT."""
         total = Decimal("0")
@@ -288,9 +286,7 @@ class OrderBookAnalyzer:
         return total
 
     def _calculate_imbalance_ratio(
-        self,
-        bid_volume: Decimal,
-        ask_volume: Decimal
+        self, bid_volume: Decimal, ask_volume: Decimal
     ) -> Decimal:
         """Calculate order book imbalance ratio."""
         total_volume = bid_volume + ask_volume
@@ -301,10 +297,7 @@ class OrderBookAnalyzer:
         return imbalance.quantize(Decimal("0.0001"))
 
     def _calculate_depth_levels(
-        self,
-        levels: list[list[float]],
-        reference_price: Decimal,
-        is_bid: bool
+        self, levels: list[list[float]], reference_price: Decimal, is_bid: bool
     ) -> tuple[Decimal, Decimal, Decimal]:
         """Calculate volume to move price by 0.5%, 1%, and 2%."""
         if not levels or reference_price == 0:
@@ -346,32 +339,18 @@ class OrderBookAnalyzer:
         return (depth_0_5, depth_1, depth_2)
 
     def _calculate_concentration_risk(
-        self,
-        bids: list[list[float]],
-        asks: list[list[float]]
+        self, bids: list[list[float]], asks: list[list[float]]
     ) -> Decimal:
         """Calculate concentration risk (liquidity at best prices)."""
         if not bids or not asks:
             return Decimal("1")  # Maximum risk
 
         # Calculate volume at best 3 levels
-        best_bid_volume = sum(
-            Decimal(str(p)) * Decimal(str(q))
-            for p, q in bids[:3]
-        )
-        best_ask_volume = sum(
-            Decimal(str(p)) * Decimal(str(q))
-            for p, q in asks[:3]
-        )
+        best_bid_volume = sum(Decimal(str(p)) * Decimal(str(q)) for p, q in bids[:3])
+        best_ask_volume = sum(Decimal(str(p)) * Decimal(str(q)) for p, q in asks[:3])
 
-        total_bid_volume = sum(
-            Decimal(str(p)) * Decimal(str(q))
-            for p, q in bids
-        )
-        total_ask_volume = sum(
-            Decimal(str(p)) * Decimal(str(q))
-            for p, q in asks
-        )
+        total_bid_volume = sum(Decimal(str(p)) * Decimal(str(q)) for p, q in bids)
+        total_ask_volume = sum(Decimal(str(p)) * Decimal(str(q)) for p, q in asks)
 
         total_volume = total_bid_volume + total_ask_volume
         if total_volume == 0:
@@ -381,9 +360,7 @@ class OrderBookAnalyzer:
         return concentration.quantize(Decimal("0.0001"))
 
     def _calculate_depth_consistency(
-        self,
-        bids: list[list[float]],
-        asks: list[list[float]]
+        self, bids: list[list[float]], asks: list[list[float]]
     ) -> Decimal:
         """Calculate how evenly distributed liquidity is."""
         if len(bids) < 5 or len(asks) < 5:
@@ -415,7 +392,7 @@ class OrderBookAnalyzer:
         bid_volume: Decimal,
         ask_volume: Decimal,
         spread_percent: Decimal,
-        depth_consistency: Decimal
+        depth_consistency: Decimal,
     ) -> LiquidityLevel:
         """Classify overall liquidity level."""
         # Check for critical conditions
@@ -439,9 +416,7 @@ class OrderBookAnalyzer:
             return LiquidityLevel.CRITICAL
 
     def _calculate_max_safe_order_size(
-        self,
-        depth_1pct: Decimal,
-        liquidity_level: LiquidityLevel
+        self, depth_1pct: Decimal, liquidity_level: LiquidityLevel
     ) -> Decimal:
         """Calculate maximum safe order size."""
         if liquidity_level == LiquidityLevel.DEEP:
@@ -458,10 +433,7 @@ class OrderBookAnalyzer:
             return depth_1pct * Decimal("0.1")
 
     def _estimate_slippage(
-        self,
-        order_size: Decimal,
-        levels: list[list[float]],
-        start_price: Decimal
+        self, order_size: Decimal, levels: list[list[float]], start_price: Decimal
     ) -> Decimal:
         """Estimate slippage for a given order size."""
         if not levels or order_size == 0 or start_price == 0:

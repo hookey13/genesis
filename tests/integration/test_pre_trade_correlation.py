@@ -41,24 +41,19 @@ async def pre_trade_environment(mock_order_executor, mock_risk_engine):
     event_bus = EventBus()
 
     config = {
-        'correlation_monitoring': {
-            'thresholds': {
-                'warning': 0.6,
-                'critical': 0.8
-            },
-            'analysis': {
-                'cache_ttl_seconds': 5
-            }
+        "correlation_monitoring": {
+            "thresholds": {"warning": 0.6, "critical": 0.8},
+            "analysis": {"cache_ttl_seconds": 5},
         }
     }
 
     correlation_monitor = CorrelationMonitor(event_bus=event_bus, config=config)
 
     return {
-        'event_bus': event_bus,
-        'correlation_monitor': correlation_monitor,
-        'order_executor': mock_order_executor,
-        'risk_engine': mock_risk_engine
+        "event_bus": event_bus,
+        "correlation_monitor": correlation_monitor,
+        "order_executor": mock_order_executor,
+        "risk_engine": mock_risk_engine,
     }
 
 
@@ -78,7 +73,7 @@ def existing_portfolio():
             pnl_dollars=Decimal("500"),
             pnl_percent=Decimal("2.0"),
             opened_at=datetime.now(UTC),
-            closed_at=None
+            closed_at=None,
         ),
         Position(
             position_id=uuid4(),
@@ -92,8 +87,8 @@ def existing_portfolio():
             pnl_dollars=Decimal("500"),
             pnl_percent=Decimal("3.33"),
             opened_at=datetime.now(UTC),
-            closed_at=None
-        )
+            closed_at=None,
+        ),
     ]
 
 
@@ -101,10 +96,12 @@ class TestPreTradeCorrelation:
     """Test pre-trade correlation impact analysis."""
 
     @pytest.mark.asyncio
-    async def test_low_correlation_trade_approved(self, pre_trade_environment, existing_portfolio):
+    async def test_low_correlation_trade_approved(
+        self, pre_trade_environment, existing_portfolio
+    ):
         """Test that low correlation trades are approved."""
         env = await pre_trade_environment
-        monitor = env['correlation_monitor']
+        monitor = env["correlation_monitor"]
 
         # New position with low expected correlation
         new_position = Position(
@@ -119,32 +116,38 @@ class TestPreTradeCorrelation:
             pnl_dollars=Decimal("100"),
             pnl_percent=Decimal("0.56"),
             opened_at=datetime.now(UTC),
-            closed_at=None
+            closed_at=None,
         )
 
         # Mock low correlation
-        with patch.object(monitor, 'calculate_correlation_matrix') as mock_calc:
+        with patch.object(monitor, "calculate_correlation_matrix") as mock_calc:
             # Current portfolio correlation
             mock_calc.side_effect = [
                 np.array([[1.0, 0.3], [0.3, 1.0]]),  # Current
-                np.array([  # With new position
-                    [1.0, 0.3, 0.1],
-                    [0.3, 1.0, 0.15],
-                    [0.1, 0.15, 1.0]
-                ])
+                np.array(
+                    [  # With new position
+                        [1.0, 0.3, 0.1],
+                        [0.3, 1.0, 0.15],
+                        [0.1, 0.15, 1.0],
+                    ]
+                ),
             ]
 
-            impact = await monitor.calculate_correlation_impact(new_position, existing_portfolio)
+            impact = await monitor.calculate_correlation_impact(
+                new_position, existing_portfolio
+            )
 
             assert impact.risk_assessment == "low"
             assert "Safe to proceed" in impact.recommendation
             assert impact.projected_correlation < Decimal("0.6")
 
     @pytest.mark.asyncio
-    async def test_high_correlation_trade_warning(self, pre_trade_environment, existing_portfolio):
+    async def test_high_correlation_trade_warning(
+        self, pre_trade_environment, existing_portfolio
+    ):
         """Test that high correlation trades generate warnings."""
         env = await pre_trade_environment
-        monitor = env['correlation_monitor']
+        monitor = env["correlation_monitor"]
 
         # New position highly correlated with existing
         new_position = Position(
@@ -159,33 +162,39 @@ class TestPreTradeCorrelation:
             pnl_dollars=Decimal("300"),
             pnl_percent=Decimal("2.0"),
             opened_at=datetime.now(UTC),
-            closed_at=None
+            closed_at=None,
         )
 
         # Mock high correlation
-        with patch.object(monitor, 'calculate_correlation_matrix') as mock_calc:
+        with patch.object(monitor, "calculate_correlation_matrix") as mock_calc:
             mock_calc.side_effect = [
                 np.array([[1.0, 0.4], [0.4, 1.0]]),  # Current
-                np.array([  # With new position
-                    [1.0, 0.4, 0.95],  # Very high correlation with BTC
-                    [0.4, 1.0, 0.3],
-                    [0.95, 0.3, 1.0]
-                ])
+                np.array(
+                    [  # With new position
+                        [1.0, 0.4, 0.95],  # Very high correlation with BTC
+                        [0.4, 1.0, 0.3],
+                        [0.95, 0.3, 1.0],
+                    ]
+                ),
             ]
 
-            impact = await monitor.calculate_correlation_impact(new_position, existing_portfolio)
+            impact = await monitor.calculate_correlation_impact(
+                new_position, existing_portfolio
+            )
 
             assert impact.risk_assessment in ["medium", "high"]
             assert impact.projected_correlation > Decimal("0.6")
             assert "correlation" in impact.recommendation.lower()
 
     @pytest.mark.asyncio
-    async def test_correlation_check_in_order_flow(self, pre_trade_environment, existing_portfolio):
+    async def test_correlation_check_in_order_flow(
+        self, pre_trade_environment, existing_portfolio
+    ):
         """Test correlation check integrated in order execution flow."""
         env = await pre_trade_environment
-        monitor = env['correlation_monitor']
-        executor = env['order_executor']
-        risk_engine = env['risk_engine']
+        monitor = env["correlation_monitor"]
+        executor = env["order_executor"]
+        risk_engine = env["risk_engine"]
 
         # Create order
         order = Order(
@@ -197,7 +206,7 @@ class TestPreTradeCorrelation:
             quantity=Decimal("0.2"),
             price=None,
             status="PENDING",
-            created_at=datetime.now(UTC)
+            created_at=datetime.now(UTC),
         )
 
         # Mock order validation with correlation check
@@ -215,10 +224,12 @@ class TestPreTradeCorrelation:
                 pnl_dollars=Decimal("0"),
                 pnl_percent=Decimal("0"),
                 opened_at=datetime.now(UTC),
-                closed_at=None
+                closed_at=None,
             )
 
-            impact = await monitor.calculate_correlation_impact(new_position, existing_portfolio)
+            impact = await monitor.calculate_correlation_impact(
+                new_position, existing_portfolio
+            )
 
             # Reject if high risk
             if impact.risk_assessment == "high":
@@ -239,7 +250,7 @@ class TestPreTradeCorrelation:
     async def test_multi_asset_correlation_impact(self, pre_trade_environment):
         """Test correlation impact with multiple asset classes."""
         env = await pre_trade_environment
-        monitor = env['correlation_monitor']
+        monitor = env["correlation_monitor"]
 
         # Diverse portfolio
         portfolio = [
@@ -255,7 +266,7 @@ class TestPreTradeCorrelation:
                 pnl_dollars=Decimal("500"),
                 pnl_percent=Decimal("2.0"),
                 opened_at=datetime.now(UTC),
-                closed_at=None
+                closed_at=None,
             ),
             Position(
                 position_id=uuid4(),
@@ -269,7 +280,7 @@ class TestPreTradeCorrelation:
                 pnl_dollars=Decimal("100"),
                 pnl_percent=Decimal("0.56"),
                 opened_at=datetime.now(UTC),
-                closed_at=None
+                closed_at=None,
             ),
             Position(
                 position_id=uuid4(),
@@ -283,8 +294,8 @@ class TestPreTradeCorrelation:
                 pnl_dollars=Decimal("100"),
                 pnl_percent=Decimal("0.93"),
                 opened_at=datetime.now(UTC),
-                closed_at=None
-            )
+                closed_at=None,
+            ),
         ]
 
         # New crypto position
@@ -300,7 +311,7 @@ class TestPreTradeCorrelation:
             pnl_dollars=Decimal("0"),
             pnl_percent=Decimal("0"),
             opened_at=datetime.now(UTC),
-            closed_at=None
+            closed_at=None,
         )
 
         impact = await monitor.calculate_correlation_impact(new_crypto, portfolio)
@@ -310,10 +321,12 @@ class TestPreTradeCorrelation:
         assert impact.projected_correlation >= Decimal("0")
 
     @pytest.mark.asyncio
-    async def test_correlation_based_position_sizing(self, pre_trade_environment, existing_portfolio):
+    async def test_correlation_based_position_sizing(
+        self, pre_trade_environment, existing_portfolio
+    ):
         """Test position sizing adjustment based on correlation."""
         env = await pre_trade_environment
-        monitor = env['correlation_monitor']
+        monitor = env["correlation_monitor"]
 
         # High correlation position
         high_corr_position = Position(
@@ -328,21 +341,19 @@ class TestPreTradeCorrelation:
             pnl_dollars=Decimal("0"),
             pnl_percent=Decimal("0"),
             opened_at=datetime.now(UTC),
-            closed_at=None
+            closed_at=None,
         )
 
         # Mock high correlation
-        with patch.object(monitor, 'calculate_correlation_matrix') as mock_calc:
+        with patch.object(monitor, "calculate_correlation_matrix") as mock_calc:
             mock_calc.side_effect = [
                 np.array([[1.0, 0.4], [0.4, 1.0]]),
-                np.array([
-                    [1.0, 0.4, 0.9],
-                    [0.4, 1.0, 0.3],
-                    [0.9, 0.3, 1.0]
-                ])
+                np.array([[1.0, 0.4, 0.9], [0.4, 1.0, 0.3], [0.9, 0.3, 1.0]]),
             ]
 
-            impact = await monitor.calculate_correlation_impact(high_corr_position, existing_portfolio)
+            impact = await monitor.calculate_correlation_impact(
+                high_corr_position, existing_portfolio
+            )
 
             # Suggest reduced position size for high correlation
             if impact.risk_assessment == "high":
@@ -354,11 +365,13 @@ class TestPreTradeCorrelation:
                 assert high_corr_position.dollar_value == Decimal("25000")
 
     @pytest.mark.asyncio
-    async def test_correlation_event_publication(self, pre_trade_environment, existing_portfolio):
+    async def test_correlation_event_publication(
+        self, pre_trade_environment, existing_portfolio
+    ):
         """Test that correlation events are published correctly."""
         env = await pre_trade_environment
-        monitor = env['correlation_monitor']
-        event_bus = env['event_bus']
+        monitor = env["correlation_monitor"]
+        event_bus = env["event_bus"]
 
         events_received = []
 
@@ -381,21 +394,19 @@ class TestPreTradeCorrelation:
             pnl_dollars=Decimal("0"),
             pnl_percent=Decimal("0"),
             opened_at=datetime.now(UTC),
-            closed_at=None
+            closed_at=None,
         )
 
         # Check correlation impact
-        with patch.object(monitor, 'calculate_correlation_matrix') as mock_calc:
+        with patch.object(monitor, "calculate_correlation_matrix") as mock_calc:
             mock_calc.side_effect = [
                 np.array([[1.0, 0.5], [0.5, 1.0]]),
-                np.array([
-                    [1.0, 0.5, 0.85],
-                    [0.5, 1.0, 0.4],
-                    [0.85, 0.4, 1.0]
-                ])
+                np.array([[1.0, 0.5, 0.85], [0.5, 1.0, 0.4], [0.85, 0.4, 1.0]]),
             ]
 
-            impact = await monitor.calculate_correlation_impact(new_position, existing_portfolio)
+            impact = await monitor.calculate_correlation_impact(
+                new_position, existing_portfolio
+            )
 
             # If high risk, publish event
             if impact.risk_assessment == "high":
@@ -405,8 +416,8 @@ class TestPreTradeCorrelation:
                     data={
                         "type": "correlation_risk",
                         "impact": impact,
-                        "position": new_position
-                    }
+                        "position": new_position,
+                    },
                 )
                 await event_bus.publish(event)
 

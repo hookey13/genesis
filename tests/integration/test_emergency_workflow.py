@@ -50,21 +50,21 @@ def circuit_manager():
 @pytest.fixture
 def emergency_controller(event_bus, circuit_manager):
     """Create emergency controller with test config."""
-    with patch('genesis.engine.emergency_controller.yaml.safe_load') as mock_yaml:
+    with patch("genesis.engine.emergency_controller.yaml.safe_load") as mock_yaml:
         mock_yaml.return_value = {
-            'daily_loss_limit': 0.15,
-            'correlation_spike_threshold': 0.80,
-            'liquidity_drop_threshold': 0.50,
-            'flash_crash_threshold': 0.10,
-            'flash_crash_window_seconds': 60,
-            'override_timeout_seconds': 300,
-            'emergency_timeout_seconds': 3600
+            "daily_loss_limit": 0.15,
+            "correlation_spike_threshold": 0.80,
+            "liquidity_drop_threshold": 0.50,
+            "flash_crash_threshold": 0.10,
+            "flash_crash_window_seconds": 60,
+            "override_timeout_seconds": 300,
+            "emergency_timeout_seconds": 3600,
         }
 
         return EmergencyController(
             event_bus=event_bus,
             circuit_manager=circuit_manager,
-            config_path="test_config.yaml"
+            config_path="test_config.yaml",
         )
 
 
@@ -72,9 +72,7 @@ def emergency_controller(event_bus, circuit_manager):
 def correlation_detector(event_bus):
     """Create correlation spike detector fixture."""
     return CorrelationSpikeDetector(
-        event_bus=event_bus,
-        window_minutes=30,
-        spike_threshold=Decimal("0.80")
+        event_bus=event_bus, window_minutes=30, spike_threshold=Decimal("0.80")
     )
 
 
@@ -82,9 +80,7 @@ def correlation_detector(event_bus):
 def liquidity_monitor(event_bus):
     """Create liquidity monitor fixture."""
     return LiquidityMonitor(
-        event_bus=event_bus,
-        depth_window_minutes=5,
-        crisis_threshold=Decimal("0.30")
+        event_bus=event_bus, depth_window_minutes=5, crisis_threshold=Decimal("0.30")
     )
 
 
@@ -92,19 +88,14 @@ def liquidity_monitor(event_bus):
 def flash_crash_detector(event_bus):
     """Create flash crash detector fixture."""
     return FlashCrashDetector(
-        event_bus=event_bus,
-        window_seconds=60,
-        crash_threshold=Decimal("0.10")
+        event_bus=event_bus, window_seconds=60, crash_threshold=Decimal("0.10")
     )
 
 
 @pytest.fixture
 def deleveraging_protocol(event_bus):
     """Create deleveraging protocol fixture."""
-    return DeleveragingProtocol(
-        event_bus=event_bus,
-        max_slippage_pct=Decimal("0.02")
-    )
+    return DeleveragingProtocol(event_bus=event_bus, max_slippage_pct=Decimal("0.02"))
 
 
 @pytest.fixture
@@ -118,11 +109,7 @@ class TestEmergencyWorkflow:
 
     @pytest.mark.asyncio
     async def test_daily_loss_halt_workflow(
-        self,
-        event_bus,
-        emergency_controller,
-        deleveraging_protocol,
-        recovery_checklist
+        self, event_bus, emergency_controller, deleveraging_protocol, recovery_checklist
     ):
         """Test complete workflow for daily loss halt."""
         # Setup initial state
@@ -139,7 +126,7 @@ class TestEmergencyWorkflow:
                 current_price=Decimal("42000"),
                 unrealized_pnl=Decimal("-300"),
                 margin_used=Decimal("4500"),
-                opened_at=datetime.now(UTC)
+                opened_at=datetime.now(UTC),
             ),
             Position(
                 symbol="ETH-USDT",
@@ -149,8 +136,8 @@ class TestEmergencyWorkflow:
                 current_price=Decimal("2800"),
                 unrealized_pnl=Decimal("-400"),
                 margin_used=Decimal("6000"),
-                opened_at=datetime.now(UTC)
-            )
+                opened_at=datetime.now(UTC),
+            ),
         ]
         deleveraging_protocol.update_positions(positions)
 
@@ -160,14 +147,8 @@ class TestEmergencyWorkflow:
         def event_handler(event: Event):
             events_received.append(event)
 
-        event_bus.subscribe(
-            EventType.CIRCUIT_BREAKER_OPEN,
-            event_handler
-        )
-        event_bus.subscribe(
-            EventType.POSITION_SIZE_ADJUSTMENT,
-            event_handler
-        )
+        event_bus.subscribe(EventType.CIRCUIT_BREAKER_OPEN, event_handler)
+        event_bus.subscribe(EventType.POSITION_SIZE_ADJUSTMENT, event_handler)
 
         # Trigger daily loss check
         await emergency_controller._check_daily_loss()
@@ -176,20 +157,25 @@ class TestEmergencyWorkflow:
         await asyncio.sleep(0.1)
 
         # Verify emergency triggered
-        assert EmergencyType.DAILY_LOSS_HALT.value in emergency_controller.active_emergencies
+        assert (
+            EmergencyType.DAILY_LOSS_HALT.value
+            in emergency_controller.active_emergencies
+        )
         assert emergency_controller.state == EmergencyState.EMERGENCY
 
         # Initiate deleveraging
         plans = await deleveraging_protocol.initiate_deleveraging(
             stage=DeleveragingStage.STAGE_4,  # Full closure due to 15% loss
-            reason="Daily loss limit breach"
+            reason="Daily loss limit breach",
         )
 
         assert len(plans) == 2  # Both positions should be closed
         assert all(p.reduction_percentage == Decimal("1.00") for p in plans)
 
         # Execute deleveraging
-        with patch.object(deleveraging_protocol, '_execute_position_reduction') as mock_execute:
+        with patch.object(
+            deleveraging_protocol, "_execute_position_reduction"
+        ) as mock_execute:
             # Mock successful execution
             from genesis.engine.deleveraging_protocol import DeleveragingResult
 
@@ -202,7 +188,7 @@ class TestEmergencyWorkflow:
                     execution_price=Decimal("41800"),
                     slippage=Decimal("0.005"),
                     realized_pnl=Decimal("-320"),
-                    success=True
+                    success=True,
                 ),
                 DeleveragingResult(
                     symbol="ETH-USDT",
@@ -212,8 +198,8 @@ class TestEmergencyWorkflow:
                     execution_price=Decimal("2790"),
                     slippage=Decimal("0.004"),
                     realized_pnl=Decimal("-420"),
-                    success=True
-                )
+                    success=True,
+                ),
             ]
 
             results = await deleveraging_protocol.execute_deleveraging()
@@ -224,8 +210,7 @@ class TestEmergencyWorkflow:
 
         # Create recovery checklist
         checklist = recovery_checklist.create_recovery_checklist(
-            emergency_type="daily_loss_halt",
-            severity="CRITICAL"
+            emergency_type="daily_loss_halt", severity="CRITICAL"
         )
 
         assert checklist is not None
@@ -239,7 +224,7 @@ class TestEmergencyWorkflow:
         await recovery_checklist.complete_item(
             checklist.checklist_id,
             first_item.item_id,
-            notes="All positions verified closed"
+            notes="All positions verified closed",
         )
 
         assert first_item.status == ChecklistItemStatus.COMPLETED
@@ -248,18 +233,13 @@ class TestEmergencyWorkflow:
         # Verify events were published
         assert len(events_received) > 0
         circuit_breaker_events = [
-            e for e in events_received
-            if e.event_type == EventType.CIRCUIT_BREAKER_OPEN
+            e for e in events_received if e.event_type == EventType.CIRCUIT_BREAKER_OPEN
         ]
         assert len(circuit_breaker_events) > 0
 
     @pytest.mark.asyncio
     async def test_flash_crash_detection_workflow(
-        self,
-        event_bus,
-        emergency_controller,
-        flash_crash_detector,
-        recovery_checklist
+        self, event_bus, emergency_controller, flash_crash_detector, recovery_checklist
     ):
         """Test flash crash detection and response workflow."""
         # Subscribe to events
@@ -268,35 +248,29 @@ class TestEmergencyWorkflow:
         def event_handler(event: Event):
             events_received.append(event)
 
-        event_bus.subscribe(
-            EventType.MARKET_STATE_CHANGE,
-            event_handler
-        )
-        event_bus.subscribe(
-            EventType.ORDER_CANCELLED,
-            event_handler
-        )
+        event_bus.subscribe(EventType.MARKET_STATE_CHANGE, event_handler)
+        event_bus.subscribe(EventType.ORDER_CANCELLED, event_handler)
 
         # Simulate flash crash with rapid price drops
         await flash_crash_detector.process_price(
             symbol="BTC-USDT",
             price=Decimal("50000"),
             volume=Decimal("100"),
-            timestamp=datetime.now(UTC) - timedelta(seconds=30)
+            timestamp=datetime.now(UTC) - timedelta(seconds=30),
         )
 
         await flash_crash_detector.process_price(
             symbol="BTC-USDT",
             price=Decimal("48000"),
             volume=Decimal("150"),
-            timestamp=datetime.now(UTC) - timedelta(seconds=20)
+            timestamp=datetime.now(UTC) - timedelta(seconds=20),
         )
 
         await flash_crash_detector.process_price(
             symbol="BTC-USDT",
             price=Decimal("45000"),
             volume=Decimal("200"),
-            timestamp=datetime.now(UTC) - timedelta(seconds=10)
+            timestamp=datetime.now(UTC) - timedelta(seconds=10),
         )
 
         # Final price triggers flash crash (10% drop)
@@ -304,7 +278,7 @@ class TestEmergencyWorkflow:
             symbol="BTC-USDT",
             price=Decimal("44000"),  # 12% drop from 50000
             volume=Decimal("300"),
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
         # Allow events to propagate
@@ -318,23 +292,20 @@ class TestEmergencyWorkflow:
 
         # Verify events published
         market_events = [
-            e for e in events_received
-            if e.event_type == EventType.MARKET_STATE_CHANGE
+            e for e in events_received if e.event_type == EventType.MARKET_STATE_CHANGE
         ]
         assert len(market_events) > 0
         assert market_events[0].event_data["alert_type"] == "flash_crash"
 
         order_cancel_events = [
-            e for e in events_received
-            if e.event_type == EventType.ORDER_CANCELLED
+            e for e in events_received if e.event_type == EventType.ORDER_CANCELLED
         ]
         assert len(order_cancel_events) > 0
         assert order_cancel_events[0].event_data["reason"] == "flash_crash_protection"
 
         # Create recovery checklist
         checklist = recovery_checklist.create_recovery_checklist(
-            emergency_type="flash_crash",
-            severity="HIGH"
+            emergency_type="flash_crash", severity="HIGH"
         )
 
         assert checklist is not None
@@ -346,7 +317,7 @@ class TestEmergencyWorkflow:
         event_bus,
         emergency_controller,
         correlation_detector,
-        deleveraging_protocol
+        deleveraging_protocol,
     ):
         """Test correlation spike detection and response."""
         # Subscribe to events
@@ -355,30 +326,29 @@ class TestEmergencyWorkflow:
         def event_handler(event: Event):
             events_received.append(event)
 
-        event_bus.subscribe(
-            EventType.CORRELATION_ALERT,
-            event_handler
-        )
+        event_bus.subscribe(EventType.CORRELATION_ALERT, event_handler)
 
         # Add price observations to build correlation
         for i in range(30):
             base_price = Decimal("50000")
             # Create correlated price movements
             btc_price = base_price + Decimal(str(i * 100))
-            eth_price = Decimal("3000") + Decimal(str(i * 7.5))  # 75% correlation pattern
+            eth_price = Decimal("3000") + Decimal(
+                str(i * 7.5)
+            )  # 75% correlation pattern
 
             correlation_detector.add_price_observation(
                 "BTC-USDT",
                 btc_price,
                 Decimal("100"),
-                datetime.now(UTC) - timedelta(minutes=30 - i)
+                datetime.now(UTC) - timedelta(minutes=30 - i),
             )
 
             correlation_detector.add_price_observation(
                 "ETH-USDT",
                 eth_price,
                 Decimal("50"),
-                datetime.now(UTC) - timedelta(minutes=30 - i)
+                datetime.now(UTC) - timedelta(minutes=30 - i),
             )
 
         # Calculate correlation matrix
@@ -394,10 +364,7 @@ class TestEmergencyWorkflow:
             assert matrix[key] > Decimal("0.60")  # Should show correlation
 
         # Get position recommendations
-        positions = {
-            "BTC-USDT": Decimal("10000"),
-            "ETH-USDT": Decimal("5000")
-        }
+        positions = {"BTC-USDT": Decimal("10000"), "ETH-USDT": Decimal("5000")}
 
         recommendations = correlation_detector.get_position_recommendations(positions)
 
@@ -408,22 +375,19 @@ class TestEmergencyWorkflow:
 
         # Check for correlation alerts
         correlation_alerts = [
-            e for e in events_received
-            if e.event_type == EventType.CORRELATION_ALERT
+            e for e in events_received if e.event_type == EventType.CORRELATION_ALERT
         ]
 
         # May or may not have alerts depending on actual correlation calculated
         if correlation_alerts:
             assert correlation_alerts[0].event_data["alert_type"] in [
-                "correlation_spike", "correlation_recovered"
+                "correlation_spike",
+                "correlation_recovered",
             ]
 
     @pytest.mark.asyncio
     async def test_liquidity_crisis_workflow(
-        self,
-        event_bus,
-        emergency_controller,
-        liquidity_monitor
+        self, event_bus, emergency_controller, liquidity_monitor
     ):
         """Test liquidity crisis detection and response."""
         # Subscribe to events
@@ -432,10 +396,7 @@ class TestEmergencyWorkflow:
         def event_handler(event: Event):
             events_received.append(event)
 
-        event_bus.subscribe(
-            EventType.MARKET_STATE_CHANGE,
-            event_handler
-        )
+        event_bus.subscribe(EventType.MARKET_STATE_CHANGE, event_handler)
 
         # Process healthy order book first (to establish baseline)
         healthy_bids = [
@@ -453,7 +414,7 @@ class TestEmergencyWorkflow:
             "BTC-USDT",
             healthy_bids,
             healthy_asks,
-            datetime.now(UTC) - timedelta(minutes=5)
+            datetime.now(UTC) - timedelta(minutes=5),
         )
 
         # Calculate baseline liquidity score
@@ -470,10 +431,7 @@ class TestEmergencyWorkflow:
         ]
 
         liquidity_monitor.process_order_book(
-            "BTC-USDT",
-            crisis_bids,
-            crisis_asks,
-            datetime.now(UTC)
+            "BTC-USDT", crisis_bids, crisis_asks, datetime.now(UTC)
         )
 
         # Calculate new liquidity score (should be much lower)
@@ -486,8 +444,7 @@ class TestEmergencyWorkflow:
 
         # Check for liquidity events
         market_events = [
-            e for e in events_received
-            if e.event_type == EventType.MARKET_STATE_CHANGE
+            e for e in events_received if e.event_type == EventType.MARKET_STATE_CHANGE
         ]
 
         # May have liquidity crisis alert if score is low enough
@@ -496,11 +453,7 @@ class TestEmergencyWorkflow:
             assert market_events[0].event_data["state"] == "liquidity_crisis"
 
     @pytest.mark.asyncio
-    async def test_manual_override_workflow(
-        self,
-        event_bus,
-        emergency_controller
-    ):
+    async def test_manual_override_workflow(self, event_bus, emergency_controller):
         """Test manual override of emergency halt."""
         # Trigger an emergency first
         emergency_controller.daily_start_balance = Decimal("1000")
@@ -526,19 +479,16 @@ class TestEmergencyWorkflow:
         # Verify override expires
         emergency_controller.override_expiry = datetime.now(UTC) - timedelta(seconds=1)
         assert emergency_controller._is_override_active() is False
-        assert emergency_controller.state == EmergencyState.EMERGENCY  # Back to emergency
+        assert (
+            emergency_controller.state == EmergencyState.EMERGENCY
+        )  # Back to emergency
 
     @pytest.mark.asyncio
-    async def test_complete_recovery_workflow(
-        self,
-        event_bus,
-        recovery_checklist
-    ):
+    async def test_complete_recovery_workflow(self, event_bus, recovery_checklist):
         """Test complete recovery checklist workflow."""
         # Create checklist
         checklist = recovery_checklist.create_recovery_checklist(
-            emergency_type="daily_loss_halt",
-            severity="CRITICAL"
+            emergency_type="daily_loss_halt", severity="CRITICAL"
         )
 
         assert checklist is not None
@@ -550,19 +500,13 @@ class TestEmergencyWorkflow:
 
         # Process immediate phase items
         immediate_items = [
-            item for item in checklist.items
-            if item.phase == RecoveryPhase.IMMEDIATE
+            item for item in checklist.items if item.phase == RecoveryPhase.IMMEDIATE
         ]
 
         for item in immediate_items[:2]:  # Complete first 2 items
-            await recovery_checklist.start_item(
-                checklist.checklist_id,
-                item.item_id
-            )
+            await recovery_checklist.start_item(checklist.checklist_id, item.item_id)
             await recovery_checklist.complete_item(
-                checklist.checklist_id,
-                item.item_id,
-                notes=f"Completed {item.title}"
+                checklist.checklist_id, item.item_id, notes=f"Completed {item.title}"
             )
 
         # Check progress
@@ -571,10 +515,7 @@ class TestEmergencyWorkflow:
         assert status["completed_items"] == 2
 
     @pytest.mark.asyncio
-    async def test_emergency_report_generation(
-        self,
-        emergency_controller
-    ):
+    async def test_emergency_report_generation(self, emergency_controller):
         """Test comprehensive emergency report generation."""
         # Set up various emergency conditions
         emergency_controller.daily_loss_percent = Decimal("0.12")
@@ -583,8 +524,12 @@ class TestEmergencyWorkflow:
         emergency_controller.successful_interventions = 4
 
         # Add correlation data
-        emergency_controller.correlation_matrix[("BTC-USDT", "ETH-USDT")] = Decimal("0.85")
-        emergency_controller.correlation_matrix[("BTC-USDT", "SOL-USDT")] = Decimal("0.72")
+        emergency_controller.correlation_matrix[("BTC-USDT", "ETH-USDT")] = Decimal(
+            "0.85"
+        )
+        emergency_controller.correlation_matrix[("BTC-USDT", "SOL-USDT")] = Decimal(
+            "0.72"
+        )
 
         # Add liquidity data
         emergency_controller.liquidity_scores["BTC-USDT"] = Decimal("0.25")
@@ -630,8 +575,8 @@ async def test_performance_under_load(event_bus, emergency_controller):
             event_data={
                 "symbol": f"TEST-{i % 10}",
                 "price": str(50000 + i),
-                "liquidity_score": str(0.5 + (i % 100) / 200)
-            }
+                "liquidity_score": str(0.5 + (i % 100) / 200),
+            },
         )
         await emergency_controller._handle_market_update(event)
 

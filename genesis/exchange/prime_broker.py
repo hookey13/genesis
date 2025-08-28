@@ -120,20 +120,20 @@ class MultiVenueRouter:
         """Route order to best venue."""
         # Smart order routing logic would go here
         venue = self._select_venue(order)
-        
+
         if venue not in self.adapters:
             raise ValueError(f"Venue {venue} not configured")
-        
+
         adapter = self.adapters[venue]
         order_id = await adapter.send_order(order)
-        
+
         logger.info(
             "order_routed",
             venue=venue,
             order_id=order_id,
             symbol=order.get("symbol"),
         )
-        
+
         return order_id
 
     def _select_venue(self, order: Dict[str, Any]) -> str:

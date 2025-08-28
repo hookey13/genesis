@@ -33,7 +33,7 @@ def sniper_account():
     return Account(
         account_id="test-account-1",
         balance_usdt=Decimal("500"),
-        tier=TradingTier.SNIPER
+        tier=TradingTier.SNIPER,
     )
 
 
@@ -43,7 +43,7 @@ def hunter_account():
     return Account(
         account_id="test-account-2",
         balance_usdt=Decimal("5000"),
-        tier=TradingTier.HUNTER
+        tier=TradingTier.HUNTER,
     )
 
 
@@ -56,7 +56,7 @@ def trading_session(sniper_account):
         session_date=datetime.now(),
         starting_balance=sniper_account.balance_usdt,
         current_balance=sniper_account.balance_usdt,
-        daily_loss_limit=Decimal("25")
+        daily_loss_limit=Decimal("25"),
     )
 
 
@@ -78,8 +78,7 @@ class TestPositionSizing:
         # Position value = 12.5 * $100 = $1250 (but limited by balance)
 
         size = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("100")
+            symbol="BTC/USDT", entry_price=Decimal("100")
         )
 
         # Should be limited by the 5% rule
@@ -91,7 +90,7 @@ class TestPositionSizing:
         size = risk_engine.calculate_position_size(
             symbol="BTC/USDT",
             entry_price=Decimal("100"),
-            custom_risk_percent=Decimal("2")  # 2% instead of 5%
+            custom_risk_percent=Decimal("2"),  # 2% instead of 5%
         )
 
         # Should use 2% risk
@@ -105,9 +104,7 @@ class TestPositionSizing:
         stop_loss = Decimal("95")  # 5% stop loss
 
         size = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=entry_price,
-            stop_loss_price=stop_loss
+            symbol="BTC/USDT", entry_price=entry_price, stop_loss_price=stop_loss
         )
 
         # Risk per unit = $5
@@ -123,8 +120,7 @@ class TestPositionSizing:
         # Try to create a position with insufficient balance
         with pytest.raises(MinimumPositionSize) as exc_info:
             risk_engine.calculate_position_size(
-                symbol="BTC/USDT",
-                entry_price=Decimal("100")
+                symbol="BTC/USDT", entry_price=Decimal("100")
             )
 
         assert exc_info.value.minimum_size == Decimal("10")
@@ -135,8 +131,7 @@ class TestPositionSizing:
 
         with pytest.raises(MinimumPositionSize) as exc_info:
             risk_engine.calculate_position_size(
-                symbol="BTC/USDT",
-                entry_price=Decimal("100")
+                symbol="BTC/USDT", entry_price=Decimal("100")
             )
 
         # Balance too low to meet minimum position size
@@ -145,8 +140,7 @@ class TestPositionSizing:
     def test_position_size_decimal_precision(self, risk_engine):
         """Test Decimal precision in position sizing."""
         size = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("12345.6789")
+            symbol="BTC/USDT", entry_price=Decimal("12345.6789")
         )
 
         # Should have 8 decimal places (crypto standard)
@@ -160,9 +154,7 @@ class TestStopLossCalculation:
     def test_calculate_stop_loss_long(self, risk_engine):
         """Test stop loss calculation for long position."""
         entry_price = Decimal("100")
-        stop_loss = risk_engine.calculate_stop_loss(
-            entry_price, PositionSide.LONG
-        )
+        stop_loss = risk_engine.calculate_stop_loss(entry_price, PositionSide.LONG)
 
         # Default 2% below entry for long
         expected = Decimal("98")
@@ -171,9 +163,7 @@ class TestStopLossCalculation:
     def test_calculate_stop_loss_short(self, risk_engine):
         """Test stop loss calculation for short position."""
         entry_price = Decimal("100")
-        stop_loss = risk_engine.calculate_stop_loss(
-            entry_price, PositionSide.SHORT
-        )
+        stop_loss = risk_engine.calculate_stop_loss(entry_price, PositionSide.SHORT)
 
         # Default 2% above entry for short
         expected = Decimal("102")
@@ -183,9 +173,7 @@ class TestStopLossCalculation:
         """Test stop loss with custom percentage."""
         entry_price = Decimal("100")
         stop_loss = risk_engine.calculate_stop_loss(
-            entry_price,
-            PositionSide.LONG,
-            stop_loss_percent=Decimal("5")
+            entry_price, PositionSide.LONG, stop_loss_percent=Decimal("5")
         )
 
         expected = Decimal("95")
@@ -194,9 +182,7 @@ class TestStopLossCalculation:
     def test_stop_loss_decimal_precision(self, risk_engine):
         """Test stop loss decimal precision."""
         entry_price = Decimal("12345.6789")
-        stop_loss = risk_engine.calculate_stop_loss(
-            entry_price, PositionSide.LONG
-        )
+        stop_loss = risk_engine.calculate_stop_loss(entry_price, PositionSide.LONG)
 
         # Should have 8 decimal places
         assert isinstance(stop_loss, Decimal)
@@ -215,7 +201,7 @@ class TestPnLCalculations:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         pnl = risk_engine.calculate_pnl(position, Decimal("110"))
@@ -232,7 +218,7 @@ class TestPnLCalculations:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         pnl = risk_engine.calculate_pnl(position, Decimal("90"))
@@ -249,7 +235,7 @@ class TestPnLCalculations:
             side=PositionSide.SHORT,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         # Price goes down = profit for short
@@ -267,7 +253,7 @@ class TestPnLCalculations:
             side=PositionSide.SHORT,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         # Price goes up = loss for short
@@ -285,7 +271,7 @@ class TestPnLCalculations:
             side=PositionSide.LONG,
             entry_price=Decimal("12345.6789"),
             quantity=Decimal("0.12345678"),
-            dollar_value=Decimal("1524.5061")
+            dollar_value=Decimal("1524.5061"),
         )
 
         pnl = risk_engine.calculate_pnl(position, Decimal("12400"))
@@ -306,7 +292,7 @@ class TestRiskValidation:
             symbol="BTC/USDT",
             side=PositionSide.LONG,
             quantity=Decimal("0.2"),  # $20 position value
-            entry_price=Decimal("100")
+            entry_price=Decimal("100"),
         )
 
     def test_validate_minimum_position_size(self, risk_engine):
@@ -316,7 +302,7 @@ class TestRiskValidation:
                 symbol="BTC/USDT",
                 side=PositionSide.LONG,
                 quantity=Decimal("0.00001"),  # Too small
-                entry_price=Decimal("100")
+                entry_price=Decimal("100"),
             )
 
     def test_validate_insufficient_balance(self, risk_engine):
@@ -326,7 +312,7 @@ class TestRiskValidation:
                 symbol="BTC/USDT",
                 side=PositionSide.LONG,
                 quantity=Decimal("10"),  # $1000 position
-                entry_price=Decimal("100")
+                entry_price=Decimal("100"),
             )
 
     def test_validate_position_risk_exceeded(self, risk_engine):
@@ -338,7 +324,7 @@ class TestRiskValidation:
                 symbol="BTC/USDT",
                 side=PositionSide.LONG,
                 quantity=Decimal("1"),  # $100 = 10% of balance
-                entry_price=Decimal("100")
+                entry_price=Decimal("100"),
             )
 
         assert exc_info.value.limit_type == "position_risk"
@@ -354,7 +340,7 @@ class TestRiskValidation:
                 symbol="BTC/USDT",
                 side=PositionSide.LONG,
                 quantity=Decimal("0.2"),  # $20 position value >= minimum
-                entry_price=Decimal("100")
+                entry_price=Decimal("100"),
             )
 
         assert exc_info.value.daily_limit == Decimal("25")
@@ -369,7 +355,7 @@ class TestRiskValidation:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("0.01"),
-            dollar_value=Decimal("1")
+            dollar_value=Decimal("1"),
         )
         risk_engine.add_position(position)
 
@@ -378,7 +364,7 @@ class TestRiskValidation:
                 symbol="ETH/USDT",
                 side=PositionSide.LONG,
                 quantity=Decimal("0.2"),  # $20 position value >= minimum
-                entry_price=Decimal("100")
+                entry_price=Decimal("100"),
             )
 
         assert exc_info.value.limit_type == "max_positions"
@@ -416,7 +402,7 @@ class TestDailyLossLimit:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("0.01"),
-            dollar_value=Decimal("1")
+            dollar_value=Decimal("1"),
         )
         risk_engine.add_position(position)
 
@@ -435,7 +421,7 @@ class TestPositionManagement:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         risk_engine.add_position(position)
@@ -451,7 +437,7 @@ class TestPositionManagement:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         risk_engine.add_position(position)
@@ -469,7 +455,7 @@ class TestPositionManagement:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
         position2 = Position(
             position_id="pos-2",
@@ -478,16 +464,13 @@ class TestPositionManagement:
             side=PositionSide.SHORT,
             entry_price=Decimal("50"),
             quantity=Decimal("2"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         risk_engine.add_position(position1)
         risk_engine.add_position(position2)
 
-        price_updates = {
-            "BTC/USDT": Decimal("110"),
-            "ETH/USDT": Decimal("45")
-        }
+        price_updates = {"BTC/USDT": Decimal("110"), "ETH/USDT": Decimal("45")}
 
         risk_engine.update_all_pnl(price_updates)
 
@@ -505,7 +488,7 @@ class TestPositionManagement:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
         position2 = Position(
             position_id="pos-2",
@@ -514,7 +497,7 @@ class TestPositionManagement:
             side=PositionSide.SHORT,
             entry_price=Decimal("50"),
             quantity=Decimal("2"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         risk_engine.add_position(position1)
@@ -534,7 +517,7 @@ class TestPositionManagement:
             quantity=Decimal("1"),
             dollar_value=Decimal("100"),
             pnl_dollars=Decimal("10"),
-            pnl_percent=Decimal("10")
+            pnl_percent=Decimal("10"),
         )
         position2 = Position(
             position_id="pos-2",
@@ -545,7 +528,7 @@ class TestPositionManagement:
             quantity=Decimal("2"),
             dollar_value=Decimal("100"),
             pnl_dollars=Decimal("-5"),
-            pnl_percent=Decimal("-5")
+            pnl_percent=Decimal("-5"),
         )
 
         risk_engine.add_position(position1)
@@ -581,7 +564,7 @@ class TestTierEnforcement:
             side=PositionSide.LONG,
             entry_price=Decimal("100"),
             quantity=Decimal("1"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
         position2 = Position(
             position_id="pos-2",
@@ -590,7 +573,7 @@ class TestTierEnforcement:
             side=PositionSide.LONG,
             entry_price=Decimal("50"),
             quantity=Decimal("2"),
-            dollar_value=Decimal("100")
+            dollar_value=Decimal("100"),
         )
 
         risk_engine.add_position(position1)
@@ -606,16 +589,13 @@ class TestEdgeCases:
     def test_zero_balance(self):
         """Test with zero account balance."""
         account = Account(
-            account_id="test-zero",
-            balance_usdt=Decimal("0"),
-            tier=TradingTier.SNIPER
+            account_id="test-zero", balance_usdt=Decimal("0"), tier=TradingTier.SNIPER
         )
         risk_engine = RiskEngine(account)
 
         with pytest.raises(InsufficientBalance):
             risk_engine.calculate_position_size(
-                symbol="BTC/USDT",
-                entry_price=Decimal("100")
+                symbol="BTC/USDT", entry_price=Decimal("100")
             )
 
     def test_minimum_balance(self):
@@ -623,14 +603,13 @@ class TestEdgeCases:
         account = Account(
             account_id="test-min",
             balance_usdt=Decimal("10"),  # Exactly minimum position size
-            tier=TradingTier.SNIPER
+            tier=TradingTier.SNIPER,
         )
         risk_engine = RiskEngine(account)
 
         # With $10 balance and 5% risk, should meet minimum position size
         size = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("100")
+            symbol="BTC/USDT", entry_price=Decimal("100")
         )
         # Should allow minimum position size
         assert size * Decimal("100") >= Decimal("10")
@@ -641,8 +620,7 @@ class TestEdgeCases:
 
         # Should still work for basic operations
         size = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("100")
+            symbol="BTC/USDT", entry_price=Decimal("100")
         )
         assert size > 0
 
@@ -651,23 +629,21 @@ class TestEdgeCases:
             symbol="BTC/USDT",
             side=PositionSide.LONG,
             quantity=Decimal("0.2"),  # $20 position value >= minimum
-            entry_price=Decimal("100")
+            entry_price=Decimal("100"),
         )
 
     def test_extreme_prices(self, risk_engine):
         """Test with extreme price values."""
         # Very high price
         size = risk_engine.calculate_position_size(
-            symbol="BTC/USDT",
-            entry_price=Decimal("999999.99")
+            symbol="BTC/USDT", entry_price=Decimal("999999.99")
         )
         assert size > 0
         assert size * Decimal("999999.99") <= risk_engine.account.balance_usdt
 
         # Very low price
         size = risk_engine.calculate_position_size(
-            symbol="SHIB/USDT",
-            entry_price=Decimal("0.00001")
+            symbol="SHIB/USDT", entry_price=Decimal("0.00001")
         )
         assert size > 0
 
@@ -680,7 +656,7 @@ class TestEdgeCases:
             side=PositionSide.LONG,
             entry_price=Decimal("0.00000001"),
             quantity=Decimal("999999999999"),
-            dollar_value=Decimal("10")
+            dollar_value=Decimal("10"),
         )
 
         # Should handle extreme values without overflow

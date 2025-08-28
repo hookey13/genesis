@@ -31,7 +31,7 @@ class MousePatternsIndicator:
         self,
         window_size: int = 100,
         rapid_click_threshold_ms: int = 200,
-        jitter_threshold_pixels: int = 5
+        jitter_threshold_pixels: int = 5,
     ):
         """Initialize mouse patterns indicator.
 
@@ -60,7 +60,7 @@ class MousePatternsIndicator:
         self,
         position: tuple[int, int],
         duration_ms: float,
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> dict:
         """Record a mouse click event.
 
@@ -80,7 +80,7 @@ class MousePatternsIndicator:
             event_type="click",
             position=position,
             velocity=None,
-            click_duration_ms=duration_ms
+            click_duration_ms=duration_ms,
         )
 
         self.mouse_events.append(event)
@@ -101,7 +101,7 @@ class MousePatternsIndicator:
         start_pos: tuple[int, int],
         end_pos: tuple[int, int],
         duration_ms: float,
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> dict:
         """Record a mouse movement event.
 
@@ -118,8 +118,9 @@ class MousePatternsIndicator:
             timestamp = datetime.now(UTC)
 
         # Calculate velocity
-        distance = ((end_pos[0] - start_pos[0])**2 +
-                   (end_pos[1] - start_pos[1])**2) ** 0.5
+        distance = (
+            (end_pos[0] - start_pos[0]) ** 2 + (end_pos[1] - start_pos[1]) ** 2
+        ) ** 0.5
         velocity = (distance / duration_ms) * 1000 if duration_ms > 0 else 0
 
         event = MouseEvent(
@@ -127,7 +128,7 @@ class MousePatternsIndicator:
             event_type="move",
             position=end_pos,
             velocity=velocity,
-            click_duration_ms=None
+            click_duration_ms=None,
         )
 
         self.mouse_events.append(event)
@@ -146,10 +147,7 @@ class MousePatternsIndicator:
             Dictionary with mouse pattern analysis
         """
         if not self.mouse_events:
-            return {
-                "has_data": False,
-                "sample_count": 0
-            }
+            return {"has_data": False, "sample_count": 0}
 
         # Separate events by type
         clicks = [e for e in self.mouse_events if e.event_type == "click"]
@@ -162,10 +160,7 @@ class MousePatternsIndicator:
         movement_analysis = self._analyze_movements(moves)
 
         # Calculate overall anomaly score
-        anomaly_score = self._calculate_anomaly_score(
-            click_analysis,
-            movement_analysis
-        )
+        anomaly_score = self._calculate_anomaly_score(click_analysis, movement_analysis)
 
         return {
             "has_data": True,
@@ -177,7 +172,7 @@ class MousePatternsIndicator:
             "rapid_click_count": self.rapid_click_count,
             "double_click_count": self.double_click_count,
             "jitter_count": self.jitter_count,
-            "anomaly_score": anomaly_score
+            "anomaly_score": anomaly_score,
         }
 
     def _analyze_clicks(self, clicks: list[MouseEvent]) -> dict:
@@ -211,7 +206,7 @@ class MousePatternsIndicator:
             "click_rate_per_second": click_rate,
             "avg_click_duration_ms": avg_duration,
             "rapid_clicking": rapid_clicking,
-            "long_clicks": long_clicks
+            "long_clicks": long_clicks,
         }
 
     def _analyze_movements(self, moves: list[MouseEvent]) -> dict:
@@ -237,8 +232,10 @@ class MousePatternsIndicator:
 
         # Calculate variance
         if len(velocities) > 1:
-            variance = sum((v - avg_velocity) ** 2 for v in velocities) / len(velocities)
-            std_dev = variance ** 0.5
+            variance = sum((v - avg_velocity) ** 2 for v in velocities) / len(
+                velocities
+            )
+            std_dev = variance**0.5
         else:
             std_dev = 0
 
@@ -254,7 +251,7 @@ class MousePatternsIndicator:
             "velocity_std_dev": std_dev,
             "erratic_movement": erratic_movement,
             "very_fast_movement": very_fast,
-            "very_slow_movement": very_slow
+            "very_slow_movement": very_slow,
         }
 
     def _detect_rapid_clicking(self) -> bool:
@@ -286,10 +283,7 @@ class MousePatternsIndicator:
         return time_diff < 500  # Standard double-click time
 
     def _detect_jitter(
-        self,
-        start_pos: tuple[int, int],
-        end_pos: tuple[int, int],
-        distance: float
+        self, start_pos: tuple[int, int], end_pos: tuple[int, int], distance: float
     ) -> bool:
         """Detect jittery movement.
 
@@ -305,9 +299,7 @@ class MousePatternsIndicator:
         return distance < self.jitter_threshold_pixels and distance > 0
 
     def _calculate_anomaly_score(
-        self,
-        click_analysis: dict,
-        movement_analysis: dict
+        self, click_analysis: dict, movement_analysis: dict
     ) -> int:
         """Calculate overall anomaly score.
 
@@ -369,7 +361,7 @@ class MousePatternsIndicator:
                 "stress_detected": True,
                 "indicators": stress_indicators,
                 "anomaly_score": analysis.get("anomaly_score", 0),
-                "severity": min(len(stress_indicators) * 3, 10)
+                "severity": min(len(stress_indicators) * 3, 10),
             }
 
         return None

@@ -24,7 +24,7 @@ class TestCircuitBreaker:
             name="test",
             failure_threshold=5,
             failure_window_seconds=30,
-            recovery_timeout_seconds=60
+            recovery_timeout_seconds=60,
         )
 
         assert breaker.name == "test"
@@ -37,6 +37,7 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_successful_call(self, circuit_breaker):
         """Test successful function call through circuit breaker."""
+
         async def successful_func():
             return "success"
 
@@ -50,6 +51,7 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_failed_call(self, circuit_breaker):
         """Test failed function call through circuit breaker."""
+
         async def failing_func():
             raise Exception("Test error")
 
@@ -58,11 +60,14 @@ class TestCircuitBreaker:
 
         assert circuit_breaker.failed_calls == 1
         assert len(circuit_breaker.failures) == 1
-        assert circuit_breaker.state == CircuitState.CLOSED  # Still closed (threshold not reached)
+        assert (
+            circuit_breaker.state == CircuitState.CLOSED
+        )  # Still closed (threshold not reached)
 
     @pytest.mark.asyncio
     async def test_circuit_trip(self, circuit_breaker):
         """Test circuit tripping after threshold failures."""
+
         async def failing_func():
             raise Exception("Test error")
 
@@ -81,10 +86,16 @@ class TestCircuitBreaker:
             assert False, "Expected CircuitOpenError to be raised"
         except Exception as e:
             # Handle case where clean_imports fixture causes exception class mismatch
-            if type(e).__name__ == 'CircuitOpenError' and 'Circuit breaker test is OPEN' in str(e):
+            if type(
+                e
+            ).__name__ == "CircuitOpenError" and "Circuit breaker test is OPEN" in str(
+                e
+            ):
                 assert circuit_breaker.rejected_calls == 1
             else:
-                raise AssertionError(f"Expected CircuitOpenError but got {type(e).__name__}: {e}")
+                raise AssertionError(
+                    f"Expected CircuitOpenError but got {type(e).__name__}: {e}"
+                )
 
     @pytest.mark.asyncio
     async def test_half_open_state(self, circuit_breaker):
@@ -149,16 +160,14 @@ class TestCircuitBreaker:
         # Add old failure (outside window)
         circuit_breaker.failures.append(
             FailureRecord(
-                timestamp=current_time - 20,  # Outside 10s window
-                error="Old error"
+                timestamp=current_time - 20, error="Old error"  # Outside 10s window
             )
         )
 
         # Add recent failure
         circuit_breaker.failures.append(
             FailureRecord(
-                timestamp=current_time - 5,  # Inside window
-                error="Recent error"
+                timestamp=current_time - 5, error="Recent error"  # Inside window
             )
         )
 
@@ -171,9 +180,7 @@ class TestCircuitBreaker:
         """Test manual circuit reset."""
         # Set circuit to open state
         circuit_breaker.state = CircuitState.OPEN
-        circuit_breaker.failures = [
-            FailureRecord(timestamp=time.time(), error="Error")
-        ]
+        circuit_breaker.failures = [FailureRecord(timestamp=time.time(), error="Error")]
         circuit_breaker.consecutive_successes = 1
         circuit_breaker.current_backoff = 4.0
 
@@ -204,6 +211,7 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_sync_function_call(self, circuit_breaker):
         """Test calling synchronous function through circuit breaker."""
+
         def sync_func():
             return "sync_result"
 

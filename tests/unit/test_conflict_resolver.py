@@ -42,7 +42,7 @@ def sample_signals():
             "price": Decimal("50000"),
             "priority": 2,
             "confidence": Decimal("0.8"),
-            "timestamp": datetime.now(UTC)
+            "timestamp": datetime.now(UTC),
         },
         {
             "strategy_id": "mean_reversion",
@@ -52,7 +52,7 @@ def sample_signals():
             "price": Decimal("50100"),
             "priority": 3,
             "confidence": Decimal("0.7"),
-            "timestamp": datetime.now(UTC)
+            "timestamp": datetime.now(UTC),
         },
         {
             "strategy_id": "arbitrage",
@@ -62,8 +62,8 @@ def sample_signals():
             "price": Decimal("3000"),
             "priority": 1,
             "confidence": Decimal("0.9"),
-            "timestamp": datetime.now(UTC)
-        }
+            "timestamp": datetime.now(UTC),
+        },
     ]
 
 
@@ -87,6 +87,7 @@ class TestConflictResolver:
 
     def test_add_resolution_rule(self, resolver):
         """Test adding custom resolution rules"""
+
         def custom_rule(signals):
             return signals[0] if signals else None
 
@@ -108,7 +109,9 @@ class TestConflictResolver:
         resolver.remove_veto_strategy("risk_manager")
         assert "risk_manager" not in resolver.veto_strategies
 
-    def test_detect_conflicts_same_symbol_opposite_action(self, resolver, sample_signals):
+    def test_detect_conflicts_same_symbol_opposite_action(
+        self, resolver, sample_signals
+    ):
         """Test detecting conflicts for same symbol, opposite actions"""
         conflicts = resolver._detect_conflicts(sample_signals[:2])
 
@@ -134,15 +137,15 @@ class TestConflictResolver:
                 "symbol": "BTC/USDT",
                 "action": "buy",
                 "quantity": Decimal("1"),
-                "price": Decimal("50000")
+                "price": Decimal("50000"),
             },
             {
                 "strategy_id": "trend_following",
                 "symbol": "BTC/USDT",
                 "action": "buy",
                 "quantity": Decimal("2"),
-                "price": Decimal("49900")
-            }
+                "price": Decimal("49900"),
+            },
         ]
 
         conflicts = resolver._detect_conflicts(signals)
@@ -181,7 +184,7 @@ class TestConflictResolver:
         signals = [
             {"strategy_id": "s1", "symbol": "BTC/USDT", "action": "buy", "votes": 2},
             {"strategy_id": "s2", "symbol": "BTC/USDT", "action": "sell", "votes": 1},
-            {"strategy_id": "s3", "symbol": "BTC/USDT", "action": "buy", "votes": 2}
+            {"strategy_id": "s3", "symbol": "BTC/USDT", "action": "buy", "votes": 2},
         ]
 
         resolved = await resolver.resolve(signals)
@@ -199,7 +202,7 @@ class TestConflictResolver:
         signals = [
             {"strategy_id": "s1", "symbol": "BTC/USDT", "action": "buy"},
             {"strategy_id": "s2", "symbol": "BTC/USDT", "action": "buy"},
-            {"strategy_id": "s3", "symbol": "BTC/USDT", "action": "buy"}
+            {"strategy_id": "s3", "symbol": "BTC/USDT", "action": "buy"},
         ]
 
         resolved = await resolver.resolve(signals)
@@ -220,7 +223,7 @@ class TestConflictResolver:
             "strategy_id": "risk_manager",
             "symbol": "BTC/USDT",
             "action": "veto",
-            "reason": "Risk limit exceeded"
+            "reason": "Risk limit exceeded",
         }
 
         signals = sample_signals[:2] + [veto_signal]
@@ -232,6 +235,7 @@ class TestConflictResolver:
     @pytest.mark.asyncio
     async def test_resolve_with_custom_rule(self, resolver, sample_signals):
         """Test resolution with custom rule"""
+
         def largest_quantity_wins(conflicting_signals):
             """Custom rule: largest quantity wins"""
             return max(conflicting_signals, key=lambda s: s.get("quantity", 0))
@@ -252,9 +256,19 @@ class TestConflictResolver:
         """Test resolving multiple independent conflicts"""
         signals = [
             {"strategy_id": "s1", "symbol": "BTC/USDT", "action": "buy", "priority": 1},
-            {"strategy_id": "s2", "symbol": "BTC/USDT", "action": "sell", "priority": 2},
+            {
+                "strategy_id": "s2",
+                "symbol": "BTC/USDT",
+                "action": "sell",
+                "priority": 2,
+            },
             {"strategy_id": "s3", "symbol": "ETH/USDT", "action": "buy", "priority": 1},
-            {"strategy_id": "s4", "symbol": "ETH/USDT", "action": "sell", "priority": 3}
+            {
+                "strategy_id": "s4",
+                "symbol": "ETH/USDT",
+                "action": "sell",
+                "priority": 3,
+            },
         ]
 
         resolver.set_resolution_method(ResolutionMethod.PRIORITY)
@@ -269,7 +283,9 @@ class TestConflictResolver:
         assert eth_signal["strategy_id"] == "s4"  # Higher priority
 
     @pytest.mark.asyncio
-    async def test_conflict_event_published(self, resolver, mock_event_bus, sample_signals):
+    async def test_conflict_event_published(
+        self, resolver, mock_event_bus, sample_signals
+    ):
         """Test that conflict events are published"""
         await resolver.resolve(sample_signals[:2])
 
@@ -297,20 +313,24 @@ class TestConflictResolver:
         """Test conflict statistics calculation"""
         # Add some conflict history
         for _ in range(10):
-            resolver.conflict_history.append(SignalConflict(
-                conflict_type=ConflictType.OPPOSITE_DIRECTION,
-                symbol="BTC/USDT",
-                conflicting_signals=[],
-                timestamp=datetime.now(UTC)
-            ))
+            resolver.conflict_history.append(
+                SignalConflict(
+                    conflict_type=ConflictType.OPPOSITE_DIRECTION,
+                    symbol="BTC/USDT",
+                    conflicting_signals=[],
+                    timestamp=datetime.now(UTC),
+                )
+            )
 
         for _ in range(5):
-            resolver.conflict_history.append(SignalConflict(
-                conflict_type=ConflictType.QUANTITY_MISMATCH,
-                symbol="ETH/USDT",
-                conflicting_signals=[],
-                timestamp=datetime.now(UTC)
-            ))
+            resolver.conflict_history.append(
+                SignalConflict(
+                    conflict_type=ConflictType.QUANTITY_MISMATCH,
+                    symbol="ETH/USDT",
+                    conflicting_signals=[],
+                    timestamp=datetime.now(UTC),
+                )
+            )
 
         stats = resolver.get_conflict_statistics()
 
@@ -338,7 +358,7 @@ class TestConflictResolver:
         # Opposite direction
         signals = [
             {"symbol": "BTC/USDT", "action": "buy"},
-            {"symbol": "BTC/USDT", "action": "sell"}
+            {"symbol": "BTC/USDT", "action": "sell"},
         ]
         conflicts = resolver._detect_conflicts(signals)
         assert conflicts[0].conflict_type == ConflictType.OPPOSITE_DIRECTION
@@ -346,7 +366,7 @@ class TestConflictResolver:
         # Quantity mismatch
         signals = [
             {"symbol": "BTC/USDT", "action": "buy", "quantity": Decimal("1")},
-            {"symbol": "BTC/USDT", "action": "buy", "quantity": Decimal("2")}
+            {"symbol": "BTC/USDT", "action": "buy", "quantity": Decimal("2")},
         ]
         conflicts = resolver._detect_conflicts(signals)
         assert conflicts[0].conflict_type == ConflictType.QUANTITY_MISMATCH
@@ -354,7 +374,7 @@ class TestConflictResolver:
         # Price divergence
         signals = [
             {"symbol": "BTC/USDT", "action": "buy", "price": Decimal("50000")},
-            {"symbol": "BTC/USDT", "action": "buy", "price": Decimal("51000")}
+            {"symbol": "BTC/USDT", "action": "buy", "price": Decimal("51000")},
         ]
         conflicts = resolver._detect_conflicts(signals)
         assert conflicts[0].conflict_type == ConflictType.PRICE_DIVERGENCE
@@ -368,14 +388,14 @@ class TestConflictResolver:
                 "strategy_id": "old",
                 "symbol": "BTC/USDT",
                 "action": "buy",
-                "timestamp": now.replace(hour=now.hour - 1)
+                "timestamp": now.replace(hour=now.hour - 1),
             },
             {
                 "strategy_id": "new",
                 "symbol": "BTC/USDT",
                 "action": "sell",
-                "timestamp": now
-            }
+                "timestamp": now,
+            },
         ]
 
         resolver.set_resolution_method(ResolutionMethod.TIMESTAMP)
@@ -390,12 +410,14 @@ class TestConflictResolver:
         resolver.add_veto_strategy("risk_manager")
 
         # Add some history
-        resolver.conflict_history.append(SignalConflict(
-            conflict_type=ConflictType.OPPOSITE_DIRECTION,
-            symbol="BTC/USDT",
-            conflicting_signals=[],
-            timestamp=datetime.now(UTC)
-        ))
+        resolver.conflict_history.append(
+            SignalConflict(
+                conflict_type=ConflictType.OPPOSITE_DIRECTION,
+                symbol="BTC/USDT",
+                conflicting_signals=[],
+                timestamp=datetime.now(UTC),
+            )
+        )
 
         state = resolver.to_dict()
 
@@ -408,7 +430,7 @@ class TestConflictResolver:
         state = {
             "resolution_method": "voting",
             "veto_strategies": ["risk_manager", "compliance"],
-            "conflict_history": []
+            "conflict_history": [],
         }
 
         resolver.from_dict(state)

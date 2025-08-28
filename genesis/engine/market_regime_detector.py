@@ -16,6 +16,7 @@ logger = structlog.get_logger(__name__)
 
 class MarketRegime(str, Enum):
     """Market regime classifications."""
+
     NORMAL = "normal"
     TRENDING_UP = "trending_up"
     TRENDING_DOWN = "trending_down"
@@ -28,6 +29,7 @@ class MarketRegime(str, Enum):
 
 class RegimeIndicator(str, Enum):
     """Indicators for regime detection."""
+
     VOLATILITY = "volatility"
     MOMENTUM = "momentum"
     CORRELATION = "correlation"
@@ -52,10 +54,7 @@ class MarketRegimeDetector:
         """Stop regime detector."""
         logger.info("Market regime detector stopped")
 
-    async def detect_regime(
-        self,
-        market_data: dict | None = None
-    ) -> MarketRegime:
+    async def detect_regime(self, market_data: dict | None = None) -> MarketRegime:
         """
         Detect current market regime.
 
@@ -86,14 +85,16 @@ class MarketRegimeDetector:
         self.last_detection = datetime.now(UTC)
 
         # Publish regime change event
-        await self.event_bus.publish(Event(
-            event_type=EventType.MARKET_STATE_CHANGE,
-            event_data={
-                "regime": self.current_regime.value,
-                "confidence": str(self.regime_confidence),
-                "timestamp": self.last_detection.isoformat()
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.MARKET_STATE_CHANGE,
+                event_data={
+                    "regime": self.current_regime.value,
+                    "confidence": str(self.regime_confidence),
+                    "timestamp": self.last_detection.isoformat(),
+                },
+            )
+        )
 
         return self.current_regime
 
@@ -104,26 +105,26 @@ class MarketRegimeDetector:
                 "volatility": "moderate",
                 "trend": "neutral",
                 "risk_level": "normal",
-                "suggested_strategies": ["mean_reversion", "arbitrage"]
+                "suggested_strategies": ["mean_reversion", "arbitrage"],
             },
             MarketRegime.TRENDING_UP: {
                 "volatility": "low",
                 "trend": "bullish",
                 "risk_level": "low",
-                "suggested_strategies": ["trend_following", "momentum"]
+                "suggested_strategies": ["trend_following", "momentum"],
             },
             MarketRegime.HIGH_VOLATILITY: {
                 "volatility": "high",
                 "trend": "uncertain",
                 "risk_level": "high",
-                "suggested_strategies": ["volatility_arbitrage", "options"]
+                "suggested_strategies": ["volatility_arbitrage", "options"],
             },
             MarketRegime.CRASH: {
                 "volatility": "extreme",
                 "trend": "bearish",
                 "risk_level": "extreme",
-                "suggested_strategies": ["defensive", "cash"]
-            }
+                "suggested_strategies": ["defensive", "cash"],
+            },
         }
 
         return characteristics.get(regime, characteristics[MarketRegime.NORMAL])

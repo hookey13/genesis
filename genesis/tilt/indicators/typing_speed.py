@@ -29,7 +29,7 @@ class TypingSpeedIndicator:
         self,
         window_size: int = 100,
         burst_threshold_wpm: int = 120,
-        slow_threshold_wpm: int = 20
+        slow_threshold_wpm: int = 20,
     ):
         """Initialize typing speed indicator.
 
@@ -53,10 +53,7 @@ class TypingSpeedIndicator:
         self.chars_per_word = 5
 
     def record_keystroke_event(
-        self,
-        key_count: int,
-        duration_ms: float,
-        timestamp: Optional[datetime] = None
+        self, key_count: int, duration_ms: float, timestamp: Optional[datetime] = None
     ) -> dict:
         """Record a keystroke event and analyze patterns.
 
@@ -77,7 +74,7 @@ class TypingSpeedIndicator:
         event = KeystrokeEvent(
             timestamp=timestamp,
             key_count=key_count,
-            time_between_keys_ms=time_between_keys
+            time_between_keys_ms=time_between_keys,
         )
 
         self.keystroke_events.append(event)
@@ -90,11 +87,7 @@ class TypingSpeedIndicator:
         if wpm > self.burst_threshold_wpm:
             self.burst_count += 1
             self.last_burst_time = timestamp
-            logger.debug(
-                "Typing burst detected",
-                wpm=wpm,
-                burst_count=self.burst_count
-            )
+            logger.debug("Typing burst detected", wpm=wpm, burst_count=self.burst_count)
 
         return analysis
 
@@ -105,16 +98,13 @@ class TypingSpeedIndicator:
             Dictionary with typing pattern analysis
         """
         if not self.keystroke_events:
-            return {
-                "has_data": False,
-                "sample_count": 0
-            }
+            return {"has_data": False, "sample_count": 0}
 
         if len(self.keystroke_events) < 3:
             return {
                 "has_data": True,
                 "sample_count": len(self.keystroke_events),
-                "insufficient_data": True
+                "insufficient_data": True,
             }
 
         # Calculate typing speeds
@@ -129,7 +119,7 @@ class TypingSpeedIndicator:
             return {
                 "has_data": True,
                 "sample_count": len(self.keystroke_events),
-                "no_valid_speeds": True
+                "no_valid_speeds": True,
             }
 
         # Calculate statistics
@@ -139,7 +129,7 @@ class TypingSpeedIndicator:
 
         # Calculate variance
         variance = sum((s - avg_wpm) ** 2 for s in speeds_wpm) / len(speeds_wpm)
-        std_dev = variance ** 0.5
+        std_dev = variance**0.5
 
         # Detect patterns
         burst_detected = max_wpm > self.burst_threshold_wpm
@@ -153,9 +143,11 @@ class TypingSpeedIndicator:
             recent_avg = sum(recent_5) / len(recent_5)
             older_avg = sum(older) / len(older)
 
-            acceleration = "increasing" if recent_avg > older_avg * 1.3 else \
-                         "decreasing" if recent_avg < older_avg * 0.7 else \
-                         "stable"
+            acceleration = (
+                "increasing"
+                if recent_avg > older_avg * 1.3
+                else "decreasing" if recent_avg < older_avg * 0.7 else "stable"
+            )
         else:
             acceleration = "insufficient_data"
 
@@ -173,7 +165,7 @@ class TypingSpeedIndicator:
             "burst_count": self.burst_count,
             "anomaly_score": self._calculate_anomaly_score(
                 avg_wpm, std_dev, burst_detected, erratic
-            )
+            ),
         }
 
     def _calculate_wpm(self, key_count: int, duration_ms: float) -> float:
@@ -203,11 +195,7 @@ class TypingSpeedIndicator:
         return wpm
 
     def _calculate_anomaly_score(
-        self,
-        avg_wpm: float,
-        std_dev: float,
-        burst_detected: bool,
-        erratic: bool
+        self, avg_wpm: float, std_dev: float, burst_detected: bool, erratic: bool
     ) -> int:
         """Calculate anomaly score for typing patterns.
 
@@ -278,7 +266,7 @@ class TypingSpeedIndicator:
                 "indicators": stress_indicators,
                 "anomaly_score": analysis.get("anomaly_score", 0),
                 "avg_wpm": analysis.get("avg_wpm", 0),
-                "severity": min(len(stress_indicators) * 3, 10)
+                "severity": min(len(stress_indicators) * 3, 10),
             }
 
         return None

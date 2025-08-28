@@ -96,30 +96,27 @@ def upgrade() -> None:
         sa.UniqueConstraint('account_id', 'symbol', 'period_start', 'period_end', name='unique_performance_period')
     )
 
-    # Update position_correlations table if needed (already exists from migration 005)
-    # Add new columns for enhanced correlation tracking
-    op.add_column('position_correlations', 
-        sa.Column('symbol_1', sa.String(20), nullable=True)
+    # Create position_correlations table
+    op.create_table('position_correlations',
+        sa.Column('id', sa.Integer(), primary_key=True),
+        sa.Column('account_id', sa.String(36), nullable=False),
+        sa.Column('symbol_1', sa.String(20), nullable=False),
+        sa.Column('symbol_2', sa.String(20), nullable=False),
+        sa.Column('correlation_coefficient', sa.Numeric(5, 4), nullable=False),
+        sa.Column('risk_adjustment_factor', sa.Numeric(5, 4), nullable=False, server_default='1.0'),
+        sa.Column('period_start', sa.DateTime(), nullable=False),
+        sa.Column('period_end', sa.DateTime(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
+        sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
+        sa.Index('idx_correlations_symbols', 'symbol_1', 'symbol_2'),
+        sa.Index('idx_correlations_account', 'account_id'),
+        sa.Index('idx_correlations_period', 'period_start', 'period_end')
     )
-    op.add_column('position_correlations',
-        sa.Column('symbol_2', sa.String(20), nullable=True)
-    )
-    op.add_column('position_correlations',
-        sa.Column('risk_adjustment_factor', sa.Numeric(5, 4), nullable=True, server_default='1.0')
-    )
-    
-    # Add index for symbol-based correlation lookups
-    op.create_index('idx_correlations_symbols', 'position_correlations', ['symbol_1', 'symbol_2'])
 
 
 def downgrade() -> None:
-    # Drop indexes
-    op.drop_index('idx_correlations_symbols', 'position_correlations')
-    
-    # Remove columns from position_correlations
-    op.drop_column('position_correlations', 'risk_adjustment_factor')
-    op.drop_column('position_correlations', 'symbol_2')
-    op.drop_column('position_correlations', 'symbol_1')
+    # Drop position_correlations table
+    op.drop_table('position_correlations')
     
     # Drop tables in reverse order
     op.drop_table('pair_performance')

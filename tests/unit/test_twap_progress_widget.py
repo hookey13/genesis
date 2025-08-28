@@ -36,7 +36,7 @@ class TestTwapProgressWidget:
             "participation_rate": "8.5",
             "implementation_shortfall": "0.1",
             "status": "ACTIVE",
-            "started_at": datetime.now()
+            "started_at": datetime.now(),
         }
 
     @pytest.fixture
@@ -49,7 +49,7 @@ class TestTwapProgressWidget:
             "execution_price": "50075",
             "participation_rate": "9.0",
             "slippage_bps": "15",
-            "status": "EXECUTED"
+            "status": "EXECUTED",
         }
 
     def test_init(self, widget):
@@ -80,7 +80,9 @@ class TestTwapProgressWidget:
         assert widget.implementation_shortfall == Decimal("0.1")
         assert widget.status == "ACTIVE"
 
-    def test_add_slice_execution(self, widget, sample_execution_data, sample_slice_data):
+    def test_add_slice_execution(
+        self, widget, sample_execution_data, sample_slice_data
+    ):
         """Test adding slice execution to history."""
         # Initialize widget with execution data
         widget.update_execution(sample_execution_data)
@@ -94,7 +96,10 @@ class TestTwapProgressWidget:
         assert widget.slice_history[0] == sample_slice_data
         assert widget.completed_slices == initial_slices + 1
         assert widget.executed_quantity == initial_executed + Decimal("1.0")
-        assert widget.remaining_quantity == widget.total_quantity - widget.executed_quantity
+        assert (
+            widget.remaining_quantity
+            == widget.total_quantity - widget.executed_quantity
+        )
 
     def test_twap_price_calculation(self, widget):
         """Test TWAP price calculation from slice history."""
@@ -111,7 +116,9 @@ class TestTwapProgressWidget:
             widget.add_slice_execution(slice_data)
 
         # Calculate expected TWAP: (2*50000 + 3*50100 + 2*50200) / 7
-        expected_twap = (Decimal("100000") + Decimal("150300") + Decimal("100400")) / Decimal("7")
+        expected_twap = (
+            Decimal("100000") + Decimal("150300") + Decimal("100400")
+        ) / Decimal("7")
         assert abs(widget.twap_price - expected_twap) < Decimal("0.01")
 
     def test_update_time_remaining(self, widget, sample_execution_data):
@@ -120,7 +127,7 @@ class TestTwapProgressWidget:
         sample_execution_data["started_at"] = datetime.now()
         widget.update_execution(sample_execution_data)
 
-        with patch('genesis.ui.widgets.twap_progress.datetime') as mock_datetime:
+        with patch("genesis.ui.widgets.twap_progress.datetime") as mock_datetime:
             # Mock 30 seconds elapsed
             mock_datetime.now.return_value = widget.started_at.replace(
                 second=widget.started_at.second + 30
@@ -152,10 +159,7 @@ class TestTwapProgressWidget:
         """Test completing execution."""
         widget.update_execution(sample_execution_data)
 
-        final_metrics = {
-            "twap_price": "50080",
-            "implementation_shortfall": "0.16"
-        }
+        final_metrics = {"twap_price": "50080", "implementation_shortfall": "0.16"}
 
         widget.complete_execution(final_metrics)
 
@@ -178,7 +182,7 @@ class TestTwapProgressWidget:
 
     def test_create_header_no_execution(self, widget):
         """Test header creation with no active execution."""
-        with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
+        with patch.object(widget, "query_one", return_value=MagicMock(spec=Static)):
             header = widget._create_header()
             assert header is not None
             # Should show "No active TWAP execution"
@@ -187,7 +191,7 @@ class TestTwapProgressWidget:
         """Test header creation with active execution."""
         widget.update_execution(sample_execution_data)
 
-        with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
+        with patch.object(widget, "query_one", return_value=MagicMock(spec=Static)):
             header = widget._create_header()
             assert header is not None
             # Should show execution details
@@ -196,14 +200,14 @@ class TestTwapProgressWidget:
         """Test metrics table creation."""
         widget.update_execution(sample_execution_data)
 
-        with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
+        with patch.object(widget, "query_one", return_value=MagicMock(spec=Static)):
             table = widget._create_metrics_table()
             assert table is not None
             # Should include price, participation, and shortfall metrics
 
     def test_create_slices_table_empty(self, widget):
         """Test slice table creation with no slices."""
-        with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
+        with patch.object(widget, "query_one", return_value=MagicMock(spec=Static)):
             table = widget._create_slices_table()
             assert table is not None
             # Should show empty table
@@ -216,7 +220,7 @@ class TestTwapProgressWidget:
             slice_data["slice_number"] = i + 1
             widget.slice_history.append(slice_data)
 
-        with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
+        with patch.object(widget, "query_one", return_value=MagicMock(spec=Static)):
             table = widget._create_slices_table()
             assert table is not None
             # Should show last 10 slices plus summary
@@ -228,7 +232,7 @@ class TestTwapProgressWidget:
         for status in statuses:
             widget.status = status
             widget.execution_id = "test"
-            with patch.object(widget, 'query_one', return_value=MagicMock(spec=Static)):
+            with patch.object(widget, "query_one", return_value=MagicMock(spec=Static)):
                 header = widget._create_header()
                 assert header is not None
 
@@ -249,9 +253,21 @@ class TestTwapProgressWidget:
         widget.total_quantity = Decimal("10.0")
 
         slices = [
-            {"executed_quantity": "1.0", "execution_price": "50000", "status": "EXECUTED"},
-            {"executed_quantity": "1.5", "execution_price": "50100", "status": "EXECUTED"},
-            {"executed_quantity": "0.5", "execution_price": "50200", "status": "EXECUTED"},
+            {
+                "executed_quantity": "1.0",
+                "execution_price": "50000",
+                "status": "EXECUTED",
+            },
+            {
+                "executed_quantity": "1.5",
+                "execution_price": "50100",
+                "status": "EXECUTED",
+            },
+            {
+                "executed_quantity": "0.5",
+                "execution_price": "50200",
+                "status": "EXECUTED",
+            },
         ]
 
         for slice_data in slices:

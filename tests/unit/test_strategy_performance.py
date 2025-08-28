@@ -110,7 +110,7 @@ class TestStrategyPerformanceTracker:
             Mock(spec=Trade, pnl_dollars=Decimal("200")),
             Mock(spec=Trade, pnl_dollars=Decimal("-50")),
             Mock(spec=Trade, pnl_dollars=Decimal("150")),
-            Mock(spec=Trade, pnl_dollars=Decimal("-100"))
+            Mock(spec=Trade, pnl_dollars=Decimal("-100")),
         ]
 
         for trade in trades:

@@ -9,15 +9,15 @@ import pytest
 
 from genesis.analytics.pair_correlation_monitor import CorrelationMonitor
 from genesis.analytics.pair_performance import PairPerformanceTracker
-from genesis.core.exceptions import TierLockedException
+from genesis.core.exceptions import TierViolation as TierLockedException
 from genesis.core.models import (
     Account,
     Position,
     PositionSide,
     Signal,
     SignalType,
-    Tier,
 )
+from genesis.engine.state_machine import Tier
 from genesis.engine.executor.multi_pair import MultiPairManager
 from genesis.engine.risk_engine import RiskEngine
 from genesis.engine.signal_queue import ConflictResolution, SignalQueue
@@ -48,7 +48,7 @@ class TestMultiPairWorkflow:
         account = Account(
             account_id=account_id,
             balance=Decimal("10000"),
-            tier=Tier.HUNTER  # Required for multi-pair
+            tier=Tier.HUNTER,  # Required for multi-pair
         )
         repository.get_account.return_value = account
 
@@ -58,7 +58,9 @@ class TestMultiPairWorkflow:
 
         # Create components
         multi_pair_manager = MultiPairManager(repository, state_manager, account_id)
-        signal_queue = SignalQueue(repository, conflict_resolution=ConflictResolution.HIGHEST_PRIORITY)
+        signal_queue = SignalQueue(
+            repository, conflict_resolution=ConflictResolution.HIGHEST_PRIORITY
+        )
         correlation_monitor = CorrelationMonitor(repository)
         performance_tracker = PairPerformanceTracker(repository, account_id)
         risk_engine = RiskEngine(account)
@@ -72,7 +74,7 @@ class TestMultiPairWorkflow:
             "signal_queue": signal_queue,
             "correlation_monitor": correlation_monitor,
             "performance_tracker": performance_tracker,
-            "risk_engine": risk_engine
+            "risk_engine": risk_engine,
         }
 
     @pytest.mark.asyncio
@@ -108,7 +110,7 @@ class TestMultiPairWorkflow:
                 entry_price=Decimal("1000"),
                 current_price=Decimal("1000"),
                 pnl_dollars=Decimal("0"),
-                opened_at=datetime.utcnow()
+                opened_at=datetime.utcnow(),
             )
             await manager.add_position(position)
             positions.append(position)
@@ -138,14 +140,16 @@ class TestMultiPairWorkflow:
             dollar_value=Decimal("2900"),  # Close to $3000 limit
             entry_price=Decimal("50000"),
             current_price=Decimal("50000"),
-            pnl_dollars=Decimal("0")
+            pnl_dollars=Decimal("0"),
         )
         await manager.add_position(btc_position)
 
         repository.get_latest_price.return_value = Decimal("50000")
 
         # Should not allow exceeding pair limit
-        can_open = await manager.can_open_position("BTC/USDT", Decimal("0.2"))  # Would exceed 2 BTC
+        can_open = await manager.can_open_position(
+            "BTC/USDT", Decimal("0.2")
+        )  # Would exceed 2 BTC
         assert can_open is False
 
         # Should allow small addition
@@ -173,7 +177,7 @@ class TestMultiPairWorkflow:
                 dollar_value=Decimal("3000"),
                 entry_price=Decimal("3000"),
                 current_price=Decimal("2900"),  # Small loss
-                pnl_dollars=Decimal("-100")
+                pnl_dollars=Decimal("-100"),
             )
             await manager.add_position(position)
             positions.append(position)
@@ -207,10 +211,18 @@ class TestMultiPairWorkflow:
         for i in range(30):
             # BTC and ETH with high correlation
             factor = Decimal("1") + Decimal(i) / Decimal("100")
-            await monitor.update_price("BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i)
+            )
             # SOL with different pattern
-            await monitor.update_price("SOL/USDT", Decimal("100") * (Decimal("1") - Decimal(i) / Decimal("200")), base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "SOL/USDT",
+                Decimal("100") * (Decimal("1") - Decimal(i) / Decimal("200")),
+                base_time + timedelta(minutes=i),
+            )
 
         # Calculate correlations
         btc_eth_corr = await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT")
@@ -222,10 +234,12 @@ class TestMultiPairWorkflow:
         assert btc_sol_corr < Decimal("0")
 
         # Update manager with correlations
-        await manager.update_correlations({
-            ("BTC/USDT", "ETH/USDT"): btc_eth_corr,
-            ("BTC/USDT", "SOL/USDT"): btc_sol_corr
-        })
+        await manager.update_correlations(
+            {
+                ("BTC/USDT", "ETH/USDT"): btc_eth_corr,
+                ("BTC/USDT", "SOL/USDT"): btc_sol_corr,
+            }
+        )
 
         # Check for correlation warnings
         alerts = await monitor.get_recent_alerts()
@@ -249,7 +263,7 @@ class TestMultiPairWorkflow:
                 confidence_score=Decimal("0.9"),
                 priority=90,
                 strategy_name="momentum",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             ),
             Signal(
                 signal_id="2",
@@ -258,7 +272,7 @@ class TestMultiPairWorkflow:
                 confidence_score=Decimal("0.7"),
                 priority=70,
                 strategy_name="mean_reversion",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             ),
             Signal(
                 signal_id="3",
@@ -267,8 +281,8 @@ class TestMultiPairWorkflow:
                 confidence_score=Decimal("0.8"),
                 priority=60,
                 strategy_name="breakout",
-                timestamp=datetime.utcnow()
-            )
+                timestamp=datetime.utcnow(),
+            ),
         ]
 
         # Allocate capital
@@ -295,7 +309,7 @@ class TestMultiPairWorkflow:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="trend",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         sell_signal = Signal(
@@ -305,7 +319,7 @@ class TestMultiPairWorkflow:
             confidence_score=Decimal("0.7"),
             priority=70,
             strategy_name="reversal",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         # Add both signals
@@ -333,7 +347,7 @@ class TestMultiPairWorkflow:
             confidence_score=Decimal("0.5"),
             priority=30,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         high_priority = Signal(
@@ -343,7 +357,7 @@ class TestMultiPairWorkflow:
             confidence_score=Decimal("0.95"),
             priority=95,
             strategy_name="strong_signal",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         medium_priority = Signal(
@@ -353,7 +367,7 @@ class TestMultiPairWorkflow:
             confidence_score=Decimal("0.7"),
             priority=60,
             strategy_name="normal",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         # Add in random order
@@ -390,7 +404,7 @@ class TestMultiPairWorkflow:
             dollar_value=Decimal("25500"),
             pnl_dollars=Decimal("500"),
             opened_at=datetime.utcnow() - timedelta(hours=2),
-            closed_at=datetime.utcnow()
+            closed_at=datetime.utcnow(),
         )
 
         eth_position = Position(
@@ -404,7 +418,7 @@ class TestMultiPairWorkflow:
             dollar_value=Decimal("5800"),
             pnl_dollars=Decimal("-200"),
             opened_at=datetime.utcnow() - timedelta(hours=3),
-            closed_at=datetime.utcnow() - timedelta(hours=1)
+            closed_at=datetime.utcnow() - timedelta(hours=1),
         )
 
         # Track trades
@@ -413,10 +427,18 @@ class TestMultiPairWorkflow:
 
         # Mock repository responses for attribution
         repository.get_traded_symbols.return_value = ["BTC/USDT", "ETH/USDT"]
-        repository.get_trades_by_symbol.side_effect = lambda account_id, symbol, **kwargs: [
-            {"pnl_dollars": Decimal("500"), "volume_quote": Decimal("25000")} if symbol == "BTC/USDT"
-            else {"pnl_dollars": Decimal("-200"), "volume_quote": Decimal("6000")}
-        ]
+        repository.get_trades_by_symbol.side_effect = (
+            lambda account_id, symbol, **kwargs: [
+                (
+                    {"pnl_dollars": Decimal("500"), "volume_quote": Decimal("25000")}
+                    if symbol == "BTC/USDT"
+                    else {
+                        "pnl_dollars": Decimal("-200"),
+                        "volume_quote": Decimal("6000"),
+                    }
+                )
+            ]
+        )
 
         # Generate attribution report
         report = await tracker.generate_attribution_report()
@@ -436,20 +458,20 @@ class TestMultiPairWorkflow:
         sniper_account = Account(
             account_id=str(uuid.uuid4()),
             balance=Decimal("1000"),
-            tier=Tier.SNIPER  # Too low for multi-pair
+            tier=Tier.SNIPER,  # Too low for multi-pair
         )
 
         sniper_state_manager = AsyncMock()
         sniper_state_manager.get_current_tier = AsyncMock(return_value=Tier.SNIPER)
 
         sniper_manager = MultiPairManager(
-            env["repository"],
-            sniper_state_manager,
-            sniper_account.account_id
+            env["repository"], sniper_state_manager, sniper_account.account_id
         )
 
         # Should raise TierLockedException
-        with pytest.raises(TierLockedException, match="Multi-pair trading requires HUNTER"):
+        with pytest.raises(
+            TierLockedException, match="Multi-pair trading requires HUNTER"
+        ):
             await sniper_manager.initialize()
 
     @pytest.mark.asyncio
@@ -470,7 +492,7 @@ class TestMultiPairWorkflow:
                 dollar_value=Decimal("1000"),
                 entry_price=Decimal("100"),
                 current_price=Decimal("90"),
-                pnl_dollars=Decimal("-100")  # $100 loss each
+                pnl_dollars=Decimal("-100"),  # $100 loss each
             )
             await manager.add_position(position)
             losing_positions.append(position)
@@ -500,7 +522,7 @@ class TestMultiPairWorkflow:
                 quantity=Decimal("1"),
                 dollar_value=Decimal("5000"),
                 pnl_dollars=Decimal("-500"),
-                priority_score=10  # Highest priority for liquidation
+                priority_score=10,  # Highest priority for liquidation
             ),
             Position(
                 position_id="2",
@@ -508,7 +530,7 @@ class TestMultiPairWorkflow:
                 quantity=Decimal("2"),
                 dollar_value=Decimal("3000"),
                 pnl_dollars=Decimal("-200"),
-                priority_score=5
+                priority_score=5,
             ),
             Position(
                 position_id="3",
@@ -516,8 +538,8 @@ class TestMultiPairWorkflow:
                 quantity=Decimal("10"),
                 dollar_value=Decimal("1000"),
                 pnl_dollars=Decimal("100"),
-                priority_score=1  # Lowest priority
-            )
+                priority_score=1,  # Lowest priority
+            ),
         ]
 
         for pos in positions:
@@ -539,16 +561,16 @@ class TestMultiPairWorkflow:
         await manager.initialize()
 
         # Set high correlation
-        await manager.update_correlations({
-            ("BTC/USDT", "ETH/USDT"): Decimal("0.85")  # Above 80% threshold
-        })
+        await manager.update_correlations(
+            {("BTC/USDT", "ETH/USDT"): Decimal("0.85")}  # Above 80% threshold
+        )
 
         # Add BTC position
         btc_position = Position(
             position_id=str(uuid.uuid4()),
             symbol="BTC/USDT",
             quantity=Decimal("0.5"),
-            dollar_value=Decimal("2500")
+            dollar_value=Decimal("2500"),
         )
         await manager.add_position(btc_position)
 
@@ -560,7 +582,7 @@ class TestMultiPairWorkflow:
             confidence_score=Decimal("0.8"),
             priority=80,
             strategy_name="test",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         allocations = await manager.allocate_capital([eth_signal])
@@ -584,12 +606,12 @@ class TestMultiPairWorkflow:
             await env["correlation_monitor"].update_price(
                 "BTC/USDT",
                 Decimal("50000") + Decimal(i * 100),
-                base_time + timedelta(minutes=i)
+                base_time + timedelta(minutes=i),
             )
             await env["correlation_monitor"].update_price(
                 "ETH/USDT",
                 Decimal("3000") + Decimal(i * 10),
-                base_time + timedelta(minutes=i)
+                base_time + timedelta(minutes=i),
             )
 
         # 3. Queue some signals
@@ -601,7 +623,7 @@ class TestMultiPairWorkflow:
                 confidence_score=Decimal(str(0.7 + i * 0.05)),
                 priority=70 + i * 5,
                 strategy_name="test",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             )
             for i, symbol in enumerate(["BTC/USDT", "ETH/USDT", "SOL/USDT"])
         ]
@@ -618,8 +640,7 @@ class TestMultiPairWorkflow:
             if signal:
                 # Check if can open position
                 can_open = await env["multi_pair_manager"].can_open_position(
-                    signal.symbol,
-                    Decimal("1")
+                    signal.symbol, Decimal("1")
                 )
 
                 if can_open:
@@ -634,7 +655,7 @@ class TestMultiPairWorkflow:
                         entry_price=Decimal("1000"),
                         current_price=Decimal("1000"),
                         pnl_dollars=Decimal("0"),
-                        opened_at=datetime.utcnow()
+                        opened_at=datetime.utcnow(),
                     )
                     await env["multi_pair_manager"].add_position(position)
                     positions_opened.append(position)
@@ -656,7 +677,9 @@ class TestMultiPairWorkflow:
             await env["performance_tracker"].track_trade(position)
 
         # 8. Generate performance report
-        env["repository"].get_traded_symbols.return_value = list(set(p.symbol for p in positions_opened))
+        env["repository"].get_traded_symbols.return_value = list(
+            set(p.symbol for p in positions_opened)
+        )
         report = await env["performance_tracker"].generate_attribution_report()
 
         assert report.total_pnl_dollars >= Decimal("0")  # Should have some P&L

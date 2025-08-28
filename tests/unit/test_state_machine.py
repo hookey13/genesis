@@ -30,7 +30,9 @@ class TestTierStateMachine:
         mock_account.balance = Decimal("1500")
         mock_account.tier_started_at = datetime.utcnow() - timedelta(days=30)
         mock_account.created_at = datetime.utcnow() - timedelta(days=60)
-        session.query.return_value.filter_by.return_value.first.return_value = mock_account
+        session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_account
+        )
         session.commit = MagicMock()
         session.rollback = MagicMock()
         session.add = MagicMock()
@@ -50,29 +52,42 @@ class TestTierStateMachine:
     async def test_check_tier_requirement(self, state_machine):
         """Test checking tier requirements."""
         # Current tier is SNIPER, should have access
-        assert await state_machine.check_tier_requirement("test-account-123", Tier.SNIPER)
+        assert await state_machine.check_tier_requirement(
+            "test-account-123", Tier.SNIPER
+        )
 
         # Should not have access to higher tier
-        assert not await state_machine.check_tier_requirement("test-account-123", Tier.HUNTER)
-        assert not await state_machine.check_tier_requirement("test-account-123", Tier.STRATEGIST)
+        assert not await state_machine.check_tier_requirement(
+            "test-account-123", Tier.HUNTER
+        )
+        assert not await state_machine.check_tier_requirement(
+            "test-account-123", Tier.STRATEGIST
+        )
 
     @pytest.mark.asyncio
     async def test_evaluate_progression(self, state_machine, mock_session):
         """Test evaluating tier progression."""
         # Setup a transition record
         mock_transition = MagicMock()
-        mock_transition.transition_status = 'READY'
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_transition
+        mock_transition.transition_status = "READY"
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_transition
+        )
 
         transition = await state_machine.evaluate_progression("test-account-123")
 
         assert transition is not None
 
     @pytest.mark.asyncio
-    async def test_evaluate_progression_no_qualification(self, state_machine, mock_session):
+    async def test_evaluate_progression_no_qualification(
+        self, state_machine, mock_session
+    ):
         """Test evaluation when not qualified for next tier."""
         # No transition record
-        mock_session.query.return_value.filter_by.return_value.first.side_effect = [Mock(), None]
+        mock_session.query.return_value.filter_by.return_value.first.side_effect = [
+            Mock(),
+            None,
+        ]
 
         transition = await state_machine.evaluate_progression("test-account-123")
 
@@ -83,20 +98,18 @@ class TestTierStateMachine:
         """Test requesting valid tier change."""
         # Setup mock transition
         mock_transition = MagicMock()
-        mock_transition.transition_status = 'READY'
+        mock_transition.transition_status = "READY"
         mock_transition.checklist_completed = True
         mock_transition.funeral_completed = True
         mock_transition.paper_trading_completed = True
 
         mock_session.query.return_value.filter_by.return_value.first.side_effect = [
             Mock(account_id="test-account-123", current_tier="SNIPER"),
-            mock_transition
+            mock_transition,
         ]
 
         success = await state_machine.request_tier_change(
-            "test-account-123",
-            "HUNTER",
-            "Balance threshold met"
+            "test-account-123", "HUNTER", "Balance threshold met"
         )
 
         assert success
@@ -107,13 +120,11 @@ class TestTierStateMachine:
         # No transition record found
         mock_session.query.return_value.filter_by.return_value.first.side_effect = [
             Mock(account_id="test-account-123", current_tier="SNIPER"),
-            None  # No transition found
+            None,  # No transition found
         ]
 
         success = await state_machine.request_tier_change(
-            "test-account-123",
-            "HUNTER",
-            "Manual request"
+            "test-account-123", "HUNTER", "Manual request"
         )
 
         assert not success
@@ -126,9 +137,13 @@ class TestTierStateMachine:
         mock_account.account_id = "test-account-123"
         mock_account.current_tier = "HUNTER"
         mock_account.tier_started_at = datetime.utcnow()
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_account
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_account
+        )
 
-        await state_machine.force_demotion("test-account-123", "SNIPER", "Excessive tilt events detected")
+        await state_machine.force_demotion(
+            "test-account-123", "SNIPER", "Excessive tilt events detected"
+        )
 
         assert mock_account.current_tier == "SNIPER"
         assert mock_session.add.called
@@ -146,7 +161,10 @@ class TestTierStateMachine:
         result = await state_machine.enforce_tier_transition(mock_account, Tier.HUNTER)
 
         # Should succeed with proper requirements
-        assert result in [TransitionResult.SUCCESS, TransitionResult.REQUIREMENTS_NOT_MET]
+        assert result in [
+            TransitionResult.SUCCESS,
+            TransitionResult.REQUIREMENTS_NOT_MET,
+        ]
 
     @pytest.mark.asyncio
     async def test_grace_period_management(self, state_machine, mock_session):
@@ -155,7 +173,9 @@ class TestTierStateMachine:
         mock_account.account_id = "test-account-123"
         mock_account.current_tier = "HUNTER"
         mock_account.tier_started_at = datetime.utcnow()
-        mock_session.query.return_value.filter_by.return_value.first.return_value = mock_account
+        mock_session.query.return_value.filter_by.return_value.first.return_value = (
+            mock_account
+        )
 
         # Apply grace period
         await state_machine.apply_grace_period("test-account-123")
@@ -164,7 +184,9 @@ class TestTierStateMachine:
         assert await state_machine.is_in_grace_period(mock_account)
 
         # Test after grace period
-        mock_account.tier_started_at = datetime.utcnow() - timedelta(hours=GRACE_PERIOD_HOURS + 1)
+        mock_account.tier_started_at = datetime.utcnow() - timedelta(
+            hours=GRACE_PERIOD_HOURS + 1
+        )
         assert not await state_machine.is_in_grace_period(mock_account)
 
     @pytest.mark.asyncio
@@ -173,9 +195,9 @@ class TestTierStateMachine:
         requirements = state_machine.get_tier_requirements("HUNTER")
 
         assert isinstance(requirements, dict)
-        assert requirements['min_balance'] == 2000
-        assert requirements['min_trades'] == 50
-        assert requirements['paper_trading_required'] == True
+        assert requirements["min_balance"] == 2000
+        assert requirements["min_trades"] == 50
+        assert requirements["paper_trading_required"] == True
 
     @pytest.mark.asyncio
     async def test_validate_requirements(self, state_machine, mock_session):
@@ -222,6 +244,7 @@ class TestTierStateMachine:
     @pytest.mark.asyncio
     async def test_prevent_manual_tier_change_decorator(self):
         """Test the prevent_manual_tier_change decorator."""
+
         @prevent_manual_tier_change
         async def protected_function(self, **kwargs):
             return "success"

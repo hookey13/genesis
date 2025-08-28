@@ -65,7 +65,7 @@ class SpreadHeatmap(Widget):
         self,
         spread_data: Optional[dict[str, SpreadMetrics]] = None,
         update_callback: Optional[callable] = None,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize spread heatmap widget
@@ -92,7 +92,9 @@ class SpreadHeatmap(Widget):
                 yield Label(f"  Refresh: {self.refresh_interval}s", id="refresh-label")
 
             # Main heatmap display
-            yield Static(self._render_heatmap(), classes="spread-table", id="heatmap-display")
+            yield Static(
+                self._render_heatmap(), classes="spread-table", id="heatmap-display"
+            )
 
     def _render_heatmap(self) -> RenderableType:
         """
@@ -110,7 +112,7 @@ class SpreadHeatmap(Widget):
             show_header=True,
             header_style="bold magenta",
             show_lines=True,
-            expand=True
+            expand=True,
         )
 
         # Add columns
@@ -139,7 +141,7 @@ class SpreadHeatmap(Widget):
                 Text(f"{metrics.bid_price:.4f}", style=row_style),
                 Text(f"{metrics.ask_price:.4f}", style=row_style),
                 Text(f"{metrics.volatility:.2f}", style=volatility_color),
-                Text(status[0], style=status[1])
+                Text(status[0], style=status[1]),
             )
 
         return table
@@ -308,15 +310,9 @@ class SpreadHeatmap(Widget):
                 new_data = self.update_callback()
                 if new_data:
                     self.spread_data = new_data
-                    self._logger.debug(
-                        "Spread data updated",
-                        symbols=len(new_data)
-                    )
+                    self._logger.debug("Spread data updated", symbols=len(new_data))
             except Exception as e:
-                self._logger.error(
-                    "Failed to fetch spread updates",
-                    error=str(e)
-                )
+                self._logger.error("Failed to fetch spread updates", error=str(e))
 
     def update_spread_data(self, spread_data: dict[str, SpreadMetrics]) -> None:
         """

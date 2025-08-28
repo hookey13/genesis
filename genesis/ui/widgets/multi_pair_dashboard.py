@@ -44,7 +44,7 @@ class PositionGrid(Widget):
             "P&L ($)",
             "P&L (%)",
             "Value",
-            "Time"
+            "Time",
         )
         self.update_positions(self.positions)
 
@@ -58,7 +58,11 @@ class PositionGrid(Widget):
             # Format P&L with color
             pnl_dollars = position.pnl_dollars
             pnl_text = f"${pnl_dollars:,.2f}"
-            pnl_percent = (pnl_dollars / position.dollar_value * 100) if position.dollar_value else 0
+            pnl_percent = (
+                (pnl_dollars / position.dollar_value * 100)
+                if position.dollar_value
+                else 0
+            )
             pnl_percent_text = f"{pnl_percent:+.2f}%"
 
             # Calculate hold time
@@ -74,7 +78,7 @@ class PositionGrid(Widget):
                 pnl_text,
                 pnl_percent_text,
                 f"${position.dollar_value:,.2f}",
-                hold_time_str
+                hold_time_str,
             )
 
 
@@ -94,7 +98,7 @@ class CorrelationHeatmap(Widget):
 
         # Extract unique symbols
         symbols = set()
-        for (sym1, sym2) in self.correlations.keys():
+        for sym1, sym2 in self.correlations.keys():
             symbols.add(sym1)
             symbols.add(sym2)
         symbols = sorted(list(symbols))
@@ -103,7 +107,9 @@ class CorrelationHeatmap(Widget):
             return Panel("No positions to correlate", title="Correlation Matrix")
 
         # Create table
-        table = Table(title="Correlation Heatmap", show_header=True, header_style="bold")
+        table = Table(
+            title="Correlation Heatmap", show_header=True, header_style="bold"
+        )
         table.add_column("Pair", style="cyan")
 
         for symbol in symbols:
@@ -116,7 +122,9 @@ class CorrelationHeatmap(Widget):
                 if sym1 == sym2:
                     row_data.append("1.00")
                 else:
-                    corr = self.correlations.get((sym1, sym2)) or self.correlations.get((sym2, sym1), 0)
+                    corr = self.correlations.get((sym1, sym2)) or self.correlations.get(
+                        (sym2, sym1), 0
+                    )
 
                     # Color code based on correlation strength
                     if isinstance(corr, Decimal):
@@ -155,7 +163,9 @@ class PerformanceAttribution(Widget):
     def render(self) -> RenderableType:
         """Render performance attribution."""
         if not self.metrics:
-            return Panel("No performance data available", title="Performance Attribution")
+            return Panel(
+                "No performance data available", title="Performance Attribution"
+            )
 
         table = Table(title="Pair Performance", show_header=True, header_style="bold")
         table.add_column("Symbol", style="cyan")
@@ -171,9 +181,7 @@ class PerformanceAttribution(Widget):
 
         # Sort by P&L
         sorted_pairs = sorted(
-            self.metrics.items(),
-            key=lambda x: x[1].total_pnl_dollars,
-            reverse=True
+            self.metrics.items(), key=lambda x: x[1].total_pnl_dollars, reverse=True
         )
 
         for symbol, metrics in sorted_pairs:
@@ -202,7 +210,7 @@ class PerformanceAttribution(Widget):
                 wr_text,
                 sharpe_text,
                 f"${metrics.max_drawdown_dollars:.2f}",
-                f"{weight:.1f}%"
+                f"{weight:.1f}%",
             )
 
         return Panel(table, title="Performance Attribution", border_style="green")
@@ -218,7 +226,12 @@ class CapitalAllocation(Widget):
     allocations = reactive({}, recompose=True)
     total_capital = reactive(Decimal("0"), recompose=True)
 
-    def __init__(self, allocations: dict[str, Decimal] = None, total_capital: Decimal = None, **kwargs):
+    def __init__(
+        self,
+        allocations: dict[str, Decimal] = None,
+        total_capital: Decimal = None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
         self.allocations = allocations or {}
         self.total_capital = total_capital or Decimal("0")
@@ -236,13 +249,13 @@ class CapitalAllocation(Widget):
 
         # Sort by allocation
         sorted_allocs = sorted(
-            self.allocations.items(),
-            key=lambda x: x[1],
-            reverse=True
+            self.allocations.items(), key=lambda x: x[1], reverse=True
         )
 
         for symbol, amount in sorted_allocs:
-            percentage = (amount / self.total_capital * 100) if self.total_capital else 0
+            percentage = (
+                (amount / self.total_capital * 100) if self.total_capital else 0
+            )
 
             # Create visual bar
             bar_length = int(percentage / 5)  # Scale to 20 chars max
@@ -260,21 +273,19 @@ class CapitalAllocation(Widget):
                 symbol,
                 f"${amount:,.2f}",
                 f"{percentage:.1f}%",
-                Text(bar, style=bar_style)
+                Text(bar, style=bar_style),
             )
 
         # Add total row
         table.add_row(
-            "TOTAL",
-            f"${sum(self.allocations.values()):,.2f}",
-            "100%",
-            "",
-            style="bold"
+            "TOTAL", f"${sum(self.allocations.values()):,.2f}", "100%", "", style="bold"
         )
 
         return Panel(table, title="Capital Allocation", border_style="yellow")
 
-    def update_allocations(self, allocations: dict[str, Decimal], total_capital: Decimal) -> None:
+    def update_allocations(
+        self, allocations: dict[str, Decimal], total_capital: Decimal
+    ) -> None:
         """Update allocation data."""
         self.allocations = allocations
         self.total_capital = total_capital
@@ -377,17 +388,25 @@ class SignalQueueWidget(Widget):
         for i, signal in enumerate(self.signals[:10], 1):  # Show top 10
             # Signal type coloring
             sig_type = signal.signal_type.value
-            type_style = "green" if sig_type == "BUY" else "red" if sig_type == "SELL" else "yellow"
+            type_style = (
+                "green"
+                if sig_type == "BUY"
+                else "red" if sig_type == "SELL" else "yellow"
+            )
             type_text = Text(sig_type, style=type_style)
 
             # Priority coloring
             priority = signal.priority
-            pri_style = "red" if priority >= 80 else "yellow" if priority >= 50 else "white"
+            pri_style = (
+                "red" if priority >= 80 else "yellow" if priority >= 50 else "white"
+            )
             pri_text = Text(str(priority), style=pri_style)
 
             # Confidence coloring
             confidence = float(signal.confidence_score * 100)
-            conf_style = "green" if confidence >= 80 else "yellow" if confidence >= 60 else "red"
+            conf_style = (
+                "green" if confidence >= 80 else "yellow" if confidence >= 60 else "red"
+            )
             conf_text = Text(f"{confidence:.0f}%", style=conf_style)
 
             # Time to expiry
@@ -407,10 +426,14 @@ class SignalQueueWidget(Widget):
                 pri_text,
                 conf_text,
                 signal.strategy_name[:15],
-                ttl_str
+                ttl_str,
             )
 
-        return Panel(table, title=f"Signal Queue ({len(self.signals)} pending)", border_style="blue")
+        return Panel(
+            table,
+            title=f"Signal Queue ({len(self.signals)} pending)",
+            border_style="blue",
+        )
 
     def update_signals(self, signals: list[Signal]) -> None:
         """Update signal queue."""
@@ -446,23 +469,31 @@ class MultiPairDashboard(Container):
         performance_metrics: dict[str, PairMetrics] = None,
         allocations: dict[str, Decimal] = None,
         total_capital: Decimal = None,
-        signals: list[Signal] = None
+        signals: list[Signal] = None,
     ) -> None:
         """Update all dashboard components."""
         if positions is not None:
             self.query_one("#position-grid", PositionGrid).update_positions(positions)
 
         if portfolio_risk is not None:
-            self.query_one("#risk-indicator", PortfolioRiskIndicator).update_risk(portfolio_risk)
+            self.query_one("#risk-indicator", PortfolioRiskIndicator).update_risk(
+                portfolio_risk
+            )
 
         if correlations is not None:
-            self.query_one("#correlation-heatmap", CorrelationHeatmap).update_correlations(correlations)
+            self.query_one(
+                "#correlation-heatmap", CorrelationHeatmap
+            ).update_correlations(correlations)
 
         if performance_metrics is not None:
-            self.query_one("#performance-attribution", PerformanceAttribution).update_metrics(performance_metrics)
+            self.query_one(
+                "#performance-attribution", PerformanceAttribution
+            ).update_metrics(performance_metrics)
 
         if allocations is not None and total_capital is not None:
-            self.query_one("#capital-allocation", CapitalAllocation).update_allocations(allocations, total_capital)
+            self.query_one("#capital-allocation", CapitalAllocation).update_allocations(
+                allocations, total_capital
+            )
 
         if signals is not None:
             self.query_one("#signal-queue", SignalQueueWidget).update_signals(signals)

@@ -26,6 +26,7 @@ logger = structlog.get_logger(__name__)
 
 class ImpactSeverity(str, Enum):
     """Market impact severity levels."""
+
     NEGLIGIBLE = "NEGLIGIBLE"  # < 0.1%
     LOW = "LOW"  # 0.1% - 0.3%
     MODERATE = "MODERATE"  # 0.3% - 0.5%
@@ -36,6 +37,7 @@ class ImpactSeverity(str, Enum):
 @dataclass
 class MarketImpactMetric:
     """Individual market impact measurement."""
+
     impact_id: str
     execution_id: Optional[str]
     slice_id: Optional[str]
@@ -59,6 +61,7 @@ class MarketImpactMetric:
 @dataclass
 class ImpactAnalysis:
     """Comprehensive impact analysis for an execution."""
+
     execution_id: str
     symbol: str
     total_volume: Decimal
@@ -111,14 +114,14 @@ class MarketImpactMonitor:
         ImpactSeverity.LOW: Decimal("0.3"),
         ImpactSeverity.MODERATE: Decimal("0.5"),
         ImpactSeverity.HIGH: Decimal("1.0"),
-        ImpactSeverity.SEVERE: Decimal("999")  # Anything above 1%
+        ImpactSeverity.SEVERE: Decimal("999"),  # Anything above 1%
     }
 
     def __init__(
         self,
         gateway,
         repository: Optional[Repository] = None,
-        tier: TradingTier = TradingTier.HUNTER
+        tier: TradingTier = TradingTier.HUNTER,
     ):
         """
         Initialize the market impact monitor.
@@ -134,18 +137,15 @@ class MarketImpactMonitor:
 
         # Track active monitoring
         self.active_monitors: dict[str, list[MarketImpactMetric]] = {}
-        self.pre_execution_prices: dict[str, tuple[Decimal, Decimal]] = {}  # symbol -> (bid, ask)
+        self.pre_execution_prices: dict[str, tuple[Decimal, Decimal]] = (
+            {}
+        )  # symbol -> (bid, ask)
         self.execution_start_times: dict[str, datetime] = {}
 
-        logger.info(
-            "Market impact monitor initialized",
-            tier=tier.value
-        )
+        logger.info("Market impact monitor initialized", tier=tier.value)
 
     async def measure_pre_execution_state(
-        self,
-        symbol: str,
-        execution_id: str
+        self, symbol: str, execution_id: str
     ) -> tuple[Decimal, Decimal, OrderBook]:
         """
         Capture market state before execution.
@@ -165,7 +165,10 @@ class MarketImpactMonitor:
             order_book = await self.gateway.get_order_book(symbol, depth=50)
 
             # Store pre-execution prices
-            self.pre_execution_prices[execution_id] = (ticker.bid_price, ticker.ask_price)
+            self.pre_execution_prices[execution_id] = (
+                ticker.bid_price,
+                ticker.ask_price,
+            )
             self.execution_start_times[execution_id] = datetime.now()
 
             # Initialize monitoring list
@@ -177,7 +180,7 @@ class MarketImpactMonitor:
                 execution_id=execution_id,
                 symbol=symbol,
                 bid_price=str(ticker.bid_price),
-                ask_price=str(ticker.ask_price)
+                ask_price=str(ticker.ask_price),
             )
 
             return ticker.bid_price, ticker.ask_price, order_book
@@ -186,17 +189,13 @@ class MarketImpactMonitor:
             logger.error(
                 "Failed to capture pre-execution state",
                 execution_id=execution_id,
-                error=str(e)
+                error=str(e),
             )
             raise
 
     @with_timeout(5000)  # 5 second timeout
     async def measure_slice_impact(
-        self,
-        execution_id: str,
-        slice_order: Order,
-        pre_price: Decimal,
-        volume: Decimal
+        self, execution_id: str, slice_order: Order, pre_price: Decimal, volume: Decimal
     ) -> MarketImpactMetric:
         """
         Measure impact of a single slice execution.
@@ -229,8 +228,12 @@ class MarketImpactMonitor:
 
             # Calculate order book metrics
             spread = ticker.ask_price - ticker.bid_price
-            depth_1pct = self._calculate_depth_at_level(order_book, Decimal("1.0"), slice_order.side)
-            depth_2pct = self._calculate_depth_at_level(order_book, Decimal("2.0"), slice_order.side)
+            depth_1pct = self._calculate_depth_at_level(
+                order_book, Decimal("1.0"), slice_order.side
+            )
+            depth_2pct = self._calculate_depth_at_level(
+                order_book, Decimal("2.0"), slice_order.side
+            )
 
             # Determine severity
             severity = self._classify_impact_severity(abs(impact_percent))
@@ -254,7 +257,7 @@ class MarketImpactMonitor:
                 cumulative_impact=None,  # Will be calculated later
                 severity=severity,
                 measured_at=datetime.now(),
-                notes=f"Slice {slice_order.slice_number}/{slice_order.total_slices}"
+                notes=f"Slice {slice_order.slice_number}/{slice_order.total_slices}",
             )
 
             # Store metric
@@ -269,7 +272,7 @@ class MarketImpactMonitor:
                 execution_id=execution_id,
                 slice_id=slice_order.order_id,
                 impact_percent=str(impact_percent),
-                severity=severity.value
+                severity=severity.value,
             )
 
             return metric
@@ -279,7 +282,7 @@ class MarketImpactMonitor:
                 "Failed to measure slice impact",
                 execution_id=execution_id,
                 slice_id=slice_order.order_id,
-                error=str(e)
+                error=str(e),
             )
             # Return a default metric on error
             return MarketImpactMetric(
@@ -300,14 +303,11 @@ class MarketImpactMonitor:
                 cumulative_impact=None,
                 severity=ImpactSeverity.NEGLIGIBLE,
                 measured_at=datetime.now(),
-                notes="Measurement failed"
+                notes="Measurement failed",
             )
 
     def calculate_impact(
-        self,
-        pre_price: Decimal,
-        post_price: Decimal,
-        volume: Decimal
+        self, pre_price: Decimal, post_price: Decimal, volume: Decimal
     ) -> Decimal:
         """
         Calculate price impact percentage.
@@ -333,11 +333,7 @@ class MarketImpactMonitor:
         return impact_percent.quantize(Decimal("0.0001"))
 
     async def analyze_execution_impact(
-        self,
-        execution_id: str,
-        symbol: str,
-        total_volume: Decimal,
-        slice_count: int
+        self, execution_id: str, symbol: str, total_volume: Decimal, slice_count: int
     ) -> ImpactAnalysis:
         """
         Perform comprehensive analysis of execution impact.
@@ -356,28 +352,43 @@ class MarketImpactMonitor:
             metrics = self.active_monitors.get(execution_id, [])
 
             if not metrics:
-                logger.warning("No metrics found for execution", execution_id=execution_id)
-                return self._create_empty_analysis(execution_id, symbol, total_volume, slice_count)
+                logger.warning(
+                    "No metrics found for execution", execution_id=execution_id
+                )
+                return self._create_empty_analysis(
+                    execution_id, symbol, total_volume, slice_count
+                )
 
             # Calculate aggregate metrics
             total_impact = sum(m.price_impact_percent for m in metrics)
             avg_impact = total_impact / len(metrics) if metrics else Decimal("0")
-            max_impact = max(m.price_impact_percent for m in metrics) if metrics else Decimal("0")
-            min_impact = min(m.price_impact_percent for m in metrics) if metrics else Decimal("0")
+            max_impact = (
+                max(m.price_impact_percent for m in metrics)
+                if metrics
+                else Decimal("0")
+            )
+            min_impact = (
+                min(m.price_impact_percent for m in metrics)
+                if metrics
+                else Decimal("0")
+            )
 
             # Calculate standard deviation
             if len(metrics) > 1:
                 mean = avg_impact
-                variance = sum((m.price_impact_percent - mean) ** 2 for m in metrics) / len(metrics)
+                variance = sum(
+                    (m.price_impact_percent - mean) ** 2 for m in metrics
+                ) / len(metrics)
                 std_dev = variance.sqrt()
             else:
                 std_dev = Decimal("0")
 
             # Calculate spread metrics
             avg_spread = (
-                sum(m.bid_ask_spread for m in metrics if m.bid_ask_spread) /
-                len([m for m in metrics if m.bid_ask_spread])
-                if any(m.bid_ask_spread for m in metrics) else Decimal("0")
+                sum(m.bid_ask_spread for m in metrics if m.bid_ask_spread)
+                / len([m for m in metrics if m.bid_ask_spread])
+                if any(m.bid_ask_spread for m in metrics)
+                else Decimal("0")
             )
 
             # Calculate liquidity consumption
@@ -396,13 +407,17 @@ class MarketImpactMonitor:
             # Calculate severity distribution
             severity_dist = {}
             for severity in ImpactSeverity:
-                severity_dist[severity] = sum(1 for m in metrics if m.severity == severity)
+                severity_dist[severity] = sum(
+                    1 for m in metrics if m.severity == severity
+                )
 
             # Monitor for price recovery
             recovery_time = await self._monitor_price_recovery(execution_id, symbol)
 
             # Calculate permanent impact
-            permanent_impact = await self._calculate_permanent_impact(execution_id, symbol)
+            permanent_impact = await self._calculate_permanent_impact(
+                execution_id, symbol
+            )
 
             # Generate recommendations
             optimal_slice_size = self._recommend_optimal_slice_size(
@@ -423,7 +438,9 @@ class MarketImpactMonitor:
                 impact_std_deviation=std_dev,
                 average_spread_during_execution=avg_spread,
                 liquidity_consumed_total=total_liquidity_consumed,
-                market_depth_utilized_percent=Decimal("0"),  # Would need order book data
+                market_depth_utilized_percent=Decimal(
+                    "0"
+                ),  # Would need order book data
                 execution_duration_seconds=duration,
                 average_time_between_slices=avg_time_between,
                 severity_distribution=severity_dist,
@@ -431,7 +448,7 @@ class MarketImpactMonitor:
                 permanent_impact_percent=permanent_impact,
                 optimal_slice_size=optimal_slice_size,
                 recommended_delay_seconds=recommended_delay,
-                max_safe_volume=max_safe_volume
+                max_safe_volume=max_safe_volume,
             )
 
             # Save analysis
@@ -451,7 +468,7 @@ class MarketImpactMonitor:
                 execution_id=execution_id,
                 total_impact=str(total_impact),
                 avg_impact=str(avg_impact),
-                severity_distribution=severity_dist
+                severity_distribution=severity_dist,
             )
 
             return analysis
@@ -460,9 +477,11 @@ class MarketImpactMonitor:
             logger.error(
                 "Failed to analyze execution impact",
                 execution_id=execution_id,
-                error=str(e)
+                error=str(e),
             )
-            return self._create_empty_analysis(execution_id, symbol, total_volume, slice_count)
+            return self._create_empty_analysis(
+                execution_id, symbol, total_volume, slice_count
+            )
 
     def _classify_impact_severity(self, impact_percent: Decimal) -> ImpactSeverity:
         """Classify impact severity based on percentage."""
@@ -475,10 +494,7 @@ class MarketImpactMonitor:
         return ImpactSeverity.SEVERE
 
     def _calculate_depth_at_level(
-        self,
-        order_book: OrderBook,
-        level_percent: Decimal,
-        side: OrderSide
+        self, order_book: OrderBook, level_percent: Decimal, side: OrderSide
     ) -> Decimal:
         """Calculate order book depth at a price level."""
         if side == OrderSide.BUY:
@@ -513,9 +529,7 @@ class MarketImpactMonitor:
         return total_volume
 
     async def _monitor_price_recovery(
-        self,
-        execution_id: str,
-        symbol: str
+        self, execution_id: str, symbol: str
     ) -> Optional[float]:
         """Monitor how long it takes for price to recover."""
         if execution_id not in self.pre_execution_prices:
@@ -530,13 +544,14 @@ class MarketImpactMonitor:
                 ticker = await self.gateway.get_ticker(symbol)
 
                 # Check if price has recovered
-                if ticker.bid_price >= pre_bid * Decimal("0.99") and \
-                   ticker.ask_price <= pre_ask * Decimal("1.01"):
+                if ticker.bid_price >= pre_bid * Decimal(
+                    "0.99"
+                ) and ticker.ask_price <= pre_ask * Decimal("1.01"):
                     recovery_time = (datetime.now() - start_time).total_seconds()
                     logger.info(
                         "Price recovered",
                         execution_id=execution_id,
-                        recovery_time_seconds=recovery_time
+                        recovery_time_seconds=recovery_time,
                     )
                     return recovery_time
 
@@ -549,9 +564,7 @@ class MarketImpactMonitor:
         return None  # No recovery within monitoring period
 
     async def _calculate_permanent_impact(
-        self,
-        execution_id: str,
-        symbol: str
+        self, execution_id: str, symbol: str
     ) -> Optional[Decimal]:
         """Calculate permanent price impact after recovery period."""
         if execution_id not in self.pre_execution_prices:
@@ -577,13 +590,12 @@ class MarketImpactMonitor:
             return None
 
     def _recommend_optimal_slice_size(
-        self,
-        total_volume: Decimal,
-        slice_count: int,
-        avg_impact: Decimal
+        self, total_volume: Decimal, slice_count: int, avg_impact: Decimal
     ) -> Decimal:
         """Recommend optimal slice size based on impact."""
-        current_slice_size = total_volume / slice_count if slice_count > 0 else total_volume
+        current_slice_size = (
+            total_volume / slice_count if slice_count > 0 else total_volume
+        )
 
         # Adjust based on impact
         if abs(avg_impact) < Decimal("0.1"):
@@ -599,11 +611,7 @@ class MarketImpactMonitor:
             # High impact, reduce size significantly
             return current_slice_size * Decimal("0.7")
 
-    def _recommend_delay(
-        self,
-        avg_impact: Decimal,
-        std_dev: Decimal
-    ) -> float:
+    def _recommend_delay(self, avg_impact: Decimal, std_dev: Decimal) -> float:
         """Recommend delay between slices."""
         # Base delay on impact and volatility
         if abs(avg_impact) < Decimal("0.2") and std_dev < Decimal("0.1"):
@@ -613,17 +621,15 @@ class MarketImpactMonitor:
         else:
             return 5.0  # High impact, maximum delay
 
-    def _calculate_max_safe_volume(
-        self,
-        metrics: list[MarketImpactMetric]
-    ) -> Decimal:
+    def _calculate_max_safe_volume(self, metrics: list[MarketImpactMetric]) -> Decimal:
         """Calculate maximum safe volume based on historical impact."""
         if not metrics:
             return Decimal("0")
 
         # Find volume that kept impact below 0.3%
         safe_volumes = [
-            m.volume_executed for m in metrics
+            m.volume_executed
+            for m in metrics
             if abs(m.price_impact_percent) < Decimal("0.3")
         ]
 
@@ -634,11 +640,7 @@ class MarketImpactMonitor:
             return min(m.volume_executed for m in metrics) * Decimal("0.5")
 
     def _create_empty_analysis(
-        self,
-        execution_id: str,
-        symbol: str,
-        total_volume: Decimal,
-        slice_count: int
+        self, execution_id: str, symbol: str, total_volume: Decimal, slice_count: int
     ) -> ImpactAnalysis:
         """Create empty analysis when no metrics available."""
         return ImpactAnalysis(
@@ -659,9 +661,11 @@ class MarketImpactMonitor:
             severity_distribution=dict.fromkeys(ImpactSeverity, 0),
             recovery_time_seconds=None,
             permanent_impact_percent=None,
-            optimal_slice_size=total_volume / slice_count if slice_count > 0 else total_volume,
+            optimal_slice_size=(
+                total_volume / slice_count if slice_count > 0 else total_volume
+            ),
             recommended_delay_seconds=3.0,
-            max_safe_volume=total_volume
+            max_safe_volume=total_volume,
         )
 
     async def _save_impact_metric(self, metric: MarketImpactMetric) -> None:
@@ -688,18 +692,20 @@ class MarketImpactMonitor:
                 latest_metric = metrics[-1]
                 cumulative_impact = sum(m.price_impact_percent for m in metrics)
 
-                active_executions.append({
-                    "execution_id": execution_id,
-                    "symbol": latest_metric.symbol,
-                    "slices_completed": len(metrics),
-                    "cumulative_impact": str(cumulative_impact),
-                    "latest_impact": str(latest_metric.price_impact_percent),
-                    "severity": latest_metric.severity.value,
-                    "timestamp": latest_metric.measured_at.isoformat()
-                })
+                active_executions.append(
+                    {
+                        "execution_id": execution_id,
+                        "symbol": latest_metric.symbol,
+                        "slices_completed": len(metrics),
+                        "cumulative_impact": str(cumulative_impact),
+                        "latest_impact": str(latest_metric.price_impact_percent),
+                        "severity": latest_metric.severity.value,
+                        "timestamp": latest_metric.measured_at.isoformat(),
+                    }
+                )
 
         return {
             "type": "market_impact",
             "active_executions": active_executions,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }

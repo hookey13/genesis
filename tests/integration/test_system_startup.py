@@ -2,6 +2,7 @@
 System startup and component connectivity verification tests.
 Tests all modules start without errors and can communicate.
 """
+
 import asyncio
 import pytest
 from decimal import Decimal
@@ -10,9 +11,13 @@ from datetime import datetime
 import structlog
 
 from genesis.core.models import (
-    Position, Order, TierType, OrderStatus, OrderType,
-    OrderSide, AccountTier, TradingState
+    Position,
+    Order,
+    OrderStatus,
+    OrderType,
+    OrderSide,
 )
+from genesis.core.constants import TradingTier as TierType
 from genesis.engine.strategy_orchestrator import StrategyOrchestrator
 from genesis.engine.strategy_registry import StrategyRegistry
 from genesis.engine.ab_test_framework import ABTestFramework
@@ -22,7 +27,7 @@ from genesis.data.performance_repo import PerformanceRepository
 from genesis.data.market_microstructure_repo import MarketMicrostructureRepository
 from genesis.core.account_manager import AccountManager
 from genesis.core.single_account_manager import SingleAccountManager
-from genesis.exchange.gateway import ExchangeGateway
+from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 from genesis.exchange.websocket_manager import WebSocketManager
 from genesis.exchange.fix_gateway import FIXGateway
 from genesis.exchange.order_book_manager import OrderBookManager
@@ -69,7 +74,7 @@ class TestComponentStartup:
         single_manager = SingleAccountManager(
             account_id="test_account",
             initial_balance=Decimal("10000"),
-            tier=TierType.SNIPER
+            tier=TierType.SNIPER,
         )
         assert single_manager is not None
         assert single_manager.account_id == "test_account"
@@ -102,8 +107,7 @@ class TestComponentStartup:
 
         # Test orchestrator
         orchestrator = StrategyOrchestrator(
-            repository=Repository(db_session=mock_db_session),
-            exchange_gateway=Mock()
+            repository=Repository(db_session=mock_db_session), exchange_gateway=Mock()
         )
         assert orchestrator is not None
         assert orchestrator.active_strategies == {}
@@ -127,7 +131,7 @@ class TestComponentStartup:
             host="localhost",
             port=9876,
             sender_comp_id="TEST",
-            target_comp_id="EXCHANGE"
+            target_comp_id="EXCHANGE",
         )
         assert fix_gateway is not None
         assert fix_gateway.host == "localhost"
@@ -138,10 +142,7 @@ class TestComponentStartup:
         assert order_book.symbol == "BTCUSDT"
 
         # Test prime broker
-        prime_broker = PrimeBroker(
-            api_key="test_key",
-            api_secret="test_secret"
-        )
+        prime_broker = PrimeBroker(api_key="test_key", api_secret="test_secret")
         assert prime_broker is not None
 
     @pytest.mark.asyncio
@@ -195,9 +196,9 @@ class TestComponentStartup:
             Repository(db_session=mock_db_session),
             CorrelationRepository(db_session=mock_db_session),
             PerformanceRepository(db_session=mock_db_session),
-            MarketMicrostructureRepository(db_session=mock_db_session)
+            MarketMicrostructureRepository(db_session=mock_db_session),
         ]
-        
+
         # Verify all repositories have valid sessions
         for repo in repos:
             assert repo.db_session is not None
@@ -207,17 +208,17 @@ class TestComponentStartup:
     async def test_websocket_connection_stability(self):
         """Test WebSocket connection initialization and reconnection."""
         ws_manager = WebSocketManager(url="wss://test.exchange.com")
-        
-        with patch('websockets.connect', new_callable=AsyncMock) as mock_connect:
+
+        with patch("websockets.connect", new_callable=AsyncMock) as mock_connect:
             mock_ws = AsyncMock()
             mock_ws.recv = AsyncMock(return_value='{"type":"ping"}')
             mock_ws.send = AsyncMock()
             mock_connect.return_value = mock_ws
-            
+
             # Test connection
             await ws_manager.connect()
             assert mock_connect.called
-            
+
             # Test reconnection logic
             ws_manager.reconnect_delay = 0.01  # Speed up test
             await ws_manager.ensure_connection()
@@ -228,23 +229,23 @@ class TestComponentStartup:
         """Test memory monitoring setup for 24-hour leak detection."""
         import psutil
         import os
-        
+
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
-        
+
         # Create and destroy multiple objects
         for _ in range(100):
             manager = SingleAccountManager(
                 account_id=f"test_{_}",
                 initial_balance=Decimal("10000"),
-                tier=TierType.SNIPER
+                tier=TierType.SNIPER,
             )
             del manager
-        
+
         # Check memory hasn't grown excessively
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_growth = final_memory - initial_memory
-        
+
         # Allow up to 50MB growth for test overhead
         assert memory_growth < 50, f"Memory grew by {memory_growth}MB"
 
@@ -252,160 +253,166 @@ class TestComponentStartup:
     async def test_component_health_endpoints(self):
         """Test health check endpoints for all components."""
         health_checks = {
-            'database': self._check_database_health,
-            'exchange': self._check_exchange_health,
-            'strategies': self._check_strategies_health,
-            'analytics': self._check_analytics_health,
-            'tilt': self._check_tilt_health
+            "database": self._check_database_health,
+            "exchange": self._check_exchange_health,
+            "strategies": self._check_strategies_health,
+            "analytics": self._check_analytics_health,
+            "tilt": self._check_tilt_health,
         }
-        
+
         results = {}
         for component, check_func in health_checks.items():
             results[component] = await check_func()
-            assert results[component]['status'] in ['healthy', 'degraded', 'unhealthy']
-            assert 'timestamp' in results[component]
-            assert 'details' in results[component]
+            assert results[component]["status"] in ["healthy", "degraded", "unhealthy"]
+            assert "timestamp" in results[component]
+            assert "details" in results[component]
 
     async def _check_database_health(self):
         """Check database component health."""
         return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'details': {
-                'connections': 5,
-                'active_queries': 2,
-                'response_time_ms': 15
-            }
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": {"connections": 5, "active_queries": 2, "response_time_ms": 15},
         }
 
     async def _check_exchange_health(self):
         """Check exchange connectivity health."""
         return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'details': {
-                'websocket': 'connected',
-                'rest_api': 'available',
-                'latency_ms': 45
-            }
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": {
+                "websocket": "connected",
+                "rest_api": "available",
+                "latency_ms": 45,
+            },
         }
 
     async def _check_strategies_health(self):
         """Check strategy execution health."""
         return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'details': {
-                'active_strategies': 3,
-                'pending_signals': 0,
-                'last_execution': datetime.utcnow().isoformat()
-            }
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": {
+                "active_strategies": 3,
+                "pending_signals": 0,
+                "last_execution": datetime.utcnow().isoformat(),
+            },
         }
 
     async def _check_analytics_health(self):
         """Check analytics pipeline health."""
         return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'details': {
-                'calculations_pending': 0,
-                'last_update': datetime.utcnow().isoformat(),
-                'metrics_count': 150
-            }
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": {
+                "calculations_pending": 0,
+                "last_update": datetime.utcnow().isoformat(),
+                "metrics_count": 150,
+            },
         }
 
     async def _check_tilt_health(self):
         """Check tilt detection health."""
         return {
-            'status': 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
-            'details': {
-                'active_monitoring': True,
-                'indicators_active': 5,
-                'interventions_triggered': 0
-            }
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "details": {
+                "active_monitoring": True,
+                "indicators_active": 5,
+                "interventions_triggered": 0,
+            },
         }
 
     @pytest.mark.asyncio
     async def test_graceful_shutdown(self, mock_exchange_gateway):
         """Test all components shut down gracefully."""
         components = []
-        
+
         # Initialize components
         ws_manager = WebSocketManager(url="wss://test.exchange.com")
         components.append(ws_manager)
-        
+
         orchestrator = StrategyOrchestrator(
-            repository=Mock(),
-            exchange_gateway=mock_exchange_gateway
+            repository=Mock(), exchange_gateway=mock_exchange_gateway
         )
         components.append(orchestrator)
-        
+
         # Test graceful shutdown
         shutdown_errors = []
         for component in components:
             try:
-                if hasattr(component, 'shutdown'):
+                if hasattr(component, "shutdown"):
                     await component.shutdown()
-                elif hasattr(component, 'close'):
+                elif hasattr(component, "close"):
                     await component.close()
             except Exception as e:
                 shutdown_errors.append((component.__class__.__name__, str(e)))
-        
+
         assert len(shutdown_errors) == 0, f"Shutdown errors: {shutdown_errors}"
 
     @pytest.mark.asyncio
-    async def test_component_dependency_chain(self, mock_db_session, mock_exchange_gateway):
+    async def test_component_dependency_chain(
+        self, mock_db_session, mock_exchange_gateway
+    ):
         """Test component initialization in correct dependency order."""
         # Level 1: Core infrastructure
         repo = Repository(db_session=mock_db_session)
         assert repo is not None
-        
+
         # Level 2: Data layers
         correlation_repo = CorrelationRepository(db_session=mock_db_session)
         perf_repo = PerformanceRepository(db_session=mock_db_session)
-        
+
         # Level 3: Business logic
         account_manager = AccountManager(db_session=mock_db_session)
         registry = StrategyRegistry()
-        
+
         # Level 4: Orchestration
         orchestrator = StrategyOrchestrator(
-            repository=repo,
-            exchange_gateway=mock_exchange_gateway
+            repository=repo, exchange_gateway=mock_exchange_gateway
         )
-        
+
         # Level 5: Analytics
         risk_calc = RiskMetricsCalculator(repository=repo)
-        
+
         # Verify dependency chain
-        assert all([repo, correlation_repo, perf_repo, account_manager, 
-                   registry, orchestrator, risk_calc])
+        assert all(
+            [
+                repo,
+                correlation_repo,
+                perf_repo,
+                account_manager,
+                registry,
+                orchestrator,
+                risk_calc,
+            ]
+        )
 
     @pytest.mark.asyncio
     async def test_concurrent_component_startup(self, mock_db_session):
         """Test multiple components can start concurrently without deadlocks."""
+
         async def start_component(name, delay):
             await asyncio.sleep(delay)
-            if name == 'repository':
+            if name == "repository":
                 return Repository(db_session=mock_db_session)
-            elif name == 'account':
+            elif name == "account":
                 return SingleAccountManager(
                     account_id="test",
                     initial_balance=Decimal("10000"),
-                    tier=TierType.SNIPER
+                    tier=TierType.SNIPER,
                 )
-            elif name == 'registry':
+            elif name == "registry":
                 return StrategyRegistry()
             return Mock()
-        
+
         # Start components concurrently
         tasks = [
-            start_component('repository', 0.01),
-            start_component('account', 0.02),
-            start_component('registry', 0.01),
+            start_component("repository", 0.01),
+            start_component("account", 0.02),
+            start_component("registry", 0.01),
         ]
-        
+
         results = await asyncio.gather(*tasks)
         assert len(results) == 3
         assert all(r is not None for r in results)

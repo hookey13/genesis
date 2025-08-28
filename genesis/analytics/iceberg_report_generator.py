@@ -23,6 +23,7 @@ logger = structlog.get_logger(__name__)
 
 class ExecutionStatus(str, Enum):
     """Execution status states."""
+
     PENDING = "PENDING"
     EXECUTING = "EXECUTING"
     COMPLETED = "COMPLETED"
@@ -34,6 +35,7 @@ class ExecutionStatus(str, Enum):
 @dataclass
 class SliceExecutionRecord:
     """Record of a single slice execution."""
+
     slice_id: str
     slice_number: int
     total_slices: int
@@ -54,6 +56,7 @@ class SliceExecutionRecord:
 @dataclass
 class ExecutionProgress:
     """Real-time execution progress tracking."""
+
     execution_id: str
     symbol: str
     side: OrderSide
@@ -89,6 +92,7 @@ class ExecutionProgress:
 @dataclass
 class ExecutionReport:
     """Comprehensive post-execution analysis report."""
+
     execution_id: str
     symbol: str
     side: OrderSide
@@ -172,7 +176,7 @@ class IcebergReportGenerator:
         side: OrderSide,
         total_quantity: Decimal,
         total_value_usdt: Decimal,
-        slice_count: int
+        slice_count: int,
     ) -> ExecutionProgress:
         """
         Start tracking a new iceberg execution.
@@ -208,7 +212,7 @@ class IcebergReportGenerator:
             estimated_completion=None,
             elapsed_seconds=0,
             average_slice_time=0,
-            status=ExecutionStatus.PENDING
+            status=ExecutionStatus.PENDING,
         )
 
         self.active_executions[execution_id] = progress
@@ -218,15 +222,13 @@ class IcebergReportGenerator:
             "Started tracking execution",
             execution_id=execution_id,
             symbol=symbol,
-            slice_count=slice_count
+            slice_count=slice_count,
         )
 
         return progress
 
     def update_slice_execution(
-        self,
-        execution_id: str,
-        slice_record: SliceExecutionRecord
+        self, execution_id: str, slice_record: SliceExecutionRecord
     ) -> ExecutionProgress:
         """
         Update execution progress with slice result.
@@ -253,8 +255,7 @@ class IcebergReportGenerator:
             if slice_record.slippage_percent:
                 progress.cumulative_slippage += slice_record.slippage_percent
                 progress.max_slice_slippage = max(
-                    progress.max_slice_slippage,
-                    abs(slice_record.slippage_percent)
+                    progress.max_slice_slippage, abs(slice_record.slippage_percent)
                 )
 
             if slice_record.fees_usdt:
@@ -271,11 +272,14 @@ class IcebergReportGenerator:
         # Calculate completion percentage
         progress.completion_percent = (
             (progress.slices_completed / progress.slice_count) * Decimal("100")
-            if progress.slice_count > 0 else Decimal("0")
+            if progress.slice_count > 0
+            else Decimal("0")
         )
 
         # Update time metrics
-        progress.elapsed_seconds = (datetime.now() - progress.started_at).total_seconds()
+        progress.elapsed_seconds = (
+            datetime.now() - progress.started_at
+        ).total_seconds()
 
         if progress.slices_completed > 0:
             progress.average_slice_time = (
@@ -285,8 +289,8 @@ class IcebergReportGenerator:
             # Estimate completion time
             remaining_slices = progress.slice_count - progress.slices_completed
             estimated_remaining_seconds = remaining_slices * progress.average_slice_time
-            progress.estimated_completion = (
-                datetime.now() + timedelta(seconds=estimated_remaining_seconds)
+            progress.estimated_completion = datetime.now() + timedelta(
+                seconds=estimated_remaining_seconds
             )
 
         # Update status
@@ -307,16 +311,12 @@ class IcebergReportGenerator:
             execution_id=execution_id,
             completed=progress.slices_completed,
             failed=progress.slices_failed,
-            completion_percent=str(progress.completion_percent)
+            completion_percent=str(progress.completion_percent),
         )
 
         return progress
 
-    def abort_execution(
-        self,
-        execution_id: str,
-        reason: str
-    ) -> None:
+    def abort_execution(self, execution_id: str, reason: str) -> None:
         """
         Mark execution as aborted.
 
@@ -331,15 +331,10 @@ class IcebergReportGenerator:
             progress.last_updated = datetime.now()
 
             logger.warning(
-                "Execution aborted",
-                execution_id=execution_id,
-                reason=reason
+                "Execution aborted", execution_id=execution_id, reason=reason
             )
 
-    async def generate_execution_report(
-        self,
-        execution_id: str
-    ) -> ExecutionReport:
+    async def generate_execution_report(self, execution_id: str) -> ExecutionReport:
         """
         Generate comprehensive execution report.
 
@@ -358,7 +353,8 @@ class IcebergReportGenerator:
         # Calculate fill rate
         fill_rate = (
             progress.quantity_filled / progress.total_quantity
-            if progress.total_quantity > 0 else Decimal("0")
+            if progress.total_quantity > 0
+            else Decimal("0")
         )
 
         # Calculate slice size statistics
@@ -366,7 +362,9 @@ class IcebergReportGenerator:
         if slice_sizes:
             avg_size = sum(slice_sizes) / len(slice_sizes)
             if len(slice_sizes) > 1:
-                variance = sum((s - avg_size) ** 2 for s in slice_sizes) / len(slice_sizes)
+                variance = sum((s - avg_size) ** 2 for s in slice_sizes) / len(
+                    slice_sizes
+                )
                 std_dev = variance.sqrt()
             else:
                 std_dev = Decimal("0")
@@ -376,7 +374,8 @@ class IcebergReportGenerator:
 
         # Calculate slippage statistics
         slippages = [
-            s.slippage_percent for s in slices
+            s.slippage_percent
+            for s in slices
             if s.slippage_percent is not None and s.status == OrderStatus.FILLED
         ]
 
@@ -387,18 +386,24 @@ class IcebergReportGenerator:
             min_slippage = min(slippages, key=abs)
 
             if len(slippages) > 1:
-                slip_variance = sum((s - avg_slippage) ** 2 for s in slippages) / len(slippages)
+                slip_variance = sum((s - avg_slippage) ** 2 for s in slippages) / len(
+                    slippages
+                )
                 slip_std_dev = slip_variance.sqrt()
             else:
                 slip_std_dev = Decimal("0")
         else:
-            total_slippage = avg_slippage = max_slippage = min_slippage = slip_std_dev = Decimal("0")
+            total_slippage = avg_slippage = max_slippage = min_slippage = (
+                slip_std_dev
+            ) = Decimal("0")
 
         # Calculate time statistics
         slice_times = []
         for i, slice_rec in enumerate(slices):
             if slice_rec.filled_at and slice_rec.submitted_at:
-                duration = (slice_rec.filled_at - slice_rec.submitted_at).total_seconds()
+                duration = (
+                    slice_rec.filled_at - slice_rec.submitted_at
+                ).total_seconds()
                 slice_times.append(duration)
 
         if slice_times:
@@ -413,19 +418,21 @@ class IcebergReportGenerator:
         avg_delay = sum(delays) / len(delays) if delays else 0
 
         # Calculate costs
-        slippage_cost = abs(progress.cumulative_slippage) * progress.value_filled_usdt / Decimal("100")
+        slippage_cost = (
+            abs(progress.cumulative_slippage)
+            * progress.value_filled_usdt
+            / Decimal("100")
+        )
         total_cost = progress.total_fees_usdt + slippage_cost
         cost_per_unit = (
             total_cost / progress.quantity_filled
-            if progress.quantity_filled > 0 else Decimal("0")
+            if progress.quantity_filled > 0
+            else Decimal("0")
         )
 
         # Calculate quality score (0-100)
         quality_score = self._calculate_quality_score(
-            fill_rate,
-            avg_slippage,
-            progress.slices_failed,
-            progress.slice_count
+            fill_rate, avg_slippage, progress.slices_failed, progress.slice_count
         )
 
         # Generate recommendations
@@ -434,7 +441,7 @@ class IcebergReportGenerator:
             slip_std_dev,
             progress.slices_failed,
             progress.slice_count,
-            avg_delay
+            avg_delay,
         )
 
         # Create severity distribution (would need impact data)
@@ -464,7 +471,8 @@ class IcebergReportGenerator:
             total_fees_usdt=progress.total_fees_usdt,
             average_fees_per_slice=(
                 progress.total_fees_usdt / progress.slices_completed
-                if progress.slices_completed > 0 else Decimal("0")
+                if progress.slices_completed > 0
+                else Decimal("0")
             ),
             slippage_cost_usdt=slippage_cost,
             total_cost_usdt=total_cost,
@@ -479,7 +487,7 @@ class IcebergReportGenerator:
             started_at=progress.started_at,
             completed_at=datetime.now(),
             status=progress.status,
-            abort_reason=progress.abort_reason
+            abort_reason=progress.abort_reason,
         )
 
         # Save report
@@ -495,7 +503,7 @@ class IcebergReportGenerator:
             execution_id=execution_id,
             quality_score=str(quality_score),
             fill_rate=str(fill_rate),
-            avg_slippage=str(avg_slippage)
+            avg_slippage=str(avg_slippage),
         )
 
         return report
@@ -505,7 +513,7 @@ class IcebergReportGenerator:
         fill_rate: Decimal,
         avg_slippage: Decimal,
         failures: int,
-        total_slices: int
+        total_slices: int,
     ) -> Decimal:
         """Calculate execution quality score (0-100)."""
         # Start with perfect score
@@ -533,7 +541,7 @@ class IcebergReportGenerator:
         slip_std_dev: Decimal,
         failures: int,
         total_slices: int,
-        avg_delay: float
+        avg_delay: float,
     ) -> list[str]:
         """Generate execution improvement recommendations."""
         recommendations = []
@@ -604,22 +612,23 @@ class IcebergReportGenerator:
                 "completed": progress.slices_completed,
                 "failed": progress.slices_failed,
                 "total": progress.slice_count,
-                "percent": str(progress.completion_percent)
+                "percent": str(progress.completion_percent),
             },
             "performance": {
                 "avg_slippage": str(progress.average_slippage),
                 "max_slippage": str(progress.max_slice_slippage),
-                "fees": str(progress.total_fees_usdt)
+                "fees": str(progress.total_fees_usdt),
             },
             "time": {
                 "elapsed": progress.elapsed_seconds,
                 "estimated_completion": (
                     progress.estimated_completion.isoformat()
-                    if progress.estimated_completion else None
-                )
+                    if progress.estimated_completion
+                    else None
+                ),
             },
             "status": progress.status.value,
-            "last_updated": progress.last_updated.isoformat()
+            "last_updated": progress.last_updated.isoformat(),
         }
 
     def export_report_json(self, report: ExecutionReport) -> str:
@@ -640,28 +649,28 @@ class IcebergReportGenerator:
                 "quantity_filled": str(report.total_quantity_filled),
                 "fill_rate": str(report.fill_rate),
                 "total_value": str(report.total_value_usdt),
-                "quality_score": str(report.execution_quality_score)
+                "quality_score": str(report.execution_quality_score),
             },
             "slicing": {
                 "slice_count": report.slice_count,
                 "completed": report.slices_completed,
                 "failed": report.slices_failed,
-                "avg_size": str(report.slice_size_avg)
+                "avg_size": str(report.slice_size_avg),
             },
             "performance": {
                 "avg_slippage": str(report.average_slippage_percent),
                 "max_slippage": str(report.max_slice_slippage),
                 "total_fees": str(report.total_fees_usdt),
-                "total_cost": str(report.total_cost_usdt)
+                "total_cost": str(report.total_cost_usdt),
             },
             "timing": {
                 "duration_seconds": report.execution_duration_seconds,
                 "avg_slice_time": report.average_slice_duration,
-                "avg_delay": report.average_delay_between_slices
+                "avg_delay": report.average_delay_between_slices,
             },
             "recommendations": report.recommendations,
             "status": report.status.value,
-            "generated_at": report.generated_at.isoformat()
+            "generated_at": report.generated_at.isoformat(),
         }
 
         return json.dumps(report_dict, indent=2)

@@ -63,9 +63,13 @@ def mock_settings():
     # Mock exchange settings
     settings.exchange = MagicMock()
     settings.exchange.binance_api_key = MagicMock()
-    settings.exchange.binance_api_key.get_secret_value = MagicMock(return_value="test_api_key")
+    settings.exchange.binance_api_key.get_secret_value = MagicMock(
+        return_value="test_api_key"
+    )
     settings.exchange.binance_api_secret = MagicMock()
-    settings.exchange.binance_api_secret.get_secret_value = MagicMock(return_value="test_api_secret")
+    settings.exchange.binance_api_secret.get_secret_value = MagicMock(
+        return_value="test_api_secret"
+    )
     settings.exchange.binance_testnet = True
     settings.exchange.exchange_rate_limit = 1200
 
@@ -111,13 +115,10 @@ async def mock_exchange():
         initial_balance={
             "USDT": Decimal("10000"),
             "BTC": Decimal("0.5"),
-            "ETH": Decimal("5.0")
+            "ETH": Decimal("5.0"),
         }
     )
-    exchange.market_prices = {
-        "BTC/USDT": Decimal("50000"),
-        "ETH/USDT": Decimal("3000")
-    }
+    exchange.market_prices = {"BTC/USDT": Decimal("50000"), "ETH/USDT": Decimal("3000")}
     return exchange
 
 
@@ -137,6 +138,7 @@ async def gateway(mock_settings):
 def rate_limiter():
     """Create a RateLimiter instance."""
     from genesis.exchange.rate_limiter import RateLimiter
+
     return RateLimiter(max_weight=1200, window_seconds=60)
 
 
@@ -144,11 +146,12 @@ def rate_limiter():
 def circuit_breaker():
     """Create a CircuitBreaker instance."""
     from genesis.exchange.circuit_breaker import CircuitBreaker
+
     return CircuitBreaker(
         name="test",
         failure_threshold=3,
         failure_window_seconds=10,
-        recovery_timeout_seconds=60  # Long timeout to prevent automatic transitions during tests
+        recovery_timeout_seconds=60,  # Long timeout to prevent automatic transitions during tests
     )
 
 
@@ -156,11 +159,12 @@ def circuit_breaker():
 def health_monitor():
     """Create a HealthMonitor instance."""
     from genesis.exchange.health_monitor import HealthMonitor
+
     return HealthMonitor(
         check_interval_seconds=5,
         window_size=10,
         degraded_threshold=0.95,
-        unhealthy_threshold=0.80
+        unhealthy_threshold=0.80,
     )
 
 
@@ -171,56 +175,68 @@ def mock_ccxt_exchange():
 
     # Mock common methods
     mock.load_markets = AsyncMock(return_value=True)
-    mock.fetch_balance = AsyncMock(return_value={
-        "info": {
-            "balances": {
-                "USDT": {"free": "10000", "locked": "0"},
-                "BTC": {"free": "0.5", "locked": "0"}
+    mock.fetch_balance = AsyncMock(
+        return_value={
+            "info": {
+                "balances": {
+                    "USDT": {"free": "10000", "locked": "0"},
+                    "BTC": {"free": "0.5", "locked": "0"},
+                }
             }
         }
-    })
-    mock.create_order = AsyncMock(return_value={
-        "id": "12345",
-        "info": {"orderId": "BINANCE_12345"},
-        "symbol": "BTC/USDT",
-        "side": "buy",
-        "type": "limit",
-        "status": "open",
-        "price": 50000,
-        "amount": 0.001,
-        "filled": 0,
-        "timestamp": 1700000000000
-    })
+    )
+    mock.create_order = AsyncMock(
+        return_value={
+            "id": "12345",
+            "info": {"orderId": "BINANCE_12345"},
+            "symbol": "BTC/USDT",
+            "side": "buy",
+            "type": "limit",
+            "status": "open",
+            "price": 50000,
+            "amount": 0.001,
+            "filled": 0,
+            "timestamp": 1700000000000,
+        }
+    )
     mock.cancel_order = AsyncMock(return_value={"status": "canceled"})
-    mock.fetch_order = AsyncMock(return_value={
-        "id": "12345",
-        "info": {"orderId": "BINANCE_12345"},
-        "symbol": "BTC/USDT",
-        "side": "buy",
-        "type": "limit",
-        "status": "filled",
-        "price": 50000,
-        "amount": 0.001,
-        "filled": 0.001,
-        "timestamp": 1700000000000
-    })
-    mock.fetch_order_book = AsyncMock(return_value={
-        "bids": [[50000, 1.5], [49999, 2.0]],
-        "asks": [[50001, 1.2], [50002, 1.8]],
-        "timestamp": 1700000000000
-    })
-    mock.fetch_ohlcv = AsyncMock(return_value=[
-        [1700000000000, 50000, 50100, 49900, 50050, 100],
-        [1699999940000, 49950, 50050, 49850, 50000, 95]
-    ])
-    mock.fetch_ticker = AsyncMock(return_value={
-        "symbol": "BTC/USDT",
-        "bid": 50000,
-        "ask": 50001,
-        "last": 50000.5,
-        "baseVolume": 1500,
-        "timestamp": 1700000000000
-    })
+    mock.fetch_order = AsyncMock(
+        return_value={
+            "id": "12345",
+            "info": {"orderId": "BINANCE_12345"},
+            "symbol": "BTC/USDT",
+            "side": "buy",
+            "type": "limit",
+            "status": "filled",
+            "price": 50000,
+            "amount": 0.001,
+            "filled": 0.001,
+            "timestamp": 1700000000000,
+        }
+    )
+    mock.fetch_order_book = AsyncMock(
+        return_value={
+            "bids": [[50000, 1.5], [49999, 2.0]],
+            "asks": [[50001, 1.2], [50002, 1.8]],
+            "timestamp": 1700000000000,
+        }
+    )
+    mock.fetch_ohlcv = AsyncMock(
+        return_value=[
+            [1700000000000, 50000, 50100, 49900, 50050, 100],
+            [1699999940000, 49950, 50050, 49850, 50000, 95],
+        ]
+    )
+    mock.fetch_ticker = AsyncMock(
+        return_value={
+            "symbol": "BTC/USDT",
+            "bid": 50000,
+            "ask": 50001,
+            "last": 50000.5,
+            "baseVolume": 1500,
+            "timestamp": 1700000000000,
+        }
+    )
     mock.fetch_time = AsyncMock(return_value=1700000000000)
     mock.close = AsyncMock(return_value=None)
 

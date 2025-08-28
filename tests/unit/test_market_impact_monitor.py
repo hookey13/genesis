@@ -40,9 +40,7 @@ def mock_repository():
 def impact_monitor(mock_gateway, mock_repository):
     """Create a market impact monitor instance."""
     return MarketImpactMonitor(
-        gateway=mock_gateway,
-        repository=mock_repository,
-        tier=TradingTier.HUNTER
+        gateway=mock_gateway, repository=mock_repository, tier=TradingTier.HUNTER
     )
 
 
@@ -67,16 +65,16 @@ def sample_order_book():
             [39999.0, 1.5],
             [39998.0, 2.0],
             [39997.0, 1.2],
-            [39996.0, 0.8]
+            [39996.0, 0.8],
         ],
         asks=[
             [40001.0, 1.0],
             [40002.0, 1.5],
             [40003.0, 2.0],
             [40004.0, 1.2],
-            [40005.0, 0.8]
+            [40005.0, 0.8],
         ],
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -96,7 +94,7 @@ def sample_order():
         status=OrderStatus.FILLED,
         slice_number=1,
         total_slices=3,
-        created_at=datetime.now()
+        created_at=datetime.now(),
     )
 
 
@@ -106,9 +104,7 @@ class TestMarketImpactMonitor:
     def test_initialization(self, mock_gateway, mock_repository):
         """Test monitor initialization."""
         monitor = MarketImpactMonitor(
-            gateway=mock_gateway,
-            repository=mock_repository,
-            tier=TradingTier.HUNTER
+            gateway=mock_gateway, repository=mock_repository, tier=TradingTier.HUNTER
         )
 
         assert monitor.gateway == mock_gateway
@@ -141,7 +137,12 @@ class TestMarketImpactMonitor:
 
     @pytest.mark.asyncio
     async def test_measure_slice_impact(
-        self, impact_monitor, mock_gateway, sample_order, sample_ticker, sample_order_book
+        self,
+        impact_monitor,
+        mock_gateway,
+        sample_order,
+        sample_ticker,
+        sample_order_book,
     ):
         """Test measuring impact of a single slice."""
         execution_id = "test_exec_123"
@@ -174,44 +175,54 @@ class TestMarketImpactMonitor:
         """Test impact percentage calculation."""
         # Test price increase (unfavorable for buy)
         impact = impact_monitor.calculate_impact(
-            Decimal("100"),
-            Decimal("101"),
-            Decimal("1000")
+            Decimal("100"), Decimal("101"), Decimal("1000")
         )
         assert impact == Decimal("1.0000")  # 1% increase
 
         # Test price decrease (favorable for buy)
         impact = impact_monitor.calculate_impact(
-            Decimal("100"),
-            Decimal("99"),
-            Decimal("1000")
+            Decimal("100"), Decimal("99"), Decimal("1000")
         )
         assert impact == Decimal("-1.0000")  # 1% decrease
 
         # Test no change
         impact = impact_monitor.calculate_impact(
-            Decimal("100"),
-            Decimal("100"),
-            Decimal("1000")
+            Decimal("100"), Decimal("100"), Decimal("1000")
         )
         assert impact == Decimal("0")
 
         # Test zero pre-price
         impact = impact_monitor.calculate_impact(
-            Decimal("0"),
-            Decimal("100"),
-            Decimal("1000")
+            Decimal("0"), Decimal("100"), Decimal("1000")
         )
         assert impact == Decimal("0")
 
     def test_classify_impact_severity(self, impact_monitor):
         """Test impact severity classification."""
-        assert impact_monitor._classify_impact_severity(Decimal("0.05")) == ImpactSeverity.NEGLIGIBLE
-        assert impact_monitor._classify_impact_severity(Decimal("0.2")) == ImpactSeverity.LOW
-        assert impact_monitor._classify_impact_severity(Decimal("0.4")) == ImpactSeverity.MODERATE
-        assert impact_monitor._classify_impact_severity(Decimal("0.7")) == ImpactSeverity.HIGH
-        assert impact_monitor._classify_impact_severity(Decimal("1.5")) == ImpactSeverity.SEVERE
-        assert impact_monitor._classify_impact_severity(Decimal("-0.4")) == ImpactSeverity.MODERATE  # Absolute value
+        assert (
+            impact_monitor._classify_impact_severity(Decimal("0.05"))
+            == ImpactSeverity.NEGLIGIBLE
+        )
+        assert (
+            impact_monitor._classify_impact_severity(Decimal("0.2"))
+            == ImpactSeverity.LOW
+        )
+        assert (
+            impact_monitor._classify_impact_severity(Decimal("0.4"))
+            == ImpactSeverity.MODERATE
+        )
+        assert (
+            impact_monitor._classify_impact_severity(Decimal("0.7"))
+            == ImpactSeverity.HIGH
+        )
+        assert (
+            impact_monitor._classify_impact_severity(Decimal("1.5"))
+            == ImpactSeverity.SEVERE
+        )
+        assert (
+            impact_monitor._classify_impact_severity(Decimal("-0.4"))
+            == ImpactSeverity.MODERATE
+        )  # Absolute value
 
     @pytest.mark.asyncio
     async def test_analyze_execution_impact(self, impact_monitor):
@@ -240,14 +251,16 @@ class TestMarketImpactMonitor:
                 market_depth_2pct=Decimal("100000"),
                 cumulative_impact=None,
                 severity=ImpactSeverity.LOW,
-                measured_at=datetime.now() + timedelta(seconds=i*3),
-                notes=f"Slice {i+1}/3"
+                measured_at=datetime.now() + timedelta(seconds=i * 3),
+                notes=f"Slice {i+1}/3",
             )
             for i in range(3)
         ]
 
         impact_monitor.active_monitors[execution_id] = metrics
-        impact_monitor.execution_start_times[execution_id] = datetime.now() - timedelta(seconds=10)
+        impact_monitor.execution_start_times[execution_id] = datetime.now() - timedelta(
+            seconds=10
+        )
 
         analysis = await impact_monitor.analyze_execution_impact(
             execution_id, symbol, total_volume, slice_count
@@ -257,7 +270,10 @@ class TestMarketImpactMonitor:
         assert analysis.symbol == symbol
         assert analysis.total_volume == total_volume
         assert analysis.slice_count == slice_count
-        assert analysis.average_impact_per_slice == sum(m.price_impact_percent for m in metrics) / 3
+        assert (
+            analysis.average_impact_per_slice
+            == sum(m.price_impact_percent for m in metrics) / 3
+        )
         assert analysis.max_slice_impact == Decimal("0.2")
         assert analysis.min_slice_impact == Decimal("0.0")
         assert analysis.severity_distribution[ImpactSeverity.LOW] == 3
@@ -286,31 +302,22 @@ class TestMarketImpactMonitor:
         """Test order book depth calculation at price levels."""
         # Test buy side (looking at asks)
         depth = impact_monitor._calculate_depth_at_level(
-            sample_order_book,
-            Decimal("1"),  # 1% level
-            OrderSide.BUY
+            sample_order_book, Decimal("1"), OrderSide.BUY  # 1% level
         )
         assert depth > 0
 
         # Test sell side (looking at bids)
         depth = impact_monitor._calculate_depth_at_level(
-            sample_order_book,
-            Decimal("1"),
-            OrderSide.SELL
+            sample_order_book, Decimal("1"), OrderSide.SELL
         )
         assert depth > 0
 
         # Test empty order book
         empty_book = OrderBook(
-            symbol="EMPTY",
-            bids=[],
-            asks=[],
-            timestamp=datetime.now()
+            symbol="EMPTY", bids=[], asks=[], timestamp=datetime.now()
         )
         depth = impact_monitor._calculate_depth_at_level(
-            empty_book,
-            Decimal("1"),
-            OrderSide.BUY
+            empty_book, Decimal("1"), OrderSide.BUY
         )
         assert depth == Decimal("0")
 
@@ -373,7 +380,7 @@ class TestMarketImpactMonitor:
                 market_depth_2pct=None,
                 cumulative_impact=None,
                 severity=ImpactSeverity.LOW,
-                measured_at=datetime.now()
+                measured_at=datetime.now(),
             )
             for i in range(5)
         ]
@@ -411,7 +418,7 @@ class TestMarketImpactMonitor:
             market_depth_2pct=None,
             cumulative_impact=None,
             severity=ImpactSeverity.NEGLIGIBLE,
-            measured_at=datetime.now()
+            measured_at=datetime.now(),
         )
 
         impact_monitor.active_monitors[execution_id] = [metric]
@@ -454,7 +461,7 @@ class TestMarketImpactMonitor:
         # Set pre-execution prices
         impact_monitor.pre_execution_prices[execution_id] = (
             Decimal("40000"),  # bid
-            Decimal("40001")   # ask
+            Decimal("40001"),  # ask
         )
 
         # Mock ticker showing recovery

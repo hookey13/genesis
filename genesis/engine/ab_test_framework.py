@@ -23,6 +23,7 @@ logger = structlog.get_logger(__name__)
 
 class TestStatus(Enum):
     """Status of an A/B test"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -31,6 +32,7 @@ class TestStatus(Enum):
 
 class AllocationMethod(Enum):
     """Method for allocating traffic to variants"""
+
     RANDOM = "random"
     ROUND_ROBIN = "round_robin"
     WEIGHTED = "weighted"
@@ -39,6 +41,7 @@ class AllocationMethod(Enum):
 @dataclass
 class TestVariant:
     """Represents a single variant in an A/B test"""
+
     variant_id: str
     strategy_name: str
     strategy_params: dict
@@ -59,6 +62,7 @@ class TestVariant:
 @dataclass
 class ABTest:
     """Represents an A/B test configuration and results"""
+
     test_id: str
     name: str
     description: str
@@ -96,7 +100,7 @@ class ABTest:
                 "total_pnl_usdt": str(self.variant_a.total_pnl_usdt),
                 "win_rate": str(self.variant_a.win_rate),
                 "sharpe_ratio": str(self.variant_a.sharpe_ratio),
-                "max_drawdown": str(self.variant_a.max_drawdown)
+                "max_drawdown": str(self.variant_a.max_drawdown),
             },
             "variant_b": {
                 "variant_id": self.variant_b.variant_id,
@@ -107,7 +111,7 @@ class ABTest:
                 "total_pnl_usdt": str(self.variant_b.total_pnl_usdt),
                 "win_rate": str(self.variant_b.win_rate),
                 "sharpe_ratio": str(self.variant_b.sharpe_ratio),
-                "max_drawdown": str(self.variant_b.max_drawdown)
+                "max_drawdown": str(self.variant_b.max_drawdown),
             },
             "min_trades_per_variant": self.min_trades_per_variant,
             "confidence_level": str(self.confidence_level),
@@ -117,18 +121,24 @@ class ABTest:
             "end_time": self.end_time.isoformat() if self.end_time else None,
             "winner": self.winner,
             "p_value": str(self.p_value) if self.p_value else None,
-            "confidence_interval": [str(ci) for ci in self.confidence_interval] if self.confidence_interval else None,
-            "statistical_significance": self.statistical_significance
+            "confidence_interval": (
+                [str(ci) for ci in self.confidence_interval]
+                if self.confidence_interval
+                else None
+            ),
+            "statistical_significance": self.statistical_significance,
         }
 
 
 class ABTestFramework:
     """Framework for running A/B tests on strategy variations"""
 
-    def __init__(self,
-                 event_bus: EventBus,
-                 performance_tracker: StrategyPerformanceTracker,
-                 storage_path: str = ".genesis/data/ab_tests"):
+    def __init__(
+        self,
+        event_bus: EventBus,
+        performance_tracker: StrategyPerformanceTracker,
+        storage_path: str = ".genesis/data/ab_tests",
+    ):
         """Initialize A/B test framework
 
         Args:
@@ -148,15 +158,17 @@ class ABTestFramework:
 
         logger.info("A/B test framework initialized", storage_path=storage_path)
 
-    async def create_test(self,
-                         test_id: str,
-                         name: str,
-                         description: str,
-                         variant_a: TestVariant,
-                         variant_b: TestVariant,
-                         min_trades: int = 100,
-                         confidence_level: Decimal = Decimal("0.95"),
-                         allocation_method: AllocationMethod = AllocationMethod.RANDOM) -> ABTest:
+    async def create_test(
+        self,
+        test_id: str,
+        name: str,
+        description: str,
+        variant_a: TestVariant,
+        variant_b: TestVariant,
+        min_trades: int = 100,
+        confidence_level: Decimal = Decimal("0.95"),
+        allocation_method: AllocationMethod = AllocationMethod.RANDOM,
+    ) -> ABTest:
         """Create a new A/B test
 
         Args:
@@ -183,7 +195,7 @@ class ABTestFramework:
             variant_b=variant_b,
             min_trades_per_variant=min_trades,
             confidence_level=confidence_level,
-            allocation_method=allocation_method
+            allocation_method=allocation_method,
         )
 
         self.active_tests[test_id] = test
@@ -192,21 +204,25 @@ class ABTestFramework:
         if allocation_method == AllocationMethod.ROUND_ROBIN:
             self._round_robin_counters[test_id] = 0
 
-        logger.info("A/B test created",
-                   test_id=test_id,
-                   name=name,
-                   variant_a=variant_a.variant_id,
-                   variant_b=variant_b.variant_id)
+        logger.info(
+            "A/B test created",
+            test_id=test_id,
+            name=name,
+            variant_a=variant_a.variant_id,
+            variant_b=variant_b.variant_id,
+        )
 
         # Publish test creation event
-        await self.event_bus.publish(Event(
-            event_type=EventType.AB_TEST_CREATED,
-            event_data={
-                "test_id": test_id,
-                "name": name,
-                "variants": [variant_a.variant_id, variant_b.variant_id]
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.AB_TEST_CREATED,
+                event_data={
+                    "test_id": test_id,
+                    "name": name,
+                    "variants": [variant_a.variant_id, variant_b.variant_id],
+                },
+            )
+        )
 
         return test
 
@@ -229,13 +245,15 @@ class ABTestFramework:
         logger.info("A/B test started", test_id=test_id, start_time=test.start_time)
 
         # Publish test start event
-        await self.event_bus.publish(Event(
-            event_type=EventType.AB_TEST_STARTED,
-            event_data={
-                "test_id": test_id,
-                "start_time": test.start_time.isoformat()
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.AB_TEST_STARTED,
+                event_data={
+                    "test_id": test_id,
+                    "start_time": test.start_time.isoformat(),
+                },
+            )
+        )
 
     def allocate_variant(self, test_id: str) -> str:
         """Allocate traffic to a variant based on test configuration
@@ -264,7 +282,11 @@ class ABTestFramework:
         elif test.allocation_method == AllocationMethod.ROUND_ROBIN:
             # Alternate between variants
             counter = self._round_robin_counters.get(test_id, 0)
-            variant = test.variant_a.variant_id if counter % 2 == 0 else test.variant_b.variant_id
+            variant = (
+                test.variant_a.variant_id
+                if counter % 2 == 0
+                else test.variant_b.variant_id
+            )
             self._round_robin_counters[test_id] = counter + 1
             return variant
 
@@ -280,11 +302,9 @@ class ABTestFramework:
         else:
             raise ValueError(f"Unknown allocation method: {test.allocation_method}")
 
-    async def record_trade_result(self,
-                                 test_id: str,
-                                 variant_id: str,
-                                 pnl_usdt: Decimal,
-                                 timestamp: datetime) -> None:
+    async def record_trade_result(
+        self, test_id: str, variant_id: str, pnl_usdt: Decimal, timestamp: datetime
+    ) -> None:
         """Record a trade result for a variant
 
         Args:
@@ -298,12 +318,18 @@ class ABTestFramework:
             # Check if test was already completed
             for completed in self.completed_tests:
                 if completed.test_id == test_id:
-                    logger.debug(f"Test {test_id} already completed, ignoring trade result")
+                    logger.debug(
+                        f"Test {test_id} already completed, ignoring trade result"
+                    )
                     return
             raise ValueError(f"Test {test_id} not found")
 
         # Find the variant
-        variant = test.variant_a if test.variant_a.variant_id == variant_id else test.variant_b
+        variant = (
+            test.variant_a
+            if test.variant_a.variant_id == variant_id
+            else test.variant_b
+        )
         if variant.variant_id != variant_id:
             raise ValueError(f"Variant {variant_id} not found in test {test_id}")
 
@@ -317,11 +343,13 @@ class ABTestFramework:
         wins = sum(1 for r in variant.returns if r > 0)
         variant.win_rate = Decimal(str(wins)) / Decimal(str(len(variant.returns)))
 
-        logger.debug("Trade result recorded",
-                    test_id=test_id,
-                    variant_id=variant_id,
-                    trade_count=variant.trades_executed,
-                    pnl_usdt=pnl_usdt)
+        logger.debug(
+            "Trade result recorded",
+            test_id=test_id,
+            variant_id=variant_id,
+            trade_count=variant.trades_executed,
+            pnl_usdt=pnl_usdt,
+        )
 
         # Check if test is complete
         if await self._check_test_completion(test):
@@ -344,13 +372,17 @@ class ABTestFramework:
 
         # Check for statistical significance
         if len(test.variant_a.returns) > 30 and len(test.variant_b.returns) > 30:
-            p_value = self._calculate_p_value(test.variant_a.returns, test.variant_b.returns)
+            p_value = self._calculate_p_value(
+                test.variant_a.returns, test.variant_b.returns
+            )
             if p_value < (Decimal("1") - test.confidence_level):
                 return True
 
         return False
 
-    def _calculate_p_value(self, returns_a: list[Decimal], returns_b: list[Decimal]) -> Decimal:
+    def _calculate_p_value(
+        self, returns_a: list[Decimal], returns_b: list[Decimal]
+    ) -> Decimal:
         """Calculate p-value using t-test
 
         Args:
@@ -370,10 +402,12 @@ class ABTestFramework:
 
         return Decimal(str(p_value))
 
-    def _calculate_confidence_interval(self,
-                                      returns_a: list[Decimal],
-                                      returns_b: list[Decimal],
-                                      confidence_level: Decimal) -> tuple[Decimal, Decimal]:
+    def _calculate_confidence_interval(
+        self,
+        returns_a: list[Decimal],
+        returns_b: list[Decimal],
+        confidence_level: Decimal,
+    ) -> tuple[Decimal, Decimal]:
         """Calculate confidence interval for difference in means
 
         Args:
@@ -399,7 +433,7 @@ class ABTestFramework:
 
         # Calculate confidence interval
         alpha = 1 - float(str(confidence_level))
-        t_critical = stats.t.ppf(1 - alpha/2, len(a) + len(b) - 2)
+        t_critical = stats.t.ppf(1 - alpha / 2, len(a) + len(b) - 2)
         margin_error = t_critical * se_diff
 
         lower = Decimal(str(diff_mean - margin_error))
@@ -490,20 +524,30 @@ class ABTestFramework:
             variant.max_drawdown = self._calculate_max_drawdown(variant.returns)
 
         # Statistical analysis
-        test.p_value = self._calculate_p_value(test.variant_a.returns, test.variant_b.returns)
+        test.p_value = self._calculate_p_value(
+            test.variant_a.returns, test.variant_b.returns
+        )
         test.confidence_interval = self._calculate_confidence_interval(
-            test.variant_a.returns,
-            test.variant_b.returns,
-            test.confidence_level
+            test.variant_a.returns, test.variant_b.returns, test.confidence_level
         )
 
         # Determine winner
-        test.statistical_significance = test.p_value < (Decimal("1") - test.confidence_level)
+        test.statistical_significance = test.p_value < (
+            Decimal("1") - test.confidence_level
+        )
 
         if test.statistical_significance:
             # Compare average returns
-            avg_a = sum(test.variant_a.returns) / len(test.variant_a.returns) if test.variant_a.returns else Decimal("0")
-            avg_b = sum(test.variant_b.returns) / len(test.variant_b.returns) if test.variant_b.returns else Decimal("0")
+            avg_a = (
+                sum(test.variant_a.returns) / len(test.variant_a.returns)
+                if test.variant_a.returns
+                else Decimal("0")
+            )
+            avg_b = (
+                sum(test.variant_b.returns) / len(test.variant_b.returns)
+                if test.variant_b.returns
+                else Decimal("0")
+            )
 
             if avg_a > avg_b:
                 test.winner = test.variant_a.variant_id
@@ -517,22 +561,26 @@ class ABTestFramework:
         # Save results
         await self._save_test_results(test)
 
-        logger.info("A/B test completed",
-                   test_id=test_id,
-                   winner=test.winner,
-                   p_value=test.p_value,
-                   statistical_significance=test.statistical_significance)
+        logger.info(
+            "A/B test completed",
+            test_id=test_id,
+            winner=test.winner,
+            p_value=test.p_value,
+            statistical_significance=test.statistical_significance,
+        )
 
         # Publish test completion event
-        await self.event_bus.publish(Event(
-            event_type=EventType.AB_TEST_COMPLETED,
-            event_data={
-                "test_id": test_id,
-                "winner": test.winner,
-                "p_value": str(test.p_value),
-                "statistical_significance": test.statistical_significance
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.AB_TEST_COMPLETED,
+                event_data={
+                    "test_id": test_id,
+                    "winner": test.winner,
+                    "p_value": str(test.p_value),
+                    "statistical_significance": test.statistical_significance,
+                },
+            )
+        )
 
         return test
 
@@ -560,13 +608,12 @@ class ABTestFramework:
         logger.info("A/B test aborted", test_id=test_id, reason=reason)
 
         # Publish test abortion event
-        await self.event_bus.publish(Event(
-            event_type=EventType.AB_TEST_ABORTED,
-            event_data={
-                "test_id": test_id,
-                "reason": reason
-            }
-        ))
+        await self.event_bus.publish(
+            Event(
+                event_type=EventType.AB_TEST_ABORTED,
+                event_data={"test_id": test_id, "reason": reason},
+            )
+        )
 
     async def get_test_results(self, test_id: str) -> ABTest | None:
         """Get results for a test
@@ -606,16 +653,19 @@ class ABTestFramework:
         """
         try:
             import os
+
             os.makedirs(self.storage_path, exist_ok=True)
 
             filepath = os.path.join(self.storage_path, f"{test.test_id}.json")
-            with open(filepath, 'w') as f:
+            with open(filepath, "w") as f:
                 json.dump(test.to_dict(), f, indent=2)
 
             logger.debug("Test results saved", test_id=test.test_id, filepath=filepath)
 
         except Exception as e:
-            logger.error("Failed to save test results", test_id=test.test_id, error=str(e))
+            logger.error(
+                "Failed to save test results", test_id=test.test_id, error=str(e)
+            )
 
     async def _load_test_results(self, test_id: str) -> ABTest | None:
         """Load test results from storage
@@ -628,6 +678,7 @@ class ABTestFramework:
         """
         try:
             import os
+
             filepath = os.path.join(self.storage_path, f"{test_id}.json")
 
             if not os.path.exists(filepath):
@@ -646,7 +697,7 @@ class ABTestFramework:
                 total_pnl_usdt=Decimal(data["variant_a"]["total_pnl_usdt"]),
                 win_rate=Decimal(data["variant_a"]["win_rate"]),
                 sharpe_ratio=Decimal(data["variant_a"]["sharpe_ratio"]),
-                max_drawdown=Decimal(data["variant_a"]["max_drawdown"])
+                max_drawdown=Decimal(data["variant_a"]["max_drawdown"]),
             )
 
             variant_b = TestVariant(
@@ -658,7 +709,7 @@ class ABTestFramework:
                 total_pnl_usdt=Decimal(data["variant_b"]["total_pnl_usdt"]),
                 win_rate=Decimal(data["variant_b"]["win_rate"]),
                 sharpe_ratio=Decimal(data["variant_b"]["sharpe_ratio"]),
-                max_drawdown=Decimal(data["variant_b"]["max_drawdown"])
+                max_drawdown=Decimal(data["variant_b"]["max_drawdown"]),
             )
 
             test = ABTest(
@@ -671,12 +722,24 @@ class ABTestFramework:
                 confidence_level=Decimal(data["confidence_level"]),
                 allocation_method=AllocationMethod(data["allocation_method"]),
                 status=TestStatus(data["status"]),
-                start_time=datetime.fromisoformat(data["start_time"]) if data["start_time"] else None,
-                end_time=datetime.fromisoformat(data["end_time"]) if data["end_time"] else None,
+                start_time=(
+                    datetime.fromisoformat(data["start_time"])
+                    if data["start_time"]
+                    else None
+                ),
+                end_time=(
+                    datetime.fromisoformat(data["end_time"])
+                    if data["end_time"]
+                    else None
+                ),
                 winner=data["winner"],
                 p_value=Decimal(data["p_value"]) if data["p_value"] else None,
-                confidence_interval=tuple(Decimal(ci) for ci in data["confidence_interval"]) if data["confidence_interval"] else None,
-                statistical_significance=data["statistical_significance"]
+                confidence_interval=(
+                    tuple(Decimal(ci) for ci in data["confidence_interval"])
+                    if data["confidence_interval"]
+                    else None
+                ),
+                statistical_significance=data["statistical_significance"],
             )
 
             logger.debug("Test results loaded", test_id=test_id, filepath=filepath)
@@ -737,8 +800,12 @@ class ABTestFramework:
             report.append(f"- P-Value: {test.p_value:.6f}")
             report.append(f"- Confidence Level: {test.confidence_level * 100:.1f}%")
             if test.confidence_interval:
-                report.append(f"- Confidence Interval: [{test.confidence_interval[0]:.4f}, {test.confidence_interval[1]:.4f}]")
-            report.append(f"- Statistical Significance: {test.statistical_significance}")
+                report.append(
+                    f"- Confidence Interval: [{test.confidence_interval[0]:.4f}, {test.confidence_interval[1]:.4f}]"
+                )
+            report.append(
+                f"- Statistical Significance: {test.statistical_significance}"
+            )
 
             if test.winner:
                 report.append("")

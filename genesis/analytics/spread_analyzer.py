@@ -241,7 +241,9 @@ class SpreadAnalyzer:
 
         return OrderImbalance(ratio=ratio, bid_weight=bid_weight, ask_weight=ask_weight)
 
-    def detect_spread_compression(self, symbol: str) -> Optional[SpreadCompressionEvent]:
+    def detect_spread_compression(
+        self, symbol: str
+    ) -> Optional[SpreadCompressionEvent]:
         """
         Detect spread compression for a symbol
 

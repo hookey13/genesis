@@ -25,7 +25,7 @@ class UIIntegration:
         account_manager: Optional[AccountManager] = None,
         risk_engine: Optional[RiskEngine] = None,
         order_executor: Optional[MarketOrderExecutor] = None,
-        gateway: Optional[BinanceGateway] = None
+        gateway: Optional[BinanceGateway] = None,
     ):
         """
         Initialize UI integration.
@@ -46,9 +46,7 @@ class UIIntegration:
         self.position_widget: Optional[PositionWidget] = None
 
     def connect_widgets(
-        self,
-        pnl_widget: PnLWidget,
-        position_widget: PositionWidget
+        self, pnl_widget: PnLWidget, position_widget: PositionWidget
     ) -> None:
         """
         Connect UI widgets to integration layer.
@@ -136,17 +134,13 @@ class UIIntegration:
             Command result dictionary
         """
         if not self.order_executor:
-            return {
-                "success": False,
-                "message": "Order executor not connected"
-            }
+            return {"success": False, "message": "Order executor not connected"}
 
         try:
             # Calculate position size
             if self.risk_engine:
                 quantity = self.risk_engine.calculate_position_size(
-                    amount_usdt,
-                    Decimal("2")  # 2% stop loss default
+                    amount_usdt, Decimal("2")  # 2% stop loss default
                 )
             else:
                 # Simple calculation without risk engine
@@ -155,23 +149,18 @@ class UIIntegration:
 
             # Execute market buy
             order = await self.order_executor.execute_market_order(
-                symbol="BTC/USDT",
-                side=PositionSide.LONG,
-                quantity=quantity
+                symbol="BTC/USDT", side=PositionSide.LONG, quantity=quantity
             )
 
             return {
                 "success": True,
                 "message": f"Buy order executed: {quantity:.8f} BTC",
-                "order": order
+                "order": order,
             }
 
         except Exception as e:
             logger.error("Buy command failed", error=str(e))
-            return {
-                "success": False,
-                "message": f"Buy failed: {e!s}"
-            }
+            return {"success": False, "message": f"Buy failed: {e!s}"}
 
     async def execute_sell_command(self, amount_usdt: Decimal) -> dict:
         """
@@ -184,18 +173,12 @@ class UIIntegration:
             Command result dictionary
         """
         if not self.order_executor:
-            return {
-                "success": False,
-                "message": "Order executor not connected"
-            }
+            return {"success": False, "message": "Order executor not connected"}
 
         try:
             # Check if we have a position to sell
             if not self.risk_engine or not self.risk_engine.position:
-                return {
-                    "success": False,
-                    "message": "No position to sell"
-                }
+                return {"success": False, "message": "No position to sell"}
 
             position = self.risk_engine.position
 
@@ -205,23 +188,18 @@ class UIIntegration:
 
             # Execute market sell
             order = await self.order_executor.execute_market_order(
-                symbol=position.symbol,
-                side=PositionSide.SHORT,
-                quantity=quantity
+                symbol=position.symbol, side=PositionSide.SHORT, quantity=quantity
             )
 
             return {
                 "success": True,
                 "message": f"Sell order executed: {quantity:.8f} BTC",
-                "order": order
+                "order": order,
             }
 
         except Exception as e:
             logger.error("Sell command failed", error=str(e))
-            return {
-                "success": False,
-                "message": f"Sell failed: {e!s}"
-            }
+            return {"success": False, "message": f"Sell failed: {e!s}"}
 
     async def cancel_all_orders(self) -> dict:
         """
@@ -231,10 +209,7 @@ class UIIntegration:
             Command result dictionary
         """
         if not self.order_executor:
-            return {
-                "success": False,
-                "message": "Order executor not connected"
-            }
+            return {"success": False, "message": "Order executor not connected"}
 
         try:
             cancelled = await self.order_executor.cancel_all_orders()
@@ -242,15 +217,12 @@ class UIIntegration:
             return {
                 "success": True,
                 "message": f"Cancelled {cancelled} orders",
-                "count": cancelled
+                "count": cancelled,
             }
 
         except Exception as e:
             logger.error("Cancel all orders failed", error=str(e))
-            return {
-                "success": False,
-                "message": f"Cancel failed: {e!s}"
-            }
+            return {"success": False, "message": f"Cancel failed: {e!s}"}
 
     def get_connection_status(self) -> str:
         """
@@ -275,7 +247,7 @@ class UIIntegration:
             "exchange": self.get_connection_status(),
             "trading": "Active" if self.order_executor else "Inactive",
             "tier": "SNIPER",
-            "daily_limit": "$25"
+            "daily_limit": "$25",
         }
 
         if self.account_manager:

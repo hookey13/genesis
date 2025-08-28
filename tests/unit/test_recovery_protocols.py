@@ -1,4 +1,5 @@
 """Unit tests for recovery protocols with position size management."""
+
 from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
@@ -101,7 +102,9 @@ class TestProtocolInitiation:
         mock_event_bus.publish.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_initiate_protocol_already_active(self, mock_repository, mock_event_bus):
+    async def test_initiate_protocol_already_active(
+        self, mock_repository, mock_event_bus
+    ):
         """Test initiating protocol when one already exists."""
         manager = RecoveryProtocolManager(
             repository=mock_repository,
@@ -175,7 +178,9 @@ class TestTradeRecording:
         assert protocol.current_debt_amount == Decimal("1000")  # No reduction
 
     @pytest.mark.asyncio
-    async def test_debt_reduction_capped_at_debt_amount(self, mock_repository, mock_event_bus):
+    async def test_debt_reduction_capped_at_debt_amount(
+        self, mock_repository, mock_event_bus
+    ):
         """Test that debt reduction is capped at current debt amount."""
         manager = RecoveryProtocolManager(
             repository=mock_repository,
@@ -188,7 +193,9 @@ class TestTradeRecording:
         )
 
         # Record profit larger than debt
-        await manager.record_trade_result(profile_id, Decimal("500"), is_profitable=True)
+        await manager.record_trade_result(
+            profile_id, Decimal("500"), is_profitable=True
+        )
 
         # Debt should be zero, not negative
         assert protocol.current_debt_amount == Decimal("0")
@@ -212,7 +219,9 @@ class TestStageAdvancement:
         assert protocol.recovery_stage == RecoveryStage.STAGE_0
 
     @pytest.mark.asyncio
-    async def test_advance_stage_requirements_met(self, mock_repository, mock_event_bus):
+    async def test_advance_stage_requirements_met(
+        self, mock_repository, mock_event_bus
+    ):
         """Test stage advancement when requirements are met."""
         manager = RecoveryProtocolManager(
             repository=mock_repository,

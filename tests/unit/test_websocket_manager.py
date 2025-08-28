@@ -57,9 +57,7 @@ class TestStreamSubscription:
         """Test creating a stream subscription."""
         callback = MagicMock()
         sub = StreamSubscription(
-            stream="btcusdt@trade",
-            callback=callback,
-            symbol="BTCUSDT"
+            stream="btcusdt@trade", callback=callback, symbol="BTCUSDT"
         )
 
         assert sub.stream == "btcusdt@trade"
@@ -72,40 +70,40 @@ class TestWebSocketConnection:
 
     def test_connection_initialization(self, mock_circuit_breaker, mock_gateway):
         """Test WebSocket connection initialization."""
-        subs = [
-            StreamSubscription("btcusdt@trade", MagicMock())
-        ]
+        subs = [StreamSubscription("btcusdt@trade", MagicMock())]
 
         conn = WebSocketConnection(
             name="test",
             url="wss://test.com",
             subscriptions=subs,
             circuit_breaker=mock_circuit_breaker,
-            gateway=mock_gateway
+            gateway=mock_gateway,
         )
 
         assert conn.name == "test"
         assert conn.url == "wss://test.com"
         assert conn.state == ConnectionState.DISCONNECTED
-        assert conn.max_reconnect_delay == 60.0
+        assert conn.max_reconnect_delay == 30.0  # Updated to 30s per requirements
         assert conn.heartbeat_interval == 30.0
         assert len(conn.subscriptions) == 1
 
     @pytest.mark.asyncio
     async def test_connect_success(self, mock_websocket, mock_circuit_breaker):
         """Test successful connection."""
-        subs = [
-            StreamSubscription("btcusdt@trade", MagicMock())
-        ]
+        subs = [StreamSubscription("btcusdt@trade", MagicMock())]
 
         conn = WebSocketConnection(
             name="test",
             url="wss://test.com",
             subscriptions=subs,
-            circuit_breaker=mock_circuit_breaker
+            circuit_breaker=mock_circuit_breaker,
         )
 
-        with patch("websockets.connect", return_value=mock_websocket):
+        # Patch websockets.connect to return the mock directly
+        async def mock_connect(*args, **kwargs):
+            return mock_websocket
+        
+        with patch("websockets.connect", new=mock_connect):
             await conn.connect()
 
             assert conn.state == ConnectionState.CONNECTED
@@ -116,19 +114,19 @@ class TestWebSocketConnection:
     @pytest.mark.asyncio
     async def test_connect_failure(self, mock_circuit_breaker):
         """Test connection failure."""
-        subs = [
-            StreamSubscription("btcusdt@trade", MagicMock())
-        ]
+        subs = [StreamSubscription("btcusdt@trade", MagicMock())]
 
         conn = WebSocketConnection(
             name="test",
             url="wss://test.com",
             subscriptions=subs,
-            circuit_breaker=mock_circuit_breaker
+            circuit_breaker=mock_circuit_breaker,
         )
 
         with patch("websockets.connect", side_effect=Exception("Connection failed")):
-            with patch.object(conn, "_schedule_reconnect", new_callable=AsyncMock) as mock_reconnect:
+            with patch.object(
+                conn, "_schedule_reconnect", new_callable=AsyncMock
+            ) as mock_reconnect:
                 await conn.connect()
 
                 assert conn.state == ConnectionState.DISCONNECTED
@@ -138,14 +136,10 @@ class TestWebSocketConnection:
     @pytest.mark.asyncio
     async def test_disconnect(self, mock_websocket):
         """Test disconnection."""
-        subs = [
-            StreamSubscription("btcusdt@trade", MagicMock())
-        ]
+        subs = [StreamSubscription("btcusdt@trade", MagicMock())]
 
         conn = WebSocketConnection(
-            name="test",
-            url="wss://test.com",
-            subscriptions=subs
+            name="test", url="wss://test.com", subscriptions=subs
         )
 
         # Set up connected state
@@ -168,7 +162,7 @@ class TestWebSocketConnection:
             name="test",
             url="wss://test.com",
             subscriptions=subs,
-            heartbeat_interval=0.1
+            heartbeat_interval=0.1,
         )
 
         conn.state = ConnectionState.CONNECTED
@@ -190,24 +184,17 @@ class TestWebSocketConnection:
     async def test_message_handler(self, mock_websocket):
         """Test message handling."""
         callback = AsyncMock()
-        subs = [
-            StreamSubscription("btcusdt@trade", callback)
-        ]
+        subs = [StreamSubscription("btcusdt@trade", callback)]
 
         conn = WebSocketConnection(
-            name="test",
-            url="wss://test.com",
-            subscriptions=subs
+            name="test", url="wss://test.com", subscriptions=subs
         )
 
         conn.state = ConnectionState.CONNECTED
         conn.websocket = mock_websocket
 
         # Mock incoming message
-        message = json.dumps({
-            "stream": "btcusdt@trade",
-            "data": {"price": "50000"}
-        })
+        message = json.dumps({"stream": "btcusdt@trade", "data": {"price": "50000"}})
         mock_websocket.recv.return_value = message
 
         # Run message handler briefly
@@ -231,25 +218,16 @@ class TestWebSocketConnection:
         """Test gap detection in messages."""
         subs = []
         conn = WebSocketConnection(
-            name="test",
-            url="wss://test.com",
-            subscriptions=subs,
-            gateway=mock_gateway
+            name="test", url="wss://test.com", subscriptions=subs, gateway=mock_gateway
         )
 
         # First message with sequence
-        data1 = {
-            "stream": "btcusdt@depth",
-            "data": {"u": 100}
-        }
+        data1 = {"stream": "btcusdt@depth", "data": {"u": 100}}
         await conn._check_for_gaps(data1)
         assert conn.last_sequence_numbers["btcusdt@depth"] == 100
 
         # Second message with gap
-        data2 = {
-            "stream": "btcusdt@depth",
-            "data": {"u": 105}
-        }
+        data2 = {"stream": "btcusdt@depth", "data": {"u": 105}}
         await conn._check_for_gaps(data2)
 
         # Check gap was detected
@@ -270,7 +248,7 @@ class TestWebSocketConnection:
             url="wss://test.com",
             subscriptions=subs,
             reconnect_delay=1.0,
-            max_reconnect_delay=60.0
+            max_reconnect_delay=30.0,  # Updated to 30s per requirements
         )
 
         # Mock connect to always fail
@@ -291,9 +269,7 @@ class TestWebSocketConnection:
         """Test getting connection statistics."""
         subs = []
         conn = WebSocketConnection(
-            name="test",
-            url="wss://test.com",
-            subscriptions=subs
+            name="test", url="wss://test.com", subscriptions=subs
         )
 
         conn.messages_received = 100
@@ -326,7 +302,9 @@ class TestWebSocketManager:
         """Test starting and stopping the manager."""
         manager = WebSocketManager()
 
-        with patch.object(manager, "_setup_connections", new_callable=AsyncMock) as mock_setup:
+        with patch.object(
+            manager, "_setup_connections", new_callable=AsyncMock
+        ) as mock_setup:
             # Add mock connections
             mock_conn = AsyncMock()
             mock_conn.connect = AsyncMock()
@@ -455,9 +433,7 @@ class TestWebSocketManager:
 
         # Add mock connection
         mock_conn = MagicMock()
-        mock_conn.get_statistics.return_value = {
-            "messages_received": 100
-        }
+        mock_conn.get_statistics.return_value = {"messages_received": 100}
         manager.connections["test"] = mock_conn
 
         # Add subscription

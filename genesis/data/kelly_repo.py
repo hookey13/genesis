@@ -4,6 +4,7 @@ Repository for Kelly Criterion parameters and calculations.
 Provides database persistence for Kelly parameters, historical calculations,
 and strategy performance metrics.
 """
+
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -46,10 +47,18 @@ class KellyParameterDB(Base):
             win_loss_ratio=Decimal(str(self.win_loss_ratio)),
             sample_size=self.sample_size,
             confidence_interval=(
-                Decimal(str(self.confidence_lower)) if self.confidence_lower else Decimal("0"),
-                Decimal(str(self.confidence_upper)) if self.confidence_upper else Decimal("1")
+                (
+                    Decimal(str(self.confidence_lower))
+                    if self.confidence_lower
+                    else Decimal("0")
+                ),
+                (
+                    Decimal(str(self.confidence_upper))
+                    if self.confidence_upper
+                    else Decimal("1")
+                ),
             ),
-            last_calculated=self.calculated_at
+            last_calculated=self.calculated_at,
         )
 
 
@@ -109,7 +118,7 @@ class StrategyPerformanceDB(Base):
             profit_factor=Decimal(str(self.profit_factor)),
             average_win=Decimal(str(self.average_win)),
             average_loss=Decimal(str(self.average_loss)),
-            last_updated=self.last_updated
+            last_updated=self.last_updated,
         )
 
 
@@ -157,14 +166,19 @@ class KellyRepository:
         try:
             params = KellyParameterDB(
                 strategy_id=edge.strategy_id,
-                kelly_fraction=float(edge.win_rate * edge.win_loss_ratio - (1 - edge.win_rate)) / float(edge.win_loss_ratio) if edge.win_loss_ratio > 0 else 0,
+                kelly_fraction=(
+                    float(edge.win_rate * edge.win_loss_ratio - (1 - edge.win_rate))
+                    / float(edge.win_loss_ratio)
+                    if edge.win_loss_ratio > 0
+                    else 0
+                ),
                 fractional_multiplier=0.25,  # Default fractional Kelly
                 win_rate=float(edge.win_rate),
                 win_loss_ratio=float(edge.win_loss_ratio),
                 sample_size=edge.sample_size,
                 confidence_lower=float(edge.confidence_interval[0]),
                 confidence_upper=float(edge.confidence_interval[1]),
-                calculated_at=edge.last_calculated
+                calculated_at=edge.last_calculated,
             )
 
             self.session.merge(params)
@@ -187,10 +201,12 @@ class KellyRepository:
             StrategyEdge or None if not found
         """
         try:
-            params = self.session.query(KellyParameterDB)\
-                .filter_by(strategy_id=strategy_id)\
-                .order_by(KellyParameterDB.calculated_at.desc())\
+            params = (
+                self.session.query(KellyParameterDB)
+                .filter_by(strategy_id=strategy_id)
+                .order_by(KellyParameterDB.calculated_at.desc())
                 .first()
+            )
 
             if params:
                 return params.to_strategy_edge()
@@ -206,7 +222,7 @@ class KellyRepository:
         balance: Decimal,
         kelly_params: KellyParams,
         tier: TradingTier,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
     ) -> None:
         """
         Save a Kelly calculation for audit trail.
@@ -227,11 +243,13 @@ class KellyRepository:
                 kelly_fraction=float(kelly_params.kelly_fraction),
                 position_size=float(kelly_params.position_size),
                 conviction_level="MEDIUM",  # Default if not in metadata
-                volatility_multiplier=metadata.get("volatility_multiplier") if metadata else None,
+                volatility_multiplier=(
+                    metadata.get("volatility_multiplier") if metadata else None
+                ),
                 final_size=float(kelly_params.position_size),
                 tier=tier.value,
                 calculated_at=datetime.now(UTC),
-                metadata=metadata
+                metadata=metadata,
             )
 
             self.session.add(calculation)
@@ -264,7 +282,7 @@ class KellyRepository:
                 profit_factor=float(metrics.profit_factor),
                 average_win=float(metrics.average_win),
                 average_loss=float(metrics.average_loss),
-                last_updated=metrics.last_updated
+                last_updated=metrics.last_updated,
             )
 
             # Use merge to update if exists
@@ -288,9 +306,11 @@ class KellyRepository:
             StrategyMetrics or None if not found
         """
         try:
-            perf = self.session.query(StrategyPerformanceDB)\
-                .filter_by(strategy_id=strategy_id)\
+            perf = (
+                self.session.query(StrategyPerformanceDB)
+                .filter_by(strategy_id=strategy_id)
                 .first()
+            )
 
             if perf:
                 return perf.to_strategy_metrics()
@@ -308,7 +328,7 @@ class KellyRepository:
         kelly_fraction: Decimal,
         result: SimulationResult,
         iterations: int,
-        trades_per_iteration: int
+        trades_per_iteration: int,
     ) -> None:
         """
         Save Monte Carlo simulation results.
@@ -338,7 +358,7 @@ class KellyRepository:
                 percentile_95=float(result.percentile_95),
                 iterations=iterations,
                 trades_per_iteration=trades_per_iteration,
-                simulated_at=datetime.now(UTC)
+                simulated_at=datetime.now(UTC),
             )
 
             self.session.add(simulation)
@@ -349,11 +369,7 @@ class KellyRepository:
             logger.error("Failed to save simulation result", error=str(e))
             self.session.rollback()
 
-    def get_recent_calculations(
-        self,
-        strategy_id: str,
-        limit: int = 100
-    ) -> list[dict]:
+    def get_recent_calculations(self, strategy_id: str, limit: int = 100) -> list[dict]:
         """
         Get recent Kelly calculations for a strategy.
 
@@ -365,11 +381,13 @@ class KellyRepository:
             List of calculation dictionaries
         """
         try:
-            calcs = self.session.query(KellyCalculationDB)\
-                .filter_by(strategy_id=strategy_id)\
-                .order_by(KellyCalculationDB.calculated_at.desc())\
-                .limit(limit)\
+            calcs = (
+                self.session.query(KellyCalculationDB)
+                .filter_by(strategy_id=strategy_id)
+                .order_by(KellyCalculationDB.calculated_at.desc())
+                .limit(limit)
                 .all()
+            )
 
             return [
                 {
@@ -379,7 +397,7 @@ class KellyRepository:
                     "conviction_level": c.conviction_level,
                     "tier": c.tier,
                     "calculated_at": c.calculated_at,
-                    "metadata": c.metadata
+                    "metadata": c.metadata,
                 }
                 for c in calcs
             ]
@@ -401,14 +419,18 @@ class KellyRepository:
             cutoff_date = datetime.now(UTC) - timedelta(days=days_to_keep)
 
             # Delete old calculations
-            calc_count = self.session.query(KellyCalculationDB)\
-                .filter(KellyCalculationDB.calculated_at < cutoff_date)\
+            calc_count = (
+                self.session.query(KellyCalculationDB)
+                .filter(KellyCalculationDB.calculated_at < cutoff_date)
                 .delete()
+            )
 
             # Delete old simulations
-            sim_count = self.session.query(MonteCarloSimulationDB)\
-                .filter(MonteCarloSimulationDB.simulated_at < cutoff_date)\
+            sim_count = (
+                self.session.query(MonteCarloSimulationDB)
+                .filter(MonteCarloSimulationDB.simulated_at < cutoff_date)
                 .delete()
+            )
 
             self.session.commit()
 

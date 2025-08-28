@@ -3166,7 +3166,9 @@ class SQLiteRepository(Repository):
         from uuid import uuid4
 
         quality_id = str(uuid4())
-        timestamp = quality.timestamp if hasattr(quality, 'timestamp') else datetime.now(UTC)
+        timestamp = (
+            quality.timestamp if hasattr(quality, "timestamp") else datetime.now(UTC)
+        )
 
         await self.connection.execute(
             """
@@ -3198,7 +3200,11 @@ class SQLiteRepository(Repository):
         )
 
         await self.connection.commit()
-        logger.info("Execution quality saved", order_id=quality.order_id, score=quality.execution_score)
+        logger.info(
+            "Execution quality saved",
+            order_id=quality.order_id,
+            score=quality.execution_score,
+        )
 
     async def get_execution_quality_records(
         self, start_time: datetime, symbol: Optional[str] = None
@@ -3232,22 +3238,24 @@ class SQLiteRepository(Repository):
 
         records = []
         for row in rows:
-            records.append(ExecutionQuality(
-                order_id=row["order_id"],
-                symbol=row["symbol"],
-                order_type=row["order_type"],
-                routing_method=row["routing_method"],
-                timestamp=datetime.fromisoformat(row["timestamp"]),
-                slippage_bps=Decimal(str(row["slippage_bps"])),
-                total_fees=Decimal(str(row["total_fees"])),
-                maker_fees=Decimal(str(row["maker_fees"])),
-                taker_fees=Decimal(str(row["taker_fees"])),
-                time_to_fill_ms=row["time_to_fill_ms"],
-                fill_rate=Decimal(str(row["fill_rate"])),
-                price_improvement_bps=Decimal(str(row["price_improvement_bps"])),
-                execution_score=row["execution_score"],
-                market_conditions=row["market_conditions"],
-            ))
+            records.append(
+                ExecutionQuality(
+                    order_id=row["order_id"],
+                    symbol=row["symbol"],
+                    order_type=row["order_type"],
+                    routing_method=row["routing_method"],
+                    timestamp=datetime.fromisoformat(row["timestamp"]),
+                    slippage_bps=Decimal(str(row["slippage_bps"])),
+                    total_fees=Decimal(str(row["total_fees"])),
+                    maker_fees=Decimal(str(row["maker_fees"])),
+                    taker_fees=Decimal(str(row["taker_fees"])),
+                    time_to_fill_ms=row["time_to_fill_ms"],
+                    fill_rate=Decimal(str(row["fill_rate"])),
+                    price_improvement_bps=Decimal(str(row["price_improvement_bps"])),
+                    execution_score=row["execution_score"],
+                    market_conditions=row["market_conditions"],
+                )
+            )
 
         logger.info("Retrieved execution quality records", count=len(records))
         return records

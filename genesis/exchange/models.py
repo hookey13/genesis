@@ -17,7 +17,10 @@ class OrderRequest(BaseModel):
 
     symbol: str = Field(..., description="Trading pair (e.g., BTC/USDT)")
     side: str = Field(..., pattern="^(buy|sell|BUY|SELL)$")
-    type: str = Field(..., pattern="^(market|limit|stop_limit|FOK|IOC|POST_ONLY|LIMIT_MAKER|MARKET|LIMIT|STOP_LIMIT)$")
+    type: str = Field(
+        ...,
+        pattern="^(market|limit|stop_limit|FOK|IOC|POST_ONLY|LIMIT_MAKER|MARKET|LIMIT|STOP_LIMIT)$",
+    )
     quantity: Decimal = Field(..., gt=0)
     price: Optional[Decimal] = Field(None, gt=0)
     stop_price: Optional[Decimal] = Field(None, gt=0)
@@ -31,10 +34,19 @@ class OrderRequest(BaseModel):
             return Decimal(str(v))
         return v
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_price_for_limit(self):
         """Ensure price is provided for limit orders."""
-        limit_types = ["limit", "LIMIT", "FOK", "IOC", "POST_ONLY", "LIMIT_MAKER", "stop_limit", "STOP_LIMIT"]
+        limit_types = [
+            "limit",
+            "LIMIT",
+            "FOK",
+            "IOC",
+            "POST_ONLY",
+            "LIMIT_MAKER",
+            "stop_limit",
+            "STOP_LIMIT",
+        ]
         if self.type in limit_types and self.price is None:
             raise ValueError(f"Price required for {self.type} orders")
         return self
@@ -77,8 +89,17 @@ class MarketTicker(BaseModel):
     high_24h: Decimal
     low_24h: Decimal
 
-    @field_validator("last_price", "bid_price", "ask_price", "volume_24h",
-                    "quote_volume_24h", "price_change_percent", "high_24h", "low_24h", mode="before")
+    @field_validator(
+        "last_price",
+        "bid_price",
+        "ask_price",
+        "volume_24h",
+        "quote_volume_24h",
+        "price_change_percent",
+        "high_24h",
+        "low_24h",
+        mode="before",
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""
@@ -93,7 +114,9 @@ class OrderBook(BaseModel):
     """Order book snapshot."""
 
     symbol: str
-    bids: list[list[float]]  # [[price, quantity], ...] - kept as float for compatibility
+    bids: list[
+        list[float]
+    ]  # [[price, quantity], ...] - kept as float for compatibility
     asks: list[list[float]]  # [[price, quantity], ...]
     timestamp: datetime
 
@@ -126,7 +149,9 @@ class KlineData(BaseModel):
     quote_volume: Decimal
     trades_count: int
 
-    @field_validator("open", "high", "low", "close", "volume", "quote_volume", mode="before")
+    @field_validator(
+        "open", "high", "low", "close", "volume", "quote_volume", mode="before"
+    )
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""

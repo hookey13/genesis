@@ -86,7 +86,7 @@ def iceberg_executor(mock_gateway, mock_account, mock_market_executor, mock_repo
         gateway=mock_gateway,
         account=mock_account,
         market_executor=mock_market_executor,
-        repository=mock_repository
+        repository=mock_repository,
     )
 
 
@@ -102,7 +102,7 @@ def sample_order():
         side=OrderSide.BUY,
         price=None,
         quantity=Decimal("0.01"),
-        created_at=datetime.now()
+        created_at=datetime.now(),
     )
 
 
@@ -116,16 +116,16 @@ def sample_order_book():
             [39999.0, 1.0],
             [39998.0, 0.8],
             [39997.0, 1.2],
-            [39996.0, 0.6]
+            [39996.0, 0.6],
         ],
         asks=[
             [40001.0, 0.5],
             [40002.0, 1.0],
             [40003.0, 0.8],
             [40004.0, 1.2],
-            [40005.0, 0.6]
+            [40005.0, 0.6],
         ],
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -144,13 +144,15 @@ def sample_ticker():
 class TestIcebergOrderExecutor:
     """Test suite for IcebergOrderExecutor."""
 
-    def test_initialization_with_valid_tier(self, mock_gateway, mock_account, mock_market_executor, mock_repository):
+    def test_initialization_with_valid_tier(
+        self, mock_gateway, mock_account, mock_market_executor, mock_repository
+    ):
         """Test successful initialization with Hunter tier."""
         executor = IcebergOrderExecutor(
             gateway=mock_gateway,
             account=mock_account,
             market_executor=mock_market_executor,
-            repository=mock_repository
+            repository=mock_repository,
         )
 
         assert executor.tier == TradingTier.HUNTER
@@ -158,7 +160,9 @@ class TestIcebergOrderExecutor:
         assert executor.slippage_threshold == SLIPPAGE_ABORT_THRESHOLD
         assert len(executor.active_executions) == 0
 
-    def test_initialization_with_invalid_tier(self, mock_gateway, mock_market_executor, mock_repository):
+    def test_initialization_with_invalid_tier(
+        self, mock_gateway, mock_market_executor, mock_repository
+    ):
         """Test initialization fails with Sniper tier."""
         sniper_account = Mock(spec=Account)
         sniper_account.account_id = "sniper_123"
@@ -169,7 +173,7 @@ class TestIcebergOrderExecutor:
                 gateway=mock_gateway,
                 account=sniper_account,
                 market_executor=mock_market_executor,
-                repository=mock_repository
+                repository=mock_repository,
             )
 
         assert "Hunter tier or above" in str(exc_info.value)
@@ -186,7 +190,7 @@ class TestIcebergOrderExecutor:
             ask_depth_2pct=Decimal("1000"),
             spread_percent=Decimal("0.1"),
             optimal_slice_count=MIN_SLICES,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         slices = iceberg_executor.calculate_slice_sizes(order_value, liquidity_profile)
@@ -207,7 +211,7 @@ class TestIcebergOrderExecutor:
             ask_depth_2pct=Decimal("4000"),
             spread_percent=Decimal("0.1"),
             optimal_slice_count=5,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         slices = iceberg_executor.calculate_slice_sizes(order_value, liquidity_profile)
@@ -224,7 +228,9 @@ class TestIcebergOrderExecutor:
         # Test multiple variations
         variations = []
         for _ in range(10):
-            varied = iceberg_executor.add_slice_variation(base_size, SLICE_VARIATION_PERCENT)
+            varied = iceberg_executor.add_slice_variation(
+                base_size, SLICE_VARIATION_PERCENT
+            )
             variations.append(varied)
 
             # Check within expected range
@@ -246,14 +252,14 @@ class TestIcebergOrderExecutor:
         # Check randomness
         assert len(set(delays)) > 1
 
-    def test_analyze_liquidity_depth_buy_side(self, iceberg_executor, sample_order_book):
+    def test_analyze_liquidity_depth_buy_side(
+        self, iceberg_executor, sample_order_book
+    ):
         """Test liquidity analysis for buy orders."""
         order_value = Decimal("20000")  # 0.5 BTC at $40000
 
         profile = iceberg_executor.analyze_liquidity_depth(
-            sample_order_book,
-            OrderSide.BUY,
-            order_value
+            sample_order_book, OrderSide.BUY, order_value
         )
 
         assert profile.total_ask_volume > 0
@@ -261,14 +267,14 @@ class TestIcebergOrderExecutor:
         assert profile.spread_percent > 0
         assert profile.optimal_slice_count >= MIN_SLICES
 
-    def test_analyze_liquidity_depth_sell_side(self, iceberg_executor, sample_order_book):
+    def test_analyze_liquidity_depth_sell_side(
+        self, iceberg_executor, sample_order_book
+    ):
         """Test liquidity analysis for sell orders."""
         order_value = Decimal("20000")
 
         profile = iceberg_executor.analyze_liquidity_depth(
-            sample_order_book,
-            OrderSide.SELL,
-            order_value
+            sample_order_book, OrderSide.SELL, order_value
         )
 
         assert profile.total_bid_volume > 0
@@ -277,7 +283,12 @@ class TestIcebergOrderExecutor:
 
     @pytest.mark.asyncio
     async def test_execute_iceberg_order_below_threshold(
-        self, iceberg_executor, sample_order, mock_gateway, mock_market_executor, sample_ticker
+        self,
+        iceberg_executor,
+        sample_order,
+        mock_gateway,
+        mock_market_executor,
+        sample_ticker,
     ):
         """Test that small orders bypass iceberg execution."""
         # Set up order value below threshold
@@ -290,7 +301,7 @@ class TestIcebergOrderExecutor:
             order=sample_order,
             message="Standard execution",
             actual_price=Decimal("40000"),
-            slippage_percent=Decimal("0.1")
+            slippage_percent=Decimal("0.1"),
         )
         mock_market_executor.execute_market_order.return_value = standard_result
 
@@ -303,8 +314,14 @@ class TestIcebergOrderExecutor:
 
     @pytest.mark.asyncio
     async def test_execute_iceberg_order_above_threshold(
-        self, iceberg_executor, sample_order, mock_gateway, mock_market_executor,
-        mock_repository, sample_ticker, sample_order_book
+        self,
+        iceberg_executor,
+        sample_order,
+        mock_gateway,
+        mock_market_executor,
+        mock_repository,
+        sample_ticker,
+        sample_order_book,
     ):
         """Test iceberg execution for large orders."""
         # Set up large order
@@ -320,13 +337,15 @@ class TestIcebergOrderExecutor:
                 order=Mock(filled_quantity=Decimal("0.003")),
                 message=f"Slice {i+1} executed",
                 actual_price=Decimal("40000"),
-                slippage_percent=Decimal("0.05")
+                slippage_percent=Decimal("0.05"),
             )
             slice_results.append(slice_result)
 
         mock_market_executor.execute_market_order.side_effect = slice_results
 
-        result = await iceberg_executor.execute_iceberg_order(sample_order, force_iceberg=True)
+        result = await iceberg_executor.execute_iceberg_order(
+            sample_order, force_iceberg=True
+        )
 
         assert result.success
         assert "slices" in result.message.lower()
@@ -335,8 +354,14 @@ class TestIcebergOrderExecutor:
 
     @pytest.mark.asyncio
     async def test_execute_iceberg_order_with_slippage_abort(
-        self, iceberg_executor, sample_order, mock_gateway, mock_market_executor,
-        mock_repository, sample_ticker, sample_order_book
+        self,
+        iceberg_executor,
+        sample_order,
+        mock_gateway,
+        mock_market_executor,
+        mock_repository,
+        sample_ticker,
+        sample_order_book,
     ):
         """Test that high slippage triggers abort."""
         sample_order.quantity = Decimal("0.01")
@@ -349,12 +374,14 @@ class TestIcebergOrderExecutor:
             order=Mock(filled_quantity=Decimal("0.003")),
             message="High slippage",
             actual_price=Decimal("40300"),  # 0.75% slippage
-            slippage_percent=Decimal("0.75")
+            slippage_percent=Decimal("0.75"),
         )
 
         mock_market_executor.execute_market_order.return_value = high_slippage_result
 
-        result = await iceberg_executor.execute_iceberg_order(sample_order, force_iceberg=True)
+        result = await iceberg_executor.execute_iceberg_order(
+            sample_order, force_iceberg=True
+        )
 
         assert not result.success
         assert "aborted" in result.message.lower()
@@ -363,8 +390,14 @@ class TestIcebergOrderExecutor:
 
     @pytest.mark.asyncio
     async def test_execute_iceberg_order_with_failures(
-        self, iceberg_executor, sample_order, mock_gateway, mock_market_executor,
-        mock_repository, sample_ticker, sample_order_book
+        self,
+        iceberg_executor,
+        sample_order,
+        mock_gateway,
+        mock_market_executor,
+        mock_repository,
+        sample_ticker,
+        sample_order_book,
     ):
         """Test handling of slice execution failures."""
         sample_order.quantity = Decimal("0.01")
@@ -376,12 +409,14 @@ class TestIcebergOrderExecutor:
             success=False,
             order=Mock(),
             message="Execution failed",
-            error="Network error"
+            error="Network error",
         )
 
         mock_market_executor.execute_market_order.return_value = failed_result
 
-        result = await iceberg_executor.execute_iceberg_order(sample_order, force_iceberg=True)
+        result = await iceberg_executor.execute_iceberg_order(
+            sample_order, force_iceberg=True
+        )
 
         assert not result.success
         assert "failed" in result.message.lower()
@@ -389,7 +424,9 @@ class TestIcebergOrderExecutor:
         assert mock_market_executor.execute_market_order.call_count <= 3
 
     @pytest.mark.asyncio
-    async def test_order_book_caching(self, iceberg_executor, mock_gateway, sample_order_book):
+    async def test_order_book_caching(
+        self, iceberg_executor, mock_gateway, sample_order_book
+    ):
         """Test that order book is cached properly."""
         mock_gateway.get_order_book.return_value = sample_order_book
 
@@ -405,7 +442,7 @@ class TestIcebergOrderExecutor:
         # Simulate cache expiry
         iceberg_executor._order_book_cache["BTCUSDT"] = (
             sample_order_book,
-            datetime.now() - timedelta(seconds=10)
+            datetime.now() - timedelta(seconds=10),
         )
 
         # Third call after TTL - should fetch again
@@ -426,7 +463,7 @@ class TestIcebergOrderExecutor:
             slice_sizes=[Decimal("100"), Decimal("100"), Decimal("100")],
             slice_delays=[2.0, 3.0, 4.0],
             completed_slices=2,
-            started_at=datetime.now()
+            started_at=datetime.now(),
         )
 
         # Add filled slices
@@ -442,8 +479,8 @@ class TestIcebergOrderExecutor:
                 quantity=Decimal("0.0025"),
                 filled_quantity=Decimal("0.0025"),
                 status=OrderStatus.FILLED,
-                slice_number=i+1,
-                total_slices=3
+                slice_number=i + 1,
+                total_slices=3,
             )
             execution.slices.append(slice_order)
 
@@ -454,7 +491,7 @@ class TestIcebergOrderExecutor:
             success=True,
             order=Mock(),
             message="Rollback executed",
-            slippage_percent=Decimal("0.1")
+            slippage_percent=Decimal("0.1"),
         )
         mock_market_executor.execute_market_order.return_value = rollback_result
 
@@ -476,7 +513,7 @@ class TestIcebergOrderExecutor:
             ask_depth_2pct=Decimal("1000"),
             spread_percent=Decimal("0.1"),
             optimal_slice_count=MIN_SLICES,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         slices = iceberg_executor.calculate_slice_sizes(order_value, liquidity_profile)
@@ -490,8 +527,13 @@ class TestIcebergOrderExecutor:
 
     @pytest.mark.asyncio
     async def test_concurrent_iceberg_orders(
-        self, iceberg_executor, mock_gateway, mock_market_executor,
-        mock_repository, sample_ticker, sample_order_book
+        self,
+        iceberg_executor,
+        mock_gateway,
+        mock_market_executor,
+        mock_repository,
+        sample_ticker,
+        sample_order_book,
     ):
         """Test handling of concurrent iceberg executions."""
         mock_gateway.get_ticker.return_value = sample_ticker
@@ -506,7 +548,7 @@ class TestIcebergOrderExecutor:
             type=OrderType.MARKET,
             side=OrderSide.BUY,
             price=None,
-            quantity=Decimal("0.01")
+            quantity=Decimal("0.01"),
         )
 
         order2 = Order(
@@ -517,7 +559,7 @@ class TestIcebergOrderExecutor:
             type=OrderType.MARKET,
             side=OrderSide.SELL,
             price=None,
-            quantity=Decimal("0.5")
+            quantity=Decimal("0.5"),
         )
 
         # Mock successful slice executions
@@ -525,7 +567,7 @@ class TestIcebergOrderExecutor:
             success=True,
             order=Mock(filled_quantity=Decimal("0.003")),
             message="Executed",
-            slippage_percent=Decimal("0.1")
+            slippage_percent=Decimal("0.1"),
         )
         mock_market_executor.execute_market_order.return_value = success_result
 
@@ -533,7 +575,7 @@ class TestIcebergOrderExecutor:
         results = await asyncio.gather(
             iceberg_executor.execute_iceberg_order(order1, force_iceberg=True),
             iceberg_executor.execute_iceberg_order(order2, force_iceberg=True),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         # Both should complete
@@ -543,17 +585,11 @@ class TestIcebergOrderExecutor:
 
     def test_calculate_depth_to_price_level_asks(self, iceberg_executor):
         """Test depth calculation for ask side."""
-        asks = [
-            [40000.0, 0.5],
-            [40001.0, 1.0],
-            [40002.0, 0.8]
-        ]
+        asks = [[40000.0, 0.5], [40001.0, 1.0], [40002.0, 0.8]]
 
         # Calculate depth to reach 40001.5
         depth = iceberg_executor._calculate_depth_to_price_level(
-            asks,
-            Decimal("40001.5"),
-            is_ask=True
+            asks, Decimal("40001.5"), is_ask=True
         )
 
         # Should include first two levels
@@ -562,17 +598,11 @@ class TestIcebergOrderExecutor:
 
     def test_calculate_depth_to_price_level_bids(self, iceberg_executor):
         """Test depth calculation for bid side."""
-        bids = [
-            [40000.0, 0.5],
-            [39999.0, 1.0],
-            [39998.0, 0.8]
-        ]
+        bids = [[40000.0, 0.5], [39999.0, 1.0], [39998.0, 0.8]]
 
         # Calculate depth to reach 39998.5
         depth = iceberg_executor._calculate_depth_to_price_level(
-            bids,
-            Decimal("39998.5"),
-            is_ask=False
+            bids, Decimal("39998.5"), is_ask=False
         )
 
         # Should include first two levels
@@ -581,8 +611,14 @@ class TestIcebergOrderExecutor:
 
     @pytest.mark.asyncio
     async def test_network_failure_during_slice(
-        self, iceberg_executor, sample_order, mock_gateway, mock_market_executor,
-        mock_repository, sample_ticker, sample_order_book
+        self,
+        iceberg_executor,
+        sample_order,
+        mock_gateway,
+        mock_market_executor,
+        mock_repository,
+        sample_ticker,
+        sample_order_book,
     ):
         """Test handling of network failure during slice execution."""
         sample_order.quantity = Decimal("0.01")
@@ -590,9 +626,13 @@ class TestIcebergOrderExecutor:
         mock_gateway.get_order_book.return_value = sample_order_book
 
         # Mock network failure
-        mock_market_executor.execute_market_order.side_effect = Exception("Network timeout")
+        mock_market_executor.execute_market_order.side_effect = Exception(
+            "Network timeout"
+        )
 
         with pytest.raises(OrderExecutionError) as exc_info:
-            await iceberg_executor.execute_iceberg_order(sample_order, force_iceberg=True)
+            await iceberg_executor.execute_iceberg_order(
+                sample_order, force_iceberg=True
+            )
 
         assert "Network timeout" in str(exc_info.value)

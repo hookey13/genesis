@@ -61,7 +61,7 @@ def sample_order():
         price=Decimal("50000"),
         quantity=Decimal("0.01"),
         filled_quantity=Decimal("0"),
-        status=OrderStatus.PENDING
+        status=OrderStatus.PENDING,
     )
 
 
@@ -80,7 +80,7 @@ def sample_order_book():
             (Decimal("50010"), Decimal("1.8")),
             (Decimal("50015"), Decimal("2.5")),
         ],
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -95,7 +95,7 @@ def tight_spread_conditions():
         time_factor=TimeFactor.US_OPEN,
         volatility=Decimal("0.02"),
         order_book_imbalance=Decimal("0"),
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -110,7 +110,7 @@ def wide_spread_conditions():
         time_factor=TimeFactor.ASIA_OPEN,
         volatility=Decimal("0.03"),
         order_book_imbalance=Decimal("0.1"),
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -125,7 +125,7 @@ def volatile_conditions():
         time_factor=TimeFactor.EUROPE_OPEN,
         volatility=Decimal("0.08"),  # 8% volatility
         order_book_imbalance=Decimal("-0.2"),
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -140,7 +140,7 @@ def thin_liquidity_conditions():
         time_factor=TimeFactor.QUIET,
         volatility=Decimal("0.04"),
         order_book_imbalance=Decimal("0.5"),
-        timestamp=datetime.now()
+        timestamp=datetime.now(),
     )
 
 
@@ -152,12 +152,10 @@ class TestMarketConditionAnalysis:
         """Test analyzing market conditions from order book and ticker."""
         # Setup mock data
         mock_exchange_gateway.get_order_book.return_value = {
-            'bids': [[49995, 1.5], [49990, 2.0]],
-            'asks': [[50005, 1.2], [50010, 1.8]]
+            "bids": [[49995, 1.5], [49990, 2.0]],
+            "asks": [[50005, 1.2], [50010, 1.8]],
         }
-        mock_exchange_gateway.get_ticker.return_value = {
-            'priceChangePercent': '3.5'
-        }
+        mock_exchange_gateway.get_ticker.return_value = {"priceChangePercent": "3.5"}
 
         conditions = await smart_router.analyze_market_conditions("BTC/USDT")
 
@@ -171,10 +169,10 @@ class TestMarketConditionAnalysis:
     async def test_market_conditions_caching(self, smart_router, mock_exchange_gateway):
         """Test that market conditions are cached for TTL period."""
         mock_exchange_gateway.get_order_book.return_value = {
-            'bids': [[49995, 1.5]],
-            'asks': [[50005, 1.2]]
+            "bids": [[49995, 1.5]],
+            "asks": [[50005, 1.2]],
         }
-        mock_exchange_gateway.get_ticker.return_value = {'priceChangePercent': '2.0'}
+        mock_exchange_gateway.get_ticker.return_value = {"priceChangePercent": "2.0"}
 
         # First call should fetch from exchange
         conditions1 = await smart_router.analyze_market_conditions("BTC/USDT")
@@ -186,7 +184,9 @@ class TestMarketConditionAnalysis:
         assert conditions1.timestamp == conditions2.timestamp
 
     @pytest.mark.asyncio
-    async def test_market_conditions_error_handling(self, smart_router, mock_exchange_gateway):
+    async def test_market_conditions_error_handling(
+        self, smart_router, mock_exchange_gateway
+    ):
         """Test fallback to conservative defaults on API error."""
         mock_exchange_gateway.get_order_book.side_effect = Exception("API Error")
 
@@ -208,10 +208,7 @@ class TestMarketConditionAnalysis:
     def test_calculate_spread_percentage_no_market(self, smart_router):
         """Test spread calculation with empty order book."""
         empty_book = OrderBook(
-            symbol="BTC/USDT",
-            bids=[],
-            asks=[],
-            timestamp=datetime.now()
+            symbol="BTC/USDT", bids=[], asks=[], timestamp=datetime.now()
         )
 
         spread = smart_router.calculate_spread_percentage(empty_book)
@@ -229,7 +226,7 @@ class TestMarketConditionAnalysis:
 
     def test_get_time_of_day_factor(self, smart_router):
         """Test time of day factor determination."""
-        with patch('genesis.engine.executor.smart_router.datetime') as mock_datetime:
+        with patch("genesis.engine.executor.smart_router.datetime") as mock_datetime:
             # Test Asia open
             mock_datetime.utcnow.return_value.hour = 4
             assert smart_router.get_time_of_day_factor() == TimeFactor.ASIA_OPEN
@@ -255,9 +252,7 @@ class TestMarketConditionAnalysis:
         assert impact < Decimal("0.001")
 
         # Large order in thin liquidity
-        impact = smart_router.estimate_market_impact(
-            Decimal("10"), LiquidityLevel.THIN
-        )
+        impact = smart_router.estimate_market_impact(Decimal("10"), LiquidityLevel.THIN)
         assert impact > Decimal("0.01")
 
         # Test impact cap at 5%
@@ -270,14 +265,18 @@ class TestMarketConditionAnalysis:
 class TestOrderTypeSelection:
     """Test order type selection logic."""
 
-    def test_high_urgency_selection(self, smart_router, sample_order, tight_spread_conditions):
+    def test_high_urgency_selection(
+        self, smart_router, sample_order, tight_spread_conditions
+    ):
         """Test that high urgency always selects market orders."""
         order_type = smart_router.select_order_type(
             sample_order, tight_spread_conditions, UrgencyLevel.HIGH
         )
         assert order_type == ExtendedOrderType.MARKET
 
-    def test_tight_spread_deep_liquidity(self, smart_router, sample_order, tight_spread_conditions):
+    def test_tight_spread_deep_liquidity(
+        self, smart_router, sample_order, tight_spread_conditions
+    ):
         """Test order selection with tight spread and deep liquidity."""
         order_type = smart_router.select_order_type(
             sample_order, tight_spread_conditions, UrgencyLevel.NORMAL
@@ -294,7 +293,7 @@ class TestOrderTypeSelection:
             time_factor=TimeFactor.US_OPEN,
             volatility=Decimal("0.02"),
             order_book_imbalance=Decimal("0"),
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         order_type = smart_router.select_order_type(
@@ -302,14 +301,18 @@ class TestOrderTypeSelection:
         )
         assert order_type == ExtendedOrderType.IOC
 
-    def test_wide_spread_low_urgency(self, smart_router, sample_order, wide_spread_conditions):
+    def test_wide_spread_low_urgency(
+        self, smart_router, sample_order, wide_spread_conditions
+    ):
         """Test order selection with wide spread and low urgency."""
         order_type = smart_router.select_order_type(
             sample_order, wide_spread_conditions, UrgencyLevel.LOW
         )
         assert order_type == ExtendedOrderType.POST_ONLY
 
-    def test_wide_spread_normal_urgency(self, smart_router, sample_order, wide_spread_conditions):
+    def test_wide_spread_normal_urgency(
+        self, smart_router, sample_order, wide_spread_conditions
+    ):
         """Test order selection with wide spread and normal urgency."""
         order_type = smart_router.select_order_type(
             sample_order, wide_spread_conditions, UrgencyLevel.NORMAL
@@ -326,7 +329,7 @@ class TestOrderTypeSelection:
             time_factor=TimeFactor.US_OPEN,
             volatility=Decimal("0.08"),  # High volatility
             order_book_imbalance=Decimal("0"),
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         order_type = smart_router.select_order_type(
@@ -344,7 +347,7 @@ class TestOrderTypeSelection:
             time_factor=TimeFactor.US_OPEN,
             volatility=Decimal("0.08"),  # High volatility
             order_book_imbalance=Decimal("0"),
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         order_type = smart_router.select_order_type(
@@ -362,7 +365,7 @@ class TestOrderTypeSelection:
             time_factor=TimeFactor.US_OPEN,
             volatility=Decimal("0.02"),  # Low volatility
             order_book_imbalance=Decimal("0"),
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         order_type = smart_router.select_order_type(
@@ -374,7 +377,9 @@ class TestOrderTypeSelection:
 class TestExecutionScoring:
     """Test execution quality scoring."""
 
-    def test_perfect_execution_score(self, smart_router, sample_order, tight_spread_conditions):
+    def test_perfect_execution_score(
+        self, smart_router, sample_order, tight_spread_conditions
+    ):
         """Test score for perfect execution."""
         result = ExecutionResult(
             success=True,
@@ -382,7 +387,7 @@ class TestExecutionScoring:
             message="Order executed",
             actual_price=Decimal("50000"),
             slippage_percent=Decimal("0"),
-            latency_ms=50
+            latency_ms=50,
         )
 
         score = smart_router.calculate_execution_score(
@@ -390,7 +395,9 @@ class TestExecutionScoring:
         )
         assert score > 95  # Near perfect score
 
-    def test_high_slippage_penalty(self, smart_router, sample_order, tight_spread_conditions):
+    def test_high_slippage_penalty(
+        self, smart_router, sample_order, tight_spread_conditions
+    ):
         """Test score penalty for high slippage."""
         result = ExecutionResult(
             success=True,
@@ -398,7 +405,7 @@ class TestExecutionScoring:
             message="Order executed",
             actual_price=Decimal("50500"),
             slippage_percent=Decimal("1.0"),  # 1% slippage
-            latency_ms=100
+            latency_ms=100,
         )
 
         score = smart_router.calculate_execution_score(
@@ -406,7 +413,9 @@ class TestExecutionScoring:
         )
         assert score < 90  # Penalized for slippage
 
-    def test_high_latency_penalty(self, smart_router, sample_order, tight_spread_conditions):
+    def test_high_latency_penalty(
+        self, smart_router, sample_order, tight_spread_conditions
+    ):
         """Test score penalty for high latency."""
         result = ExecutionResult(
             success=True,
@@ -414,7 +423,7 @@ class TestExecutionScoring:
             message="Order executed",
             actual_price=Decimal("50000"),
             slippage_percent=Decimal("0"),
-            latency_ms=1500  # Very high latency
+            latency_ms=1500,  # Very high latency
         )
 
         score = smart_router.calculate_execution_score(
@@ -422,7 +431,9 @@ class TestExecutionScoring:
         )
         assert score <= 80  # Heavily penalized for latency
 
-    def test_favorable_execution_bonus(self, smart_router, sample_order, volatile_conditions):
+    def test_favorable_execution_bonus(
+        self, smart_router, sample_order, volatile_conditions
+    ):
         """Test bonus for favorable execution in volatile markets."""
         result = ExecutionResult(
             success=True,
@@ -430,7 +441,7 @@ class TestExecutionScoring:
             message="Order executed",
             actual_price=Decimal("49900"),
             slippage_percent=Decimal("-0.2"),  # Favorable slippage
-            latency_ms=100
+            latency_ms=100,
         )
 
         score = smart_router.calculate_execution_score(
@@ -438,7 +449,9 @@ class TestExecutionScoring:
         )
         assert score > 100  # Bonus applied (capped at 100)
 
-    def test_post_only_success_bonus(self, smart_router, sample_order, wide_spread_conditions):
+    def test_post_only_success_bonus(
+        self, smart_router, sample_order, wide_spread_conditions
+    ):
         """Test bonus for successful post-only execution."""
         sample_order.routing_method = "POST_ONLY"
 
@@ -448,7 +461,7 @@ class TestExecutionScoring:
             message="Order executed as maker",
             actual_price=Decimal("50000"),
             slippage_percent=Decimal("0"),
-            latency_ms=100
+            latency_ms=100,
         )
 
         score = smart_router.calculate_execution_score(
@@ -461,13 +474,15 @@ class TestOrderRouting:
     """Test complete order routing flow."""
 
     @pytest.mark.asyncio
-    async def test_route_order_high_urgency(self, smart_router, sample_order, mock_exchange_gateway):
+    async def test_route_order_high_urgency(
+        self, smart_router, sample_order, mock_exchange_gateway
+    ):
         """Test routing with high urgency."""
         mock_exchange_gateway.get_order_book.return_value = {
-            'bids': [[49995, 1.5]],
-            'asks': [[50005, 1.2]]
+            "bids": [[49995, 1.5]],
+            "asks": [[50005, 1.2]],
         }
-        mock_exchange_gateway.get_ticker.return_value = {'priceChangePercent': '2.0'}
+        mock_exchange_gateway.get_ticker.return_value = {"priceChangePercent": "2.0"}
 
         routed = await smart_router.route_order(sample_order, UrgencyLevel.HIGH)
 
@@ -476,14 +491,16 @@ class TestOrderRouting:
         assert routed.expected_fee_rate == smart_router.TAKER_FEE_RATE
 
     @pytest.mark.asyncio
-    async def test_route_order_fee_optimization(self, smart_router, sample_order, mock_exchange_gateway):
+    async def test_route_order_fee_optimization(
+        self, smart_router, sample_order, mock_exchange_gateway
+    ):
         """Test routing for fee optimization."""
         # Setup wide spread conditions
         mock_exchange_gateway.get_order_book.return_value = {
-            'bids': [[49990, 1.5]],
-            'asks': [[50010, 1.2]]
+            "bids": [[49990, 1.5]],
+            "asks": [[50010, 1.2]],
         }
-        mock_exchange_gateway.get_ticker.return_value = {'priceChangePercent': '1.5'}
+        mock_exchange_gateway.get_ticker.return_value = {"priceChangePercent": "1.5"}
 
         routed = await smart_router.route_order(sample_order, UrgencyLevel.LOW)
 
@@ -492,17 +509,19 @@ class TestOrderRouting:
         assert routed.expected_fee_rate == smart_router.MAKER_FEE_RATE
 
     @pytest.mark.asyncio
-    async def test_route_order_with_metadata(self, smart_router, sample_order, mock_exchange_gateway):
+    async def test_route_order_with_metadata(
+        self, smart_router, sample_order, mock_exchange_gateway
+    ):
         """Test that routing adds metadata to order."""
         mock_exchange_gateway.get_order_book.return_value = {
-            'bids': [[49995, 1.5]],
-            'asks': [[50005, 1.2]]
+            "bids": [[49995, 1.5]],
+            "asks": [[50005, 1.2]],
         }
-        mock_exchange_gateway.get_ticker.return_value = {'priceChangePercent': '2.0'}
+        mock_exchange_gateway.get_ticker.return_value = {"priceChangePercent": "2.0"}
 
         routed = await smart_router.route_order(sample_order, UrgencyLevel.NORMAL)
 
-        assert hasattr(routed.order, 'routing_method')
+        assert hasattr(routed.order, "routing_method")
         assert routed.order.routing_method == routed.selected_type.value
         assert routed.market_conditions is not None
         assert routed.post_only_retry_count == 0
@@ -514,7 +533,7 @@ class TestTierRestriction:
     def test_requires_hunter_tier(self):
         """Test that SmartRouter requires HUNTER tier."""
         # Check that the router has a required tier
-        assert hasattr(SmartRouter, 'REQUIRED_TIER')
+        assert hasattr(SmartRouter, "REQUIRED_TIER")
         assert SmartRouter.REQUIRED_TIER == TradingTier.HUNTER
 
     def test_smart_router_initialization(self, mock_exchange_gateway):

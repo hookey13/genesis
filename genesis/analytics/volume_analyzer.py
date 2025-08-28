@@ -24,18 +24,24 @@ class VolumeProfile:
     symbol: Symbol
     date: datetime
     total_volume: Decimal
-    time_buckets: dict[int, Decimal] = field(default_factory=dict)  # 30-min buckets: {0: volume, 30: volume, ...}
+    time_buckets: dict[int, Decimal] = field(
+        default_factory=dict
+    )  # 30-min buckets: {0: volume, 30: volume, ...}
     cumulative_percentages: dict[int, Decimal] = field(default_factory=dict)
 
     def get_bucket_percentage(self, minute_of_day: int) -> Decimal:
         """Get volume percentage for specific time bucket."""
         bucket = (minute_of_day // 30) * 30
-        return self.time_buckets.get(bucket, Decimal('0')) / self.total_volume if self.total_volume > 0 else Decimal('0')
+        return (
+            self.time_buckets.get(bucket, Decimal("0")) / self.total_volume
+            if self.total_volume > 0
+            else Decimal("0")
+        )
 
     def get_cumulative_percentage(self, minute_of_day: int) -> Decimal:
         """Get cumulative volume percentage up to specific time."""
         bucket = (minute_of_day // 30) * 30
-        return self.cumulative_percentages.get(bucket, Decimal('0'))
+        return self.cumulative_percentages.get(bucket, Decimal("0"))
 
 
 @dataclass
@@ -64,10 +70,7 @@ class VolumeAnalyzer:
         self._historical_data: dict[str, pd.DataFrame] = {}
 
     async def fetch_historical_volume(
-        self,
-        symbol: Symbol,
-        days: int = 30,
-        interval: str = '30m'
+        self, symbol: Symbol, days: int = 30, interval: str = "30m"
     ) -> pd.DataFrame:
         """Fetch historical volume data from exchange.
 
@@ -87,7 +90,7 @@ class VolumeAnalyzer:
                 "fetching_historical_volume",
                 symbol=symbol.value,
                 days=days,
-                interval=interval
+                interval=interval,
             )
 
             # Fetch klines from exchange
@@ -96,40 +99,50 @@ class VolumeAnalyzer:
                 interval=interval,
                 start_time=int(start_time.timestamp() * 1000),
                 end_time=int(end_time.timestamp() * 1000),
-                limit=1000  # Max allowed by Binance
+                limit=1000,  # Max allowed by Binance
             )
 
             # Convert to DataFrame
-            df = pd.DataFrame(klines, columns=[
-                'timestamp', 'open', 'high', 'low', 'close', 'volume',
-                'close_time', 'quote_volume', 'trades', 'taker_buy_base',
-                'taker_buy_quote', 'ignore'
-            ])
+            df = pd.DataFrame(
+                klines,
+                columns=[
+                    "timestamp",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "close_time",
+                    "quote_volume",
+                    "trades",
+                    "taker_buy_base",
+                    "taker_buy_quote",
+                    "ignore",
+                ],
+            )
 
             # Convert timestamp to datetime and volume to Decimal
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms', utc=True)
-            df['volume'] = df['volume'].apply(lambda x: Decimal(str(x)))
-            df['minute_of_day'] = (df['timestamp'].dt.hour * 60 + df['timestamp'].dt.minute)
-            df['date'] = df['timestamp'].dt.date
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+            df["volume"] = df["volume"].apply(lambda x: Decimal(str(x)))
+            df["minute_of_day"] = (
+                df["timestamp"].dt.hour * 60 + df["timestamp"].dt.minute
+            )
+            df["date"] = df["timestamp"].dt.date
 
             # Store in cache
             cache_key = f"{symbol.value}_{days}d_{interval}"
             self._historical_data[cache_key] = df
 
-            return df[['timestamp', 'volume', 'minute_of_day', 'date']]
+            return df[["timestamp", "volume", "minute_of_day", "date"]]
 
         except Exception as e:
             logger.error(
-                "failed_to_fetch_historical_volume",
-                symbol=symbol.value,
-                error=str(e)
+                "failed_to_fetch_historical_volume", symbol=symbol.value, error=str(e)
             )
             raise
 
     async def calculate_typical_profile(
-        self,
-        symbol: Symbol,
-        lookback_days: int = 30
+        self, symbol: Symbol, lookback_days: int = 30
     ) -> VolumeProfile:
         """Calculate typical volume profile from historical data.
 
@@ -150,34 +163,38 @@ class VolumeAnalyzer:
                     return cached
 
             # Fetch historical data
-            df = await self.fetch_historical_volume(symbol, lookback_days, '30m')
+            df = await self.fetch_historical_volume(symbol, lookback_days, "30m")
 
             # Group by time bucket and calculate average volume
             bucket_volumes = {}
             for minute in range(0, 1440, 30):  # 48 buckets in a day
-                bucket_data = df[df['minute_of_day'] == minute]['volume']
+                bucket_data = df[df["minute_of_day"] == minute]["volume"]
                 if not bucket_data.empty:
                     # Use median to reduce impact of outliers
                     bucket_volumes[minute] = Decimal(str(bucket_data.median()))
                 else:
-                    bucket_volumes[minute] = Decimal('0')
+                    bucket_volumes[minute] = Decimal("0")
 
             # Calculate total and percentages
             total_volume = sum(bucket_volumes.values())
 
             # Calculate cumulative percentages
             cumulative_pct = {}
-            cumulative_sum = Decimal('0')
+            cumulative_sum = Decimal("0")
             for minute in sorted(bucket_volumes.keys()):
                 cumulative_sum += bucket_volumes[minute]
-                cumulative_pct[minute] = (cumulative_sum / total_volume) if total_volume > 0 else Decimal('0')
+                cumulative_pct[minute] = (
+                    (cumulative_sum / total_volume)
+                    if total_volume > 0
+                    else Decimal("0")
+                )
 
             profile = VolumeProfile(
                 symbol=symbol,
                 date=datetime.now(UTC),
                 total_volume=total_volume,
                 time_buckets=bucket_volumes,
-                cumulative_percentages=cumulative_pct
+                cumulative_percentages=cumulative_pct,
             )
 
             # Cache the profile
@@ -187,24 +204,19 @@ class VolumeAnalyzer:
                 "calculated_volume_profile",
                 symbol=symbol.value,
                 total_volume=str(total_volume),
-                buckets=len(bucket_volumes)
+                buckets=len(bucket_volumes),
             )
 
             return profile
 
         except Exception as e:
             logger.error(
-                "failed_to_calculate_profile",
-                symbol=symbol.value,
-                error=str(e)
+                "failed_to_calculate_profile", symbol=symbol.value, error=str(e)
             )
             raise
 
     async def predict_intraday_volume(
-        self,
-        symbol: Symbol,
-        current_time: datetime,
-        horizon_hours: int = 4
+        self, symbol: Symbol, current_time: datetime, horizon_hours: int = 4
     ) -> VolumePrediction:
         """Predict volume distribution for upcoming time period.
 
@@ -221,16 +233,20 @@ class VolumeAnalyzer:
             profile = await self.calculate_typical_profile(symbol)
 
             # Get recent actual volume (last hour) to adjust predictions
-            recent_df = await self.fetch_historical_volume(symbol, days=1, interval='30m')
-            recent_df = recent_df[recent_df['timestamp'] > current_time - timedelta(hours=1)]
+            recent_df = await self.fetch_historical_volume(
+                symbol, days=1, interval="30m"
+            )
+            recent_df = recent_df[
+                recent_df["timestamp"] > current_time - timedelta(hours=1)
+            ]
 
             # Calculate adjustment factor based on recent vs typical
             current_minute = current_time.hour * 60 + current_time.minute
             current_bucket = (current_minute // 30) * 30
 
-            adjustment_factor = Decimal('1.0')
+            adjustment_factor = Decimal("1.0")
             if not recent_df.empty and current_bucket in profile.time_buckets:
-                recent_volume = recent_df['volume'].sum()
+                recent_volume = recent_df["volume"].sum()
                 typical_volume = profile.time_buckets[current_bucket]
                 if typical_volume > 0:
                     adjustment_factor = recent_volume / typical_volume
@@ -244,7 +260,7 @@ class VolumeAnalyzer:
                 bucket_minute = minute % 1440  # Handle day boundary
 
                 # Base prediction from typical profile
-                base_volume = profile.time_buckets.get(bucket_minute, Decimal('0'))
+                base_volume = profile.time_buckets.get(bucket_minute, Decimal("0"))
 
                 # Adjust based on recent activity
                 predicted_volume = base_volume * adjustment_factor
@@ -261,7 +277,7 @@ class VolumeAnalyzer:
                 predicted_buckets=predicted_buckets,
                 confidence_scores=confidence_scores,
                 total_predicted=sum(predicted_buckets.values()),
-                model_accuracy=Decimal('0.85')  # Historical accuracy metric
+                model_accuracy=Decimal("0.85"),  # Historical accuracy metric
             )
 
             logger.info(
@@ -269,24 +285,20 @@ class VolumeAnalyzer:
                 symbol=symbol.value,
                 horizon_hours=horizon_hours,
                 buckets_predicted=len(predicted_buckets),
-                total_predicted=str(prediction.total_predicted)
+                total_predicted=str(prediction.total_predicted),
             )
 
             return prediction
 
         except Exception as e:
-            logger.error(
-                "failed_to_predict_volume",
-                symbol=symbol.value,
-                error=str(e)
-            )
+            logger.error("failed_to_predict_volume", symbol=symbol.value, error=str(e))
             raise
 
     def get_optimal_participation_rate(
         self,
         target_volume: Decimal,
         prediction: VolumePrediction,
-        max_participation: Decimal = Decimal('0.10')
+        max_participation: Decimal = Decimal("0.10"),
     ) -> dict[int, Decimal]:
         """Calculate optimal participation rate for each time bucket.
 
@@ -312,15 +324,12 @@ class VolumeAnalyzer:
                 # Cap at maximum
                 participation_rates[bucket] = min(adjusted_rate, max_participation)
             else:
-                participation_rates[bucket] = Decimal('0')
+                participation_rates[bucket] = Decimal("0")
 
         return participation_rates
 
     async def analyze_volume_spike(
-        self,
-        symbol: Symbol,
-        current_volume: Decimal,
-        time_window_minutes: int = 30
+        self, symbol: Symbol, current_volume: Decimal, time_window_minutes: int = 30
     ) -> tuple[bool, Decimal]:
         """Detect if current volume is anomalous.
 
@@ -338,11 +347,11 @@ class VolumeAnalyzer:
             current_minute = current_time.hour * 60 + current_time.minute
             bucket = (current_minute // 30) * 30
 
-            typical_volume = profile.time_buckets.get(bucket, Decimal('0'))
+            typical_volume = profile.time_buckets.get(bucket, Decimal("0"))
 
             if typical_volume > 0:
                 deviation_ratio = current_volume / typical_volume
-                is_spike = deviation_ratio > Decimal('2.0')  # 2x typical = spike
+                is_spike = deviation_ratio > Decimal("2.0")  # 2x typical = spike
 
                 if is_spike:
                     logger.warning(
@@ -350,17 +359,13 @@ class VolumeAnalyzer:
                         symbol=symbol.value,
                         current_volume=str(current_volume),
                         typical_volume=str(typical_volume),
-                        deviation_ratio=str(deviation_ratio)
+                        deviation_ratio=str(deviation_ratio),
                     )
 
                 return is_spike, deviation_ratio
 
-            return False, Decimal('1.0')
+            return False, Decimal("1.0")
 
         except Exception as e:
-            logger.error(
-                "failed_to_analyze_spike",
-                symbol=symbol.value,
-                error=str(e)
-            )
-            return False, Decimal('1.0')
+            logger.error("failed_to_analyze_spike", symbol=symbol.value, error=str(e))
+            return False, Decimal("1.0")

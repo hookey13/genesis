@@ -32,7 +32,7 @@ class RiskMetricsWidget(Widget):
     max_drawdown = reactive(Decimal("0"))
     volatility = reactive(Decimal("0"))
     last_update = reactive(datetime.now())
-    
+
     # Risk limit status
     limits_breached = reactive(False)
     breached_metrics = reactive([])
@@ -56,7 +56,7 @@ class RiskMetricsWidget(Widget):
         self.max_drawdown = metrics.max_drawdown
         self.volatility = metrics.volatility
         self.last_update = datetime.now()
-        
+
         # Check limits (example thresholds)
         breached = []
         if self.var_95 > Decimal("10000"):
@@ -67,10 +67,10 @@ class RiskMetricsWidget(Widget):
             breached.append("Sharpe")
         if self.volatility > Decimal("0.50"):
             breached.append("Volatility")
-        
+
         self.limits_breached = len(breached) > 0
         self.breached_metrics = breached
-        
+
         # Update display
         self.refresh()
 
@@ -94,65 +94,67 @@ class RiskMetricsWidget(Widget):
         table.add_column("Metric", style="white")
         table.add_column("Value", justify="right")
         table.add_column("Status", justify="center")
-        
+
         # VaR and CVaR
         var_style = "red" if "VaR" in self.breached_metrics else "green"
         table.add_row(
             "VaR (95%)",
             f"${self.var_95:,.2f}",
-            self._get_status_icon(self.var_95 <= Decimal("10000"))
+            self._get_status_icon(self.var_95 <= Decimal("10000")),
         )
         table.add_row(
             "CVaR (95%)",
             f"${self.cvar_95:,.2f}",
-            self._get_status_icon(self.cvar_95 <= Decimal("15000"))
+            self._get_status_icon(self.cvar_95 <= Decimal("15000")),
         )
-        
+
         # Ratios
         sharpe_style = "red" if "Sharpe" in self.breached_metrics else "green"
         table.add_row(
             "Sharpe Ratio",
             f"{self.sharpe_ratio:.2f}",
-            self._get_status_icon(self.sharpe_ratio >= Decimal("1.0"))
+            self._get_status_icon(self.sharpe_ratio >= Decimal("1.0")),
         )
         table.add_row(
             "Sortino Ratio",
             f"{self.sortino_ratio:.2f}",
-            self._get_status_icon(self.sortino_ratio >= Decimal("1.5"))
+            self._get_status_icon(self.sortino_ratio >= Decimal("1.5")),
         )
-        
+
         # Drawdown and Volatility
         dd_style = "red" if "Drawdown" in self.breached_metrics else "green"
         table.add_row(
             "Max Drawdown",
             f"{self.max_drawdown * 100:.1f}%",
-            self._get_status_icon(self.max_drawdown <= Decimal("0.20"))
+            self._get_status_icon(self.max_drawdown <= Decimal("0.20")),
         )
-        
+
         vol_style = "red" if "Volatility" in self.breached_metrics else "green"
         table.add_row(
             "Volatility",
             f"{self.volatility * 100:.1f}%",
-            self._get_status_icon(self.volatility <= Decimal("0.50"))
+            self._get_status_icon(self.volatility <= Decimal("0.50")),
         )
-        
+
         # Add Greeks if available
-        if hasattr(self, 'greeks'):
+        if hasattr(self, "greeks"):
             table.add_row("", "", "")  # Separator
             table.add_row("Delta", f"{self.greeks.get('delta', 0):.4f}", "")
             table.add_row("Vega", f"{self.greeks.get('vega', 0):.4f}", "")
-        
+
         # Create panel with title showing status
         title = "🎯 Risk Metrics"
         if self.limits_breached:
-            title = f"⚠️ Risk Metrics - LIMITS BREACHED: {', '.join(self.breached_metrics)}"
+            title = (
+                f"⚠️ Risk Metrics - LIMITS BREACHED: {', '.join(self.breached_metrics)}"
+            )
             title_style = "bold red"
         else:
             title_style = "bold green"
-        
+
         # Add last update time
         footer = f"Last Update: {self.last_update.strftime('%H:%M:%S')}"
-        
+
         panel = Panel(
             Align.center(table),
             title=title,
@@ -161,7 +163,7 @@ class RiskMetricsWidget(Widget):
             subtitle=footer,
             subtitle_align="right",
         )
-        
+
         return panel
 
     def _get_status_icon(self, is_ok: bool) -> str:

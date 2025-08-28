@@ -19,6 +19,8 @@ import websockets
 from websockets.exceptions import ConnectionClosed, WebSocketException
 
 from config.settings import get_settings
+from genesis.core.events import Event, EventPriority, EventType
+from genesis.engine.event_bus import EventBus
 from genesis.exchange.circuit_breaker import CircuitBreakerManager
 from genesis.exchange.gateway import BinanceGateway
 
@@ -53,10 +55,10 @@ class WebSocketConnection:
         url: str,
         subscriptions: list[StreamSubscription],
         reconnect_delay: float = 1.0,
-        max_reconnect_delay: float = 60.0,  # Updated to 60s as per requirements
+        max_reconnect_delay: float = 30.0,  # Maximum 30s as per requirements
         heartbeat_interval: float = 30.0,
-        circuit_breaker: Optional['CircuitBreaker'] = None,
-        gateway: Optional['BinanceGateway'] = None
+        circuit_breaker: Optional["CircuitBreaker"] = None,
+        gateway: Optional["BinanceGateway"] = None,
     ):
         """
         Initialize a WebSocket connection.
@@ -66,7 +68,7 @@ class WebSocketConnection:
             url: WebSocket URL
             subscriptions: List of stream subscriptions
             reconnect_delay: Initial reconnection delay in seconds
-            max_reconnect_delay: Maximum reconnection delay (60s per requirements)
+            max_reconnect_delay: Maximum reconnection delay (30s per requirements)
             heartbeat_interval: Heartbeat interval in seconds
             circuit_breaker: Optional circuit breaker for failure protection
             gateway: Optional gateway for REST API gap detection
@@ -98,7 +100,9 @@ class WebSocketConnection:
 
         # Gap detection with bounded history
         self.last_sequence_numbers: dict[str, int] = {}
-        self.detected_gaps: deque = deque(maxlen=100)  # Limit gap history to prevent memory leaks
+        self.detected_gaps: deque = deque(
+            maxlen=100
+        )  # Limit gap history to prevent memory leaks
         self.gap_cleanup_interval = 3600  # Clean up gaps older than 1 hour
         self.last_gap_cleanup = time.time()
 
@@ -120,7 +124,7 @@ class WebSocketConnection:
                 stream_url,
                 ping_interval=None,  # We handle our own heartbeat
                 ping_timeout=10,
-                close_timeout=10
+                close_timeout=10,
             )
 
             self.state = ConnectionState.CONNECTED
@@ -134,7 +138,7 @@ class WebSocketConnection:
             logger.info(
                 f"WebSocket {self.name} connected",
                 streams=streams,
-                reconnect_count=self.reconnect_count
+                reconnect_count=self.reconnect_count,
             )
 
         except Exception as e:
@@ -180,7 +184,9 @@ class WebSocketConnection:
                 await self._handle_disconnect()
                 break
             except Exception as e:
-                logger.error(f"Unexpected heartbeat error for {self.name}", error=str(e))
+                logger.error(
+                    f"Unexpected heartbeat error for {self.name}", error=str(e)
+                )
                 await asyncio.sleep(self.heartbeat_interval)
 
     async def _message_handler(self) -> None:
@@ -217,7 +223,7 @@ class WebSocketConnection:
                         except Exception as e:
                             logger.error(
                                 f"Callback error for stream {subscription.stream}",
-                                error=str(e)
+                                error=str(e),
                             )
 
             except ConnectionClosed:
@@ -239,7 +245,7 @@ class WebSocketConnection:
 
         logger.warning(
             f"WebSocket {self.name} disconnected",
-            messages_received=self.messages_received
+            messages_received=self.messages_received,
         )
 
         await self._schedule_reconnect()
@@ -255,15 +261,14 @@ class WebSocketConnection:
         logger.info(
             f"Scheduling reconnection for {self.name}",
             delay=self.current_reconnect_delay,
-            attempt=self.reconnect_count
+            attempt=self.reconnect_count,
         )
 
         await asyncio.sleep(self.current_reconnect_delay)
 
         # Exponential backoff
         self.current_reconnect_delay = min(
-            self.current_reconnect_delay * 2,
-            self.max_reconnect_delay
+            self.current_reconnect_delay * 2, self.max_reconnect_delay
         )
 
         # Attempt reconnection
@@ -303,17 +308,19 @@ class WebSocketConnection:
                     f"Gap detected in {stream}",
                     last_sequence=last_sequence,
                     current_sequence=sequence,
-                    gap_size=gap_size
+                    gap_size=gap_size,
                 )
 
                 # Record gap
-                self.detected_gaps.append({
-                    "stream": stream,
-                    "timestamp": time.time(),
-                    "last_sequence": last_sequence,
-                    "current_sequence": sequence,
-                    "gap_size": gap_size
-                })
+                self.detected_gaps.append(
+                    {
+                        "stream": stream,
+                        "timestamp": time.time(),
+                        "last_sequence": last_sequence,
+                        "current_sequence": sequence,
+                        "gap_size": gap_size,
+                    }
+                )
 
                 # Attempt to fill gap using REST API
                 if self.gateway:
@@ -322,7 +329,9 @@ class WebSocketConnection:
             # Update last sequence
             self.last_sequence_numbers[stream] = sequence
 
-    async def _fill_gap(self, stream: str, start_sequence: int, end_sequence: int) -> None:
+    async def _fill_gap(
+        self, stream: str, start_sequence: int, end_sequence: int
+    ) -> None:
         """
         Fill gap in data using REST API.
 
@@ -338,7 +347,7 @@ class WebSocketConnection:
             logger.info(
                 f"Attempting to fill gap for {symbol}",
                 start=start_sequence,
-                end=end_sequence
+                end=end_sequence,
             )
 
             # Use REST API to fetch missing data
@@ -361,7 +370,7 @@ class WebSocketConnection:
                 f"Failed to fill gap for {stream}",
                 error=str(e),
                 start=start_sequence,
-                end=end_sequence
+                end=end_sequence,
             )
 
     def _cleanup_old_gaps(self) -> None:
@@ -386,7 +395,7 @@ class WebSocketConnection:
             "last_heartbeat": self.last_heartbeat,
             "buffer_size": len(self.message_buffer),
             "detected_gaps": len(self.detected_gaps),
-            "last_sequences": dict(self.last_sequence_numbers)
+            "last_sequences": dict(self.last_sequence_numbers),
         }
 
 
@@ -398,13 +407,18 @@ class WebSocketManager:
     with automatic failover and message buffering.
     """
 
-    def __init__(self, gateway: Optional[BinanceGateway] = None):
+    def __init__(
+        self,
+        gateway: Optional[BinanceGateway] = None,
+        event_bus: Optional[EventBus] = None,
+    ):
         """Initialize the WebSocket manager."""
         self.settings = get_settings()
         self.connections: dict[str, WebSocketConnection] = {}
         self.stream_callbacks: dict[str, list[Callable]] = {}
         self.running = False
         self.gateway = gateway
+        self.event_bus = event_bus
 
         # Circuit breaker manager
         self.circuit_breaker_manager = CircuitBreakerManager()
@@ -415,10 +429,7 @@ class WebSocketManager:
         else:
             self.base_url = "wss://stream.binance.com:9443"
 
-        logger.info(
-            "WebSocketManager initialized",
-            base_url=self.base_url
-        )
+        logger.info("WebSocketManager initialized", base_url=self.base_url)
 
     async def start(self) -> None:
         """Start the WebSocket manager."""
@@ -464,24 +475,38 @@ class WebSocketManager:
 
         for symbol in symbols:
             # Execution connection: trades and order book
-            execution_subs.extend([
-                StreamSubscription(f"{symbol}@trade", self._handle_trade, symbol),
-                StreamSubscription(f"{symbol}@depth20@100ms", self._handle_depth, symbol)
-            ])
+            execution_subs.extend(
+                [
+                    StreamSubscription(f"{symbol}@trade", self._handle_trade, symbol),
+                    StreamSubscription(
+                        f"{symbol}@depth20@100ms", self._handle_depth, symbol
+                    ),
+                ]
+            )
 
             # Monitoring connection: klines and ticker
-            monitoring_subs.extend([
-                StreamSubscription(f"{symbol}@kline_1m", self._handle_kline, symbol),
-                StreamSubscription(f"{symbol}@ticker", self._handle_ticker, symbol)
-            ])
+            monitoring_subs.extend(
+                [
+                    StreamSubscription(
+                        f"{symbol}@kline_1m", self._handle_kline, symbol
+                    ),
+                    StreamSubscription(f"{symbol}@ticker", self._handle_ticker, symbol),
+                ]
+            )
 
             # Backup connection: all streams (for failover)
-            backup_subs.extend([
-                StreamSubscription(f"{symbol}@trade", self._handle_trade, symbol),
-                StreamSubscription(f"{symbol}@depth20@100ms", self._handle_depth, symbol),
-                StreamSubscription(f"{symbol}@kline_1m", self._handle_kline, symbol),
-                StreamSubscription(f"{symbol}@ticker", self._handle_ticker, symbol)
-            ])
+            backup_subs.extend(
+                [
+                    StreamSubscription(f"{symbol}@trade", self._handle_trade, symbol),
+                    StreamSubscription(
+                        f"{symbol}@depth20@100ms", self._handle_depth, symbol
+                    ),
+                    StreamSubscription(
+                        f"{symbol}@kline_1m", self._handle_kline, symbol
+                    ),
+                    StreamSubscription(f"{symbol}@ticker", self._handle_ticker, symbol),
+                ]
+            )
 
         # Create connections with circuit breakers
         if execution_subs:
@@ -489,8 +514,10 @@ class WebSocketManager:
                 "execution",
                 self.base_url,
                 execution_subs,
-                circuit_breaker=self.circuit_breaker_manager.get_breaker("websocket_execution"),
-                gateway=self.gateway
+                circuit_breaker=self.circuit_breaker_manager.get_breaker(
+                    "websocket_execution"
+                ),
+                gateway=self.gateway,
             )
 
         if monitoring_subs:
@@ -498,8 +525,10 @@ class WebSocketManager:
                 "monitoring",
                 self.base_url,
                 monitoring_subs,
-                circuit_breaker=self.circuit_breaker_manager.get_breaker("websocket_monitoring"),
-                gateway=self.gateway
+                circuit_breaker=self.circuit_breaker_manager.get_breaker(
+                    "websocket_monitoring"
+                ),
+                gateway=self.gateway,
             )
 
         if backup_subs:
@@ -507,8 +536,10 @@ class WebSocketManager:
                 "backup",
                 self.base_url,
                 backup_subs,
-                circuit_breaker=self.circuit_breaker_manager.get_breaker("websocket_backup"),
-                gateway=self.gateway
+                circuit_breaker=self.circuit_breaker_manager.get_breaker(
+                    "websocket_backup"
+                ),
+                gateway=self.gateway,
             )
 
     def subscribe(self, stream: str, callback: Callable[[dict], None]) -> None:
@@ -543,11 +574,28 @@ class WebSocketManager:
     async def _handle_trade(self, data: dict) -> None:
         """Handle trade stream data."""
         stream = data.get("stream", "")
+        
+        # Publish event to Event Bus if available
+        if self.event_bus and "data" in data:
+            trade_data = data["data"]
+            event = Event(
+                event_type=EventType.MARKET_DATA_UPDATED,
+                aggregate_id=stream.split("@")[0].upper(),  # Symbol
+                event_data={
+                    "type": "trade",
+                    "symbol": trade_data.get("s", ""),
+                    "price": trade_data.get("p", "0"),
+                    "quantity": trade_data.get("q", "0"),
+                    "time": trade_data.get("T", 0),
+                    "is_buyer_maker": trade_data.get("m", False),
+                },
+            )
+            await self.event_bus.publish(event, priority=EventPriority.NORMAL)
+        
+        # Also call registered callbacks
         callbacks = self.stream_callbacks.get("trade", [])
-
         for callback in callbacks:
             try:
-                # Handle both sync and async callbacks
                 if asyncio.iscoroutinefunction(callback):
                     await callback(data)
                 else:
@@ -558,11 +606,27 @@ class WebSocketManager:
     async def _handle_depth(self, data: dict) -> None:
         """Handle depth stream data."""
         stream = data.get("stream", "")
+        
+        # Publish event to Event Bus if available
+        if self.event_bus and "data" in data:
+            depth_data = data["data"]
+            event = Event(
+                event_type=EventType.ORDER_BOOK_SNAPSHOT,
+                aggregate_id=stream.split("@")[0].upper(),  # Symbol
+                event_data={
+                    "type": "depth",
+                    "symbol": stream.split("@")[0].upper(),
+                    "last_update_id": depth_data.get("u", 0),
+                    "bids": depth_data.get("b", [])[:5],  # Top 5 bids
+                    "asks": depth_data.get("a", [])[:5],  # Top 5 asks
+                },
+            )
+            await self.event_bus.publish(event, priority=EventPriority.NORMAL)
+        
+        # Also call registered callbacks
         callbacks = self.stream_callbacks.get("depth", [])
-
         for callback in callbacks:
             try:
-                # Handle both sync and async callbacks
                 if asyncio.iscoroutinefunction(callback):
                     await callback(data)
                 else:
@@ -573,11 +637,32 @@ class WebSocketManager:
     async def _handle_kline(self, data: dict) -> None:
         """Handle kline stream data."""
         stream = data.get("stream", "")
+        
+        # Publish event to Event Bus if available
+        if self.event_bus and "data" in data:
+            kline_data = data["data"]["k"] if "k" in data.get("data", {}) else {}
+            if kline_data:
+                event = Event(
+                    event_type=EventType.MARKET_DATA_UPDATED,
+                    aggregate_id=stream.split("@")[0].upper(),  # Symbol
+                    event_data={
+                        "type": "kline",
+                        "symbol": kline_data.get("s", ""),
+                        "interval": kline_data.get("i", ""),
+                        "open": kline_data.get("o", "0"),
+                        "high": kline_data.get("h", "0"),
+                        "low": kline_data.get("l", "0"),
+                        "close": kline_data.get("c", "0"),
+                        "volume": kline_data.get("v", "0"),
+                        "close_time": kline_data.get("T", 0),
+                    },
+                )
+                await self.event_bus.publish(event, priority=EventPriority.LOW)
+        
+        # Also call registered callbacks
         callbacks = self.stream_callbacks.get("kline", [])
-
         for callback in callbacks:
             try:
-                # Handle both sync and async callbacks
                 if asyncio.iscoroutinefunction(callback):
                     await callback(data)
                 else:
@@ -588,11 +673,57 @@ class WebSocketManager:
     async def _handle_ticker(self, data: dict) -> None:
         """Handle ticker stream data."""
         stream = data.get("stream", "")
+        
+        # Publish event to Event Bus if available
+        if self.event_bus and "data" in data:
+            ticker_data = data["data"]
+            
+            # Check for significant spread changes
+            if "a" in ticker_data and "b" in ticker_data:
+                try:
+                    ask = float(ticker_data["a"])
+                    bid = float(ticker_data["b"])
+                    if ask > 0 and bid > 0:
+                        spread_bps = int(((ask - bid) / bid) * 10000)
+                        if spread_bps < 10:  # Alert on tight spreads
+                            spread_event = Event(
+                                event_type=EventType.SPREAD_COMPRESSION,
+                                aggregate_id=stream.split("@")[0].upper(),
+                                event_data={
+                                    "symbol": stream.split("@")[0].upper(),
+                                    "spread_bps": spread_bps,
+                                    "bid": ticker_data["b"],
+                                    "ask": ticker_data["a"],
+                                },
+                            )
+                            await self.event_bus.publish(
+                                spread_event, priority=EventPriority.HIGH
+                            )
+                except (ValueError, ZeroDivisionError):
+                    pass
+            
+            # Publish ticker update event
+            event = Event(
+                event_type=EventType.MARKET_DATA_UPDATED,
+                aggregate_id=stream.split("@")[0].upper(),
+                event_data={
+                    "type": "ticker",
+                    "symbol": ticker_data.get("s", ""),
+                    "price": ticker_data.get("c", "0"),
+                    "bid": ticker_data.get("b", "0"),
+                    "ask": ticker_data.get("a", "0"),
+                    "bid_qty": ticker_data.get("B", "0"),
+                    "ask_qty": ticker_data.get("A", "0"),
+                    "volume_24h": ticker_data.get("v", "0"),
+                    "weighted_avg_price": ticker_data.get("w", "0"),
+                },
+            )
+            await self.event_bus.publish(event, priority=EventPriority.NORMAL)
+        
+        # Also call registered callbacks
         callbacks = self.stream_callbacks.get("ticker", [])
-
         for callback in callbacks:
             try:
-                # Handle both sync and async callbacks
                 if asyncio.iscoroutinefunction(callback):
                     await callback(data)
                 else:
@@ -602,20 +733,16 @@ class WebSocketManager:
 
     def get_connection_states(self) -> dict[str, str]:
         """Get current connection states."""
-        return {
-            name: conn.state
-            for name, conn in self.connections.items()
-        }
+        return {name: conn.state for name, conn in self.connections.items()}
 
     def get_statistics(self) -> dict:
         """Get manager statistics."""
         return {
             "running": self.running,
             "connections": {
-                name: conn.get_statistics()
-                for name, conn in self.connections.items()
+                name: conn.get_statistics() for name, conn in self.connections.items()
             },
-            "subscriptions": list(self.stream_callbacks.keys())
+            "subscriptions": list(self.stream_callbacks.keys()),
         }
 
     async def check_health(self) -> dict[str, bool]:
@@ -624,9 +751,10 @@ class WebSocketManager:
 
         for name, conn in self.connections.items():
             is_healthy = (
-                conn.state == ConnectionState.CONNECTED and
-                conn.last_message_time and
-                (time.time() - conn.last_message_time) < 60  # No messages for 60s = unhealthy
+                conn.state == ConnectionState.CONNECTED
+                and conn.last_message_time
+                and (time.time() - conn.last_message_time)
+                < 60  # No messages for 60s = unhealthy
             )
             health[name] = is_healthy
 

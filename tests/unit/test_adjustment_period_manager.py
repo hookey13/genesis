@@ -31,7 +31,10 @@ class TestAdjustmentPeriodManager:
     @pytest.fixture
     def manager(self, mock_session):
         """Create AdjustmentPeriodManager instance with mocked dependencies."""
-        with patch('genesis.tilt.adjustment_period_manager.get_session', return_value=mock_session):
+        with patch(
+            "genesis.tilt.adjustment_period_manager.get_session",
+            return_value=mock_session,
+        ):
             return AdjustmentPeriodManager(account_id="test-account-123")
 
     @pytest.mark.asyncio
@@ -45,8 +48,7 @@ class TestAdjustmentPeriodManager:
     async def test_start_adjustment_period(self, manager):
         """Test starting adjustment period."""
         period_id = await manager.start_adjustment_period(
-            tier="HUNTER",
-            duration_hours=48
+            tier="HUNTER", duration_hours=48
         )
 
         assert period_id is not None
@@ -57,7 +59,7 @@ class TestAdjustmentPeriodManager:
         assert status is not None
         assert status.is_active
         assert status.current_phase == AdjustmentPhase.INITIAL
-        assert status.position_limit_multiplier == Decimal('0.25')
+        assert status.position_limit_multiplier == Decimal("0.25")
 
     @pytest.mark.asyncio
     async def test_start_adjustment_period_already_active(self, manager):
@@ -79,57 +81,59 @@ class TestAdjustmentPeriodManager:
         # Initial phase
         status = await manager.get_adjustment_status()
         assert status.current_phase == AdjustmentPhase.INITIAL
-        assert status.position_limit_multiplier == Decimal('0.25')
+        assert status.position_limit_multiplier == Decimal("0.25")
 
         # Simulate time passing to early phase (after 12 hours)
-        with patch('genesis.tilt.adjustment_period_manager.datetime') as mock_dt:
+        with patch("genesis.tilt.adjustment_period_manager.datetime") as mock_dt:
             mock_dt.utcnow.return_value = datetime.utcnow() + timedelta(hours=13)
             await manager._check_phase_transition()
 
             status = await manager.get_adjustment_status()
             assert status.current_phase == AdjustmentPhase.EARLY
-            assert status.position_limit_multiplier == Decimal('0.50')
+            assert status.position_limit_multiplier == Decimal("0.50")
 
         # Simulate time passing to mid phase (after 24 hours)
-        with patch('genesis.tilt.adjustment_period_manager.datetime') as mock_dt:
+        with patch("genesis.tilt.adjustment_period_manager.datetime") as mock_dt:
             mock_dt.utcnow.return_value = datetime.utcnow() + timedelta(hours=25)
             await manager._check_phase_transition()
 
             status = await manager.get_adjustment_status()
             assert status.current_phase == AdjustmentPhase.MID
-            assert status.position_limit_multiplier == Decimal('0.75')
+            assert status.position_limit_multiplier == Decimal("0.75")
 
         # Simulate time passing to final phase (after 36 hours)
-        with patch('genesis.tilt.adjustment_period_manager.datetime') as mock_dt:
+        with patch("genesis.tilt.adjustment_period_manager.datetime") as mock_dt:
             mock_dt.utcnow.return_value = datetime.utcnow() + timedelta(hours=37)
             await manager._check_phase_transition()
 
             status = await manager.get_adjustment_status()
             assert status.current_phase == AdjustmentPhase.FINAL
-            assert status.position_limit_multiplier == Decimal('1.00')
+            assert status.position_limit_multiplier == Decimal("1.00")
 
     @pytest.mark.asyncio
     async def test_get_current_limits(self, manager):
         """Test retrieving current position limits."""
-        initial_limit = Decimal('1000')
+        initial_limit = Decimal("1000")
 
         await manager.start_adjustment_period("HUNTER", 48)
 
         # Initial phase should have 25% of limit
         current_limit = await manager.get_current_limits(initial_limit)
-        assert current_limit == Decimal('250')
+        assert current_limit == Decimal("250")
 
         # Test with different phases
         manager.adjustment_status.current_phase = AdjustmentPhase.MID
         current_limit = await manager.get_current_limits(initial_limit)
-        assert current_limit == Decimal('750')
+        assert current_limit == Decimal("750")
 
     @pytest.mark.asyncio
     async def test_record_intervention(self, manager):
         """Test recording interventions during adjustment."""
         await manager.start_adjustment_period("HUNTER", 48)
 
-        await manager.record_intervention("Position size violation", "Reduced position to 25% limit")
+        await manager.record_intervention(
+            "Position size violation", "Reduced position to 25% limit"
+        )
 
         status = await manager.get_adjustment_status()
         assert status.interventions_triggered == 1
@@ -234,7 +238,9 @@ class TestAdjustmentPeriodManager:
         await manager.start_adjustment_period("HUNTER", 48)
 
         # Inject error into monitoring
-        with patch.object(manager, '_check_phase_transition', side_effect=Exception("Test error")):
+        with patch.object(
+            manager, "_check_phase_transition", side_effect=Exception("Test error")
+        ):
             # Should not crash, just log error
             await asyncio.sleep(0.1)  # Let monitoring run
 

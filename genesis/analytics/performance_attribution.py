@@ -72,7 +72,7 @@ class AttributionResult:
             "largest_win": str(self.largest_win),
             "largest_loss": str(self.largest_loss),
             "total_volume": str(self.total_volume),
-            "metadata": self.metadata
+            "metadata": self.metadata,
         }
 
 
@@ -82,7 +82,7 @@ class PerformanceAttributionEngine:
     def __init__(self, repository: Repository):
         """
         Initialize the performance attribution engine.
-        
+
         Args:
             repository: Data repository for accessing trade history
         """
@@ -90,19 +90,16 @@ class PerformanceAttributionEngine:
         self._attribution_cache: dict[str, AttributionResult] = {}
 
     async def attribute_by_strategy(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        strategy_id: str | None = None
+        self, start_date: datetime, end_date: datetime, strategy_id: str | None = None
     ) -> list[AttributionResult]:
         """
         Attribute performance by strategy.
-        
+
         Args:
             start_date: Start of analysis period
             end_date: End of analysis period
             strategy_id: Optional specific strategy to analyze
-            
+
         Returns:
             List of attribution results by strategy
         """
@@ -110,7 +107,7 @@ class PerformanceAttributionEngine:
             "Attributing performance by strategy",
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
-            strategy_id=strategy_id
+            strategy_id=strategy_id,
         )
 
         # Query trades from events table
@@ -127,11 +124,7 @@ class PerformanceAttributionEngine:
         results = []
         for strategy_id, trades_list in strategy_trades.items():
             result = self._calculate_attribution(
-                trades_list,
-                start_date,
-                end_date,
-                "strategy",
-                strategy_id
+                trades_list, start_date, end_date, "strategy", strategy_id
             )
             results.append(result)
 
@@ -141,19 +134,16 @@ class PerformanceAttributionEngine:
         return results
 
     async def attribute_by_pair(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        symbol: str | None = None
+        self, start_date: datetime, end_date: datetime, symbol: str | None = None
     ) -> list[AttributionResult]:
         """
         Attribute performance by trading pair.
-        
+
         Args:
             start_date: Start of analysis period
             end_date: End of analysis period
             symbol: Optional specific symbol to analyze
-            
+
         Returns:
             List of attribution results by trading pair
         """
@@ -161,7 +151,7 @@ class PerformanceAttributionEngine:
             "Attributing performance by pair",
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
-            symbol=symbol
+            symbol=symbol,
         )
 
         # Query trades from events table
@@ -178,11 +168,7 @@ class PerformanceAttributionEngine:
         results = []
         for symbol, trades_list in symbol_trades.items():
             result = self._calculate_attribution(
-                trades_list,
-                start_date,
-                end_date,
-                "pair",
-                symbol
+                trades_list, start_date, end_date, "pair", symbol
             )
             results.append(result)
 
@@ -192,19 +178,16 @@ class PerformanceAttributionEngine:
         return results
 
     async def attribute_by_time_period(
-        self,
-        start_date: datetime,
-        end_date: datetime,
-        period: AttributionPeriod
+        self, start_date: datetime, end_date: datetime, period: AttributionPeriod
     ) -> list[AttributionResult]:
         """
         Attribute performance by time period.
-        
+
         Args:
             start_date: Start of analysis period
             end_date: End of analysis period
             period: Time period for grouping (hourly, daily, weekly, etc.)
-            
+
         Returns:
             List of attribution results by time period
         """
@@ -212,7 +195,7 @@ class PerformanceAttributionEngine:
             "Attributing performance by time period",
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
-            period=period
+            period=period,
         )
 
         # Query trades from events table
@@ -233,11 +216,7 @@ class PerformanceAttributionEngine:
             period_start, period_end = self._get_period_bounds(period_key, period)
 
             result = self._calculate_attribution(
-                trades_list,
-                period_start,
-                period_end,
-                "time",
-                period_key
+                trades_list, period_start, period_end, "time", period_key
             )
             results.append(result)
 
@@ -246,25 +225,21 @@ class PerformanceAttributionEngine:
 
         return results
 
-    async def get_mae_analysis(
-        self,
-        start_date: datetime,
-        end_date: datetime
-    ) -> dict:
+    async def get_mae_analysis(self, start_date: datetime, end_date: datetime) -> dict:
         """
         Analyze Maximum Adverse Excursion for positions.
-        
+
         Args:
             start_date: Start of analysis period
             end_date: End of analysis period
-            
+
         Returns:
             MAE analysis results
         """
         logger.info(
             "Analyzing MAE",
             start_date=start_date.isoformat(),
-            end_date=end_date.isoformat()
+            end_date=end_date.isoformat(),
         )
 
         # Query position events for MAE tracking
@@ -278,27 +253,29 @@ class PerformanceAttributionEngine:
             "total_positions": len(positions),
             "recovery_rate": Decimal("0"),
             "mae_by_strategy": {},
-            "mae_by_pair": {}
+            "mae_by_pair": {},
         }
 
         if positions:
             total_mae = Decimal("0")
             min_mae = None
-            
+
             for position in positions:
                 mae = position.get("max_adverse_excursion", Decimal("0"))
                 total_mae += mae
 
                 if mae > mae_stats["max_mae"]:
                     mae_stats["max_mae"] = mae
-                    
+
                 if min_mae is None or mae < min_mae:
                     min_mae = mae
 
                 # Check if position recovered (use recovered_from_mae if available)
                 if position.get("recovered_from_mae", False):
                     mae_stats["recovered_positions"] += 1
-                elif position.get("pnl_dollars", Decimal("0")) > 0 and mae > Decimal("0"):
+                elif position.get("pnl_dollars", Decimal("0")) > 0 and mae > Decimal(
+                    "0"
+                ):
                     mae_stats["recovered_positions"] += 1
 
                 # Group by strategy
@@ -318,8 +295,10 @@ class PerformanceAttributionEngine:
             mae_stats["average_mae"] = total_mae / Decimal(str(len(positions)))
             mae_stats["min_mae"] = min_mae if min_mae is not None else Decimal("0")
             mae_stats["recovery_rate"] = (
-                Decimal(str(mae_stats["recovered_positions"])) / Decimal(str(len(positions)))
-                if len(positions) > 0 else Decimal("0")
+                Decimal(str(mae_stats["recovered_positions"]))
+                / Decimal(str(len(positions)))
+                if len(positions) > 0
+                else Decimal("0")
             )
 
         return mae_stats
@@ -330,7 +309,7 @@ class PerformanceAttributionEngine:
         start_date: datetime,
         end_date: datetime,
         attribution_type: str,
-        attribution_key: str
+        attribution_key: str,
     ) -> AttributionResult:
         """Calculate attribution metrics for a group of trades."""
         if not trades:
@@ -351,7 +330,7 @@ class PerformanceAttributionEngine:
                 max_consecutive_losses=0,
                 largest_win=Decimal("0"),
                 largest_loss=Decimal("0"),
-                total_volume=Decimal("0")
+                total_volume=Decimal("0"),
             )
 
         # Sort trades by timestamp
@@ -371,25 +350,27 @@ class PerformanceAttributionEngine:
         # Calculate averages
         average_win = (
             sum(t.pnl_dollars for t in winning_trades) / Decimal(str(winning_count))
-            if winning_count > 0 else Decimal("0")
+            if winning_count > 0
+            else Decimal("0")
         )
         average_loss = (
             abs(sum(t.pnl_dollars for t in losing_trades)) / Decimal(str(losing_count))
-            if losing_count > 0 else Decimal("0")
+            if losing_count > 0
+            else Decimal("0")
         )
 
         # Calculate win rate
         win_rate = (
             Decimal(str(winning_count)) / Decimal(str(total_trades))
-            if total_trades > 0 else Decimal("0")
+            if total_trades > 0
+            else Decimal("0")
         )
 
         # Calculate profit factor
         total_wins = sum(t.pnl_dollars for t in winning_trades)
         total_losses = abs(sum(t.pnl_dollars for t in losing_trades))
         profit_factor = (
-            total_wins / total_losses
-            if total_losses > 0 else Decimal("999.99")
+            total_wins / total_losses if total_losses > 0 else Decimal("999.99")
         )
 
         # Calculate consecutive wins/losses
@@ -429,7 +410,7 @@ class PerformanceAttributionEngine:
             max_consecutive_losses=max_consecutive_losses,
             largest_win=largest_win,
             largest_loss=largest_loss,
-            total_volume=total_volume
+            total_volume=total_volume,
         )
 
     async def _query_trades(
@@ -437,14 +418,12 @@ class PerformanceAttributionEngine:
         start_date: datetime,
         end_date: datetime,
         strategy_id: str | None = None,
-        symbol: str | None = None
+        symbol: str | None = None,
     ) -> list[Trade]:
         """Query trades from the events table."""
         # Query events of type 'trade_completed' from repository
         events = await self.repository.query_events(
-            event_type="trade_completed",
-            start_date=start_date,
-            end_date=end_date
+            event_type="trade_completed", start_date=start_date, end_date=end_date
         )
 
         trades = []
@@ -472,7 +451,7 @@ class PerformanceAttributionEngine:
                 quantity=Decimal(str(event_data.get("quantity", "0"))),
                 pnl_dollars=Decimal(str(event_data.get("pnl_dollars", "0"))),
                 pnl_percent=Decimal(str(event_data.get("pnl_percent", "0"))),
-                timestamp=datetime.fromisoformat(event.get("created_at"))
+                timestamp=datetime.fromisoformat(event.get("created_at")),
             )
             trades.append(trade)
 
@@ -503,9 +482,7 @@ class PerformanceAttributionEngine:
             return timestamp.strftime("%Y-%m-%d")
 
     def _get_period_bounds(
-        self,
-        period_key: str,
-        period: AttributionPeriod
+        self, period_key: str, period: AttributionPeriod
     ) -> tuple[datetime, datetime]:
         """Get start and end datetime for a period key."""
         if period == AttributionPeriod.HOURLY:

@@ -72,7 +72,7 @@ class TestSpreadDashboardWorkflow:
             websocket_manager=None,  # Mock in tests
             gateway=None,  # Mock in tests
             event_bus=event_bus,
-            repository=repository
+            repository=repository,
         )
         return service
 
@@ -84,16 +84,8 @@ class TestSpreadDashboardWorkflow:
         try:
             # Create sample orderbook
             orderbook = {
-                "bids": [
-                    ["50000.00", "1.0"],
-                    ["49999.00", "2.0"],
-                    ["49998.00", "1.5"]
-                ],
-                "asks": [
-                    ["50010.00", "1.2"],
-                    ["50011.00", "1.8"],
-                    ["50012.00", "2.2"]
-                ]
+                "bids": [["50000.00", "1.0"], ["49999.00", "2.0"], ["49998.00", "1.5"]],
+                "asks": [["50010.00", "1.2"], ["50011.00", "1.8"], ["50012.00", "2.2"]],
             }
 
             # Track spread
@@ -131,10 +123,7 @@ class TestSpreadDashboardWorkflow:
             event_bus.subscribe(EventType.SPREAD_COMPRESSION, handle_compression)
 
             # Build normal spread history
-            normal_orderbook = {
-                "bids": [["100.00", "10"]],
-                "asks": [["100.20", "10"]]
-            }
+            normal_orderbook = {"bids": [["100.00", "10"]], "asks": [["100.20", "10"]]}
 
             for _ in range(25):
                 await spread_tracker.track_pair_spread("ETHUSDT", normal_orderbook)
@@ -142,7 +131,7 @@ class TestSpreadDashboardWorkflow:
             # Trigger compression
             compressed_orderbook = {
                 "bids": [["100.00", "10"]],
-                "asks": [["100.05", "10"]]
+                "asks": [["100.05", "10"]],
             }
 
             await spread_tracker.track_pair_spread("ETHUSDT", compressed_orderbook)
@@ -175,16 +164,8 @@ class TestSpreadDashboardWorkflow:
 
             # Create imbalanced orderbook (heavy bid pressure)
             imbalanced_book = {
-                "bids": [
-                    ["100.00", "100"],
-                    ["99.95", "200"],
-                    ["99.90", "150"]
-                ],
-                "asks": [
-                    ["100.10", "10"],
-                    ["100.15", "20"],
-                    ["100.20", "15"]
-                ]
+                "bids": [["100.00", "100"], ["99.95", "200"], ["99.90", "150"]],
+                "asks": [["100.10", "10"], ["100.15", "20"], ["100.20", "15"]],
             }
 
             await spread_tracker.track_pair_spread("BNBUSDT", imbalanced_book)
@@ -209,7 +190,7 @@ class TestSpreadDashboardWorkflow:
             symbol="BTCUSDT",
             spread_bps=Decimal("30"),
             volume=Decimal("10000"),
-            fee_bps=Decimal("10")
+            fee_bps=Decimal("10"),
         )
 
         assert metrics.symbol == "BTCUSDT"
@@ -240,14 +221,20 @@ class TestSpreadDashboardWorkflow:
                 spread_history.append((timestamp, spread))
 
         # Analyze patterns
-        hourly_patterns = pattern_analyzer.analyze_hourly_patterns("BTCUSDT", spread_history)
+        hourly_patterns = pattern_analyzer.analyze_hourly_patterns(
+            "BTCUSDT", spread_history
+        )
         assert not hourly_patterns.empty
 
-        daily_patterns = pattern_analyzer.analyze_daily_patterns("BTCUSDT", spread_history)
+        daily_patterns = pattern_analyzer.analyze_daily_patterns(
+            "BTCUSDT", spread_history
+        )
         assert not daily_patterns.empty
 
         # Calculate volatility score
-        volatility_score = pattern_analyzer.calculate_volatility_score("BTCUSDT", spread_history)
+        volatility_score = pattern_analyzer.calculate_volatility_score(
+            "BTCUSDT", spread_history
+        )
         assert volatility_score.symbol == "BTCUSDT"
         assert volatility_score.score >= Decimal("0")
         assert volatility_score.category in ["low", "medium", "high", "extreme"]
@@ -264,7 +251,7 @@ class TestSpreadDashboardWorkflow:
             "bid_volume": Decimal("1.5"),
             "ask_volume": Decimal("2.0"),
             "order_imbalance": Decimal("0.75"),
-            "timestamp": datetime.now(UTC)
+            "timestamp": datetime.now(UTC),
         }
 
         # Save to database
@@ -290,10 +277,7 @@ class TestSpreadDashboardWorkflow:
                 bid = Decimal("100") + Decimal(str(i * 0.01))
                 ask = bid + Decimal("0.10") + Decimal(str(i % 5 * 0.01))
 
-                orderbook = {
-                    "bids": [[str(bid), "10"]],
-                    "asks": [[str(ask), "10"]]
-                }
+                orderbook = {"bids": [[str(bid), "10"]], "asks": [[str(ask), "10"]]}
 
                 await spread_tracker.track_pair_spread("ADAUSDT", orderbook)
 
@@ -328,10 +312,7 @@ class TestSpreadDashboardWorkflow:
                 bid = Decimal("100")
                 ask = bid + (spread_bps / Decimal("10000") * bid)
 
-                orderbook = {
-                    "bids": [[str(bid), "10"]],
-                    "asks": [[str(ask), "10"]]
-                }
+                orderbook = {"bids": [[str(bid), "10"]], "asks": [[str(ask), "10"]]}
 
                 # Track multiple times for pattern
                 for _ in range(5):
@@ -364,15 +345,9 @@ class TestSpreadDashboardWorkflow:
                 "stream": "btcusdt@depth",
                 "data": {
                     "lastUpdateId": 12345,
-                    "bids": [
-                        ["50000.00", "1.0"],
-                        ["49999.00", "2.0"]
-                    ],
-                    "asks": [
-                        ["50010.00", "1.2"],
-                        ["50011.00", "1.8"]
-                    ]
-                }
+                    "bids": [["50000.00", "1.0"], ["49999.00", "2.0"]],
+                    "asks": [["50010.00", "1.2"], ["50011.00", "1.8"]],
+                },
             }
 
             await market_data_service._handle_depth(depth_data)
@@ -407,10 +382,7 @@ class TestSpreadDashboardWorkflow:
             # Track spreads for all pairs
             tasks = []
             for symbol in symbols:
-                orderbook = {
-                    "bids": [["100.00", "10"]],
-                    "asks": [["100.10", "10"]]
-                }
+                orderbook = {"bids": [["100.00", "10"]], "asks": [["100.10", "10"]]}
                 tasks.append(spread_tracker.track_pair_spread(symbol, orderbook))
 
             # Execute concurrently
@@ -437,7 +409,7 @@ class TestSpreadDashboardWorkflow:
         collected_events = {
             EventType.SPREAD_COMPRESSION: [],
             EventType.ORDER_IMBALANCE: [],
-            EventType.SPREAD_ALERT: []
+            EventType.SPREAD_ALERT: [],
         }
 
         async def event_collector(event: Event):
@@ -453,23 +425,20 @@ class TestSpreadDashboardWorkflow:
 
             # 1. Normal spreads
             for _ in range(20):
-                orderbook = {
-                    "bids": [["100.00", "10"]],
-                    "asks": [["100.20", "10"]]
-                }
+                orderbook = {"bids": [["100.00", "10"]], "asks": [["100.20", "10"]]}
                 await spread_tracker.track_pair_spread("TESTUSDT", orderbook)
 
             # 2. Compressed spread
             compressed_book = {
                 "bids": [["100.00", "10"]],
-                "asks": [["100.02", "10"]]  # Very tight
+                "asks": [["100.02", "10"]],  # Very tight
             }
             await spread_tracker.track_pair_spread("TESTUSDT", compressed_book)
 
             # 3. Imbalanced orderbook
             imbalanced_book = {
                 "bids": [["100.00", "100"], ["99.95", "200"]],
-                "asks": [["100.10", "5"], ["100.15", "10"]]
+                "asks": [["100.10", "5"], ["100.15", "10"]],
             }
             await spread_tracker.track_pair_spread("TESTUSDT", imbalanced_book)
 
@@ -493,7 +462,7 @@ class TestSpreadDashboardWorkflow:
             "spread_bps": Decimal("20"),
             "bid_price": Decimal("100"),
             "ask_price": Decimal("100.20"),
-            "timestamp": old_time
+            "timestamp": old_time,
         }
 
         # Add recent data
@@ -502,7 +471,7 @@ class TestSpreadDashboardWorkflow:
             "spread_bps": Decimal("15"),
             "bid_price": Decimal("200"),
             "ask_price": Decimal("200.30"),
-            "timestamp": datetime.now(UTC)
+            "timestamp": datetime.now(UTC),
         }
 
         await repository.save_spread_history(old_data)

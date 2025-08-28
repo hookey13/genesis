@@ -72,7 +72,7 @@ class EmergencyController:
         self,
         event_bus: EventBus,
         circuit_manager: CircuitBreakerManager,
-        config_path: str = "config/emergency_thresholds.yaml"
+        config_path: str = "config/emergency_thresholds.yaml",
     ):
         """
         Initialize emergency controller.
@@ -120,7 +120,7 @@ class EmergencyController:
         logger.info(
             "EmergencyController initialized",
             config_path=config_path,
-            daily_loss_limit=self.config["daily_loss_limit"]
+            daily_loss_limit=self.config["daily_loss_limit"],
         )
 
     def _load_config(self) -> dict[str, Any]:
@@ -142,8 +142,7 @@ class EmergencyController:
 
         except FileNotFoundError:
             logger.warning(
-                "Emergency config file not found, using defaults",
-                path=self.config_path
+                "Emergency config file not found, using defaults", path=self.config_path
             )
             return {
                 "daily_loss_limit": 0.15,
@@ -152,7 +151,7 @@ class EmergencyController:
                 "flash_crash_threshold": 0.10,
                 "flash_crash_window_seconds": 60,
                 "override_timeout_seconds": 300,
-                "emergency_timeout_seconds": 3600
+                "emergency_timeout_seconds": 3600,
             }
 
     async def start_monitoring(self) -> None:
@@ -187,7 +186,7 @@ class EmergencyController:
 
         logger.info(
             "Emergency monitoring stopped",
-            emergencies_triggered=self.emergencies_triggered
+            emergencies_triggered=self.emergencies_triggered,
         )
 
     async def _subscribe_to_events(self) -> None:
@@ -196,21 +195,21 @@ class EmergencyController:
         self.event_bus.subscribe(
             EventType.POSITION_UPDATED,
             self._handle_position_update,
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
         # Subscribe to market data updates
         self.event_bus.subscribe(
             EventType.MARKET_DATA_UPDATED,
             self._handle_market_update,
-            priority=EventPriority.HIGH
+            priority=EventPriority.HIGH,
         )
 
         # Subscribe to risk events
         self.event_bus.subscribe(
             EventType.RISK_LIMIT_BREACH,
             self._handle_risk_event,
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
     async def monitor_for_emergencies(self) -> None:
@@ -245,9 +244,7 @@ class EmergencyController:
 
             except Exception as e:
                 logger.error(
-                    "Error in emergency monitoring",
-                    error=str(e),
-                    exc_info=True
+                    "Error in emergency monitoring", error=str(e), exc_info=True
                 )
                 await asyncio.sleep(5)  # Back off on error
 
@@ -263,7 +260,9 @@ class EmergencyController:
         if self.daily_start_balance == Decimal("0"):
             return Decimal("0")
 
-        loss = (self.daily_start_balance - self.current_balance) / self.daily_start_balance
+        loss = (
+            self.daily_start_balance - self.current_balance
+        ) / self.daily_start_balance
         self.daily_loss_percent = loss
 
         return loss
@@ -279,10 +278,16 @@ class EmergencyController:
                 trigger_values={
                     "daily_loss_percent": float(loss),
                     "daily_loss_limit": self.config["daily_loss_limit"],
-                    "start_balance": float(self.daily_start_balance) if self.daily_start_balance else 0,
-                    "current_balance": float(self.current_balance) if self.current_balance else 0
+                    "start_balance": (
+                        float(self.daily_start_balance)
+                        if self.daily_start_balance
+                        else 0
+                    ),
+                    "current_balance": (
+                        float(self.current_balance) if self.current_balance else 0
+                    ),
                 },
-                affected_symbols=[]  # Affects all symbols
+                affected_symbols=[],  # Affects all symbols
             )
 
     async def _check_correlation_spike(self) -> None:
@@ -291,7 +296,11 @@ class EmergencyController:
             return
 
         # Find maximum correlation
-        max_correlation = max(self.correlation_matrix.values()) if self.correlation_matrix else Decimal("0")
+        max_correlation = (
+            max(self.correlation_matrix.values())
+            if self.correlation_matrix
+            else Decimal("0")
+        )
 
         if max_correlation >= Decimal(str(self.config["correlation_spike_threshold"])):
             # Find all highly correlated pairs
@@ -307,12 +316,11 @@ class EmergencyController:
                 trigger_values={
                     "max_correlation": float(max_correlation),
                     "threshold": self.config["correlation_spike_threshold"],
-                    "affected_pairs": affected_pairs
+                    "affected_pairs": affected_pairs,
                 },
-                affected_symbols=list({
-                    symbol for pair in affected_pairs
-                    for symbol in pair.split("-")
-                })
+                affected_symbols=list(
+                    {symbol for pair in affected_pairs for symbol in pair.split("-")}
+                ),
             )
 
     async def _check_liquidity_crisis(self) -> None:
@@ -330,9 +338,9 @@ class EmergencyController:
                     severity="HIGH",
                     trigger_values={
                         "liquidity_score": float(current_score),
-                        "threshold": 0.2
+                        "threshold": 0.2,
                     },
-                    affected_symbols=[symbol]
+                    affected_symbols=[symbol],
                 )
 
     async def _check_flash_crash(self) -> None:
@@ -350,7 +358,8 @@ class EmergencyController:
             # Get prices within window
             now = datetime.now(UTC)
             recent_prices = [
-                (ts, price) for ts, price in history
+                (ts, price)
+                for ts, price in history
                 if (now - ts).total_seconds() <= window_seconds
             ]
 
@@ -371,9 +380,9 @@ class EmergencyController:
                                 "threshold": float(threshold),
                                 "max_price": float(max_price),
                                 "min_price": float(min_price),
-                                "window_seconds": window_seconds
+                                "window_seconds": window_seconds,
                             },
-                            affected_symbols=[symbol]
+                            affected_symbols=[symbol],
                         )
 
     async def _trigger_emergency(
@@ -381,7 +390,7 @@ class EmergencyController:
         emergency_type: EmergencyType,
         severity: str,
         trigger_values: dict[str, Any],
-        affected_symbols: list[str]
+        affected_symbols: list[str],
     ) -> None:
         """
         Trigger an emergency response.
@@ -403,7 +412,7 @@ class EmergencyController:
             triggered_at=datetime.now(UTC),
             trigger_values=trigger_values,
             affected_symbols=affected_symbols,
-            actions_taken=[]
+            actions_taken=[],
         )
 
         # Store emergency
@@ -420,7 +429,7 @@ class EmergencyController:
             emergency_type=emergency_type.value,
             severity=severity,
             trigger_values=trigger_values,
-            affected_symbols=affected_symbols
+            affected_symbols=affected_symbols,
         )
 
         # Publish emergency event
@@ -433,10 +442,10 @@ class EmergencyController:
                     "severity": severity,
                     "trigger_values": trigger_values,
                     "affected_symbols": affected_symbols,
-                    "message": f"Emergency halt: {emergency_type.value}"
-                }
+                    "message": f"Emergency halt: {emergency_type.value}",
+                },
             ),
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
         # Take emergency actions based on type
@@ -493,7 +502,9 @@ class EmergencyController:
         logger.info(
             "Emergency cleared",
             emergency_type=emergency_type,
-            duration_seconds=(emergency.resolved_at - emergency.triggered_at).total_seconds()
+            duration_seconds=(
+                emergency.resolved_at - emergency.triggered_at
+            ).total_seconds(),
         )
 
         # Publish clearance event
@@ -504,10 +515,12 @@ class EmergencyController:
                 event_data={
                     "emergency_type": emergency_type,
                     "resolution": emergency.resolution,
-                    "duration_seconds": (emergency.resolved_at - emergency.triggered_at).total_seconds()
-                }
+                    "duration_seconds": (
+                        emergency.resolved_at - emergency.triggered_at
+                    ).total_seconds(),
+                },
             ),
-            priority=EventPriority.HIGH
+            priority=EventPriority.HIGH,
         )
 
     async def request_manual_override(self, confirmation: str) -> bool:
@@ -523,7 +536,7 @@ class EmergencyController:
             logger.warning(
                 "Manual override denied - incorrect confirmation",
                 provided=confirmation,
-                expected=self.override_confirmation_phrase
+                expected=self.override_confirmation_phrase,
             )
             return False
 
@@ -536,7 +549,7 @@ class EmergencyController:
         logger.critical(
             "MANUAL OVERRIDE ACTIVATED",
             expiry=self.override_expiry.isoformat(),
-            duration_seconds=self.config["override_timeout_seconds"]
+            duration_seconds=self.config["override_timeout_seconds"],
         )
 
         # Update state
@@ -551,10 +564,10 @@ class EmergencyController:
                     "action": "emergency_override",
                     "old_state": old_state.value,
                     "new_state": self.state.value,
-                    "expiry": self.override_expiry.isoformat()
-                }
+                    "expiry": self.override_expiry.isoformat(),
+                },
             ),
-            priority=EventPriority.CRITICAL
+            priority=EventPriority.CRITICAL,
         )
 
         return True
@@ -568,7 +581,11 @@ class EmergencyController:
             # Override expired
             self.override_active = False
             self.override_expiry = None
-            self.state = EmergencyState.EMERGENCY if self.active_emergencies else EmergencyState.NORMAL
+            self.state = (
+                EmergencyState.EMERGENCY
+                if self.active_emergencies
+                else EmergencyState.NORMAL
+            )
             logger.info("Manual override expired")
             return False
 
@@ -603,31 +620,29 @@ class EmergencyController:
             # Keep only recent history (last 5 minutes)
             cutoff = datetime.now(UTC) - timedelta(minutes=5)
             self.price_history[symbol] = [
-                (ts, p) for ts, p in self.price_history[symbol]
-                if ts >= cutoff
+                (ts, p) for ts, p in self.price_history[symbol] if ts >= cutoff
             ]
 
         # Update liquidity scores if available
         if "liquidity_score" in event.event_data:
             symbol = event.event_data.get("symbol", "")
             if symbol:
-                self.liquidity_scores[symbol] = Decimal(str(event.event_data["liquidity_score"]))
+                self.liquidity_scores[symbol] = Decimal(
+                    str(event.event_data["liquidity_score"])
+                )
 
     async def _handle_risk_event(self, event: Event) -> None:
         """Handle risk-related events."""
         logger.warning(
             "Risk event received",
             event_type=event.event_type.value,
-            data=event.event_data
+            data=event.event_data,
         )
 
         # Could trigger additional emergency checks here
 
     def update_correlation_matrix(
-        self,
-        symbol1: str,
-        symbol2: str,
-        correlation: Decimal
+        self, symbol1: str, symbol2: str, correlation: Decimal
     ) -> None:
         """
         Update correlation matrix with new value.
@@ -647,7 +662,9 @@ class EmergencyController:
 
         logger.info(
             "Daily tracking reset",
-            start_balance=float(self.daily_start_balance) if self.daily_start_balance else 0
+            start_balance=(
+                float(self.daily_start_balance) if self.daily_start_balance else 0
+            ),
         )
 
     async def generate_emergency_report(self) -> dict[str, Any]:
@@ -664,39 +681,56 @@ class EmergencyController:
             "statistics": {
                 "total_emergencies": self.emergencies_triggered,
                 "false_positives": self.false_positives,
-                "successful_interventions": self.successful_interventions
+                "successful_interventions": self.successful_interventions,
             },
             "current_metrics": {
                 "daily_loss_percent": float(self.daily_loss_percent),
-                "max_correlation": float(max(self.correlation_matrix.values())) if self.correlation_matrix else 0,
-                "min_liquidity_score": float(min(self.liquidity_scores.values())) if self.liquidity_scores else 1.0
+                "max_correlation": (
+                    float(max(self.correlation_matrix.values()))
+                    if self.correlation_matrix
+                    else 0
+                ),
+                "min_liquidity_score": (
+                    float(min(self.liquidity_scores.values()))
+                    if self.liquidity_scores
+                    else 1.0
+                ),
             },
-            "recommendations": []
+            "recommendations": [],
         }
 
         # Add active emergencies
         for emergency in self.active_emergencies.values():
-            report["active_emergencies"].append({
-                "type": emergency.emergency_type.value,
-                "severity": emergency.severity,
-                "triggered_at": emergency.triggered_at.isoformat(),
-                "trigger_values": emergency.trigger_values,
-                "actions_taken": emergency.actions_taken
-            })
+            report["active_emergencies"].append(
+                {
+                    "type": emergency.emergency_type.value,
+                    "severity": emergency.severity,
+                    "triggered_at": emergency.triggered_at.isoformat(),
+                    "trigger_values": emergency.trigger_values,
+                    "actions_taken": emergency.actions_taken,
+                }
+            )
 
         # Add recent history (last 10 emergencies)
         for emergency in self.emergency_history[-10:]:
-            report["emergency_history"].append({
-                "type": emergency.emergency_type.value,
-                "severity": emergency.severity,
-                "triggered_at": emergency.triggered_at.isoformat(),
-                "resolved_at": emergency.resolved_at.isoformat() if emergency.resolved_at else None,
-                "resolution": emergency.resolution,
-                "duration_seconds": (
-                    (emergency.resolved_at - emergency.triggered_at).total_seconds()
-                    if emergency.resolved_at else None
-                )
-            })
+            report["emergency_history"].append(
+                {
+                    "type": emergency.emergency_type.value,
+                    "severity": emergency.severity,
+                    "triggered_at": emergency.triggered_at.isoformat(),
+                    "resolved_at": (
+                        emergency.resolved_at.isoformat()
+                        if emergency.resolved_at
+                        else None
+                    ),
+                    "resolution": emergency.resolution,
+                    "duration_seconds": (
+                        (emergency.resolved_at - emergency.triggered_at).total_seconds()
+                        if emergency.resolved_at
+                        else None
+                    ),
+                }
+            )
 
         # Generate recommendations
         if self.daily_loss_percent > Decimal("0.10"):
@@ -704,12 +738,16 @@ class EmergencyController:
                 "Consider reducing position sizes - approaching daily loss limit"
             )
 
-        if self.correlation_matrix and max(self.correlation_matrix.values()) > Decimal("0.70"):
+        if self.correlation_matrix and max(self.correlation_matrix.values()) > Decimal(
+            "0.70"
+        ):
             report["recommendations"].append(
                 "Diversify positions - high correlation detected between assets"
             )
 
-        if self.liquidity_scores and min(self.liquidity_scores.values()) < Decimal("0.30"):
+        if self.liquidity_scores and min(self.liquidity_scores.values()) < Decimal(
+            "0.30"
+        ):
             report["recommendations"].append(
                 "Avoid large orders - low liquidity detected in some markets"
             )
@@ -728,14 +766,17 @@ class EmergencyController:
             "monitoring": self.monitoring,
             "active_emergencies": list(self.active_emergencies.keys()),
             "override_active": self.override_active,
-            "override_expiry": self.override_expiry.isoformat() if self.override_expiry else None,
+            "override_expiry": (
+                self.override_expiry.isoformat() if self.override_expiry else None
+            ),
             "daily_loss_percent": float(self.daily_loss_percent),
             "emergencies_triggered": self.emergencies_triggered,
             "config": {
                 "daily_loss_limit": self.config["daily_loss_limit"],
-                "correlation_spike_threshold": self.config["correlation_spike_threshold"],
+                "correlation_spike_threshold": self.config[
+                    "correlation_spike_threshold"
+                ],
                 "liquidity_drop_threshold": self.config["liquidity_drop_threshold"],
-                "flash_crash_threshold": self.config["flash_crash_threshold"]
-            }
+                "flash_crash_threshold": self.config["flash_crash_threshold"],
+            },
         }
-

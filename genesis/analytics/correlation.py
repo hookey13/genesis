@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class MarketState(Enum):
     """Market regime classification."""
+
     TRENDING_UP = "trending_up"
     TRENDING_DOWN = "trending_down"
     RANGING = "ranging"
@@ -35,6 +36,7 @@ class MarketState(Enum):
 @dataclass
 class CorrelationAlert:
     """Alert for correlation threshold breach."""
+
     alert_id: UUID
     timestamp: datetime
     correlation_level: Decimal
@@ -47,6 +49,7 @@ class CorrelationAlert:
 @dataclass
 class TradeSuggestion:
     """Decorrelation trade suggestion."""
+
     suggestion_id: UUID
     action: str  # "reduce", "close", "hedge"
     position_id: UUID
@@ -59,6 +62,7 @@ class TradeSuggestion:
 @dataclass
 class CorrelationImpact:
     """Pre-trade correlation impact analysis."""
+
     current_correlation: Decimal
     projected_correlation: Decimal
     correlation_change: Decimal
@@ -69,6 +73,7 @@ class CorrelationImpact:
 @dataclass
 class StressTestResult:
     """Correlation stress test results."""
+
     scenario: str
     correlation_spike: Decimal
     portfolio_impact: Decimal
@@ -80,7 +85,9 @@ class StressTestResult:
 class CorrelationMonitor:
     """Monitor and analyze portfolio correlations."""
 
-    def __init__(self, event_bus: Optional[EventBus] = None, config: Optional[dict] = None):
+    def __init__(
+        self, event_bus: Optional[EventBus] = None, config: Optional[dict] = None
+    ):
         """Initialize correlation monitor.
 
         Args:
@@ -92,13 +99,19 @@ class CorrelationMonitor:
         self.historical_data: dict[UUID, pd.Series] = {}
 
         # Load configuration
-        if config and 'correlation_monitoring' in config:
-            corr_config = config['correlation_monitoring']
-            self.cache_ttl = timedelta(seconds=corr_config['analysis']['cache_ttl_seconds'])
-            self.warning_threshold = Decimal(str(corr_config['thresholds']['warning']))
-            self.critical_threshold = Decimal(str(corr_config['thresholds']['critical']))
-            self.alert_cooldown = timedelta(minutes=corr_config['alerting']['alert_cooldown_minutes'])
-            self.max_alerts_per_day = corr_config['alerting']['max_alerts_per_day']
+        if config and "correlation_monitoring" in config:
+            corr_config = config["correlation_monitoring"]
+            self.cache_ttl = timedelta(
+                seconds=corr_config["analysis"]["cache_ttl_seconds"]
+            )
+            self.warning_threshold = Decimal(str(corr_config["thresholds"]["warning"]))
+            self.critical_threshold = Decimal(
+                str(corr_config["thresholds"]["critical"])
+            )
+            self.alert_cooldown = timedelta(
+                minutes=corr_config["alerting"]["alert_cooldown_minutes"]
+            )
+            self.max_alerts_per_day = corr_config["alerting"]["max_alerts_per_day"]
         else:
             # Default values
             self.cache_ttl = timedelta(seconds=5)
@@ -107,16 +120,22 @@ class CorrelationMonitor:
             self.alert_cooldown = timedelta(minutes=15)
             self.max_alerts_per_day = 50
 
-        self.alert_history: dict[str, datetime] = {}  # Track last alert time per position pair
+        self.alert_history: dict[str, datetime] = (
+            {}
+        )  # Track last alert time per position pair
         self.daily_alert_count = 0
-        self.alert_reset_time = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        self.alert_reset_time = datetime.now(UTC).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
 
         # Set tier for decorator checks (default to HUNTER as this is a Hunter+ feature)
         self.tier = TradingTier.HUNTER
 
     @requires_tier(TradingTier.HUNTER)
     @with_timeout(500)  # 500ms timeout for correlation calculation
-    async def calculate_correlation_matrix(self, positions: list[Position]) -> np.ndarray:
+    async def calculate_correlation_matrix(
+        self, positions: list[Position]
+    ) -> np.ndarray:
         """Calculate correlation matrix for positions.
 
         Args:
@@ -153,15 +172,14 @@ class CorrelationMonitor:
         correlation_matrix = np.nan_to_num(correlation_matrix, nan=0.0)
 
         # Cache result
-        self.correlation_cache[cache_key] = (
-            correlation_matrix,
-            datetime.now(UTC)
-        )
+        self.correlation_cache[cache_key] = (correlation_matrix, datetime.now(UTC))
 
         return correlation_matrix
 
     @requires_tier(TradingTier.HUNTER)
-    async def track_correlation_history(self, positions: list[Position], window_days: int = 30) -> dict:
+    async def track_correlation_history(
+        self, positions: list[Position], window_days: int = 30
+    ) -> dict:
         """Track historical correlation over specified window.
 
         Args:
@@ -183,11 +201,17 @@ class CorrelationMonitor:
             daily_matrix = await self.calculate_correlation_matrix(positions)
             if daily_matrix.size > 0:
                 avg_correlation = self._calculate_average_correlation(daily_matrix)
-                daily_correlations.append({
-                    "date": current_date.isoformat(),
-                    "average_correlation": float(avg_correlation),
-                    "max_correlation": float(daily_matrix[daily_matrix < 1].max()) if daily_matrix.size > 1 else 0.0
-                })
+                daily_correlations.append(
+                    {
+                        "date": current_date.isoformat(),
+                        "average_correlation": float(avg_correlation),
+                        "max_correlation": (
+                            float(daily_matrix[daily_matrix < 1].max())
+                            if daily_matrix.size > 1
+                            else 0.0
+                        ),
+                    }
+                )
             current_date += timedelta(days=1)
 
         return {
@@ -195,11 +219,17 @@ class CorrelationMonitor:
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
             "daily_correlations": daily_correlations,
-            "average_period_correlation": np.mean([d["average_correlation"] for d in daily_correlations]) if daily_correlations else 0.0
+            "average_period_correlation": (
+                np.mean([d["average_correlation"] for d in daily_correlations])
+                if daily_correlations
+                else 0.0
+            ),
         }
 
     @requires_tier(TradingTier.HUNTER)
-    async def analyze_by_market_regime(self, positions: list[Position], market_state: MarketState) -> dict:
+    async def analyze_by_market_regime(
+        self, positions: list[Position], market_state: MarketState
+    ) -> dict:
         """Analyze correlation by market regime.
 
         Args:
@@ -217,7 +247,7 @@ class CorrelationMonitor:
             MarketState.TRENDING_DOWN: 1.2,
             MarketState.VOLATILE: 1.3,
             MarketState.RANGING: 0.9,
-            MarketState.CALM: 0.8
+            MarketState.CALM: 0.8,
         }
 
         multiplier = regime_multipliers.get(market_state, 1.0)
@@ -228,14 +258,20 @@ class CorrelationMonitor:
 
         return {
             "market_state": market_state.value,
-            "base_correlation": float(self._calculate_average_correlation(correlation_matrix)),
-            "adjusted_correlation": float(self._calculate_average_correlation(adjusted_matrix)),
+            "base_correlation": float(
+                self._calculate_average_correlation(correlation_matrix)
+            ),
+            "adjusted_correlation": float(
+                self._calculate_average_correlation(adjusted_matrix)
+            ),
             "regime_multiplier": multiplier,
-            "risk_assessment": self._assess_regime_risk(adjusted_matrix, market_state)
+            "risk_assessment": self._assess_regime_risk(adjusted_matrix, market_state),
         }
 
     @requires_tier(TradingTier.HUNTER)
-    async def check_correlation_thresholds(self, positions: list[Position]) -> list[CorrelationAlert]:
+    async def check_correlation_thresholds(
+        self, positions: list[Position]
+    ) -> list[CorrelationAlert]:
         """Check correlation thresholds and generate alerts.
 
         Args:
@@ -251,7 +287,9 @@ class CorrelationMonitor:
         current_time = datetime.now(UTC)
         if current_time.date() > self.alert_reset_time.date():
             self.daily_alert_count = 0
-            self.alert_reset_time = current_time.replace(hour=0, minute=0, second=0, microsecond=0)
+            self.alert_reset_time = current_time.replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
 
         if self.daily_alert_count >= self.max_alerts_per_day:
             logger.warning(f"Daily alert limit reached ({self.max_alerts_per_day})")
@@ -268,7 +306,14 @@ class CorrelationMonitor:
                 # Check if correlation exceeds warning threshold
                 if correlation > self.warning_threshold:
                     # Create unique key for this position pair
-                    pair_key = "_".join(sorted([str(positions[i].position_id), str(positions[j].position_id)]))
+                    pair_key = "_".join(
+                        sorted(
+                            [
+                                str(positions[i].position_id),
+                                str(positions[j].position_id),
+                            ]
+                        )
+                    )
 
                     # Check cooldown
                     if pair_key in self.alert_history:
@@ -277,17 +322,28 @@ class CorrelationMonitor:
                             continue  # Skip this alert due to cooldown
 
                     # Determine severity
-                    severity = "critical" if correlation > self.critical_threshold else "warning"
-                    threshold = self.critical_threshold if severity == "critical" else self.warning_threshold
+                    severity = (
+                        "critical"
+                        if correlation > self.critical_threshold
+                        else "warning"
+                    )
+                    threshold = (
+                        self.critical_threshold
+                        if severity == "critical"
+                        else self.warning_threshold
+                    )
 
                     alert = CorrelationAlert(
                         alert_id=uuid4(),
                         timestamp=current_time,
                         correlation_level=correlation,
                         threshold=threshold,
-                        affected_positions=[positions[i].position_id, positions[j].position_id],
+                        affected_positions=[
+                            positions[i].position_id,
+                            positions[j].position_id,
+                        ],
                         severity=severity,
-                        message=f"High correlation {correlation:.2%} between {positions[i].symbol} and {positions[j].symbol}"
+                        message=f"High correlation {correlation:.2%} between {positions[i].symbol} and {positions[j].symbol}",
                     )
                     alerts.append(alert)
 
@@ -299,15 +355,21 @@ class CorrelationMonitor:
                     if self.event_bus:
                         event = Event(
                             type=EventType.RISK_ALERT,
-                            priority=EventPriority.HIGH if severity == "critical" else EventPriority.NORMAL,
-                            data={"alert": alert}
+                            priority=(
+                                EventPriority.HIGH
+                                if severity == "critical"
+                                else EventPriority.NORMAL
+                            ),
+                            data={"alert": alert},
                         )
                         await self.event_bus.publish(event)
 
         return alerts
 
     @requires_tier(TradingTier.HUNTER)
-    async def suggest_decorrelation_trades(self, current_positions: list[Position]) -> list[TradeSuggestion]:
+    async def suggest_decorrelation_trades(
+        self, current_positions: list[Position]
+    ) -> list[TradeSuggestion]:
         """Suggest trades to reduce portfolio correlation.
 
         Args:
@@ -329,16 +391,25 @@ class CorrelationMonitor:
 
                 if correlation > 0.7:  # High correlation threshold
                     # Suggest reducing the smaller position
-                    smaller_position = current_positions[i] if current_positions[i].dollar_value < current_positions[j].dollar_value else current_positions[j]
+                    smaller_position = (
+                        current_positions[i]
+                        if current_positions[i].dollar_value
+                        < current_positions[j].dollar_value
+                        else current_positions[j]
+                    )
 
                     suggestion = TradeSuggestion(
                         suggestion_id=uuid4(),
                         action="reduce",
                         position_id=smaller_position.position_id,
-                        suggested_quantity=smaller_position.quantity * Decimal("0.5"),  # Reduce by 50%
-                        expected_correlation_impact=Decimal(str(correlation * 0.3)),  # Estimate 30% reduction
+                        suggested_quantity=smaller_position.quantity
+                        * Decimal("0.5"),  # Reduce by 50%
+                        expected_correlation_impact=Decimal(
+                            str(correlation * 0.3)
+                        ),  # Estimate 30% reduction
                         rationale=f"High correlation ({correlation:.2f}) with other position. Reducing exposure.",
-                        transaction_cost_estimate=smaller_position.dollar_value * Decimal("0.001")  # 0.1% estimate
+                        transaction_cost_estimate=smaller_position.dollar_value
+                        * Decimal("0.001"),  # 0.1% estimate
                     )
                     suggestions.append(suggestion)
 
@@ -348,7 +419,9 @@ class CorrelationMonitor:
         return suggestions[:5]  # Return top 5 suggestions
 
     @requires_tier(TradingTier.HUNTER)
-    async def calculate_correlation_impact(self, new_position: Position, existing_positions: list[Position]) -> CorrelationImpact:
+    async def calculate_correlation_impact(
+        self, new_position: Position, existing_positions: list[Position]
+    ) -> CorrelationImpact:
         """Calculate correlation impact of new position.
 
         Args:
@@ -364,7 +437,7 @@ class CorrelationMonitor:
                 projected_correlation=Decimal("0"),
                 correlation_change=Decimal("0"),
                 risk_assessment="low",
-                recommendation="No existing positions. Safe to proceed."
+                recommendation="No existing positions. Safe to proceed.",
             )
 
         # Calculate current correlation
@@ -374,7 +447,9 @@ class CorrelationMonitor:
         # Calculate projected correlation with new position
         all_positions = existing_positions + [new_position]
         projected_matrix = await self.calculate_correlation_matrix(all_positions)
-        projected_avg = Decimal(str(self._calculate_average_correlation(projected_matrix)))
+        projected_avg = Decimal(
+            str(self._calculate_average_correlation(projected_matrix))
+        )
 
         correlation_change = projected_avg - current_avg
 
@@ -394,11 +469,13 @@ class CorrelationMonitor:
             projected_correlation=projected_avg,
             correlation_change=correlation_change,
             risk_assessment=risk_assessment,
-            recommendation=recommendation
+            recommendation=recommendation,
         )
 
     @requires_tier(TradingTier.HUNTER)
-    async def run_stress_test(self, positions: list[Position], correlation_spike: float = 0.8) -> StressTestResult:
+    async def run_stress_test(
+        self, positions: list[Position], correlation_spike: float = 0.8
+    ) -> StressTestResult:
         """Run correlation stress test.
 
         Args:
@@ -415,7 +492,7 @@ class CorrelationMonitor:
                 portfolio_impact=Decimal("0"),
                 max_drawdown=Decimal("0"),
                 positions_at_risk=[],
-                timestamp=datetime.now(UTC)
+                timestamp=datetime.now(UTC),
             )
 
         # Create stressed correlation matrix
@@ -435,11 +512,15 @@ class CorrelationMonitor:
         # Identify positions at risk
         positions_at_risk = []
         for position in positions:
-            position_risk = position.dollar_value * correlation_factor * volatility_factor
+            position_risk = (
+                position.dollar_value * correlation_factor * volatility_factor
+            )
             if position_risk > position.dollar_value * Decimal("0.15"):  # 15% threshold
                 positions_at_risk.append(position.position_id)
 
-        portfolio_impact = max_drawdown / portfolio_value if portfolio_value > 0 else Decimal("0")
+        portfolio_impact = (
+            max_drawdown / portfolio_value if portfolio_value > 0 else Decimal("0")
+        )
 
         return StressTestResult(
             scenario=f"Correlation spike to {correlation_spike:.0%}",
@@ -447,7 +528,7 @@ class CorrelationMonitor:
             portfolio_impact=portfolio_impact,
             max_drawdown=max_drawdown,
             positions_at_risk=positions_at_risk,
-            timestamp=datetime.now(UTC)
+            timestamp=datetime.now(UTC),
         )
 
     def _get_cache_key(self, positions: list[Position]) -> str:
@@ -481,7 +562,9 @@ class CorrelationMonitor:
 
         return float(np.sum(np.abs(upper_triangle)) / non_zero_count)
 
-    def _assess_regime_risk(self, correlation_matrix: np.ndarray, market_state: MarketState) -> str:
+    def _assess_regime_risk(
+        self, correlation_matrix: np.ndarray, market_state: MarketState
+    ) -> str:
         """Assess risk based on correlation and market regime."""
         avg_correlation = self._calculate_average_correlation(correlation_matrix)
 
@@ -500,7 +583,9 @@ class CorrelationMonitor:
             else:
                 return "Low - Acceptable correlation"
 
-    def _optimize_suggestions(self, suggestions: list[TradeSuggestion], positions: list[Position]) -> list[TradeSuggestion]:
+    def _optimize_suggestions(
+        self, suggestions: list[TradeSuggestion], positions: list[Position]
+    ) -> list[TradeSuggestion]:
         """Optimize suggestions using efficient frontier principles."""
         # Simplified optimization - sort by expected impact and cost
         if not suggestions:
@@ -509,10 +594,14 @@ class CorrelationMonitor:
         # Score each suggestion
         for suggestion in suggestions:
             impact_score = float(suggestion.expected_correlation_impact)
-            cost_score = float(suggestion.transaction_cost_estimate / positions[0].dollar_value) if positions else 0
+            cost_score = (
+                float(suggestion.transaction_cost_estimate / positions[0].dollar_value)
+                if positions
+                else 0
+            )
             suggestion.score = impact_score - cost_score  # Higher is better
 
         # Sort by score
-        suggestions.sort(key=lambda x: getattr(x, 'score', 0), reverse=True)
+        suggestions.sort(key=lambda x: getattr(x, "score", 0), reverse=True)
 
         return suggestions

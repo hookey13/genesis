@@ -1,4 +1,5 @@
 """Unit tests for multi-level tilt detection system."""
+
 import asyncio
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -48,9 +49,7 @@ class TestTiltDetector:
     def detector(self, profile_manager, event_bus):
         """Create tilt detector instance."""
         return TiltDetector(
-            profile_manager=profile_manager,
-            event_bus=event_bus,
-            anomaly_buffer_size=50
+            profile_manager=profile_manager, event_bus=event_bus, anomaly_buffer_size=50
         )
 
     @pytest.fixture
@@ -58,15 +57,17 @@ class TestTiltDetector:
         """Create mock baseline."""
         baseline = MagicMock(spec=BehavioralBaseline)
         baseline.get_metric_stats.return_value = {
-            'median': 50.0,
-            'iqr': 10.0,
-            'min': 30.0,
-            'max': 70.0
+            "median": 50.0,
+            "iqr": 10.0,
+            "min": 30.0,
+            "max": 70.0,
         }
         return baseline
 
     @pytest.mark.asyncio
-    async def test_detect_tilt_level_normal(self, detector, profile_manager, mock_baseline):
+    async def test_detect_tilt_level_normal(
+        self, detector, profile_manager, mock_baseline
+    ):
         """Test detection of normal tilt level."""
         # Setup
         profile_id = "test_profile"
@@ -78,14 +79,14 @@ class TestTiltDetector:
                 metric_name="click_speed",
                 value=48.0,
                 timestamp=datetime.now(UTC),
-                context={}
+                context={},
             ),
             BehavioralMetric(
                 metric_name="order_frequency",
                 value=52.0,
                 timestamp=datetime.now(UTC),
-                context={}
-            )
+                context={},
+            ),
         ]
 
         # Test
@@ -110,20 +111,20 @@ class TestTiltDetector:
                 metric_name="click_speed",
                 value=100.0,  # Anomaly: far from median 50
                 timestamp=datetime.now(UTC),
-                context={}
+                context={},
             ),
             BehavioralMetric(
                 metric_name="order_frequency",
                 value=5.0,  # Anomaly: far from median 50
                 timestamp=datetime.now(UTC),
-                context={}
+                context={},
             ),
             BehavioralMetric(
                 metric_name="position_size",
                 value=52.0,  # Normal
                 timestamp=datetime.now(UTC),
-                context={}
-            )
+                context={},
+            ),
         ]
 
         # Test
@@ -143,7 +144,7 @@ class TestTiltDetector:
 
         # Create metrics with 4 anomalies
         metrics = [
-            BehavioralMetric(f"metric_{i}", 100.0 + i*10, datetime.now(UTC), {})
+            BehavioralMetric(f"metric_{i}", 100.0 + i * 10, datetime.now(UTC), {})
             for i in range(4)  # All anomalies
         ]
 
@@ -164,7 +165,7 @@ class TestTiltDetector:
 
         # Create metrics with 6 anomalies
         metrics = [
-            BehavioralMetric(f"metric_{i}", 100.0 + i*10, datetime.now(UTC), {})
+            BehavioralMetric(f"metric_{i}", 100.0 + i * 10, datetime.now(UTC), {})
             for i in range(6)  # All anomalies
         ]
 
@@ -189,7 +190,7 @@ class TestTiltDetector:
             deviation=Decimal("50"),
             severity=5,
             timestamp=datetime.now(UTC),
-            description="Test anomaly"
+            description="Test anomaly",
         )
         score = detector.calculate_tilt_score([anomaly1])
         assert score == 35  # 1*10 + 5*5 = 35
@@ -202,7 +203,7 @@ class TestTiltDetector:
             deviation=Decimal("50"),
             severity=8,
             timestamp=datetime.now(UTC),
-            description="Test anomaly 2"
+            description="Test anomaly 2",
         )
         score = detector.calculate_tilt_score([anomaly1, anomaly2])
         assert score == 85  # 2*10 + (5+8)*5 = 85
@@ -213,7 +214,9 @@ class TestTiltDetector:
         assert score == 100
 
     @pytest.mark.asyncio
-    async def test_event_publishing(self, detector, profile_manager, event_bus, mock_baseline):
+    async def test_event_publishing(
+        self, detector, profile_manager, event_bus, mock_baseline
+    ):
         """Test that tilt events are published correctly."""
         # Setup
         profile_id = "test_profile"
@@ -232,11 +235,13 @@ class TestTiltDetector:
         event_bus.publish.assert_called_once()
         call_args = event_bus.publish.call_args
         assert call_args[0][0] == EventType.TILT_LEVEL1_DETECTED
-        assert call_args[0][1]['profile_id'] == profile_id
-        assert call_args[0][1]['tilt_level'] == 'LEVEL1'
+        assert call_args[0][1]["profile_id"] == profile_id
+        assert call_args[0][1]["tilt_level"] == "LEVEL1"
 
     @pytest.mark.asyncio
-    async def test_performance_requirement(self, detector, profile_manager, mock_baseline):
+    async def test_performance_requirement(
+        self, detector, profile_manager, mock_baseline
+    ):
         """Test that detection completes within 50ms."""
         # Setup
         profile_id = "test_profile"
@@ -270,7 +275,7 @@ class TestTiltDetector:
                 deviation=Decimal("50"),
                 severity=5,
                 timestamp=datetime.now(UTC),
-                description=f"Test anomaly {i}"
+                description=f"Test anomaly {i}",
             )
             for i in range(60)  # More than buffer size
         ]
@@ -308,6 +313,7 @@ class TestAnomalyDetector:
 
     def test_register_indicator(self, anomaly_detector):
         """Test registering anomaly indicators."""
+
         def test_detector(baseline, metric):
             return None
 
@@ -318,6 +324,7 @@ class TestAnomalyDetector:
     @pytest.mark.asyncio
     async def test_detect_anomalies(self, anomaly_detector, baseline):
         """Test anomaly detection with multiple indicators."""
+
         # Register test indicators
         async def detector1(baseline, metric):
             return Anomaly(
@@ -327,7 +334,7 @@ class TestAnomalyDetector:
                 deviation=Decimal("50"),
                 severity=5,
                 timestamp=datetime.now(UTC),
-                description="Test 1"
+                description="Test 1",
             )
 
         async def detector2(baseline, metric):
@@ -338,10 +345,7 @@ class TestAnomalyDetector:
 
         # Test detection
         metric = BehavioralMetric(
-            metric_name="test",
-            value=100.0,
-            timestamp=datetime.now(UTC),
-            context={}
+            metric_name="test", value=100.0, timestamp=datetime.now(UTC), context={}
         )
 
         anomalies = await anomaly_detector.detect_anomalies(baseline, metric)

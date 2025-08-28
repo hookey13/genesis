@@ -60,8 +60,28 @@ def mock_gateway():
 
     # Mock klines data
     gateway.get_klines.return_value = [
-        [1640000000000, "50000", "51000", "49000", "50500", "1000", 1640003600000, "50000000", 1000],
-        [1640003600000, "50500", "51500", "49500", "51000", "1100", 1640007200000, "55000000", 1100],
+        [
+            1640000000000,
+            "50000",
+            "51000",
+            "49000",
+            "50500",
+            "1000",
+            1640003600000,
+            "50000000",
+            1000,
+        ],
+        [
+            1640003600000,
+            "50500",
+            "51500",
+            "49500",
+            "51000",
+            "1100",
+            1640007200000,
+            "55000000",
+            1100,
+        ],
         # Add more sample data...
     ] * 20
 
@@ -72,13 +92,13 @@ def mock_gateway():
         "priceChangePercent": "2.5",
         "highPrice": "52000",
         "lowPrice": "49000",
-        "weightedAvgPrice": "50500"
+        "weightedAvgPrice": "50500",
     }
 
     # Mock order book
     gateway.get_order_book.return_value = {
         "bids": [["50000", "10"], ["49999", "20"], ["49998", "30"]],
-        "asks": [["50001", "10"], ["50002", "20"], ["50003", "30"]]
+        "asks": [["50001", "10"], ["50002", "20"], ["50003", "30"]],
     }
 
     return gateway
@@ -89,9 +109,7 @@ async def market_data_service(event_bus, mock_gateway):
     """Create market data service."""
     ws_manager = WebSocketManager(mock_gateway)
     service = MarketDataService(
-        websocket_manager=ws_manager,
-        gateway=mock_gateway,
-        event_bus=event_bus
+        websocket_manager=ws_manager, gateway=mock_gateway, event_bus=event_bus
     )
 
     await service.start()
@@ -104,10 +122,7 @@ class TestMarketStateWorkflow:
 
     @pytest.mark.asyncio
     async def test_full_classification_workflow(
-        self,
-        event_bus,
-        temp_db,
-        market_data_service
+        self, event_bus, temp_db, market_data_service
     ):
         """Test full market state classification workflow."""
         # Create components
@@ -133,12 +148,14 @@ class TestMarketStateWorkflow:
         context = await classifier.update_state(
             symbol=symbol,
             volatility_atr=volatility_data.get("atr", Decimal("500")),
-            realized_volatility=volatility_data.get("realized_volatility", Decimal("0.5")),
+            realized_volatility=volatility_data.get(
+                "realized_volatility", Decimal("0.5")
+            ),
             volume_24h=ticker_data.get("volume", Decimal("10000")),
             spread_bps=spread_bps,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         assert context.symbol == symbol
@@ -146,16 +163,18 @@ class TestMarketStateWorkflow:
         assert context.volatility_atr > 0
 
         # Save to database
-        await temp_db.save_market_state({
-            "symbol": context.symbol,
-            "state": context.current_state.value,
-            "volatility_atr": context.volatility_atr,
-            "spread_basis_points": context.spread_basis_points,
-            "volume_24h": context.volume_24h,
-            "liquidity_score": context.liquidity_score,
-            "detected_at": context.detected_at,
-            "state_duration_seconds": context.state_duration_seconds
-        })
+        await temp_db.save_market_state(
+            {
+                "symbol": context.symbol,
+                "state": context.current_state.value,
+                "volatility_atr": context.volatility_atr,
+                "spread_basis_points": context.spread_basis_points,
+                "volume_24h": context.volume_24h,
+                "liquidity_score": context.liquidity_score,
+                "detected_at": context.detected_at,
+                "state_duration_seconds": context.state_duration_seconds,
+            }
+        )
 
         # Verify database persistence
         saved_state = await temp_db.get_latest_market_state(symbol)
@@ -186,7 +205,7 @@ class TestMarketStateWorkflow:
             spread_bps=10,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         # Second update - trigger state change to VOLATILE
@@ -198,7 +217,7 @@ class TestMarketStateWorkflow:
             spread_bps=50,
             liquidity_score=Decimal("80"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         # Allow events to propagate
@@ -228,7 +247,7 @@ class TestMarketStateWorkflow:
             spread_bps=50,
             liquidity_score=Decimal("80"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         # Calculate adjusted position size
@@ -236,7 +255,7 @@ class TestMarketStateWorkflow:
             symbol=symbol,
             base_size=base_size,
             market_state=context.current_state,
-            volatility_percentile=context.volatility_percentile
+            volatility_percentile=context.volatility_percentile,
         )
 
         # Should be reduced due to volatility
@@ -260,7 +279,7 @@ class TestMarketStateWorkflow:
             spread_bps=10,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         states = await strategy_manager.update_strategy_states(MarketState.NORMAL)
@@ -276,7 +295,7 @@ class TestMarketStateWorkflow:
             spread_bps=50,
             liquidity_score=Decimal("80"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         states = await strategy_manager.update_strategy_states(MarketState.VOLATILE)
@@ -310,7 +329,7 @@ class TestMarketStateWorkflow:
             spread_bps=10,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=True
+            maintenance_detected=True,
         )
 
         assert context.current_state == MarketState.MAINTENANCE
@@ -342,15 +361,17 @@ class TestMarketStateWorkflow:
         assert global_state in [GlobalMarketState.BEAR, GlobalMarketState.CRASH]
 
         # Save to database
-        await temp_db.save_global_market_state({
-            "btc_price": btc_price,
-            "total_market_cap": Decimal("2000000000000"),
-            "fear_greed_index": 20,
-            "correlation_spike": True,
-            "state": global_state.value,
-            "vix_crypto": Decimal("80"),
-            "detected_at": datetime.now(UTC)
-        })
+        await temp_db.save_global_market_state(
+            {
+                "btc_price": btc_price,
+                "total_market_cap": Decimal("2000000000000"),
+                "fear_greed_index": 20,
+                "correlation_spike": True,
+                "state": global_state.value,
+                "vix_crypto": Decimal("80"),
+                "detected_at": datetime.now(UTC),
+            }
+        )
 
         # Verify persistence
         saved_state = await temp_db.get_latest_global_market_state()
@@ -393,7 +414,7 @@ class TestMarketStateWorkflow:
             spread_bps=10,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         # Volume anomaly should be considered in state classification
@@ -436,16 +457,18 @@ class TestMarketStateWorkflow:
         # Save multiple states
         states = [MarketState.NORMAL, MarketState.VOLATILE, MarketState.PANIC]
         for i, state in enumerate(states):
-            await temp_db.save_market_state({
-                "symbol": symbol,
-                "state": state.value,
-                "volatility_atr": Decimal(str(500 + i * 500)),
-                "spread_basis_points": 10 + i * 10,
-                "volume_24h": Decimal(str(1000000 * (i + 1))),
-                "liquidity_score": Decimal(str(95 - i * 5)),
-                "detected_at": datetime.now(UTC) - timedelta(hours=len(states)-i),
-                "state_duration_seconds": 3600
-            })
+            await temp_db.save_market_state(
+                {
+                    "symbol": symbol,
+                    "state": state.value,
+                    "volatility_atr": Decimal(str(500 + i * 500)),
+                    "spread_basis_points": 10 + i * 10,
+                    "volume_24h": Decimal(str(1000000 * (i + 1))),
+                    "liquidity_score": Decimal(str(95 - i * 5)),
+                    "detected_at": datetime.now(UTC) - timedelta(hours=len(states) - i),
+                    "state_duration_seconds": 3600,
+                }
+            )
 
         # Retrieve history
         history = await temp_db.get_market_state_history(symbol, hours_back=24)
@@ -457,10 +480,7 @@ class TestMarketStateWorkflow:
 
     @pytest.mark.asyncio
     async def test_complete_market_analysis_pipeline(
-        self,
-        event_bus,
-        temp_db,
-        market_data_service
+        self, event_bus, temp_db, market_data_service
     ):
         """Test complete market analysis pipeline from data to decision."""
         # Create all components
@@ -481,12 +501,14 @@ class TestMarketStateWorkflow:
         context = await classifier.update_state(
             symbol=symbol,
             volatility_atr=volatility_data.get("atr", Decimal("500")),
-            realized_volatility=volatility_data.get("realized_volatility", Decimal("0.5")),
+            realized_volatility=volatility_data.get(
+                "realized_volatility", Decimal("0.5")
+            ),
             volume_24h=ticker.get("volume", Decimal("10000")),
             spread_bps=10,
             liquidity_score=Decimal("95"),
             correlation_spike=False,
-            maintenance_detected=False
+            maintenance_detected=False,
         )
 
         # Step 3: Classify global state
@@ -496,7 +518,7 @@ class TestMarketStateWorkflow:
                 {"symbol": "ETHUSDT", "change_percent": Decimal("2")},
                 {"symbol": "BNBUSDT", "change_percent": Decimal("1.5")},
             ],
-            fear_greed_index=50
+            fear_greed_index=50,
         )
 
         # Step 4: Adjust position sizing
@@ -506,7 +528,7 @@ class TestMarketStateWorkflow:
             base_size=base_size,
             market_state=context.current_state,
             global_state=global_state,
-            volatility_percentile=context.volatility_percentile
+            volatility_percentile=context.volatility_percentile,
         )
 
         # Step 5: Update strategy states
@@ -515,26 +537,30 @@ class TestMarketStateWorkflow:
         )
 
         # Step 6: Persist everything
-        await temp_db.save_market_state({
-            "symbol": context.symbol,
-            "state": context.current_state.value,
-            "volatility_atr": context.volatility_atr,
-            "spread_basis_points": context.spread_basis_points,
-            "volume_24h": context.volume_24h,
-            "liquidity_score": context.liquidity_score,
-            "detected_at": context.detected_at,
-            "state_duration_seconds": context.state_duration_seconds
-        })
+        await temp_db.save_market_state(
+            {
+                "symbol": context.symbol,
+                "state": context.current_state.value,
+                "volatility_atr": context.volatility_atr,
+                "spread_basis_points": context.spread_basis_points,
+                "volume_24h": context.volume_24h,
+                "liquidity_score": context.liquidity_score,
+                "detected_at": context.detected_at,
+                "state_duration_seconds": context.state_duration_seconds,
+            }
+        )
 
-        await temp_db.save_global_market_state({
-            "btc_price": Decimal("50000"),
-            "total_market_cap": Decimal("2000000000000"),
-            "fear_greed_index": 50,
-            "correlation_spike": False,
-            "state": global_state.value,
-            "vix_crypto": Decimal("30"),
-            "detected_at": datetime.now(UTC)
-        })
+        await temp_db.save_global_market_state(
+            {
+                "btc_price": Decimal("50000"),
+                "total_market_cap": Decimal("2000000000000"),
+                "fear_greed_index": 50,
+                "correlation_spike": False,
+                "state": global_state.value,
+                "vix_crypto": Decimal("30"),
+                "detected_at": datetime.now(UTC),
+            }
+        )
 
         # Verify complete workflow
         assert context.current_state in MarketState

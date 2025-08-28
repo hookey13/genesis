@@ -43,7 +43,7 @@ class MockExchange:
         self.balances = initial_balance or {
             "USDT": Decimal("10000"),
             "BTC": Decimal("0.5"),
-            "ETH": Decimal("5.0")
+            "ETH": Decimal("5.0"),
         }
 
         # Orders storage
@@ -54,7 +54,7 @@ class MockExchange:
         self.market_prices = {
             "BTC/USDT": Decimal("50000"),
             "ETH/USDT": Decimal("3000"),
-            "BNB/USDT": Decimal("400")
+            "BNB/USDT": Decimal("400"),
         }
 
         # Configuration
@@ -69,7 +69,7 @@ class MockExchange:
         logger.info(
             "MockExchange initialized",
             initial_balances=self.balances,
-            market_prices=self.market_prices
+            market_prices=self.market_prices,
         )
 
     async def _simulate_latency(self) -> None:
@@ -103,10 +103,7 @@ class MockExchange:
         result = {}
         for asset, balance in self.balances.items():
             result[asset] = AccountBalance(
-                asset=asset,
-                free=balance,
-                locked=Decimal("0"),
-                total=balance
+                asset=asset, free=balance, locked=Decimal("0"), total=balance
             )
 
         return result
@@ -140,13 +137,16 @@ class MockExchange:
             # Simulate partial fills for limit orders
             if random.random() < self.partial_fill_rate:
                 status = "partially_filled"
-                filled_quantity = request.quantity * Decimal(str(random.uniform(0.1, 0.9)))
+                filled_quantity = request.quantity * Decimal(
+                    str(random.uniform(0.1, 0.9))
+                )
             else:
                 status = "open"
                 filled_quantity = Decimal("0")
 
         # Create order response
         from datetime import datetime
+
         response = OrderResponse(
             order_id=order_id,
             client_order_id=request.client_order_id,
@@ -154,11 +154,12 @@ class MockExchange:
             side=request.side,
             type=request.type,
             status=status,
-            price=request.price or self.market_prices.get(request.symbol, Decimal("50000")),
+            price=request.price
+            or self.market_prices.get(request.symbol, Decimal("50000")),
             quantity=request.quantity,
             filled_quantity=filled_quantity,
             created_at=datetime.now(),
-            updated_at=None
+            updated_at=None,
         )
 
         # Store order
@@ -173,12 +174,14 @@ class MockExchange:
             order_id=order_id,
             symbol=request.symbol,
             side=request.side,
-            status=status
+            status=status,
         )
 
         return response
 
-    def _update_balance_for_order(self, request: OrderRequest, response: OrderResponse) -> None:
+    def _update_balance_for_order(
+        self, request: OrderRequest, response: OrderResponse
+    ) -> None:
         """Update balances based on filled order."""
         base, quote = request.symbol.split("/")
 
@@ -186,7 +189,9 @@ class MockExchange:
             # Buying base currency with quote currency
             cost = response.filled_quantity * response.price
             self.balances[quote] -= cost
-            self.balances[base] = self.balances.get(base, Decimal("0")) + response.filled_quantity
+            self.balances[base] = (
+                self.balances.get(base, Decimal("0")) + response.filled_quantity
+            )
         else:
             # Selling base currency for quote currency
             revenue = response.filled_quantity * response.price
@@ -243,6 +248,7 @@ class MockExchange:
 
         # Return a default filled order if not found
         from datetime import datetime
+
         return OrderResponse(
             order_id=order_id,
             client_order_id=None,
@@ -254,7 +260,7 @@ class MockExchange:
             quantity=Decimal("0.001"),
             filled_quantity=Decimal("0.001"),
             created_at=datetime.now(),
-            updated_at=datetime.now()
+            updated_at=datetime.now(),
         )
 
     async def fetch_order_book(self, symbol: str, limit: int = 20) -> OrderBook:
@@ -293,18 +299,16 @@ class MockExchange:
             asks.append((ask_price, ask_quantity))
 
         from datetime import datetime
+
         return OrderBook(
             symbol=symbol,
             bids=[[price, qty] for price, qty in bids],
             asks=[[price, qty] for price, qty in asks],
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
     async def fetch_klines(
-        self,
-        symbol: str,
-        interval: str = "1m",
-        limit: int = 100
+        self, symbol: str, interval: str = "1m", limit: int = 100
     ) -> list[dict[str, Any]]:
         """
         Fetch kline data.
@@ -338,14 +342,16 @@ class MockExchange:
             low_price = open_price * Decimal(str(random.uniform(0.99, 1.0)))
             close_price = open_price * Decimal(str(random.uniform(0.995, 1.005)))
 
-            klines.append({
-                "timestamp": current_time - (i * interval_ms),
-                "open": open_price,
-                "high": high_price,
-                "low": low_price,
-                "close": close_price,
-                "volume": Decimal(str(random.uniform(10, 1000)))
-            })
+            klines.append(
+                {
+                    "timestamp": current_time - (i * interval_ms),
+                    "open": open_price,
+                    "high": high_price,
+                    "low": low_price,
+                    "close": close_price,
+                    "volume": Decimal(str(random.uniform(10, 1000))),
+                }
+            )
 
         return klines
 
@@ -377,7 +383,7 @@ class MockExchange:
             quote_volume_24h=base_price * Decimal(str(random.uniform(1000, 10000))),
             price_change_percent=Decimal(str(random.uniform(-5, 5))),
             high_24h=base_price * Decimal("1.05"),
-            low_24h=base_price * Decimal("0.95")
+            low_24h=base_price * Decimal("0.95"),
         )
 
     async def fetch_time(self) -> int:
@@ -431,19 +437,22 @@ class MockExchange:
         """Get mock exchange statistics."""
         success_rate = (
             ((self.total_requests - self.failed_requests) / self.total_requests * 100)
-            if self.total_requests > 0 else 100
+            if self.total_requests > 0
+            else 100
         )
 
         return {
             "total_requests": self.total_requests,
             "failed_requests": self.failed_requests,
             "success_rate": success_rate,
-            "active_orders": len([o for o in self.orders.values() if o.status == "open"]),
+            "active_orders": len(
+                [o for o in self.orders.values() if o.status == "open"]
+            ),
             "total_orders": len(self.orders),
             "balances": self.balances,
             "market_prices": self.market_prices,
             "latency_ms": self.latency_ms,
-            "failure_rate": self.failure_rate
+            "failure_rate": self.failure_rate,
         }
 
     def reset(self) -> None:
@@ -457,7 +466,7 @@ class MockExchange:
         self.balances = {
             "USDT": Decimal("10000"),
             "BTC": Decimal("0.5"),
-            "ETH": Decimal("5.0")
+            "ETH": Decimal("5.0"),
         }
 
         logger.info("Mock exchange reset to initial state")

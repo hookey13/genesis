@@ -28,6 +28,7 @@ IQR_MULTIPLIER = Decimal("1.5")
 @dataclass
 class BehavioralMetric:
     """Represents a single behavioral metric measurement."""
+
     metric_type: str  # click_speed|order_frequency|position_size_variance|cancel_rate
     value: Decimal
     timestamp: datetime
@@ -39,6 +40,7 @@ class BehavioralMetric:
 @dataclass
 class MetricRange:
     """Defines the normal range for a metric."""
+
     lower_bound: Decimal
     upper_bound: Decimal
     mean: Decimal
@@ -51,12 +53,15 @@ class MetricRange:
 @dataclass
 class BaselineProfile:
     """Represents a complete behavioral baseline profile."""
+
     profile_id: str
     learning_start_date: datetime
     learning_end_date: Optional[datetime] = None
     is_mature: bool = False
     metric_ranges: dict[str, MetricRange] = field(default_factory=dict)
-    time_of_day_patterns: dict[int, dict[str, MetricRange]] = field(default_factory=dict)
+    time_of_day_patterns: dict[int, dict[str, MetricRange]] = field(
+        default_factory=dict
+    )
     context: str = "normal"  # normal|tired|alert|stressed
     total_samples: int = 0
     last_updated: Optional[datetime] = None
@@ -100,7 +105,10 @@ class BehavioralBaseline:
 
         # Check if we have enough data
         date_range = (end_date - start_date).days
-        is_mature = date_range >= self.learning_days and len(metrics) >= MIN_SAMPLES_FOR_BASELINE
+        is_mature = (
+            date_range >= self.learning_days
+            and len(metrics) >= MIN_SAMPLES_FOR_BASELINE
+        )
 
         # Group metrics by type
         metrics_by_type: dict[str, list[Decimal]] = {}
@@ -132,7 +140,9 @@ class BehavioralBaseline:
             time_of_day_patterns[hour] = {}
             for metric_type, values in hour_metrics.items():
                 if len(values) >= 10:  # Need minimum samples per hour
-                    time_of_day_patterns[hour][metric_type] = self._calculate_metric_range(values)
+                    time_of_day_patterns[hour][metric_type] = (
+                        self._calculate_metric_range(values)
+                    )
 
         profile = BaselineProfile(
             profile_id=profile_id,
@@ -142,7 +152,7 @@ class BehavioralBaseline:
             metric_ranges=metric_ranges,
             time_of_day_patterns=time_of_day_patterns,
             total_samples=len(metrics),
-            last_updated=datetime.now(UTC)
+            last_updated=datetime.now(UTC),
         )
 
         logger.info(
@@ -150,7 +160,7 @@ class BehavioralBaseline:
             profile_id=profile_id,
             is_mature=is_mature,
             total_samples=len(metrics),
-            metric_types=list(metric_ranges.keys())
+            metric_types=list(metric_ranges.keys()),
         )
 
         return profile
@@ -189,13 +199,11 @@ class BehavioralBaseline:
             std_dev=std_dev,
             percentile_25=percentile_25,
             percentile_75=percentile_75,
-            sample_count=len(values)
+            sample_count=len(values),
         )
 
     def update_rolling_baseline(
-        self,
-        current_baseline: BaselineProfile,
-        new_metrics: list[BehavioralMetric]
+        self, current_baseline: BaselineProfile, new_metrics: list[BehavioralMetric]
     ) -> BaselineProfile:
         """
         Update baseline using a rolling window approach.
@@ -223,7 +231,9 @@ class BehavioralBaseline:
         # Update metric buffers
         for metric in recent_metrics:
             if metric.metric_type not in self.metric_buffers:
-                self.metric_buffers[metric.metric_type] = deque(maxlen=self.max_buffer_size)
+                self.metric_buffers[metric.metric_type] = deque(
+                    maxlen=self.max_buffer_size
+                )
             self.metric_buffers[metric.metric_type].append(metric)
 
         # Recalculate baseline with buffered metrics
@@ -242,7 +252,7 @@ class BehavioralBaseline:
                 "Rolling baseline updated",
                 profile_id=updated_baseline.profile_id,
                 new_samples=len(recent_metrics),
-                total_samples=updated_baseline.total_samples
+                total_samples=updated_baseline.total_samples,
             )
 
             return updated_baseline
@@ -255,7 +265,7 @@ class BehavioralBaseline:
         self,
         metric: BehavioralMetric,
         baseline: BaselineProfile,
-        use_time_pattern: bool = True
+        use_time_pattern: bool = True,
     ) -> tuple[bool, Optional[Decimal]]:
         """
         Check if a metric is within normal baseline range.
@@ -273,7 +283,9 @@ class BehavioralBaseline:
 
         if use_time_pattern and metric.time_of_day_bucket is not None:
             # Try to use time-specific pattern
-            hour_patterns = baseline.time_of_day_patterns.get(metric.time_of_day_bucket, {})
+            hour_patterns = baseline.time_of_day_patterns.get(
+                metric.time_of_day_bucket, {}
+            )
             metric_range = hour_patterns.get(metric.metric_type)
 
         # Fall back to overall range if no time pattern
@@ -284,7 +296,7 @@ class BehavioralBaseline:
             logger.warning(
                 "No baseline range found for metric",
                 metric_type=metric.metric_type,
-                profile_id=baseline.profile_id
+                profile_id=baseline.profile_id,
             )
             return True, None  # Assume normal if no baseline
 
@@ -319,7 +331,7 @@ class BehavioralBaseline:
             is_mature=False,
             metric_ranges={},
             time_of_day_patterns={},
-            total_samples=0
+            total_samples=0,
         )
 
         logger.info("Baseline reset", profile_id=profile_id)
@@ -391,7 +403,7 @@ class BehavioralMetricCollector:
                 value=value,
                 timestamp=timestamp,
                 time_of_day_bucket=hour_bucket,
-                profile_id=action.get("profile_id")
+                profile_id=action.get("profile_id"),
             )
 
         return None

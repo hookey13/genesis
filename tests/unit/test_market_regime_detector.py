@@ -42,9 +42,7 @@ class TestMarketRegimeDetector:
     def test_add_indicator(self, detector):
         """Test adding regime indicators"""
         indicator = RegimeIndicator(
-            name="volatility",
-            value=Decimal("20"),
-            weight=Decimal("0.3")
+            name="volatility", value=Decimal("20"), weight=Decimal("0.3")
         )
 
         detector.add_indicator(indicator)
@@ -53,11 +51,11 @@ class TestMarketRegimeDetector:
 
     def test_update_indicator(self, detector):
         """Test updating indicator values"""
-        detector.add_indicator(RegimeIndicator(
-            name="volatility",
-            value=Decimal("20"),
-            weight=Decimal("0.3")
-        ))
+        detector.add_indicator(
+            RegimeIndicator(
+                name="volatility", value=Decimal("20"), weight=Decimal("0.3")
+            )
+        )
 
         detector.update_indicator("volatility", Decimal("25"))
         assert detector.indicators["volatility"].value == Decimal("25")
@@ -70,21 +68,23 @@ class TestMarketRegimeDetector:
     def test_calculate_regime_score_bull(self, detector):
         """Test regime score calculation for bull market"""
         # Add indicators suggesting bull market
-        detector.add_indicator(RegimeIndicator(
-            name="trend",
-            value=Decimal("1"),  # Uptrend
-            weight=Decimal("0.4")
-        ))
-        detector.add_indicator(RegimeIndicator(
-            name="momentum",
-            value=Decimal("0.8"),  # Strong momentum
-            weight=Decimal("0.3")
-        ))
-        detector.add_indicator(RegimeIndicator(
-            name="sentiment",
-            value=Decimal("75"),  # Greed
-            weight=Decimal("0.3")
-        ))
+        detector.add_indicator(
+            RegimeIndicator(
+                name="trend", value=Decimal("1"), weight=Decimal("0.4")  # Uptrend
+            )
+        )
+        detector.add_indicator(
+            RegimeIndicator(
+                name="momentum",
+                value=Decimal("0.8"),  # Strong momentum
+                weight=Decimal("0.3"),
+            )
+        )
+        detector.add_indicator(
+            RegimeIndicator(
+                name="sentiment", value=Decimal("75"), weight=Decimal("0.3")  # Greed
+            )
+        )
 
         score = detector._calculate_regime_score()
         assert score > Decimal("0.5")  # Bullish score
@@ -92,21 +92,23 @@ class TestMarketRegimeDetector:
     def test_calculate_regime_score_bear(self, detector):
         """Test regime score calculation for bear market"""
         # Add indicators suggesting bear market
-        detector.add_indicator(RegimeIndicator(
-            name="trend",
-            value=Decimal("-1"),  # Downtrend
-            weight=Decimal("0.4")
-        ))
-        detector.add_indicator(RegimeIndicator(
-            name="momentum",
-            value=Decimal("-0.8"),  # Negative momentum
-            weight=Decimal("0.3")
-        ))
-        detector.add_indicator(RegimeIndicator(
-            name="sentiment",
-            value=Decimal("25"),  # Fear
-            weight=Decimal("0.3")
-        ))
+        detector.add_indicator(
+            RegimeIndicator(
+                name="trend", value=Decimal("-1"), weight=Decimal("0.4")  # Downtrend
+            )
+        )
+        detector.add_indicator(
+            RegimeIndicator(
+                name="momentum",
+                value=Decimal("-0.8"),  # Negative momentum
+                weight=Decimal("0.3"),
+            )
+        )
+        detector.add_indicator(
+            RegimeIndicator(
+                name="sentiment", value=Decimal("25"), weight=Decimal("0.3")  # Fear
+            )
+        )
 
         score = detector._calculate_regime_score()
         assert score < Decimal("-0.5")  # Bearish score
@@ -137,7 +139,9 @@ class TestMarketRegimeDetector:
 
         # Add indicators for bull market
         detector.add_indicator(RegimeIndicator("trend", Decimal("1"), Decimal("0.5")))
-        detector.add_indicator(RegimeIndicator("momentum", Decimal("0.9"), Decimal("0.5")))
+        detector.add_indicator(
+            RegimeIndicator("momentum", Decimal("0.9"), Decimal("0.5"))
+        )
 
         # Detect regime
         new_regime = await detector.detect_regime()
@@ -172,7 +176,7 @@ class TestMarketRegimeDetector:
             "volume": Decimal("1000000"),
             "volatility": Decimal("25"),
             "rsi": Decimal("65"),
-            "fear_greed_index": Decimal("70")
+            "fear_greed_index": Decimal("70"),
         }
 
         await detector.update_from_market_data(market_data)
@@ -185,7 +189,9 @@ class TestMarketRegimeDetector:
         """Test confidence calculation for regime detection"""
         # High confidence (strong indicators)
         detector.add_indicator(RegimeIndicator("trend", Decimal("1"), Decimal("0.5")))
-        detector.add_indicator(RegimeIndicator("momentum", Decimal("0.9"), Decimal("0.5")))
+        detector.add_indicator(
+            RegimeIndicator("momentum", Decimal("0.9"), Decimal("0.5"))
+        )
 
         confidence = detector.get_regime_confidence()
         assert confidence > Decimal("0.8")
@@ -204,7 +210,7 @@ class TestMarketRegimeDetector:
         detector.current_regime = MarketRegime.BULL
 
         # Simulate time passing
-        with patch('genesis.engine.market_regime_detector.datetime') as mock_datetime:
+        with patch("genesis.engine.market_regime_detector.datetime") as mock_datetime:
             mock_datetime.now.return_value = now.replace(hour=now.hour + 2)
             mock_datetime.timezone = timezone
 
@@ -218,7 +224,7 @@ class TestMarketRegimeDetector:
         assert not detector.is_regime_stable()
 
         # Old regime - stable
-        with patch('genesis.engine.market_regime_detector.datetime') as mock_datetime:
+        with patch("genesis.engine.market_regime_detector.datetime") as mock_datetime:
             old_time = datetime.now(UTC)
             mock_datetime.now.return_value = old_time.replace(day=old_time.day + 2)
             mock_datetime.timezone = timezone
@@ -233,8 +239,12 @@ class TestMarketRegimeDetector:
 
         # Extreme negative indicators
         detector.add_indicator(RegimeIndicator("trend", Decimal("-2"), Decimal("0.3")))
-        detector.add_indicator(RegimeIndicator("momentum", Decimal("-1.5"), Decimal("0.3")))
-        detector.add_indicator(RegimeIndicator("volume_spike", Decimal("3"), Decimal("0.4")))
+        detector.add_indicator(
+            RegimeIndicator("momentum", Decimal("-1.5"), Decimal("0.3"))
+        )
+        detector.add_indicator(
+            RegimeIndicator("volume_spike", Decimal("3"), Decimal("0.4"))
+        )
 
         new_regime = await detector.detect_regime()
 
@@ -253,7 +263,9 @@ class TestMarketRegimeDetector:
 
         # Improving indicators
         detector.add_indicator(RegimeIndicator("trend", Decimal("0.3"), Decimal("0.5")))
-        detector.add_indicator(RegimeIndicator("momentum", Decimal("0.4"), Decimal("0.5")))
+        detector.add_indicator(
+            RegimeIndicator("momentum", Decimal("0.4"), Decimal("0.5"))
+        )
 
         new_regime = await detector.detect_regime()
 
@@ -264,7 +276,9 @@ class TestMarketRegimeDetector:
         """Test regime history is limited in size"""
         # Add many regime changes
         for i in range(150):
-            detector.regime_history.append(MarketRegime.BULL if i % 2 == 0 else MarketRegime.BEAR)
+            detector.regime_history.append(
+                MarketRegime.BULL if i % 2 == 0 else MarketRegime.BEAR
+            )
 
         # Should be truncated
         detector._truncate_history()
@@ -278,7 +292,7 @@ class TestMarketRegimeDetector:
             MarketRegime.BULL,
             MarketRegime.NEUTRAL,
             MarketRegime.BEAR,
-            MarketRegime.BULL
+            MarketRegime.BULL,
         ]
 
         stats = detector.get_regime_statistics()
@@ -293,16 +307,31 @@ class TestMarketRegimeDetector:
         recommendations = {
             MarketRegime.BULL: detector.get_strategy_recommendation(MarketRegime.BULL),
             MarketRegime.BEAR: detector.get_strategy_recommendation(MarketRegime.BEAR),
-            MarketRegime.NEUTRAL: detector.get_strategy_recommendation(MarketRegime.NEUTRAL),
-            MarketRegime.CRASH: detector.get_strategy_recommendation(MarketRegime.CRASH),
-            MarketRegime.RECOVERY: detector.get_strategy_recommendation(MarketRegime.RECOVERY)
+            MarketRegime.NEUTRAL: detector.get_strategy_recommendation(
+                MarketRegime.NEUTRAL
+            ),
+            MarketRegime.CRASH: detector.get_strategy_recommendation(
+                MarketRegime.CRASH
+            ),
+            MarketRegime.RECOVERY: detector.get_strategy_recommendation(
+                MarketRegime.RECOVERY
+            ),
         }
 
         assert "momentum" in recommendations[MarketRegime.BULL]
         assert "mean_reversion" in recommendations[MarketRegime.NEUTRAL]
-        assert "defensive" in recommendations[MarketRegime.BEAR].lower() or "reduce" in recommendations[MarketRegime.BEAR].lower()
-        assert "stop" in recommendations[MarketRegime.CRASH].lower() or "exit" in recommendations[MarketRegime.CRASH].lower()
-        assert "cautious" in recommendations[MarketRegime.RECOVERY].lower() or "gradual" in recommendations[MarketRegime.RECOVERY].lower()
+        assert (
+            "defensive" in recommendations[MarketRegime.BEAR].lower()
+            or "reduce" in recommendations[MarketRegime.BEAR].lower()
+        )
+        assert (
+            "stop" in recommendations[MarketRegime.CRASH].lower()
+            or "exit" in recommendations[MarketRegime.CRASH].lower()
+        )
+        assert (
+            "cautious" in recommendations[MarketRegime.RECOVERY].lower()
+            or "gradual" in recommendations[MarketRegime.RECOVERY].lower()
+        )
 
     @pytest.mark.asyncio
     async def test_auto_update_cycle(self, detector):
@@ -350,7 +379,7 @@ class TestMarketRegimeDetector:
                 "trend": {"name": "trend", "value": "-0.5", "weight": "0.5"}
             },
             "regime_history": ["bull", "neutral", "bear"],
-            "confidence_threshold": "0.8"
+            "confidence_threshold": "0.8",
         }
 
         detector.from_dict(state)

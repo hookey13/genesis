@@ -40,7 +40,7 @@ class CorrelationHeatmap(Widget):
         self,
         correlation_monitor: Optional[CorrelationMonitor] = None,
         event_bus: Optional[EventBus] = None,
-        **kwargs
+        **kwargs,
     ):
         """Initialize correlation heatmap widget.
 
@@ -61,7 +61,7 @@ class CorrelationHeatmap(Widget):
             "high": (0.6, "bright_red"),
             "medium": (0.4, "yellow"),
             "low": (0.2, "green"),
-            "very_low": (0.0, "bright_green")
+            "very_low": (0.0, "bright_green"),
         }
 
     async def on_mount(self) -> None:
@@ -81,9 +81,14 @@ class CorrelationHeatmap(Widget):
 
     async def _subscribe_to_events(self) -> None:
         """Subscribe to relevant events from event bus."""
+
         # Subscribe to position updates
         async def handle_position_update(event: Event):
-            if event.type in [EventType.POSITION_OPENED, EventType.POSITION_UPDATED, EventType.POSITION_CLOSED]:
+            if event.type in [
+                EventType.POSITION_OPENED,
+                EventType.POSITION_UPDATED,
+                EventType.POSITION_CLOSED,
+            ]:
                 await self.update_correlation()
 
         # Would register handler with event bus
@@ -100,7 +105,9 @@ class CorrelationHeatmap(Widget):
             except Exception as e:
                 self.log.error(f"Error in periodic update: {e}")
 
-    async def update_correlation(self, positions: Optional[list[Position]] = None) -> None:
+    async def update_correlation(
+        self, positions: Optional[list[Position]] = None
+    ) -> None:
         """Update correlation matrix with new position data.
 
         Args:
@@ -117,7 +124,9 @@ class CorrelationHeatmap(Widget):
 
         try:
             # Calculate correlation matrix
-            matrix = await self.correlation_monitor.calculate_correlation_matrix(self.positions)
+            matrix = await self.correlation_monitor.calculate_correlation_matrix(
+                self.positions
+            )
             self.correlation_matrix = matrix
             self.last_update = datetime.now(UTC)
             self.refresh()
@@ -135,7 +144,7 @@ class CorrelationHeatmap(Widget):
         """Render empty state."""
         return Text(
             "No correlation data available (need at least 2 positions)",
-            style="dim italic"
+            style="dim italic",
         )
 
     def _render_heatmap(self) -> RenderableType:
@@ -145,7 +154,7 @@ class CorrelationHeatmap(Widget):
             show_header=True,
             header_style="bold",
             title_style="bold cyan",
-            border_style="bright_black"
+            border_style="bright_black",
         )
 
         # Add symbol column
@@ -153,7 +162,7 @@ class CorrelationHeatmap(Widget):
 
         # Add columns for each position
         for position in self.positions:
-            symbol = position.symbol.split('/')[0]  # Get base currency
+            symbol = position.symbol.split("/")[0]  # Get base currency
             table.add_column(symbol, justify="center", width=8)
 
         # Add rows
@@ -183,7 +192,9 @@ class CorrelationHeatmap(Widget):
 
         # Add footer with metadata
         footer = Text()
-        footer.append(f"Last Update: {self.last_update.strftime('%H:%M:%S')} | ", style="dim")
+        footer.append(
+            f"Last Update: {self.last_update.strftime('%H:%M:%S')} | ", style="dim"
+        )
         footer.append(f"Positions: {len(self.positions)} | ", style="dim")
 
         # Calculate average correlation
@@ -195,6 +206,7 @@ class CorrelationHeatmap(Widget):
 
         # Create container with table and footer
         from rich.console import Group
+
         return Group(table, footer)
 
     def _get_correlation_color(self, correlation: float) -> str:
@@ -241,7 +253,7 @@ class CorrelationHeatmap(Widget):
                 "avg_correlation": 0.0,
                 "max_correlation": 0.0,
                 "min_correlation": 0.0,
-                "high_correlation_pairs": []
+                "high_correlation_pairs": [],
             }
 
         # Find high correlation pairs
@@ -252,10 +264,12 @@ class CorrelationHeatmap(Widget):
             for j in range(i + 1, n):
                 corr = abs(self.correlation_matrix[i, j])
                 if corr > 0.6:  # High correlation threshold
-                    high_corr_pairs.append({
-                        "pair": f"{self.positions[i].symbol}-{self.positions[j].symbol}",
-                        "correlation": float(corr)
-                    })
+                    high_corr_pairs.append(
+                        {
+                            "pair": f"{self.positions[i].symbol}-{self.positions[j].symbol}",
+                            "correlation": float(corr),
+                        }
+                    )
 
         # Sort by correlation
         high_corr_pairs.sort(key=lambda x: x["correlation"], reverse=True)
@@ -267,9 +281,13 @@ class CorrelationHeatmap(Widget):
         return {
             "positions": len(self.positions),
             "avg_correlation": self._calculate_average_correlation(),
-            "max_correlation": float(np.max(np.abs(non_diagonal))) if non_diagonal.size > 0 else 0.0,
-            "min_correlation": float(np.min(np.abs(non_diagonal))) if non_diagonal.size > 0 else 0.0,
-            "high_correlation_pairs": high_corr_pairs[:5]  # Top 5 pairs
+            "max_correlation": (
+                float(np.max(np.abs(non_diagonal))) if non_diagonal.size > 0 else 0.0
+            ),
+            "min_correlation": (
+                float(np.min(np.abs(non_diagonal))) if non_diagonal.size > 0 else 0.0
+            ),
+            "high_correlation_pairs": high_corr_pairs[:5],  # Top 5 pairs
         }
 
 
@@ -277,9 +295,7 @@ class CorrelationSummaryWidget(Static):
     """Compact correlation summary widget."""
 
     def __init__(
-        self,
-        correlation_monitor: Optional[CorrelationMonitor] = None,
-        **kwargs
+        self, correlation_monitor: Optional[CorrelationMonitor] = None, **kwargs
     ):
         """Initialize correlation summary widget.
 
@@ -325,6 +341,8 @@ class CorrelationSummaryWidget(Static):
         # High correlation warning
         high_pairs = self.summary_data.get("high_correlation_pairs", [])
         if high_pairs:
-            text.append(f" | ⚠️ {len(high_pairs)} high correlation pair(s)", style="yellow")
+            text.append(
+                f" | ⚠️ {len(high_pairs)} high correlation pair(s)", style="yellow"
+            )
 
         return text

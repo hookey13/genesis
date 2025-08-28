@@ -1,4 +1,5 @@
 """Graduated lockout management system for tilt recovery."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -73,9 +74,7 @@ class LockoutManager:
         # Track occurrence counts per profile and level
         self.occurrence_counts: dict[str, dict[TiltLevel, int]] = {}
 
-    def calculate_lockout_duration(
-        self, tilt_level: TiltLevel, occurrence: int
-    ) -> int:
+    def calculate_lockout_duration(self, tilt_level: TiltLevel, occurrence: int) -> int:
         """Calculate lockout duration based on level and occurrence count.
 
         Each repeat occurrence increases duration by 50%.
@@ -373,7 +372,11 @@ class LockoutManager:
             return
 
         await self.event_bus.publish(
-            EventType.TRADING_LOCKOUT if EventType.TRADING_LOCKOUT else "TRADING_LOCKOUT",
+            (
+                EventType.TRADING_LOCKOUT
+                if EventType.TRADING_LOCKOUT
+                else "TRADING_LOCKOUT"
+            ),
             {
                 "profile_id": lockout.profile_id,
                 "lockout_id": lockout.lockout_id,
@@ -396,7 +399,11 @@ class LockoutManager:
             return
 
         await self.event_bus.publish(
-            EventType.LOCKOUT_EXPIRED if EventType.LOCKOUT_EXPIRED else "LOCKOUT_EXPIRED",
+            (
+                EventType.LOCKOUT_EXPIRED
+                if EventType.LOCKOUT_EXPIRED
+                else "LOCKOUT_EXPIRED"
+            ),
             {
                 "profile_id": lockout.profile_id,
                 "lockout_id": lockout.lockout_id,

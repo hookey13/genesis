@@ -1,4 +1,5 @@
 """Unit tests for meditation timer."""
+
 import asyncio
 from unittest.mock import MagicMock
 
@@ -107,7 +108,7 @@ class TestTimerFunctionality:
         profile_id = "test_profile"
 
         # Start 1-second session for testing
-        session = await timer.start_meditation_session(profile_id, 1/60)  # 1 second
+        session = await timer.start_meditation_session(profile_id, 1 / 60)  # 1 second
 
         # Wait for completion
         await asyncio.sleep(1.5)

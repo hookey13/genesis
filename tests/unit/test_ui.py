@@ -71,7 +71,7 @@ class TestPnLWidget:
         widget.set_mock_data(
             current=Decimal("100.00"),
             daily=Decimal("200.00"),
-            balance=Decimal("1000.00")
+            balance=Decimal("1000.00"),
         )
 
         assert widget.current_pnl == Decimal("100.00")
@@ -109,7 +109,7 @@ class TestPositionWidget:
             qty=Decimal("0.1"),
             entry=Decimal("40000"),
             current=Decimal("41000"),
-            stop_loss=Decimal("39000")
+            stop_loss=Decimal("39000"),
         )
 
         output = widget.render()
@@ -131,7 +131,7 @@ class TestPositionWidget:
             side="SHORT",
             qty=Decimal("0.1"),
             entry=Decimal("40000"),
-            current=Decimal("41000")
+            current=Decimal("41000"),
         )
 
         output = widget.render()
@@ -149,7 +149,7 @@ class TestPositionWidget:
             side="LONG",
             qty=Decimal("0.1"),
             entry=Decimal("40000"),
-            current=Decimal("40000")
+            current=Decimal("40000"),
         )
 
         assert not widget.show_details
@@ -167,7 +167,7 @@ class TestPositionWidget:
             qty=Decimal("0.1"),
             entry=Decimal("40000"),
             current=Decimal("40000"),
-            stop_loss=Decimal("39000")
+            stop_loss=Decimal("39000"),
         )
         widget.show_details = True
 
@@ -282,8 +282,7 @@ class TestUIIntegration:
 
         # Set up account
         integration.account_manager.account = Account(
-            balance_usdt=Decimal("5000"),
-            tier=TradingTier.SNIPER
+            balance_usdt=Decimal("5000"), tier=TradingTier.SNIPER
         )
 
         # Set up session as mock
@@ -306,7 +305,7 @@ class TestUIIntegration:
             side=PositionSide.LONG,
             quantity=Decimal("0.1"),
             entry_price=Decimal("40000"),
-            dollar_value=Decimal("4000")
+            dollar_value=Decimal("4000"),
         )
         integration.risk_engine.calculate_unrealized_pnl.return_value = Decimal("50")
 
@@ -330,7 +329,7 @@ class TestUIIntegration:
             quantity=Decimal("0.1"),
             entry_price=Decimal("40000"),
             dollar_value=Decimal("4000"),
-            stop_loss=Decimal("39000")
+            stop_loss=Decimal("39000"),
         )
         integration.risk_engine.position = position
         integration.risk_engine.calculate_unrealized_pnl.return_value = Decimal("100")
@@ -355,7 +354,7 @@ class TestUIIntegration:
         integration.risk_engine.calculate_position_size.return_value = Decimal("0.1")
         integration.order_executor.execute_market_order.return_value = {
             "id": "123",
-            "status": "FILLED"
+            "status": "FILLED",
         }
 
         result = await integration.execute_buy_command(Decimal("100"))
@@ -374,12 +373,12 @@ class TestUIIntegration:
             side=PositionSide.LONG,
             quantity=Decimal("0.1"),
             entry_price=Decimal("40000"),
-            dollar_value=Decimal("4000")
+            dollar_value=Decimal("4000"),
         )
 
         integration.order_executor.execute_market_order.return_value = {
             "id": "124",
-            "status": "FILLED"
+            "status": "FILLED",
         }
 
         result = await integration.execute_sell_command(Decimal("100"))
@@ -551,17 +550,13 @@ class TestAdditionalCoverage:
 
         # Test with zero balance
         widget.set_mock_data(
-            current=Decimal("0"),
-            daily=Decimal("0"),
-            balance=Decimal("0")
+            current=Decimal("0"), daily=Decimal("0"), balance=Decimal("0")
         )
         assert widget.daily_pnl_pct == Decimal("0.00")
 
         # Test negative values
         widget.set_mock_data(
-            current=Decimal("-100"),
-            daily=Decimal("-200"),
-            balance=Decimal("1000")
+            current=Decimal("-100"), daily=Decimal("-200"), balance=Decimal("1000")
         )
         assert widget.daily_pnl_pct == Decimal("-20.00")
 
@@ -574,7 +569,7 @@ class TestAdditionalCoverage:
             qty=Decimal("1.0"),
             entry=Decimal("2000"),
             current=Decimal("2100"),
-            stop_loss=None
+            stop_loss=None,
         )
 
         output = widget.render()
@@ -658,7 +653,7 @@ class TestAdditionalCoverage:
             side="LONG",
             qty=Decimal("0.1"),
             entry=Decimal("0"),  # Edge case
-            current=Decimal("40000")
+            current=Decimal("40000"),
         )
 
         output = widget.render()
@@ -673,7 +668,9 @@ class TestAdditionalCoverage:
         integration.order_executor = AsyncMock()
 
         # Simulate exception in order execution
-        integration.order_executor.execute_market_order.side_effect = Exception("Network error")
+        integration.order_executor.execute_market_order.side_effect = Exception(
+            "Network error"
+        )
 
         result = await integration.execute_buy_command(Decimal("100"))
         assert not result["success"]

@@ -62,7 +62,9 @@ class TestDrawdownDetector:
 
         assert drawdown == Decimal("0")  # No drawdown when above peak
 
-    def test_detect_drawdown_breach_threshold_exceeded(self, detector, mock_repository, mock_event_bus):
+    def test_detect_drawdown_breach_threshold_exceeded(
+        self, detector, mock_repository, mock_event_bus
+    ):
         """Test drawdown breach detection when threshold exceeded."""
         account = Mock()
         account.balance = Decimal("850")
@@ -79,7 +81,9 @@ class TestDrawdownDetector:
         assert event_data["type"] == EventType.DRAWDOWN_DETECTED
         assert event_data["drawdown_pct"] == Decimal("0.15")  # 15% drawdown
 
-    def test_detect_drawdown_breach_threshold_not_exceeded(self, detector, mock_repository):
+    def test_detect_drawdown_breach_threshold_not_exceeded(
+        self, detector, mock_repository
+    ):
         """Test drawdown breach detection when threshold not exceeded."""
         account = Mock()
         account.balance = Decimal("950")
@@ -114,7 +118,7 @@ class TestDrawdownDetector:
         mock_repository.get_account.side_effect = [
             account_sniper,
             account_hunter,
-            account_strategist
+            account_strategist,
         ]
 
         # Test each tier
@@ -127,18 +131,24 @@ class TestDrawdownDetector:
         mock_repository.get_peak_balance.return_value = Decimal("1000")
 
         # Update with lower balance
-        peak, drawdown = detector.update_balance_tracking("test_account", Decimal("900"))
+        peak, drawdown = detector.update_balance_tracking(
+            "test_account", Decimal("900")
+        )
 
         assert peak == Decimal("1000")
         assert drawdown == Decimal("0.10")
 
         # Update with higher balance
         mock_repository.get_peak_balance.return_value = None
-        peak, drawdown = detector.update_balance_tracking("test_account", Decimal("1100"))
+        peak, drawdown = detector.update_balance_tracking(
+            "test_account", Decimal("1100")
+        )
 
         assert peak == Decimal("1100")
         assert drawdown == Decimal("0")
-        mock_repository.update_peak_balance.assert_called_with("test_account", Decimal("1100"))
+        mock_repository.update_peak_balance.assert_called_with(
+            "test_account", Decimal("1100")
+        )
 
     def test_get_drawdown_stats(self, detector, mock_repository):
         """Test comprehensive drawdown statistics retrieval."""
@@ -170,8 +180,7 @@ class TestDrawdownDetector:
         detector.reset_peak_balance("test_account")
 
         mock_repository.update_peak_balance.assert_called_once_with(
-            "test_account",
-            Decimal("500")
+            "test_account", Decimal("500")
         )
         assert detector._peak_balances["test_account"] == Decimal("500")
 

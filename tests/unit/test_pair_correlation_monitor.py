@@ -48,7 +48,12 @@ class TestPriceHistory:
 
         # Add price series
         base_time = datetime.utcnow()
-        prices = [Decimal("50000"), Decimal("51000"), Decimal("50500"), Decimal("52000")]
+        prices = [
+            Decimal("50000"),
+            Decimal("51000"),
+            Decimal("50500"),
+            Decimal("52000"),
+        ]
 
         for i, price in enumerate(prices):
             history.add_price(price, base_time + timedelta(minutes=i))
@@ -104,22 +109,22 @@ class TestCorrelationMonitor:
                 symbol="BTC/USDT",
                 quantity=Decimal("1"),
                 dollar_value=Decimal("50000"),
-                side=PositionSide.LONG
+                side=PositionSide.LONG,
             ),
             Position(
                 position_id=str(uuid.uuid4()),
                 symbol="ETH/USDT",
                 quantity=Decimal("10"),
                 dollar_value=Decimal("30000"),
-                side=PositionSide.LONG
+                side=PositionSide.LONG,
             ),
             Position(
                 position_id=str(uuid.uuid4()),
                 symbol="SOL/USDT",
                 quantity=Decimal("100"),
                 dollar_value=Decimal("10000"),
-                side=PositionSide.LONG
-            )
+                side=PositionSide.LONG,
+            ),
         ]
 
     @pytest.mark.asyncio
@@ -147,8 +152,16 @@ class TestCorrelationMonitor:
         # Add less than MIN_DATA_POINTS prices
         base_time = datetime.utcnow()
         for i in range(10):  # Less than 20 required
-            await monitor.update_price("BTC/USDT", Decimal("50000") + Decimal(i * 100), base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") + Decimal(i * 10), base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT",
+                Decimal("50000") + Decimal(i * 100),
+                base_time + timedelta(minutes=i),
+            )
+            await monitor.update_price(
+                "ETH/USDT",
+                Decimal("3000") + Decimal(i * 10),
+                base_time + timedelta(minutes=i),
+            )
 
         correlation = await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT")
         assert correlation == Decimal("0")
@@ -163,8 +176,12 @@ class TestCorrelationMonitor:
             btc_price = Decimal("50000") * (Decimal("1") + Decimal(i) / Decimal("100"))
             eth_price = Decimal("3000") * (Decimal("1") + Decimal(i) / Decimal("100"))
 
-            await monitor.update_price("BTC/USDT", btc_price, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", eth_price, base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", btc_price, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT", eth_price, base_time + timedelta(minutes=i)
+            )
 
         correlation = await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT")
 
@@ -179,10 +196,16 @@ class TestCorrelationMonitor:
         # Create negatively correlated price movements
         for i in range(30):
             btc_price = Decimal("50000") * (Decimal("1") + Decimal(i) / Decimal("100"))
-            eth_price = Decimal("3000") * (Decimal("1") - Decimal(i) / Decimal("200"))  # Opposite direction
+            eth_price = Decimal("3000") * (
+                Decimal("1") - Decimal(i) / Decimal("200")
+            )  # Opposite direction
 
-            await monitor.update_price("BTC/USDT", btc_price, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", eth_price, base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", btc_price, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT", eth_price, base_time + timedelta(minutes=i)
+            )
 
         correlation = await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT")
 
@@ -196,15 +219,27 @@ class TestCorrelationMonitor:
 
         # Add sufficient data
         for i in range(30):
-            await monitor.update_price("BTC/USDT", Decimal("50000") + Decimal(i * 100), base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") + Decimal(i * 10), base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT",
+                Decimal("50000") + Decimal(i * 100),
+                base_time + timedelta(minutes=i),
+            )
+            await monitor.update_price(
+                "ETH/USDT",
+                Decimal("3000") + Decimal(i * 10),
+                base_time + timedelta(minutes=i),
+            )
 
         # First calculation
-        correlation1 = await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT", 60)
+        correlation1 = await monitor.calculate_pair_correlation(
+            "BTC/USDT", "ETH/USDT", 60
+        )
 
         # Second calculation (should use cache)
-        with patch.object(monitor, '_store_correlation') as mock_store:
-            correlation2 = await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT", 60)
+        with patch.object(monitor, "_store_correlation") as mock_store:
+            correlation2 = await monitor.calculate_pair_correlation(
+                "BTC/USDT", "ETH/USDT", 60
+            )
             # Should not store again due to cache
             mock_store.assert_not_called()
 
@@ -218,8 +253,14 @@ class TestCorrelationMonitor:
         # Create data that will trigger warning (>0.6 correlation)
         for i in range(30):
             factor = Decimal("1") + Decimal(i) / Decimal("100")
-            await monitor.update_price("BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") * (factor * Decimal("0.95")), base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT",
+                Decimal("3000") * (factor * Decimal("0.95")),
+                base_time + timedelta(minutes=i),
+            )
 
         await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT")
 
@@ -235,8 +276,12 @@ class TestCorrelationMonitor:
         # Create data with very high correlation (>0.8)
         for i in range(30):
             factor = Decimal("1") + Decimal(i) / Decimal("100")
-            await monitor.update_price("BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i)
+            )
 
         await monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT")
 
@@ -252,11 +297,25 @@ class TestCorrelationMonitor:
 
         # Add data for three symbols
         for i in range(30):
-            await monitor.update_price("BTC/USDT", Decimal("50000") + Decimal(i * 100), base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") + Decimal(i * 10), base_time + timedelta(minutes=i))
-            await monitor.update_price("SOL/USDT", Decimal("100") - Decimal(i), base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT",
+                Decimal("50000") + Decimal(i * 100),
+                base_time + timedelta(minutes=i),
+            )
+            await monitor.update_price(
+                "ETH/USDT",
+                Decimal("3000") + Decimal(i * 10),
+                base_time + timedelta(minutes=i),
+            )
+            await monitor.update_price(
+                "SOL/USDT",
+                Decimal("100") - Decimal(i),
+                base_time + timedelta(minutes=i),
+            )
 
-        matrix = await monitor.get_correlation_matrix(["BTC/USDT", "ETH/USDT", "SOL/USDT"])
+        matrix = await monitor.get_correlation_matrix(
+            ["BTC/USDT", "ETH/USDT", "SOL/USDT"]
+        )
 
         assert matrix.shape == (3, 3)
         # Diagonal should be 1.0
@@ -272,19 +331,27 @@ class TestCorrelationMonitor:
         # Create correlated BTC/ETH and uncorrelated SOL
         for i in range(30):
             factor = Decimal("1") + Decimal(i) / Decimal("100")
-            await monitor.update_price("BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i)
+            )
             # SOL with different pattern
             sol_factor = Decimal("1") + Decimal(i % 10) / Decimal("100")
-            await monitor.update_price("SOL/USDT", Decimal("100") * sol_factor, base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "SOL/USDT",
+                Decimal("100") * sol_factor,
+                base_time + timedelta(minutes=i),
+            )
 
         high_corr_pairs = await monitor.get_highly_correlated_pairs()
 
         # BTC/ETH should be highly correlated
         assert len(high_corr_pairs) > 0
         assert any(
-            (pair[0] == "BTC/USDT" and pair[1] == "ETH/USDT") or
-            (pair[0] == "ETH/USDT" and pair[1] == "BTC/USDT")
+            (pair[0] == "BTC/USDT" and pair[1] == "ETH/USDT")
+            or (pair[0] == "ETH/USDT" and pair[1] == "BTC/USDT")
             for pair in high_corr_pairs
         )
 
@@ -296,9 +363,19 @@ class TestCorrelationMonitor:
         # Add price data
         for i in range(30):
             factor = Decimal("1") + Decimal(i) / Decimal("100")
-            await monitor.update_price("BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") * factor * Decimal("0.9"), base_time + timedelta(minutes=i))
-            await monitor.update_price("SOL/USDT", Decimal("100") * (Decimal("1") - Decimal(i) / Decimal("200")), base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT",
+                Decimal("3000") * factor * Decimal("0.9"),
+                base_time + timedelta(minutes=i),
+            )
+            await monitor.update_price(
+                "SOL/USDT",
+                Decimal("100") * (Decimal("1") - Decimal(i) / Decimal("200")),
+                base_time + timedelta(minutes=i),
+            )
 
         analysis = await monitor.analyze_portfolio_correlation(sample_positions)
 
@@ -315,15 +392,29 @@ class TestCorrelationMonitor:
 
         # Create highly correlated positions
         positions = [
-            Position(position_id=str(uuid.uuid4()), symbol="BTC/USDT", quantity=Decimal("1"), dollar_value=Decimal("50000")),
-            Position(position_id=str(uuid.uuid4()), symbol="ETH/USDT", quantity=Decimal("10"), dollar_value=Decimal("30000"))
+            Position(
+                position_id=str(uuid.uuid4()),
+                symbol="BTC/USDT",
+                quantity=Decimal("1"),
+                dollar_value=Decimal("50000"),
+            ),
+            Position(
+                position_id=str(uuid.uuid4()),
+                symbol="ETH/USDT",
+                quantity=Decimal("10"),
+                dollar_value=Decimal("30000"),
+            ),
         ]
 
         # Add highly correlated data
         for i in range(30):
             factor = Decimal("1") + Decimal(i) / Decimal("100")
-            await monitor.update_price("BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT", Decimal("50000") * factor, base_time + timedelta(minutes=i)
+            )
+            await monitor.update_price(
+                "ETH/USDT", Decimal("3000") * factor, base_time + timedelta(minutes=i)
+            )
 
         analysis = await monitor.analyze_portfolio_correlation(positions)
 
@@ -343,7 +434,7 @@ class TestCorrelationMonitor:
             threshold=Decimal("0.8"),
             timestamp=datetime.utcnow(),
             message="Test alert",
-            severity="CRITICAL"
+            severity="CRITICAL",
         )
         monitor._alerts.append(alert)
 
@@ -358,7 +449,11 @@ class TestCorrelationMonitor:
         """Test loading price history from repository."""
         # Mock repository data
         price_data = [
-            PriceData(symbol="BTC/USDT", price=Decimal("50000"), timestamp=datetime.utcnow() - timedelta(minutes=i))
+            PriceData(
+                symbol="BTC/USDT",
+                price=Decimal("50000"),
+                timestamp=datetime.utcnow() - timedelta(minutes=i),
+            )
             for i in range(30)
         ]
         mock_repository.get_price_history.return_value = price_data
@@ -375,16 +470,28 @@ class TestCorrelationMonitor:
 
         # Add price data
         for i in range(30):
-            await monitor.update_price("BTC/USDT", Decimal("50000") + Decimal(i * 100), base_time + timedelta(minutes=i))
-            await monitor.update_price("ETH/USDT", Decimal("3000") + Decimal(i * 10), base_time + timedelta(minutes=i))
-            await monitor.update_price("SOL/USDT", Decimal("100") + Decimal(i), base_time + timedelta(minutes=i))
+            await monitor.update_price(
+                "BTC/USDT",
+                Decimal("50000") + Decimal(i * 100),
+                base_time + timedelta(minutes=i),
+            )
+            await monitor.update_price(
+                "ETH/USDT",
+                Decimal("3000") + Decimal(i * 10),
+                base_time + timedelta(minutes=i),
+            )
+            await monitor.update_price(
+                "SOL/USDT",
+                Decimal("100") + Decimal(i),
+                base_time + timedelta(minutes=i),
+            )
 
         # Run multiple correlations concurrently
         tasks = [
             monitor.calculate_pair_correlation("BTC/USDT", "ETH/USDT"),
             monitor.calculate_pair_correlation("BTC/USDT", "SOL/USDT"),
             monitor.calculate_pair_correlation("ETH/USDT", "SOL/USDT"),
-            monitor.get_correlation_matrix(["BTC/USDT", "ETH/USDT", "SOL/USDT"])
+            monitor.get_correlation_matrix(["BTC/USDT", "ETH/USDT", "SOL/USDT"]),
         ]
 
         results = await asyncio.gather(*tasks)
@@ -407,7 +514,7 @@ class TestCorrelationMonitor:
                 threshold=Decimal("0.6"),
                 timestamp=datetime.utcnow(),
                 message=f"Alert {i}",
-                severity="WARNING"
+                severity="WARNING",
             )
             monitor._alerts.append(alert)
 

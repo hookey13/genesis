@@ -136,7 +136,9 @@ class JournalEntryWidget(Container):
             # Introspection prompts
             with Container(classes="prompts"):
                 yield Static("Reflect on these questions:")
-                for i, prompt in enumerate(self.journal_system.get_introspection_prompts(), 1):
+                for i, prompt in enumerate(
+                    self.journal_system.get_introspection_prompts(), 1
+                ):
                     yield Static(
                         f"{i}. {prompt}",
                         classes="prompt-item",
@@ -160,7 +162,9 @@ class JournalEntryWidget(Container):
             )
 
             # Prevention plan (optional)
-            yield Static("How will you prevent this? (optional):", classes="prompt-label")
+            yield Static(
+                "How will you prevent this? (optional):", classes="prompt-label"
+            )
             yield TextArea(
                 placeholder="Your prevention strategy...",
                 id="prevention-text",

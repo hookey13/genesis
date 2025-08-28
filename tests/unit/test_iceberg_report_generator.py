@@ -57,13 +57,13 @@ class TestIcebergReportGenerator:
                     slippage=Decimal("0.03"),
                     impact=Decimal("0.02"),
                     execution_time_ms=500 + i * 100,
-                    timestamp=datetime.now() - timedelta(minutes=5-i)
+                    timestamp=datetime.now() - timedelta(minutes=5 - i),
                 )
                 for i in range(1, 6)
             ],
             abort_reason=None,
             recommendations=["Consider smaller slice sizes for better execution"],
-            quality_score=85
+            quality_score=85,
         )
 
     def test_create_progress_widget(self, report_generator):
@@ -82,7 +82,7 @@ class TestIcebergReportGenerator:
             slices_failed=0,
             quantity_filled=Decimal("0.4"),
             value_filled_usdt=Decimal("20000"),
-            completion_percent=Decimal("40")
+            completion_percent=Decimal("40"),
         )
 
         widget_data = report_generator.create_progress_widget(execution_id)
@@ -133,7 +133,7 @@ class TestIcebergReportGenerator:
             slippage=Decimal("0.05"),
             impact=Decimal("0.03"),
             execution_time_ms=500,
-            timestamp=datetime.now()
+            timestamp=datetime.now(),
         )
 
         assert slice_record.slice_number == 1
@@ -160,7 +160,7 @@ class TestIcebergReportGenerator:
             slices_failed=0,
             quantity_filled=Decimal("0"),
             value_filled_usdt=Decimal("0"),
-            completion_percent=Decimal("0")
+            completion_percent=Decimal("0"),
         )
 
         report_generator.executions[execution_id] = progress
@@ -172,7 +172,9 @@ class TestIcebergReportGenerator:
         progress.value_filled_usdt = Decimal("1500")
 
         assert report_generator.executions[execution_id].slices_completed == 3
-        assert report_generator.executions[execution_id].completion_percent == Decimal("37.5")
+        assert report_generator.executions[execution_id].completion_percent == Decimal(
+            "37.5"
+        )
 
     def test_execution_report_with_abort(self):
         """Test execution report for aborted execution."""
@@ -202,7 +204,7 @@ class TestIcebergReportGenerator:
                     slippage=Decimal("0.10"),
                     impact=Decimal("0.05"),
                     execution_time_ms=500,
-                    timestamp=datetime.now() - timedelta(minutes=2)
+                    timestamp=datetime.now() - timedelta(minutes=2),
                 ),
                 SliceExecutionRecord(
                     slice_number=2,
@@ -211,16 +213,16 @@ class TestIcebergReportGenerator:
                     slippage=Decimal("0.60"),
                     impact=Decimal("0.55"),
                     execution_time_ms=600,
-                    timestamp=datetime.now() - timedelta(minutes=1, seconds=30)
-                )
+                    timestamp=datetime.now() - timedelta(minutes=1, seconds=30),
+                ),
             ],
             abort_reason="Slippage exceeded 0.5% threshold",
             recommendations=[
                 "Market conditions too volatile",
                 "Consider smaller order size",
-                "Wait for better liquidity"
+                "Wait for better liquidity",
             ],
-            quality_score=25  # Low score due to abort
+            quality_score=25,  # Low score due to abort
         )
 
         assert report.status == ExecutionStatus.ABORTED
@@ -247,7 +249,7 @@ class TestIcebergReportGenerator:
                 slices_failed=0,
                 quantity_filled=Decimal(str(i * 0.2)),
                 value_filled_usdt=Decimal(str(i * 10000)),
-                completion_percent=Decimal(str((i / (5 + i)) * 100))
+                completion_percent=Decimal(str((i / (5 + i)) * 100)),
             )
 
         assert len(report_generator.executions) == 3
@@ -287,7 +289,7 @@ class TestIcebergReportGenerator:
             slices=[],
             abort_reason=None,
             recommendations=["Execution quality was poor"],
-            quality_score=35  # Low score
+            quality_score=35,  # Low score
         )
 
         assert poor_report.quality_score < 50

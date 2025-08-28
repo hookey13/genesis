@@ -32,7 +32,7 @@ class RevengeTradingDetector:
         self,
         loss_streak_threshold: int = 3,
         time_window_minutes: int = 30,
-        size_multiplier_threshold: Decimal = Decimal('1.5')
+        size_multiplier_threshold: Decimal = Decimal("1.5"),
     ):
         """Initialize revenge trading detector.
 
@@ -56,7 +56,7 @@ class RevengeTradingDetector:
         pnl: Decimal,
         symbol: str,
         position_size: Decimal,
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
     ) -> None:
         """Record a trade result for pattern detection.
 
@@ -84,7 +84,7 @@ class RevengeTradingDetector:
                 timestamp=timestamp,
                 amount=abs(pnl),
                 symbol=symbol,
-                position_size=position_size
+                position_size=position_size,
             )
             self.loss_history[profile_id].append(loss)
 
@@ -98,9 +98,7 @@ class RevengeTradingDetector:
         self.last_position_sizes[profile_id] = position_size
 
     def detect_revenge_pattern(
-        self,
-        profile_id: str,
-        current_metric: BehavioralMetric
+        self, profile_id: str, current_metric: BehavioralMetric
     ) -> Optional[dict]:
         """Detect revenge trading pattern.
 
@@ -121,32 +119,34 @@ class RevengeTradingDetector:
             last_size = self.last_position_sizes[profile_id]
 
             # Look for size increase in current metric
-            if current_metric.metric_name == 'position_size':
+            if current_metric.metric_name == "position_size":
                 current_size = Decimal(str(current_metric.value))
 
                 if current_size > last_size * self.size_multiplier_threshold:
                     return {
-                        'pattern': 'revenge_trading',
-                        'consecutive_losses': losses,
-                        'position_size_increase': float(current_size / last_size),
-                        'severity': min(losses * 2, 10),  # Cap at 10
-                        'description': f"Position size increased {current_size/last_size:.1f}x after {losses} losses"
+                        "pattern": "revenge_trading",
+                        "consecutive_losses": losses,
+                        "position_size_increase": float(current_size / last_size),
+                        "severity": min(losses * 2, 10),  # Cap at 10
+                        "description": f"Position size increased {current_size/last_size:.1f}x after {losses} losses",
                     }
 
         # Check rapid trading after losses
-        if current_metric.metric_name == 'order_frequency':
+        if current_metric.metric_name == "order_frequency":
             recent_losses = self._get_recent_losses(profile_id)
             if len(recent_losses) >= self.loss_streak_threshold:
                 # Calculate time since last loss
-                time_since_loss = (datetime.now(UTC) - recent_losses[-1].timestamp).total_seconds()
+                time_since_loss = (
+                    datetime.now(UTC) - recent_losses[-1].timestamp
+                ).total_seconds()
 
                 if time_since_loss < 300:  # Within 5 minutes
                     return {
-                        'pattern': 'revenge_trading_speed',
-                        'consecutive_losses': losses,
-                        'time_since_loss_seconds': time_since_loss,
-                        'severity': 7,
-                        'description': f"Rapid trading {time_since_loss:.0f}s after {losses} losses"
+                        "pattern": "revenge_trading_speed",
+                        "consecutive_losses": losses,
+                        "time_since_loss_seconds": time_since_loss,
+                        "severity": 7,
+                        "description": f"Rapid trading {time_since_loss:.0f}s after {losses} losses",
                     }
 
         return None
@@ -162,8 +162,7 @@ class RevengeTradingDetector:
 
         cutoff = datetime.now(UTC) - timedelta(minutes=self.time_window_minutes)
         self.loss_history[profile_id] = [
-            loss for loss in self.loss_history[profile_id]
-            if loss.timestamp > cutoff
+            loss for loss in self.loss_history[profile_id] if loss.timestamp > cutoff
         ]
 
     def _get_recent_losses(self, profile_id: str) -> list[TradingLoss]:
@@ -180,8 +179,7 @@ class RevengeTradingDetector:
 
         cutoff = datetime.now(UTC) - timedelta(minutes=self.time_window_minutes)
         return [
-            loss for loss in self.loss_history[profile_id]
-            if loss.timestamp > cutoff
+            loss for loss in self.loss_history[profile_id] if loss.timestamp > cutoff
         ]
 
     def reset_profile(self, profile_id: str) -> None:

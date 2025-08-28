@@ -34,11 +34,7 @@ class DrawdownDetector:
         self.event_bus = event_bus
         self._peak_balances: dict[str, Decimal] = {}
 
-    def calculate_drawdown(
-        self,
-        balance: Decimal,
-        peak_balance: Decimal
-    ) -> Decimal:
+    def calculate_drawdown(self, balance: Decimal, peak_balance: Decimal) -> Decimal:
         """Calculate drawdown percentage from peak.
 
         Args:
@@ -56,9 +52,7 @@ class DrawdownDetector:
 
     @requires_tier(TradingTier.HUNTER)
     def detect_drawdown_breach(
-        self,
-        account_id: str,
-        threshold: Optional[Decimal] = None
+        self, account_id: str, threshold: Optional[Decimal] = None
     ) -> bool:
         """Check if account has breached drawdown threshold.
 
@@ -79,10 +73,7 @@ class DrawdownDetector:
                 return False
 
             peak_balance = self._get_peak_balance(account_id, account.balance)
-            current_drawdown = self.calculate_drawdown(
-                account.balance,
-                peak_balance
-            )
+            current_drawdown = self.calculate_drawdown(account.balance, peak_balance)
 
             if current_drawdown >= threshold:
                 logger.warning(
@@ -91,18 +82,20 @@ class DrawdownDetector:
                     current_balance=float(account.balance),
                     peak_balance=float(peak_balance),
                     drawdown_pct=float(current_drawdown * 100),
-                    threshold_pct=float(threshold * 100)
+                    threshold_pct=float(threshold * 100),
                 )
 
-                self.event_bus.publish({
-                    "type": EventType.DRAWDOWN_DETECTED,
-                    "account_id": account_id,
-                    "current_balance": account.balance,
-                    "peak_balance": peak_balance,
-                    "drawdown_pct": current_drawdown,
-                    "threshold": threshold,
-                    "timestamp": datetime.now(UTC)
-                })
+                self.event_bus.publish(
+                    {
+                        "type": EventType.DRAWDOWN_DETECTED,
+                        "account_id": account_id,
+                        "current_balance": account.balance,
+                        "peak_balance": peak_balance,
+                        "drawdown_pct": current_drawdown,
+                        "threshold": threshold,
+                        "timestamp": datetime.now(UTC),
+                    }
+                )
 
                 return True
 
@@ -110,17 +103,11 @@ class DrawdownDetector:
 
         except Exception as e:
             logger.error(
-                "Error detecting drawdown breach",
-                account_id=account_id,
-                error=str(e)
+                "Error detecting drawdown breach", account_id=account_id, error=str(e)
             )
             return False
 
-    def _get_peak_balance(
-        self,
-        account_id: str,
-        current_balance: Decimal
-    ) -> Decimal:
+    def _get_peak_balance(self, account_id: str, current_balance: Decimal) -> Decimal:
         """Get or update peak balance for account.
 
         Args:
@@ -162,15 +149,13 @@ class DrawdownDetector:
             TradingTier.SNIPER: Decimal("0.05"),
             TradingTier.HUNTER: Decimal("0.10"),
             TradingTier.STRATEGIST: Decimal("0.15"),
-            TradingTier.ARCHITECT: Decimal("0.20")
+            TradingTier.ARCHITECT: Decimal("0.20"),
         }
 
         return tier_thresholds.get(account.tier, Decimal("0.10"))
 
     def update_balance_tracking(
-        self,
-        account_id: str,
-        new_balance: Decimal
+        self, account_id: str, new_balance: Decimal
     ) -> tuple[Decimal, Decimal]:
         """Update balance tracking and return drawdown info.
 
@@ -189,7 +174,7 @@ class DrawdownDetector:
             account_id=account_id,
             balance=float(new_balance),
             peak=float(peak_balance),
-            drawdown_pct=float(current_drawdown * 100)
+            drawdown_pct=float(current_drawdown * 100),
         )
 
         return peak_balance, current_drawdown
@@ -219,8 +204,10 @@ class DrawdownDetector:
             "drawdown_amount": peak_balance - account.balance,
             "threshold": threshold,
             "threshold_breached": current_drawdown >= threshold,
-            "recovery_needed": peak_balance - account.balance if current_drawdown > 0 else Decimal("0"),
-            "timestamp": datetime.now(UTC)
+            "recovery_needed": (
+                peak_balance - account.balance if current_drawdown > 0 else Decimal("0")
+            ),
+            "timestamp": datetime.now(UTC),
         }
 
     def reset_peak_balance(self, account_id: str) -> None:
@@ -236,5 +223,5 @@ class DrawdownDetector:
             logger.info(
                 "Peak balance reset",
                 account_id=account_id,
-                new_peak=float(account.balance)
+                new_peak=float(account.balance),
             )

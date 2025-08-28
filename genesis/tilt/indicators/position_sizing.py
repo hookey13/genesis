@@ -31,10 +31,7 @@ class PositionSizingIndicator:
         self.position_outcomes = deque(maxlen=window_size)  # win/loss/open
 
     def record_position(
-        self,
-        size: Decimal,
-        timestamp: datetime,
-        outcome: Optional[str] = None
+        self, size: Decimal, timestamp: datetime, outcome: Optional[str] = None
     ) -> dict:
         """
         Record a position and calculate variance metrics.
@@ -57,7 +54,7 @@ class PositionSizingIndicator:
             "Position recorded",
             size=float(size),
             outcome=outcome,
-            variance=metrics.get("coefficient_of_variation")
+            variance=metrics.get("coefficient_of_variation"),
         )
 
         return metrics
@@ -70,16 +67,13 @@ class PositionSizingIndicator:
             Dictionary with variance analysis
         """
         if not self.position_sizes:
-            return {
-                "has_data": False,
-                "sample_count": 0
-            }
+            return {"has_data": False, "sample_count": 0}
 
         if len(self.position_sizes) < 2:
             return {
                 "has_data": True,
                 "sample_count": len(self.position_sizes),
-                "insufficient_data": True
+                "insufficient_data": True,
             }
 
         # Convert to numpy for calculations
@@ -111,9 +105,15 @@ class PositionSizingIndicator:
             recent_mean = sum(recent_5) / len(recent_5)
             older_mean = sum(older) / len(older)
 
-            size_trend = "increasing" if recent_mean > older_mean * Decimal("1.2") else \
-                        "decreasing" if recent_mean < older_mean * Decimal("0.8") else \
-                        "stable"
+            size_trend = (
+                "increasing"
+                if recent_mean > older_mean * Decimal("1.2")
+                else (
+                    "decreasing"
+                    if recent_mean < older_mean * Decimal("0.8")
+                    else "stable"
+                )
+            )
         else:
             size_trend = "insufficient_data"
 
@@ -130,7 +130,7 @@ class PositionSizingIndicator:
             "high_volatility": volatility_score > 70,
             "martingale_detected": martingale_detected,
             "drift_direction": drift_direction,
-            "size_trend": size_trend
+            "size_trend": size_trend,
         }
 
     def _detect_martingale(self) -> bool:
@@ -148,9 +148,9 @@ class PositionSizingIndicator:
 
         for i in range(1, len(self.position_sizes)):
             if i < len(self.position_outcomes):
-                prev_outcome = self.position_outcomes[i-1]
+                prev_outcome = self.position_outcomes[i - 1]
                 curr_size = self.position_sizes[i]
-                prev_size = self.position_sizes[i-1]
+                prev_size = self.position_sizes[i - 1]
 
                 # Check if size increased significantly after a loss
                 if prev_outcome == "loss" and curr_size > prev_size * Decimal("1.5"):
@@ -158,10 +158,7 @@ class PositionSizingIndicator:
 
         # Detect if pattern occurs frequently
         if martingale_count >= 2:
-            logger.warning(
-                "Martingale pattern detected",
-                occurrences=martingale_count
-            )
+            logger.warning("Martingale pattern detected", occurrences=martingale_count)
             return True
 
         return False
@@ -212,7 +209,9 @@ class PositionSizingIndicator:
         # Calculate differences between consecutive positions
         differences = []
         for i in range(1, len(sizes)):
-            diff_pct = abs(sizes[i] - sizes[i-1]) / sizes[i-1] if sizes[i-1] > 0 else 0
+            diff_pct = (
+                abs(sizes[i] - sizes[i - 1]) / sizes[i - 1] if sizes[i - 1] > 0 else 0
+            )
             differences.append(diff_pct * 100)
 
         if not differences:
@@ -234,7 +233,7 @@ class PositionSizingIndicator:
                 "High position size volatility detected",
                 score=volatility_score,
                 avg_change_pct=avg_change,
-                max_change_pct=max_change
+                max_change_pct=max_change,
             )
 
         return min(volatility_score, 100)
@@ -310,7 +309,7 @@ class PositionSizingIndicator:
             "min_size": float(min_size),
             "wins": wins,
             "losses": losses,
-            "win_rate": wins / (wins + losses) if (wins + losses) > 0 else 0
+            "win_rate": wins / (wins + losses) if (wins + losses) > 0 else 0,
         }
 
     def reset(self):

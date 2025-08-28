@@ -52,17 +52,17 @@ class Repository(ABC):
     async def delete_account(self, account_id: str) -> None:
         """Delete account."""
         pass
-    
+
     @abstractmethod
     async def save_account(self, account: Account) -> None:
         """Save account (create or update)."""
         pass
-    
+
     @abstractmethod
     async def list_accounts(self) -> list[Account]:
         """List all accounts."""
         pass
-    
+
     @abstractmethod
     async def list_positions(self, account_id: Optional[str] = None) -> list[Position]:
         """List positions with optional account filter."""
@@ -80,7 +80,9 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_positions_by_account(self, account_id: str, status: Optional[str] = None) -> list[Position]:
+    async def get_positions_by_account(
+        self, account_id: str, status: Optional[str] = None
+    ) -> list[Position]:
         """Get all positions for an account."""
         pass
 
@@ -138,53 +140,69 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_risk_metrics(self, account_id: str, start_time: datetime, end_time: datetime) -> list[dict[str, Any]]:
+    async def get_risk_metrics(
+        self, account_id: str, start_time: datetime, end_time: datetime
+    ) -> list[dict[str, Any]]:
         """Get risk metrics for time range."""
         pass
 
     # Event store methods
     @abstractmethod
-    async def save_event(self, event_type: str, aggregate_id: str, event_data: dict[str, Any]) -> str:
+    async def save_event(
+        self, event_type: str, aggregate_id: str, event_data: dict[str, Any]
+    ) -> str:
         """Save an event to the event store."""
         pass
 
     @abstractmethod
-    async def get_events(self, aggregate_id: str, event_type: Optional[str] = None) -> list[dict[str, Any]]:
+    async def get_events(
+        self, aggregate_id: str, event_type: Optional[str] = None
+    ) -> list[dict[str, Any]]:
         """Get events for an aggregate."""
         pass
 
     @abstractmethod
-    async def get_events_by_type(self, event_type: str, start_time: datetime, end_time: datetime) -> list[dict[str, Any]]:
+    async def get_events_by_type(
+        self, event_type: str, start_time: datetime, end_time: datetime
+    ) -> list[dict[str, Any]]:
         """Get events by type and time range."""
         pass
-    
+
     @abstractmethod
-    async def get_events_by_aggregate(self, aggregate_id: str, start_time: datetime, end_time: datetime) -> list[Any]:
+    async def get_events_by_aggregate(
+        self, aggregate_id: str, start_time: datetime, end_time: datetime
+    ) -> list[Any]:
         """Get events for an aggregate within time range."""
         pass
-    
+
     # Compliance and Trade methods
     @abstractmethod
-    async def get_trades_by_account(self, account_id: str, start_date: datetime, end_date: datetime) -> list[Any]:
+    async def get_trades_by_account(
+        self, account_id: str, start_date: datetime, end_date: datetime
+    ) -> list[Any]:
         """Get trades for an account within date range."""
         pass
-    
+
     @abstractmethod
-    async def get_orders_by_account(self, account_id: str, start_date: datetime, end_date: datetime) -> list[Any]:
+    async def get_orders_by_account(
+        self, account_id: str, start_date: datetime, end_date: datetime
+    ) -> list[Any]:
         """Get orders for an account within date range."""
         pass
-    
+
     @abstractmethod
-    async def get_price_history(self, symbol: str, start_date: datetime, end_date: datetime) -> list[Any]:
+    async def get_price_history(
+        self, symbol: str, start_date: datetime, end_date: datetime
+    ) -> list[Any]:
         """Get historical price data for a symbol."""
         pass
-    
+
     # Reconciliation methods
     @abstractmethod
     async def save_reconciliation_result(self, result: dict[str, Any]) -> None:
         """Save reconciliation result."""
         pass
-    
+
     @abstractmethod
     async def save_reconciliation_report(self, report: dict[str, Any]) -> None:
         """Save reconciliation report."""
@@ -207,7 +225,9 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def update_order_status(self, order_id: str, status: str, executed_at: Optional[datetime] = None) -> None:
+    async def update_order_status(
+        self, order_id: str, status: str, executed_at: Optional[datetime] = None
+    ) -> None:
         """Update order status."""
         pass
 
@@ -218,7 +238,9 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def reconcile_positions(self, exchange_positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def reconcile_positions(
+        self, exchange_positions: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """Reconcile database positions with exchange state."""
         pass
 
@@ -245,30 +267,44 @@ class Repository(ABC):
 
     # Export methods
     @abstractmethod
-    async def export_trades_to_csv(self, account_id: str, start_date: date, end_date: date, output_path: Path) -> Path:
+    async def export_trades_to_csv(
+        self, account_id: str, start_date: date, end_date: date, output_path: Path
+    ) -> Path:
         """Export trades to CSV for tax reporting."""
         pass
 
     @abstractmethod
-    async def export_performance_report(self, account_id: str, output_path: Path) -> Path:
+    async def export_performance_report(
+        self, account_id: str, output_path: Path
+    ) -> Path:
         """Export performance metrics report."""
         pass
 
     # Performance metrics methods
     @abstractmethod
-    async def calculate_performance_metrics(self, account_id: str, session_id: Optional[str] = None) -> dict[str, Any]:
+    async def calculate_performance_metrics(
+        self, account_id: str, session_id: Optional[str] = None
+    ) -> dict[str, Any]:
         """Calculate performance metrics (win rate, average R, etc.)."""
         pass
 
     @abstractmethod
-    async def get_performance_report(self, account_id: str, start_date: date, end_date: date) -> dict[str, Any]:
+    async def get_performance_report(
+        self, account_id: str, start_date: date, end_date: date
+    ) -> dict[str, Any]:
         """Get comprehensive performance report."""
         pass
 
     # Tilt event methods
     @abstractmethod
-    async def save_tilt_event(self, session_id: str, event_type: str, severity: str,
-                             indicator_values: dict[str, Any], intervention: Optional[str] = None) -> str:
+    async def save_tilt_event(
+        self,
+        session_id: str,
+        event_type: str,
+        severity: str,
+        indicator_values: dict[str, Any],
+        intervention: Optional[str] = None,
+    ) -> str:
         """Save a tilt event."""
         pass
 
