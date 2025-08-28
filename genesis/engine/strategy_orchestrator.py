@@ -143,7 +143,7 @@ class StrategyOrchestrator:
         logger.info(
             "Strategy orchestrator started",
             mode=self.mode.value,
-            total_capital=float(self.total_capital)
+            total_capital=str(self.total_capital)
         )
 
     async def stop(self) -> None:
@@ -221,7 +221,7 @@ class StrategyOrchestrator:
             "Strategy registered with orchestrator",
             strategy_id=strategy_id,
             strategy_name=strategy_name,
-            initial_allocation=float(allocation.current_allocation)
+            initial_allocation=str(allocation.current_allocation)
         )
 
         return strategy_id
@@ -257,6 +257,10 @@ class StrategyOrchestrator:
             await self.performance_tracker.initialize_strategy(strategy_id)
 
         return result
+
+    async def unregister_strategy(self, strategy_id: str) -> None:
+        """Unregister a strategy (alias for stop_strategy with close_positions=True)."""
+        await self.stop_strategy(strategy_id, close_positions=True)
 
     async def stop_strategy(self, strategy_id: str, close_positions: bool = True) -> bool:
         """
@@ -295,6 +299,10 @@ class StrategyOrchestrator:
             del self.strategy_allocations[strategy_id]
 
         return result
+
+    async def process_signal(self, signal: StrategySignal) -> bool:
+        """Process a strategy signal (alias for submit_signal)."""
+        return await self.submit_signal(signal)
 
     async def submit_signal(self, signal: StrategySignal) -> bool:
         """
@@ -464,8 +472,8 @@ class StrategyOrchestrator:
                 logger.warning(
                     "Insufficient capital for signal",
                     signal_id=signal.signal_id,
-                    required=float(required_capital),
-                    available=float(allocation.available_capital)
+                    required=str(required_capital),
+                    available=str(allocation.available_capital)
                 )
                 return
 
@@ -628,7 +636,10 @@ class StrategyOrchestrator:
         self.mode = OrchestrationMode.EMERGENCY
 
         # Stop all strategies
-        for strategy_id in await self.strategy_registry.get_active_strategies():
+        active_strategies = self.strategy_registry.get_active_strategies()
+        if not isinstance(active_strategies, list):
+            active_strategies = []
+        for strategy_id in active_strategies:
             await self.strategy_registry.stop_strategy(strategy_id)
 
         # Close all positions
@@ -673,6 +684,65 @@ class StrategyOrchestrator:
             state = self.strategy_registry.get_strategy_state(strategy_id)
             if state == StrategyState.PAUSED:
                 await self.strategy_registry.resume_strategy(strategy_id)
+
+    async def handle_correlation_alert(self, alert: dict) -> None:
+        """Handle correlation alert from monitor."""
+        correlation_value = alert.get("correlation", Decimal("0"))
+        symbols = alert.get("symbols", [])
+        
+        logger.warning(
+            "High correlation detected",
+            correlation=str(correlation_value),
+            symbols=symbols
+        )
+        
+        # Enter defensive mode if correlation too high
+        if correlation_value > Decimal("0.9"):
+            await self._enter_defensive_mode()
+
+    async def handle_regime_change(self, new_regime: str) -> None:
+        """Handle market regime change."""
+        logger.info("Market regime changed", new_regime=new_regime)
+        
+        # Adjust strategies based on regime
+        for strategy_id, metadata in self.strategy_registry._strategies.items():
+            if hasattr(metadata, 'compatible_regimes'):
+                if new_regime not in metadata.compatible_regimes:
+                    await self.pause_strategy(strategy_id)
+                else:
+                    await self.resume_strategy(strategy_id)
+
+    async def monitor_portfolio_risk(self) -> dict:
+        """Monitor and return portfolio risk metrics."""
+        risk_metrics = await self.risk_engine.calculate_portfolio_risk(
+            self.active_positions
+        )
+        return risk_metrics
+
+    async def update_performance_metrics(self) -> None:
+        """Update performance metrics for all strategies."""
+        for strategy_id in self.strategy_allocations:
+            metrics = await self.performance_tracker.get_performance(strategy_id)
+            if metrics:
+                allocation = self.strategy_allocations[strategy_id]
+                allocation.performance_score = metrics.get("sharpe_ratio", Decimal("1.0"))
+
+    async def check_correlations(self) -> dict:
+        """Check and return current correlation matrix."""
+        correlation_matrix = await self.correlation_monitor.get_correlation_matrix()
+        return correlation_matrix
+
+    async def _reduce_strategy_exposure(self, strategy_id: str) -> None:
+        """Reduce exposure for a specific strategy."""
+        if strategy_id in self.active_positions:
+            positions = self.active_positions[strategy_id]
+            # Close 50% of positions
+            for position in positions[:len(positions)//2]:
+                await self._close_position(position)
+
+    async def _handle_regime_change(self, new_regime: str) -> None:
+        """Internal handler for regime changes."""
+        await self.handle_regime_change(new_regime)
 
     async def _correlation_monitor_task(self) -> None:
         """Background task for correlation monitoring."""

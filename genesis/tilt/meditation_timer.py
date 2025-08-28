@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Optional meditation timer for tilt recovery."""
-from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable

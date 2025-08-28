@@ -52,6 +52,21 @@ class Repository(ABC):
     async def delete_account(self, account_id: str) -> None:
         """Delete account."""
         pass
+    
+    @abstractmethod
+    async def save_account(self, account: Account) -> None:
+        """Save account (create or update)."""
+        pass
+    
+    @abstractmethod
+    async def list_accounts(self) -> list[Account]:
+        """List all accounts."""
+        pass
+    
+    @abstractmethod
+    async def list_positions(self, account_id: Optional[str] = None) -> list[Position]:
+        """List positions with optional account filter."""
+        pass
 
     # Position methods
     @abstractmethod
@@ -141,6 +156,38 @@ class Repository(ABC):
     @abstractmethod
     async def get_events_by_type(self, event_type: str, start_time: datetime, end_time: datetime) -> list[dict[str, Any]]:
         """Get events by type and time range."""
+        pass
+    
+    @abstractmethod
+    async def get_events_by_aggregate(self, aggregate_id: str, start_time: datetime, end_time: datetime) -> list[Any]:
+        """Get events for an aggregate within time range."""
+        pass
+    
+    # Compliance and Trade methods
+    @abstractmethod
+    async def get_trades_by_account(self, account_id: str, start_date: datetime, end_date: datetime) -> list[Any]:
+        """Get trades for an account within date range."""
+        pass
+    
+    @abstractmethod
+    async def get_orders_by_account(self, account_id: str, start_date: datetime, end_date: datetime) -> list[Any]:
+        """Get orders for an account within date range."""
+        pass
+    
+    @abstractmethod
+    async def get_price_history(self, symbol: str, start_date: datetime, end_date: datetime) -> list[Any]:
+        """Get historical price data for a symbol."""
+        pass
+    
+    # Reconciliation methods
+    @abstractmethod
+    async def save_reconciliation_result(self, result: dict[str, Any]) -> None:
+        """Save reconciliation result."""
+        pass
+    
+    @abstractmethod
+    async def save_reconciliation_report(self, report: dict[str, Any]) -> None:
+        """Save reconciliation report."""
         pass
 
     # Order methods

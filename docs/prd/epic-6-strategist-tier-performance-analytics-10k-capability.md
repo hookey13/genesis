@@ -76,3 +76,59 @@ so that I operate at professional standards.
 6. Tax lot optimization
 7. Prime broker integration ready
 8. Disaster recovery procedures
+
+## Story 6.6: System Integration Smoke Test
+
+As a Strategist tier trader,
+I want automated integration testing before manual validation,
+So that all components work together without crashes or data issues.
+
+**Acceptance Criteria:**
+
+1. **Component Connectivity Check**
+   - All modules start without errors
+   - Database connections verified across all components
+   - WebSocket streams maintain stable connections
+   - No memory leaks after 24-hour test run
+
+2. **Data Flow Verification**
+   - Market data flows from ingestion → strategies → execution
+   - Trades log correctly to database and analytics
+   - Risk calculations update in real-time
+   - Performance metrics calculate without NaN/null errors
+
+3. **Strategy Integration Test**
+   - Single strategy execution end-to-end
+   - Multiple strategies run without interference
+   - VWAP and iceberg orders execute as configured
+   - Position limits enforced across all strategies
+
+4. **Error Recovery Testing**
+   - API disconnection and auto-reconnect
+   - Strategy crashes don't affect others
+   - Database locks handled gracefully
+   - System restart recovers all positions correctly
+
+5. **Edge Case Validation**
+   - Zero balance handling
+   - Partial fills processed correctly
+   - Simultaneous buy/sell signals resolved
+   - Maximum position count enforcement
+
+6. **UI Integration Check**
+   - All dashboards display correct data
+   - No terminal crashes on rapid updates
+   - Commands execute without hanging
+   - Performance stats match database records
+
+7. **Critical Path Test**
+   - Place order → execute → track → close → analyse
+   - Each tier's features accessible when conditions met
+   - Risk limits prevent over-leverage
+   - Emergency stop halts everything cleanly
+
+8. **Pre-Production Checklist**
+   - All unit tests pass
+   - Integration test suite green
+   - 48-hour stability test completed
+   - Test account shows expected P&L calculations

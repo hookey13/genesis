@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Journal entry widget for tilt recovery UI."""
-from __future__ import annotations
 
 from textual import on
 from textual.app import ComposeResult

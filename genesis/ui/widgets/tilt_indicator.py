@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Tilt indicator widget for multi-level tilt visualization."""
-from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal

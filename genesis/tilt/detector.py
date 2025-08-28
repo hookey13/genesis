@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Multi-level tilt detection system."""
-from __future__ import annotations
 
 import asyncio
 from collections import deque

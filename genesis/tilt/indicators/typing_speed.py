@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Typing speed behavioral indicator for tilt detection."""
-from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass

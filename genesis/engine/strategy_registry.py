@@ -77,7 +77,7 @@ class StrategyHealth:
     restart_count: int = 0
     last_error: str | None = None
     last_restart: datetime | None = None
-    performance_score: float = 1.0  # 0-1, affects capital allocation
+    performance_score: Decimal = Decimal("1.0")  # 0-1, affects capital allocation
     is_healthy: bool = True
 
     def update_heartbeat(self) -> None:

@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Recovery checklist UI widget for tilt recovery."""
-from __future__ import annotations
 
 from textual import on
 from textual.app import ComposeResult

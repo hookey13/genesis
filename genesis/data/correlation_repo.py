@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Repository for correlation data persistence."""
-
-from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime

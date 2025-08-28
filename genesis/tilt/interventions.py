@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from typing import Optional
 
 """Tilt intervention strategies and management."""
-from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta

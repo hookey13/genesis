@@ -8,7 +8,6 @@ focusing on trading positions, accounts, and sessions.
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -42,6 +41,14 @@ class PositionSide(str, Enum):
     SHORT = "SHORT"
 
 
+class TaxMethod(str, Enum):
+    """Tax lot accounting methods."""
+    FIFO = "FIFO"  # First In First Out
+    LIFO = "LIFO"  # Last In First Out
+    HIFO = "HIFO"  # Highest In First Out
+    SPECIFIC_LOT = "SPECIFIC_LOT"  # Specific lot selection
+
+
 class Position(BaseModel):
     """Trading position domain model."""
 
@@ -50,18 +57,24 @@ class Position(BaseModel):
     symbol: str
     side: PositionSide
     entry_price: Decimal
-    current_price: Optional[Decimal] = None
+    current_price: Decimal | None = None
     quantity: Decimal
     dollar_value: Decimal
-    stop_loss: Optional[Decimal] = None
+    stop_loss: Decimal | None = None
     pnl_dollars: Decimal = Decimal("0")
     pnl_percent: Decimal = Decimal("0")
     priority_score: int = 0
+    close_reason: str | None = None  # e.g., "stop_loss", "take_profit", "manual", "tilt_intervention"
+    # Tax lot tracking fields
+    tax_lot_id: str | None = Field(default=None)
+    acquisition_date: datetime | None = None  # For holding period calculations
+    cost_basis: Decimal | None = None  # Separate from entry_price for tax purposes
+    tax_method: TaxMethod = TaxMethod.FIFO
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     @field_validator("entry_price", "current_price", "quantity", "dollar_value",
-                    "stop_loss", "pnl_dollars", "pnl_percent", mode="before")
+                    "stop_loss", "pnl_dollars", "pnl_percent", "cost_basis", mode="before")
     @classmethod
     def ensure_decimal(cls, v):
         """Convert to Decimal for precision."""
@@ -83,13 +96,24 @@ class Position(BaseModel):
         self.updated_at = datetime.now()
 
 
+class AccountType(str, Enum):
+    """Account type classification."""
+    MASTER = "MASTER"
+    SUB = "SUB"
+    PAPER = "PAPER"
+
+
 class Account(BaseModel):
     """Trading account domain model."""
 
     account_id: str = Field(default_factory=lambda: str(uuid4()))
+    parent_account_id: str | None = None  # For sub-account hierarchy
+    account_type: AccountType = AccountType.MASTER
     balance_usdt: Decimal
     tier: TradingTier = TradingTier.SNIPER
     locked_features: list[str] = Field(default_factory=list)
+    permissions: dict = Field(default_factory=dict)  # Feature access control
+    compliance_settings: dict = Field(default_factory=dict)  # Regulatory requirements
     last_sync: datetime = Field(default_factory=datetime.now)
     created_at: datetime = Field(default_factory=datetime.now)
 
@@ -124,7 +148,7 @@ class TradingSession(BaseModel):
     daily_loss_limit: Decimal
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     @field_validator("starting_balance", "current_balance", "realized_pnl",
                     "max_drawdown", "daily_loss_limit", mode="before")
@@ -210,27 +234,27 @@ class Order(BaseModel):
     """Order domain model."""
 
     order_id: str = Field(default_factory=lambda: str(uuid4()))
-    position_id: Optional[str] = None
+    position_id: str | None = None
     client_order_id: str = Field(default_factory=lambda: str(uuid4()))
-    exchange_order_id: Optional[str] = None
+    exchange_order_id: str | None = None
     symbol: str
     type: OrderType
     side: OrderSide
-    price: Optional[Decimal] = None
+    price: Decimal | None = None
     quantity: Decimal
     filled_quantity: Decimal = Decimal("0")
     status: OrderStatus = OrderStatus.PENDING
     conviction_level: ConvictionLevel = ConvictionLevel.MEDIUM
-    slice_number: Optional[int] = None
-    total_slices: Optional[int] = None
-    latency_ms: Optional[int] = None
-    slippage_percent: Optional[Decimal] = None
+    slice_number: int | None = None
+    total_slices: int | None = None
+    latency_ms: int | None = None
+    slippage_percent: Decimal | None = None
     created_at: datetime = Field(default_factory=datetime.now)
-    executed_at: Optional[datetime] = None
-    routing_method: Optional[str] = None
-    maker_fee_paid: Optional[Decimal] = None
-    taker_fee_paid: Optional[Decimal] = None
-    execution_score: Optional[float] = None
+    executed_at: datetime | None = None
+    routing_method: str | None = None
+    maker_fee_paid: Decimal | None = None
+    taker_fee_paid: Decimal | None = None
+    execution_score: float | None = None
 
     @field_validator("price", "quantity", "filled_quantity", "slippage_percent", "maker_fee_paid", "taker_fee_paid", mode="before")
     @classmethod
@@ -259,10 +283,10 @@ class Signal(BaseModel):
     symbol: str
     signal_type: SignalType
     confidence: Decimal = Decimal("0.5")
-    price_target: Optional[Decimal] = None
-    stop_loss: Optional[Decimal] = None
-    take_profit: Optional[Decimal] = None
-    quantity: Optional[Decimal] = None
+    price_target: Decimal | None = None
+    stop_loss: Decimal | None = None
+    take_profit: Decimal | None = None
+    quantity: Decimal | None = None
     metadata: dict = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
 
@@ -298,7 +322,7 @@ class Trade(BaseModel):
 
     trade_id: str = Field(default_factory=lambda: str(uuid4()))
     order_id: str
-    position_id: Optional[str] = None
+    position_id: str | None = None
     strategy_id: str
     symbol: str
     side: OrderSide

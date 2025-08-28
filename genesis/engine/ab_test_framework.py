@@ -256,7 +256,7 @@ class ABTestFramework:
         if test.allocation_method == AllocationMethod.RANDOM:
             # Random allocation based on weights
             rand = np.random.random()
-            if rand < float(test.variant_a.weight):
+            if Decimal(str(rand)) < test.variant_a.weight:
                 return test.variant_a.variant_id
             else:
                 return test.variant_b.variant_id
@@ -361,8 +361,9 @@ class ABTestFramework:
             P-value from t-test
         """
         # Convert to numpy arrays
-        a = np.array([float(r) for r in returns_a])
-        b = np.array([float(r) for r in returns_b])
+        # Convert Decimal to string then to float for numpy compatibility
+        a = np.array([float(str(r)) for r in returns_a])
+        b = np.array([float(str(r)) for r in returns_b])
 
         # Perform t-test
         _, p_value = stats.ttest_ind(a, b)
@@ -384,8 +385,9 @@ class ABTestFramework:
             Confidence interval (lower, upper)
         """
         # Convert to numpy arrays
-        a = np.array([float(r) for r in returns_a])
-        b = np.array([float(r) for r in returns_b])
+        # Convert Decimal to string then to float for numpy compatibility
+        a = np.array([float(str(r)) for r in returns_a])
+        b = np.array([float(str(r)) for r in returns_b])
 
         # Calculate difference in means
         diff_mean = np.mean(a) - np.mean(b)
@@ -396,7 +398,7 @@ class ABTestFramework:
         se_diff = np.sqrt(se_a**2 + se_b**2)
 
         # Calculate confidence interval
-        alpha = 1 - float(confidence_level)
+        alpha = 1 - float(str(confidence_level))
         t_critical = stats.t.ppf(1 - alpha/2, len(a) + len(b) - 2)
         margin_error = t_critical * se_diff
 
@@ -417,7 +419,7 @@ class ABTestFramework:
         if not returns:
             return Decimal("0")
 
-        returns_array = np.array([float(r) for r in returns])
+        returns_array = np.array([float(str(r)) for r in returns])
 
         # Assume risk-free rate of 0 for simplicity
         mean_return = np.mean(returns_array)
