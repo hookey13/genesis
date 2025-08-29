@@ -53,7 +53,7 @@ class DashboardScreen(Screen):
     }
     """
 
-    def __init__(self, integration: UIIntegration | None = None, **kwargs):
+    def __init__(self, integration: UIIntegration | None = None, paper_trading_mode: bool = False, **kwargs):
         """Initialize the dashboard screen."""
         super().__init__(**kwargs)
         self.pnl_widget: PnLWidget | None = None
@@ -66,6 +66,7 @@ class DashboardScreen(Screen):
         self.status_timer: asyncio.Task | None = None
         self.integration = integration or UIIntegration()
         self.state_machine = TierStateMachine()  # Initialize tier state machine
+        self.paper_trading_mode = paper_trading_mode
 
     def compose(self) -> ComposeResult:
         """Compose the dashboard layout."""
@@ -103,6 +104,15 @@ class DashboardScreen(Screen):
         # Connect widgets to integration
         if self.integration:
             self.integration.connect_widgets(self.pnl_widget, self.position_widget)
+
+        # Set paper trading mode on widgets if enabled
+        if self.paper_trading_mode:
+            if self.pnl_widget:
+                self.pnl_widget.paper_trading_mode = True
+            if self.position_widget:
+                self.position_widget.paper_trading_mode = True
+            # Show paper trading indicator in status
+            self.show_status("📝 PAPER TRADING MODE ACTIVE", "warning")
 
         # Focus on command input by default
         if self.command_input:

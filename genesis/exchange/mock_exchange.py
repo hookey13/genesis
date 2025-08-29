@@ -32,12 +32,13 @@ class MockExchange:
     Simulates Binance API responses with configurable behavior.
     """
 
-    def __init__(self, initial_balance: dict[str, Decimal] = None):
+    def __init__(self, initial_balance: dict[str, Decimal] = None, paper_trading_mode: bool = False):
         """
         Initialize the mock exchange.
 
         Args:
             initial_balance: Initial account balances
+            paper_trading_mode: If True, operates in paper trading mode
         """
         # Default balances
         self.balances = initial_balance or {
@@ -58,18 +59,23 @@ class MockExchange:
         }
 
         # Configuration
+        self.paper_trading_mode = paper_trading_mode
         self.latency_ms = 50  # Simulated network latency
         self.failure_rate = 0.0  # Probability of request failure
         self.partial_fill_rate = 0.2  # Probability of partial fills
+        self.slippage_percent = Decimal("0.1")  # Default 0.1% slippage for paper trading
 
         # Statistics
         self.total_requests = 0
         self.failed_requests = 0
+        self.total_trades = 0
+        self.profitable_trades = 0
 
         logger.info(
             "MockExchange initialized",
             initial_balances=self.balances,
             market_prices=self.market_prices,
+            paper_trading_mode=self.paper_trading_mode,
         )
 
     async def _simulate_latency(self) -> None:

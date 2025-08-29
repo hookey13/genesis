@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: genesis-trading
+  namespace: genesis
+  labels:
+    app: genesis
+    tier: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: genesis
+  template:
+    metadata:
+      labels:
+        app: genesis
+    spec:
+      containers:
+      - name: genesis
+        image: genesis-trading:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: api
+        env:
+        - name: DEPLOYMENT_ENV
+          value: production
+        - name: PYTHONPATH
+          value: /app
+        envFrom:
+        - secretRef:
+            name: genesis-secrets
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -m
+            - genesis.api.health
+            - liveness
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -m
+            - genesis.api.health
+            - readiness
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: genesis-data
+          mountPath: /app/.genesis/data
+        - name: genesis-logs
+          mountPath: /app/.genesis/logs
+      volumes:
+      - name: genesis-data
+        persistentVolumeClaim:
+          claimName: genesis-data-pvc
+      - name: genesis-logs
+        persistentVolumeClaim:
+          claimName: genesis-logs-pvc

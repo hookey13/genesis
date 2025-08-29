@@ -1,0 +1,108 @@
+# Docker ignore file - excludes from build context
+
+# Version control
+.git/
+.gitignore
+.github/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+coverage.xml
+coverage.json
+*.cover
+.benchmarks/
+
+# Development
+.env
+.env.local
+.env.*.local
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Runtime data (should be mounted as volumes)
+.genesis/
+
+# Development configs
+.pre-commit-config.yaml
+.secrets.baseline
+.ruff_cache/
+pyproject.toml
+
+# BMAD specific
+.bmad-core/
+qa/
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*.old
+tmp/
+temp/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.gz
+*.bz2
+*.7z
+*.rar
+
+# Large test data
+tests/fixtures/large_*
+tests/data/
+
+# Notebooks
+*.ipynb
+.ipynb_checkpoints/

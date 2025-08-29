@@ -8,6 +8,9 @@ and request/response validation.
 
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
+import asyncio
+import aiohttp
+import time
 
 import ccxt.async_support as ccxt
 import structlog
@@ -50,11 +53,36 @@ class BinanceGateway:
         self.mock_exchange: MockExchange | None = None
         self.rate_limiter = RateLimiter()
         self._initialized = False
+        
+        # Connection pool configuration
+        self._session: aiohttp.ClientSession | None = None
+        self._connection_pool_size = 10  # Max connections per host
+        self._connection_timeout = aiohttp.ClientTimeout(
+            total=30,  # Total timeout
+            connect=5,  # Connection timeout
+            sock_connect=5,  # Socket connection timeout
+            sock_read=25  # Socket read timeout
+        )
+        self._keep_alive_timeout = 30
+        self._connection_metrics = {
+            "active_connections": 0,
+            "total_requests": 0,
+            "failed_requests": 0,
+            "connection_reuses": 0,
+            "last_health_check": 0
+        }
+        self._retry_config = {
+            "max_retries": 3,
+            "base_delay": 1,  # seconds
+            "max_delay": 30,  # seconds
+            "exponential_base": 2
+        }
 
         logger.info(
             "Initializing BinanceGateway",
             mock_mode=self.mock_mode,
             testnet=self.settings.exchange.binance_testnet,
+            connection_pool_size=self._connection_pool_size,
         )
 
     async def initialize(self) -> None:
@@ -72,7 +100,26 @@ class BinanceGateway:
                 self._initialized = True
                 return
 
-            # Configure exchange
+            # Create persistent session with connection pooling
+            connector = aiohttp.TCPConnector(
+                limit=self._connection_pool_size,
+                limit_per_host=self._connection_pool_size,
+                ttl_dns_cache=300,  # DNS cache for 5 minutes
+                keepalive_timeout=self._keep_alive_timeout,
+                force_close=False,  # Reuse connections
+                enable_cleanup_closed=True
+            )
+            
+            self._session = aiohttp.ClientSession(
+                connector=connector,
+                timeout=self._connection_timeout,
+                headers={
+                    "Connection": "keep-alive",
+                    "Keep-Alive": f"timeout={self._keep_alive_timeout}"
+                }
+            )
+            
+            # Configure exchange with persistent session
             config = {
                 "apiKey": self.settings.exchange.binance_api_key.get_secret_value(),
                 "secret": self.settings.exchange.binance_api_secret.get_secret_value(),
@@ -84,7 +131,7 @@ class BinanceGateway:
                     "recvWindow": 5000,
                 },
                 "timeout": 30000,  # 30 seconds total timeout
-                "session": True,  # Enable connection pooling
+                "session": self._session,  # Use our persistent session
             }
 
             # Use testnet if configured
@@ -114,11 +161,25 @@ class BinanceGateway:
             raise
 
     async def close(self) -> None:
-        """Close the exchange connection."""
-        if self.exchange:
-            await self.exchange.close()
+        """Close the exchange connection and cleanup resources."""
+        try:
+            if self.exchange:
+                await self.exchange.close()
+            
+            # Close persistent session
+            if self._session:
+                await self._session.close()
+                self._session = None
+            
             self._initialized = False
-            logger.info("BinanceGateway closed")
+            
+            logger.info(
+                "BinanceGateway closed",
+                total_requests=self._connection_metrics["total_requests"],
+                connection_reuses=self._connection_metrics["connection_reuses"]
+            )
+        except Exception as e:
+            logger.error("Error closing BinanceGateway", error=str(e))
 
     async def get_account_balance(self) -> dict[str, AccountBalance]:
         """
@@ -173,7 +234,7 @@ class BinanceGateway:
                 params["clientOrderId"] = request.client_order_id
 
             if request.stop_price:
-                params["stopPrice"] = float(request.stop_price)
+                params["stopPrice"] = str(request.stop_price)  # Binance API accepts string format
 
             # Handle advanced order types
             order_type = request.type
@@ -222,8 +283,8 @@ class BinanceGateway:
                 symbol=request.symbol,
                 type=order_type,  # Use the mapped order type
                 side=request.side,
-                amount=float(request.quantity),
-                price=float(request.price) if request.price else None,
+                amount=str(request.quantity),  # CCXT handles string to appropriate format
+                price=str(request.price) if request.price else None,
                 params=params,
             )
 
@@ -741,6 +802,143 @@ class BinanceGateway:
                 "error": str(e)
             }
 
+
+    async def _execute_with_retry(self, func, *args, **kwargs):
+        """
+        Execute a function with exponential backoff retry logic.
+        
+        Args:
+            func: Async function to execute
+            *args: Positional arguments for func
+            **kwargs: Keyword arguments for func
+            
+        Returns:
+            Function result
+        """
+        last_error = None
+        
+        for attempt in range(self._retry_config["max_retries"]):
+            try:
+                # Track metrics
+                self._connection_metrics["total_requests"] += 1
+                
+                # Execute function
+                result = await func(*args, **kwargs)
+                
+                # Track successful reuse if this is a retry
+                if attempt > 0:
+                    self._connection_metrics["connection_reuses"] += 1
+                    
+                return result
+                
+            except Exception as e:
+                last_error = e
+                self._connection_metrics["failed_requests"] += 1
+                
+                # Check if we should retry
+                error_str = str(e).lower()
+                if any(err in error_str for err in ["timeout", "connection", "network", "refused"]):
+                    if attempt < self._retry_config["max_retries"] - 1:
+                        # Calculate backoff delay
+                        delay = min(
+                            self._retry_config["base_delay"] * (self._retry_config["exponential_base"] ** attempt),
+                            self._retry_config["max_delay"]
+                        )
+                        
+                        logger.warning(
+                            "Request failed, retrying with backoff",
+                            attempt=attempt + 1,
+                            delay=delay,
+                            error=str(e)
+                        )
+                        
+                        await asyncio.sleep(delay)
+                        continue
+                
+                # Non-retryable error or max retries reached
+                raise
+        
+        # Max retries exceeded
+        logger.error(
+            "Max retries exceeded",
+            retries=self._retry_config["max_retries"],
+            last_error=str(last_error)
+        )
+        raise last_error
+
+    def get_connection_metrics(self) -> dict:
+        """
+        Get current connection pool metrics.
+        
+        Returns:
+            Dictionary with connection pool statistics
+        """
+        metrics = self._connection_metrics.copy()
+        
+        # Add session-specific metrics if available
+        if self._session and self._session.connector:
+            connector = self._session.connector
+            metrics.update({
+                "active_connections": len(connector._acquired),
+                "available_connections": len(connector._available),
+                "connection_limit": connector.limit,
+                "connection_limit_per_host": connector.limit_per_host,
+            })
+        
+        return metrics
+
+    async def monitor_connection_health(self) -> bool:
+        """
+        Monitor and log connection pool health.
+        
+        Returns:
+            True if connection pool is healthy
+        """
+        try:
+            current_time = time.time()
+            
+            # Only check every 60 seconds
+            if current_time - self._connection_metrics["last_health_check"] < 60:
+                return True
+            
+            self._connection_metrics["last_health_check"] = current_time
+            
+            # Get current metrics
+            metrics = self.get_connection_metrics()
+            
+            # Check connection pool health
+            if self._session and self._session.connector:
+                connector = self._session.connector
+                
+                # Calculate usage percentage
+                usage_pct = (metrics.get("active_connections", 0) / 
+                           self._connection_pool_size) * 100
+                
+                # Log metrics
+                logger.info(
+                    "Connection pool health check",
+                    active=metrics.get("active_connections", 0),
+                    available=metrics.get("available_connections", 0),
+                    usage_pct=f"{usage_pct:.1f}%",
+                    total_requests=metrics["total_requests"],
+                    failed_requests=metrics["failed_requests"],
+                    reuses=metrics["connection_reuses"]
+                )
+                
+                # Warn if pool is nearly exhausted
+                if usage_pct > 80:
+                    logger.warning(
+                        "Connection pool usage high",
+                        usage_pct=f"{usage_pct:.1f}%"
+                    )
+                
+                return True
+            
+            return False
+            
+        except Exception as e:
+            logger.error("Connection health check failed", error=str(e))
+            return False
 
 # Alias for compatibility
 ExchangeGateway = BinanceGateway

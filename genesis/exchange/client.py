@@ -214,11 +214,11 @@ class ExchangeClient:
 
             if order_type == "market":
                 result = await self.exchange.create_market_order(
-                    symbol, side, float(quantity), params=params
+                    symbol, side, str(quantity), params=params  # CCXT handles string conversion
                 )
             else:
                 result = await self.exchange.create_limit_order(
-                    symbol, side, float(quantity), float(price), params=params
+                    symbol, side, str(quantity), str(price), params=params  # CCXT handles string conversion
                 )
 
             return result

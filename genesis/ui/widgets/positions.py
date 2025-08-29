@@ -19,6 +19,10 @@ class PositionWidget(Static):
     current_price = reactive(Decimal("0.00"))
     unrealized_pnl = reactive(Decimal("0.00"))
     stop_loss: Decimal | None = reactive(None)
+    
+    # Paper trading mode
+    paper_trading_mode = reactive(False)
+    paper_session_id = reactive("")
 
     # Display mode
     show_details = reactive(False)
@@ -58,9 +62,15 @@ class PositionWidget(Static):
         else:
             pct_str = "+0.00%"
 
+        # Build display header
+        if self.paper_trading_mode:
+            header = "[bold yellow]═══ Paper Trading Position ═══[/bold yellow]"
+        else:
+            header = "[bold]═══ Current Position ═══[/bold]"
+
         # Build display
         lines = [
-            "[bold]═══ Current Position ═══[/bold]",
+            header,
             "",
             f"[bold]{self.symbol}[/bold] - [{side_color}]{self.side}[/{side_color}]",
             f"Quantity: {qty_str}",

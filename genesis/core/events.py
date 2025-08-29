@@ -115,6 +115,7 @@ class EventType(str, Enum):
     GATE_COMPLETED = "gate_completed"  # Tier gate requirement fulfilled
     SYSTEM_STARTUP = "system_startup"
     SYSTEM_SHUTDOWN = "system_shutdown"
+    SYSTEM_HEARTBEAT = "system_heartbeat"
     CIRCUIT_BREAKER_OPEN = "circuit_breaker_open"
     CIRCUIT_BREAKER_CLOSED = "circuit_breaker_closed"
 

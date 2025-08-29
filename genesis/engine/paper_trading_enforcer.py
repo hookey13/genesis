@@ -623,3 +623,111 @@ class PaperTradingEnforcer:
         # Clear tracking
         self._active_sessions.clear()
         self._session_tasks.clear()
+
+    async def simulate_order_fill(
+        self,
+        session_id: str,
+        symbol: str,
+        side: str,
+        quantity: Decimal,
+        price: Decimal,
+        slippage_percent: Decimal = Decimal("0.1"),
+    ) -> PaperTrade:
+        """
+        Simulate order execution for paper trading.
+        
+        Args:
+            session_id: Paper trading session ID
+            symbol: Trading symbol
+            side: BUY or SELL
+            quantity: Order quantity
+            price: Current market price
+            slippage_percent: Simulated slippage (default 0.1%)
+            
+        Returns:
+            Created paper trade
+        """
+        if session_id not in self._active_sessions:
+            raise ValidationError(f"Session not found or inactive: {session_id}")
+
+        # Apply slippage
+        slippage_multiplier = slippage_percent / Decimal("100")
+        if side == "BUY":
+            # Buy orders fill at slightly higher price
+            entry_price = price * (Decimal("1") + slippage_multiplier)
+        else:
+            # Sell orders fill at slightly lower price
+            entry_price = price * (Decimal("1") - slippage_multiplier)
+
+        # Create paper trade
+        trade = PaperTrade(
+            trade_id=str(uuid4()),
+            session_id=session_id,
+            symbol=symbol,
+            side=side,
+            quantity=quantity,
+            entry_price=entry_price,
+            opened_at=datetime.utcnow(),
+            execution_method="paper_trading",
+            notes="Simulated fill with slippage",
+        )
+
+        # Record the trade
+        await self.record_paper_trade(session_id, trade)
+
+        logger.info(
+            "Paper trade opened",
+            session_id=session_id,
+            trade_id=trade.trade_id,
+            symbol=symbol,
+            side=side,
+            quantity=str(quantity),
+            entry_price=str(entry_price),
+            slippage_applied=str(slippage_percent),
+        )
+
+        return trade
+
+    async def get_open_trades(self, session_id: str) -> list[PaperTrade]:
+        """
+        Get all open trades for a session.
+        
+        Args:
+            session_id: Session ID
+            
+        Returns:
+            List of open paper trades
+        """
+        if session_id not in self._active_sessions:
+            return []
+
+        trades = self._active_sessions[session_id]
+        return [t for t in trades if not t.is_closed]
+
+    async def close_all_trades(
+        self, session_id: str, market_price: dict[str, Decimal]
+    ) -> list[PaperTrade]:
+        """
+        Close all open trades at market prices.
+        
+        Args:
+            session_id: Session ID
+            market_price: Current market prices by symbol
+            
+        Returns:
+            List of closed trades
+        """
+        open_trades = await self.get_open_trades(session_id)
+        closed_trades = []
+
+        for trade in open_trades:
+            if trade.symbol in market_price:
+                closed_trade = await self.close_paper_trade(
+                    session_id,
+                    trade.trade_id,
+                    market_price[trade.symbol],
+                    datetime.utcnow(),
+                )
+                closed_trades.append(closed_trade)
+
+        return closed_trades

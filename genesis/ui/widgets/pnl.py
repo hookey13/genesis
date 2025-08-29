@@ -13,6 +13,13 @@ class PnLWidget(Static):
     current_pnl = reactive(Decimal("0.00"))
     daily_pnl = reactive(Decimal("0.00"))
     daily_pnl_pct = reactive(Decimal("0.00"))
+    
+    # Additional metrics for paper trading
+    realized_pnl = reactive(Decimal("0.00"))
+    unrealized_pnl = reactive(Decimal("0.00"))
+    win_rate = reactive(Decimal("0.00"))
+    total_trades = reactive(0)
+    paper_trading_mode = reactive(False)
 
     DEFAULT_CSS = """
     PnLWidget {
@@ -31,22 +38,45 @@ class PnLWidget(Static):
         # Color coding: green for profit, gray for loss (no red)
         current_color = "green" if self.current_pnl >= 0 else "grey50"
         daily_color = "green" if self.daily_pnl >= 0 else "grey50"
+        realized_color = "green" if self.realized_pnl >= 0 else "grey50"
+        unrealized_color = "green" if self.unrealized_pnl >= 0 else "grey50"
 
         # Format values to 2 decimal places
         current_str = f"${self.current_pnl:,.2f}"
         daily_str = f"${self.daily_pnl:,.2f}"
         daily_pct_str = f"{self.daily_pnl_pct:+.2f}%"
+        realized_str = f"${self.realized_pnl:,.2f}"
+        unrealized_str = f"${self.unrealized_pnl:,.2f}"
+
+        # Build display header
+        if self.paper_trading_mode:
+            header = "[bold yellow]═══ Paper Trading P&L ═══[/bold yellow]"
+        else:
+            header = "[bold]═══ P&L Dashboard ═══[/bold]"
 
         # Build display
         lines = [
-            "[bold]═══ P&L Dashboard ═══[/bold]",
+            header,
             "",
-            f"[bold]Current P&L:[/bold] [{current_color}]{current_str}[/{current_color}]",
+            f"[bold]Total P&L:[/bold] [{current_color}]{current_str}[/{current_color}]",
+            "",
+            f"[bold]Realized:[/bold] [{realized_color}]{realized_str}[/{realized_color}]",
+            f"[bold]Unrealized:[/bold] [{unrealized_color}]{unrealized_str}[/{unrealized_color}]",
             "",
             f"[bold]Daily P&L:[/bold] [{daily_color}]{daily_str} ({daily_pct_str})[/{daily_color}]",
             "",
-            f"[dim]Account Balance: ${self.account_balance:,.2f}[/dim]",
         ]
+        
+        # Add trading metrics if available
+        if self.total_trades > 0:
+            win_rate_color = "green" if self.win_rate >= 50 else "grey50"
+            lines.extend([
+                f"[bold]Win Rate:[/bold] [{win_rate_color}]{self.win_rate:.2f}%[/{win_rate_color}]",
+                f"[dim]Total Trades: {self.total_trades}[/dim]",
+                "",
+            ])
+        
+        lines.append(f"[dim]Account Balance: ${self.account_balance:,.2f}[/dim]")
 
         return "\n".join(lines)
 

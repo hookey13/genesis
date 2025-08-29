@@ -1,38 +1,24 @@
 """
 Rate limiting module for Binance API requests.
 
-Tracks API weight consumption and implements automatic backoff to stay
-within rate limits.
+Uses token bucket algorithm for smooth rate limiting with burst capacity.
+Tracks API weight consumption dynamically based on response headers.
 """
 
-import asyncio
-import time
-from collections import deque
-from dataclasses import dataclass
+# Import the token bucket implementation
+from genesis.exchange.token_bucket_rate_limiter import (
+    TokenBucketRateLimiter,
+    TokenBucket,
+)
 
-import structlog
-
-logger = structlog.get_logger(__name__)
-
-
-@dataclass
-class WeightWindow:
-    """Tracks weight usage within a time window."""
-
-    timestamp: float
-    weight: int
+# For backward compatibility, expose the new implementation as RateLimiter
 
 
-@dataclass
-class EndpointWeight:
-    """API endpoint weight configuration."""
+# Use TokenBucketRateLimiter as the main RateLimiter class
+RateLimiter = TokenBucketRateLimiter
 
-    endpoint: str
-    method: str
-    weight: int
-
-
-class RateLimiter:
+# Legacy class kept for reference but now uses token bucket internally
+class LegacyRateLimiter:
     """
     Manages API rate limiting for Binance.
 

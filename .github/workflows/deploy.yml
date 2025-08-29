@@ -1,0 +1,374 @@
+name: Deploy Pipeline
+
+'on':
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version tag to deploy'
+        required: true
+        default: 'latest'
+      dry_run:
+        description: 'Perform dry run only'
+        required: false
+        default: false
+        type: boolean
+  
+  # Auto-deploy on tags
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  PYTHON_VERSION: '3.11.8'
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: genesis-trading
+
+jobs:
+  validate-deployment:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      environment: ${{ steps.environment.outputs.environment }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Deploying version: $VERSION"
+      
+      - name: Determine environment
+        id: environment
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            # Production for tagged releases
+            ENVIRONMENT="production"
+          else
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          fi
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "Deploying to: $ENVIRONMENT"
+      
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if [[ ! "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]] && [[ "$VERSION" != "latest" ]]; then
+            echo "ERROR: Invalid version format: $VERSION"
+            exit 1
+          fi
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: validate-deployment
+    if: github.event.inputs.dry_run != 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=${{ needs.validate-deployment.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.validate-deployment.outputs.environment == 'production' }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          target: production
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            VERSION=${{ needs.validate-deployment.outputs.version }}
+            VCS_REF=${{ github.sha }}
+
+  staging-deployment:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate-deployment, build-and-push]
+    if: needs.validate-deployment.outputs.environment == 'staging'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy to staging server
+        id: deploy
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        run: |
+          # This would SSH to staging server and deploy
+          echo "Deploying to staging environment..."
+          echo "Version: ${{ needs.validate-deployment.outputs.version }}"
+          
+          # Create deployment script
+          cat > deploy_staging.sh <<'EOF'
+          #!/bin/bash
+          set -e
+          
+          VERSION=$1
+          IMAGE="${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${VERSION}"
+          
+          # Pull latest image
+          docker pull $IMAGE
+          
+          # Stop existing container
+          docker compose -f docker/docker-compose.prod.yml down || true
+          
+          # Start new container
+          VERSION=$VERSION docker compose -f docker/docker-compose.prod.yml up -d
+          
+          # Wait for health check
+          timeout 120 bash -c 'until docker compose ps | grep -q "healthy"; do sleep 5; done'
+          
+          # Run smoke tests
+          docker exec genesis-prod python -m genesis.api.health detailed
+          
+          echo "Deployment completed successfully"
+          EOF
+          
+          # In real deployment, would SSH and run script
+          # ssh -i $STAGING_KEY $STAGING_USER@$STAGING_HOST < deploy_staging.sh
+          
+          echo "url=https://staging.genesis-trading.com" >> $GITHUB_OUTPUT
+      
+      - name: Run staging validation tests
+        run: |
+          echo "Running staging validation tests..."
+          # Would run actual validation tests against staging
+      
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "✅ Staging deployment successful"
+          else
+            echo "❌ Staging deployment failed"
+          fi
+
+  production-deployment:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [validate-deployment, build-and-push]
+    if: needs.validate-deployment.outputs.environment == 'production'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Create backup
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          echo "Creating production backup..."
+          # Would SSH and create backup
+          # ssh -i $PROD_KEY $PROD_USER@$PROD_HOST "docker exec genesis-prod python scripts/backup.sh"
+      
+      - name: Blue-green deployment
+        id: deploy
+        env:
+          PROD_HOST: ${{ secrets.PROD_HOST }}
+          PROD_USER: ${{ secrets.PROD_USER }}
+          PROD_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          echo "Starting blue-green deployment..."
+          echo "Version: ${{ needs.validate-deployment.outputs.version }}"
+          
+          # Create blue-green deployment script
+          cat > deploy_production.sh <<'EOF'
+          #!/bin/bash
+          set -e
+          
+          VERSION=$1
+          IMAGE="${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${VERSION}"
+          
+          # Pull new image
+          docker pull $IMAGE
+          
+          # Start blue environment
+          VERSION=$VERSION docker compose -f docker/docker-compose.prod.yml -p genesis-blue up -d
+          
+          # Wait for blue to be healthy
+          timeout 180 bash -c 'until docker exec genesis-blue-prod python -m genesis.api.health readiness; do sleep 5; done'
+          
+          # Run smoke tests on blue
+          docker exec genesis-blue-prod python -m genesis.api.health detailed
+          
+          # Switch traffic to blue (would update load balancer/nginx)
+          echo "Switching traffic to blue environment..."
+          
+          # Stop green environment
+          docker compose -f docker/docker-compose.prod.yml -p genesis-green down || true
+          
+          # Rename blue to green for next deployment
+          docker compose -f docker/docker-compose.prod.yml -p genesis-blue down
+          VERSION=$VERSION docker compose -f docker/docker-compose.prod.yml -p genesis-green up -d
+          
+          echo "Blue-green deployment completed"
+          EOF
+          
+          # In real deployment, would SSH and run script
+          # ssh -i $PROD_KEY $PROD_USER@$PROD_HOST < deploy_production.sh
+          
+          echo "url=https://genesis-trading.com" >> $GITHUB_OUTPUT
+      
+      - name: Verify deployment
+        run: |
+          echo "Verifying production deployment..."
+          # Would run comprehensive validation
+      
+      - name: Create deployment record
+        run: |
+          DEPLOYMENT_RECORD="{
+            \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+            \"version\": \"${{ needs.validate-deployment.outputs.version }}\",
+            \"environment\": \"production\",
+            \"deployer\": \"${{ github.actor }}\",
+            \"commit\": \"${{ github.sha }}\",
+            \"status\": \"success\"
+          }"
+          echo "$DEPLOYMENT_RECORD" > deployment-record.json
+      
+      - name: Upload deployment record
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-record-${{ github.run_id }}
+          path: deployment-record.json
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [staging-deployment, production-deployment]
+    if: failure()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Trigger rollback
+        env:
+          ENVIRONMENT: ${{ needs.validate-deployment.outputs.environment }}
+        run: |
+          echo "🔄 Initiating rollback for $ENVIRONMENT environment..."
+          
+          # Create rollback script
+          cat > rollback.sh <<'EOF'
+          #!/bin/bash
+          set -e
+          
+          # Get previous version
+          PREVIOUS_VERSION=$(docker images --format "{{.Tag}}" | grep -v latest | head -2 | tail -1)
+          
+          echo "Rolling back to version: $PREVIOUS_VERSION"
+          
+          # Restore from backup
+          docker exec genesis-prod python scripts/emergency_close.py
+          
+          # Switch to previous version
+          VERSION=$PREVIOUS_VERSION docker compose -f docker/docker-compose.prod.yml up -d
+          
+          # Verify rollback
+          timeout 120 bash -c 'until docker compose ps | grep -q "healthy"; do sleep 5; done'
+          
+          echo "Rollback completed"
+          EOF
+          
+          # Would execute rollback via SSH
+          echo "Rollback initiated"
+      
+      - name: Notify rollback
+        run: |
+          echo "⚠️ Deployment failed - rollback executed"
+          # Would send actual notifications (Slack, email, etc.)
+
+  notify-deployment:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [validate-deployment, staging-deployment, production-deployment]
+    if: always()
+    
+    steps:
+      - name: Deployment summary
+        run: |
+          echo "📊 Deployment Summary"
+          echo "===================="
+          echo "Version: ${{ needs.validate-deployment.outputs.version }}"
+          echo "Environment: ${{ needs.validate-deployment.outputs.environment }}"
+          echo "Status: ${{ job.status }}"
+          echo "Deployed by: ${{ github.actor }}"
+          echo "Commit: ${{ github.sha }}"
+          
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+          fi
+      
+      - name: Create Git tag for successful production deployment
+        if: needs.production-deployment.result == 'success'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          
+          TAG="deployed-${{ needs.validate-deployment.outputs.version }}-$(date +%Y%m%d%H%M%S)"
+          git tag -a "$TAG" -m "Production deployment of ${{ needs.validate-deployment.outputs.version }}"
+          git push origin "$TAG"

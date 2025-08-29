@@ -5,11 +5,18 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: development
+      args:
+        BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
+        VERSION: ${VERSION:-dev}
+        VCS_REF: ${VCS_REF:-$(git rev-parse --short HEAD)}
     container_name: genesis-dev
+    image: genesis-trading:dev
     environment:
       - DEPLOYMENT_ENV=development
       - DEBUG=true
       - BINANCE_TESTNET=true
+      - PYTHONPATH=/app
     env_file:
       - ../.env
     volumes:
@@ -18,17 +25,40 @@ services:
       - ../config:/app/config:ro
       - ../tests:/app/tests:ro
       - ../scripts:/app/scripts:ro
+      - ../alembic:/app/alembic:ro
       
       # Persistent data volumes
       - genesis-data:/app/.genesis/data
       - genesis-logs:/app/.genesis/logs
       - genesis-state:/app/.genesis/state
+      - genesis-backups:/app/.genesis/backups
     networks:
       - genesis-network
+    ports:
+      - "8000:8000"  # API port
     restart: unless-stopped
     stdin_open: true
     tty: true
     command: python -m genesis
+    healthcheck:
+      test: ["CMD", "python", "-m", "genesis.api.health", "basic"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Optional: Redis for future Hunter+ tier
   # Uncomment when needed
@@ -42,7 +72,17 @@ services:
   #   networks:
   #     - genesis-network
   #   restart: unless-stopped
-  #   command: redis-server --appendonly yes
+  #   command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '0.5'
+  #         memory: 512M
 
   # Optional: PostgreSQL for future $2k+ tier
   # Uncomment when needed
@@ -53,21 +93,52 @@ services:
   #     POSTGRES_DB: genesis
   #     POSTGRES_USER: genesis
   #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-genesis_dev_password}
+  #     POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+  #     POSTGRES_HOST_AUTH_METHOD: scram-sha-256
   #   ports:
   #     - "5432:5432"
   #   volumes:
   #     - postgres-data:/var/lib/postgresql/data
+  #     - ../alembic:/docker-entrypoint-initdb.d:ro
   #   networks:
   #     - genesis-network
   #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U genesis -d genesis"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1'
+  #         memory: 1G
 
 volumes:
   genesis-data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/.genesis/data
   genesis-logs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/.genesis/logs
   genesis-state:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/.genesis/state
+  genesis-backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/.genesis/backups
   # redis-data:
   #   driver: local
   # postgres-data:
@@ -76,3 +147,6 @@ volumes:
 networks:
   genesis-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

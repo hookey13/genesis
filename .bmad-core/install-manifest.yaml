@@ -1,5 +1,5 @@
-version: 4.40.0
-installed_at: '2025-08-23T05:33:59.809Z'
+version: 4.41.0
+installed_at: '2025-08-29T07:02:29.739Z'
 install_type: full
 agent: null
 ides_setup:
@@ -12,11 +12,17 @@ files:
   - path: .bmad-core/user-guide.md
     hash: e633affe88d4ff20
     modified: false
+  - path: .bmad-core/install-manifest.yaml
+    hash: c2de0f507b088bfb
+    modified: false
   - path: .bmad-core/enhanced-ide-development-workflow.md
     hash: 39beb3516c070e2b
     modified: false
+  - path: .bmad-core/core-config.yaml.bak
+    hash: e74d9c85f2ac62cb
+    modified: false
   - path: .bmad-core/core-config.yaml
-    hash: 073cf6d2527c545d
+    hash: 94ce5b2faad48235
     modified: false
   - path: .bmad-core/workflows/greenfield-ui.yaml
     hash: defde5d6bdcedd49
@@ -99,6 +105,24 @@ files:
   - path: .bmad-core/data/bmad-kb.md
     hash: 57f0e9ae0e54b8e3
     modified: false
+  - path: .bmad-core/checklists/story-draft-checklist.md
+    hash: 0bc8a90678dba318
+    modified: false
+  - path: .bmad-core/checklists/story-dod-checklist.md
+    hash: df403478049b6958
+    modified: false
+  - path: .bmad-core/checklists/po-master-checklist.md
+    hash: c46c67e6bf61b70e
+    modified: false
+  - path: .bmad-core/checklists/pm-checklist.md
+    hash: b53f0270312713d2
+    modified: false
+  - path: .bmad-core/checklists/change-checklist.md
+    hash: fb2d071796c8f8b6
+    modified: false
+  - path: .bmad-core/checklists/architect-checklist.md
+    hash: 15ef7d01b0e31c3f
+    modified: false
   - path: .bmad-core/tasks/validate-next-story.md
     hash: a5a382fe9a8d9443
     modified: false
@@ -167,24 +191,6 @@ files:
     modified: false
   - path: .bmad-core/tasks/advanced-elicitation.md
     hash: d39118bf32237a21
-    modified: false
-  - path: .bmad-core/checklists/story-draft-checklist.md
-    hash: 0bc8a90678dba318
-    modified: false
-  - path: .bmad-core/checklists/story-dod-checklist.md
-    hash: df403478049b6958
-    modified: false
-  - path: .bmad-core/checklists/po-master-checklist.md
-    hash: c46c67e6bf61b70e
-    modified: false
-  - path: .bmad-core/checklists/pm-checklist.md
-    hash: b53f0270312713d2
-    modified: false
-  - path: .bmad-core/checklists/change-checklist.md
-    hash: fb2d071796c8f8b6
-    modified: false
-  - path: .bmad-core/checklists/architect-checklist.md
-    hash: 15ef7d01b0e31c3f
     modified: false
   - path: .bmad-core/agents/ux-expert.md
     hash: a99c4d3c839db162

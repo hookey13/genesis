@@ -30,3 +30,6 @@ numpy==1.26.4  # Security patches
 
 # Process management (for production)
 supervisor==4.2.5
+
+# System monitoring
+psutil==5.9.8

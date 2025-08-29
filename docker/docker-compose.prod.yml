@@ -2,14 +2,23 @@ version: '3.8'
 
 services:
   genesis:
+    image: genesis-trading:${VERSION:-latest}
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      target: production
+      args:
+        BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
+        VERSION: ${VERSION:-latest}
+        VCS_REF: ${VCS_REF:-$(git rev-parse --short HEAD)}
     container_name: genesis-prod
+    hostname: genesis-prod
     environment:
       - DEPLOYMENT_ENV=production
       - DEBUG=false
       - BINANCE_TESTNET=false
+      - PYTHONPATH=/app
+      - TZ=UTC
     env_file:
       - ../.env.production
     volumes:
@@ -20,15 +29,24 @@ services:
       - genesis-backups:/app/.genesis/backups
     networks:
       - genesis-network
+    ports:
+      - "127.0.0.1:8000:8000"  # API port (localhost only)
     restart: always
+    stop_grace_period: 30s
     logging:
       driver: "json-file"
       options:
-        max-size: "10m"
-        max-file: "5"
+        max-size: "50m"
+        max-file: "10"
+        labels: "service=genesis,env=production"
     # Use supervisor for process management
-    command: supervisord -c /etc/supervisor/conf.d/genesis.conf
-    
+    command: ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/genesis.conf"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "genesis.api.health", "readiness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     # Resource limits for production
     deploy:
       resources:
@@ -38,55 +56,156 @@ services:
         reservations:
           cpus: '1'
           memory: 1G
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
 
   # Redis for Hunter+ tier (production)
   redis:
     image: redis:7.2.4-alpine
     container_name: genesis-redis-prod
+    hostname: genesis-redis
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
     networks:
       - genesis-network
     restart: always
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3"
+        max-file: "5"
+        labels: "service=redis,env=production"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   # PostgreSQL for production (when migrating from SQLite)
   postgres:
     image: postgres:16.1-alpine
     container_name: genesis-postgres-prod
+    hostname: genesis-postgres
     environment:
       POSTGRES_DB: genesis
       POSTGRES_USER: genesis
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - genesis-network
     restart: always
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genesis -d genesis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
-        max-file: "3"
+        max-file: "5"
+        labels: "service=postgres,env=production"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Nginx reverse proxy (optional, for API exposure)
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: genesis-nginx-prod
+    hostname: genesis-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx-cache:/var/cache/nginx
+    networks:
+      - genesis-network
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: always
+    depends_on:
+      - genesis
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service=nginx,env=production"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
 volumes:
   genesis-data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/genesis/data
   genesis-logs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/log/genesis
   genesis-state:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/lib/genesis/state
   genesis-backups:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /var/backups/genesis
   redis-data:
     driver: local
   postgres-data:
+    driver: local
+  nginx-cache:
     driver: local
 
 networks:
@@ -95,3 +214,5 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br-genesis
