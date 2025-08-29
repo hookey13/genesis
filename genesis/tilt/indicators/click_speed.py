@@ -7,7 +7,6 @@ Tracks the speed of user actions to detect abnormal decision-making patterns.
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
@@ -27,7 +26,7 @@ class ClickSpeedIndicator:
         self.window_size = window_size
         self.action_timestamps = deque(maxlen=window_size)
         self.latencies_ms = deque(maxlen=window_size)
-        self.last_market_update: Optional[datetime] = None
+        self.last_market_update: datetime | None = None
 
     def record_market_update(self, timestamp: datetime):
         """
@@ -38,7 +37,7 @@ class ClickSpeedIndicator:
         """
         self.last_market_update = timestamp
 
-    def record_action(self, action_timestamp: datetime) -> Optional[Decimal]:
+    def record_action(self, action_timestamp: datetime) -> Decimal | None:
         """
         Record a user action and calculate latency.
 
@@ -78,7 +77,7 @@ class ClickSpeedIndicator:
 
         return latency_ms
 
-    def get_average_latency(self) -> Optional[Decimal]:
+    def get_average_latency(self) -> Decimal | None:
         """
         Calculate average latency over the window.
 

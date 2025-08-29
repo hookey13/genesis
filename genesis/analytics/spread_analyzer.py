@@ -9,7 +9,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
@@ -184,7 +183,7 @@ class SpreadAnalyzer:
 
         return std_dev
 
-    def get_spread_metrics(self, symbol: str) -> Optional[SpreadMetrics]:
+    def get_spread_metrics(self, symbol: str) -> SpreadMetrics | None:
         """
         Get current spread metrics for a symbol
 
@@ -243,7 +242,7 @@ class SpreadAnalyzer:
 
     def detect_spread_compression(
         self, symbol: str
-    ) -> Optional[SpreadCompressionEvent]:
+    ) -> SpreadCompressionEvent | None:
         """
         Detect spread compression for a symbol
 
@@ -308,7 +307,7 @@ class SpreadAnalyzer:
 
         return None
 
-    def get_compression_duration(self, symbol: str) -> Optional[float]:
+    def get_compression_duration(self, symbol: str) -> float | None:
         """
         Get duration of current spread compression
 
@@ -326,7 +325,7 @@ class SpreadAnalyzer:
         ).total_seconds()
         return duration
 
-    def clear_history(self, symbol: Optional[str] = None) -> None:
+    def clear_history(self, symbol: str | None = None) -> None:
         """
         Clear spread history
 

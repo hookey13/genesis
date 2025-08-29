@@ -9,16 +9,15 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Dict, Optional, Set, Callable, Any
 
 import websockets
 from websockets.client import WebSocketClientProtocol
 
 from genesis.exchange.events import (
     EventBus,
-    EventType,
     MarketTick,
     OrderFill,
     WebSocketEvent,
@@ -42,7 +41,7 @@ class WSManager:
     def __init__(
         self,
         exchange_client,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
         testnet: bool = True,
     ):
         """Initialize WebSocket manager."""
@@ -63,18 +62,18 @@ class WSManager:
         )
 
         # Connection state
-        self.market_ws: Optional[WebSocketClientProtocol] = None
-        self.user_ws: Optional[WebSocketClientProtocol] = None
-        self.listen_key: Optional[str] = None
-        self.listen_key_expires: Optional[float] = None
+        self.market_ws: WebSocketClientProtocol | None = None
+        self.user_ws: WebSocketClientProtocol | None = None
+        self.listen_key: str | None = None
+        self.listen_key_expires: float | None = None
 
         # Stream subscriptions
-        self.market_subscriptions: Set[str] = set()
-        self.user_callbacks: Dict[str, Callable] = {}
+        self.market_subscriptions: set[str] = set()
+        self.user_callbacks: dict[str, Callable] = {}
 
         # Sequence tracking for gap detection
-        self.last_sequence: Dict[str, int] = {}
-        self.sequence_gaps: Dict[str, List[Tuple[int, int]]] = {}
+        self.last_sequence: dict[str, int] = {}
+        self.sequence_gaps: dict[str, List[Tuple[int, int]]] = {}
 
         # Connection management
         self.running = False
@@ -84,9 +83,9 @@ class WSManager:
         self.max_reconnect_attempts = 10
 
         # Tasks
-        self.market_task: Optional[asyncio.Task] = None
-        self.user_task: Optional[asyncio.Task] = None
-        self.keepalive_task: Optional[asyncio.Task] = None
+        self.market_task: asyncio.Task | None = None
+        self.user_task: asyncio.Task | None = None
+        self.keepalive_task: asyncio.Task | None = None
 
     async def start(self):
         """Start WebSocket connections."""
@@ -219,7 +218,7 @@ class WSManager:
 
                     # Emit connected event
                     event = WebSocketEvent(
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                         sequence=0,
                         status="CONNECTED",
                         stream_type="market_data",
@@ -243,7 +242,7 @@ class WSManager:
 
                 # Emit disconnected event
                 event = WebSocketEvent(
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     sequence=0,
                     status="DISCONNECTED",
                     stream_type="market_data",
@@ -274,7 +273,7 @@ class WSManager:
 
                     # Emit connected event
                     event = WebSocketEvent(
-                        timestamp=datetime.now(timezone.utc),
+                        timestamp=datetime.now(UTC),
                         sequence=0,
                         status="CONNECTED",
                         stream_type="user_data",
@@ -298,7 +297,7 @@ class WSManager:
 
                 # Emit disconnected event
                 event = WebSocketEvent(
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     sequence=0,
                     status="DISCONNECTED",
                     stream_type="user_data",
@@ -323,7 +322,7 @@ class WSManager:
 
         # Emit reconnecting event
         event = WebSocketEvent(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             sequence=0,
             status="RECONNECTING",
             stream_type="",
@@ -340,7 +339,7 @@ class WSManager:
         # Exponential backoff with max delay
         self.reconnect_delay = min(self.reconnect_delay * 2, self.max_reconnect_delay)
 
-    async def _handle_market_message(self, data: Dict):
+    async def _handle_market_message(self, data: dict):
         """Handle market data message."""
         if "stream" in data:
             stream = data["stream"]
@@ -371,7 +370,7 @@ class WSManager:
             elif "@trade" in stream:
                 await self._handle_trade(payload)
 
-    async def _handle_user_message(self, data: Dict):
+    async def _handle_user_message(self, data: dict):
         """Handle user data message."""
         event_type = data.get("e")
 
@@ -384,10 +383,10 @@ class WSManager:
         else:
             logger.debug(f"Unhandled user event type: {event_type}")
 
-    async def _handle_ticker(self, data: Dict):
+    async def _handle_ticker(self, data: dict):
         """Handle ticker update."""
         event = MarketTick(
-            timestamp=datetime.fromtimestamp(data["E"] / 1000, tz=timezone.utc),
+            timestamp=datetime.fromtimestamp(data["E"] / 1000, tz=UTC),
             sequence=0,
             symbol=data["s"],
             bid=Decimal(data["b"]),
@@ -399,7 +398,7 @@ class WSManager:
         )
         self.event_bus.publish(event)
 
-    async def _handle_execution_report(self, data: Dict):
+    async def _handle_execution_report(self, data: dict):
         """Handle order execution report."""
         status = data["X"]  # Current order status
         exec_type = data["x"]  # Execution type
@@ -407,7 +406,7 @@ class WSManager:
         if exec_type == "TRADE":
             # Order fill event
             event = OrderFill(
-                timestamp=datetime.fromtimestamp(data["E"] / 1000, tz=timezone.utc),
+                timestamp=datetime.fromtimestamp(data["E"] / 1000, tz=UTC),
                 sequence=0,
                 client_order_id=data["c"],
                 exchange_order_id=str(data["i"]),
@@ -427,12 +426,12 @@ class WSManager:
 
             logger.info(f"Order fill: {data['c']} - {data['l']} @ {data['L']}")
 
-    async def _handle_account_update(self, data: Dict):
+    async def _handle_account_update(self, data: dict):
         """Handle account position update."""
         # Update internal balance tracking
         logger.debug(f"Account update: {data.get('B', [])}")
 
-    async def _handle_balance_update(self, data: Dict):
+    async def _handle_balance_update(self, data: dict):
         """Handle balance update."""
         logger.debug(f"Balance update: {data.get('a')} - {data.get('d')}")
 

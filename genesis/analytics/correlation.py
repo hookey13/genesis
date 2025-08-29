@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -86,7 +84,7 @@ class CorrelationMonitor:
     """Monitor and analyze portfolio correlations."""
 
     def __init__(
-        self, event_bus: Optional[EventBus] = None, config: Optional[dict] = None
+        self, event_bus: EventBus | None = None, config: dict | None = None
     ):
         """Initialize correlation monitor.
 

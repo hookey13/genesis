@@ -11,7 +11,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -47,8 +47,8 @@ class ClickLatencyTracker:
         self,
         window_size: int = 100,
         baseline_window: int = 500,
-        repository: Optional[Repository] = None,
-        profile_id: Optional[str] = None,
+        repository: Repository | None = None,
+        profile_id: str | None = None,
     ) -> None:
         """
         Initialize latency tracker.
@@ -69,8 +69,8 @@ class ClickLatencyTracker:
         self.baseline_latencies: deque[int] = deque(maxlen=baseline_window)
 
         # Statistical baselines
-        self.baseline_mean: Optional[float] = None
-        self.baseline_std: Optional[float] = None
+        self.baseline_mean: float | None = None
+        self.baseline_std: float | None = None
 
         # Action-specific tracking
         self.action_latencies: dict[str, deque[int]] = {}
@@ -83,7 +83,7 @@ class ClickLatencyTracker:
         )
 
     async def track_click_latency(
-        self, action_type: str, latency_ms: int, session_id: Optional[str] = None
+        self, action_type: str, latency_ms: int, session_id: str | None = None
     ) -> None:
         """
         Track click-to-action latency.
@@ -164,7 +164,7 @@ class ClickLatencyTracker:
                 max(self.baseline_mean * 0.1, 10) if self.baseline_mean else 10
             )
 
-    def get_metrics(self, action_type: Optional[str] = None) -> LatencyMetrics:
+    def get_metrics(self, action_type: str | None = None) -> LatencyMetrics:
         """
         Get statistical metrics for latency.
 
@@ -264,7 +264,7 @@ class OrderModificationTracker:
     """
 
     def __init__(
-        self, repository: Optional[Repository] = None, profile_id: Optional[str] = None
+        self, repository: Repository | None = None, profile_id: str | None = None
     ) -> None:
         """Initialize modification tracker.
 
@@ -294,7 +294,7 @@ class OrderModificationTracker:
         )
 
     async def track_order_modification(
-        self, order_id: str, modification_type: str, session_id: Optional[str] = None
+        self, order_id: str, modification_type: str, session_id: str | None = None
     ) -> None:
         """
         Track an order modification event.
@@ -394,8 +394,8 @@ class InactivityTracker:
     def __init__(
         self,
         inactivity_threshold_seconds: int = 30,
-        repository: Optional[Repository] = None,
-        profile_id: Optional[str] = None,
+        repository: Repository | None = None,
+        profile_id: str | None = None,
     ) -> None:
         """
         Initialize inactivity tracker.
@@ -407,7 +407,7 @@ class InactivityTracker:
         """
         self.inactivity_threshold = timedelta(seconds=inactivity_threshold_seconds)
         self.inactivity_periods: list[dict[str, Any]] = []
-        self.current_inactive_start: Optional[datetime] = None
+        self.current_inactive_start: datetime | None = None
         self.last_activity: datetime = datetime.now(UTC)
         self.repository = repository
         self.profile_id = profile_id
@@ -433,8 +433,8 @@ class InactivityTracker:
         self,
         start: datetime,
         end: datetime,
-        session_id: Optional[str] = None,
-        market_context: Optional[dict[str, Any]] = None,
+        session_id: str | None = None,
+        market_context: dict[str, Any] | None = None,
     ) -> None:
         """
         Track a period of inactivity.
@@ -483,7 +483,7 @@ class InactivityTracker:
 
         logger.info("inactivity_period_tracked", duration_seconds=duration)
 
-    def check_inactivity(self) -> Optional[float]:
+    def check_inactivity(self) -> float | None:
         """
         Check current inactivity duration.
 
@@ -543,7 +543,7 @@ class SessionAnalyzer:
     def __init__(self) -> None:
         """Initialize session analyzer."""
         self.sessions: list[dict[str, Any]] = []
-        self.current_session_start: Optional[datetime] = None
+        self.current_session_start: datetime | None = None
 
         logger.info("session_analyzer_initialized")
 
@@ -561,7 +561,7 @@ class SessionAnalyzer:
             start_time=self.current_session_start.isoformat(),
         )
 
-    def end_session(self, session_id: str) -> Optional[dict[str, Any]]:
+    def end_session(self, session_id: str) -> dict[str, Any] | None:
         """
         End current session and calculate metrics.
 
@@ -599,7 +599,7 @@ class SessionAnalyzer:
 
         return session_metrics
 
-    def analyze_session_duration(self, session_id: str) -> Optional[dict[str, Any]]:
+    def analyze_session_duration(self, session_id: str) -> dict[str, Any] | None:
         """
         Analyze a specific session's duration metrics.
 

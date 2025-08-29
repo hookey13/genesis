@@ -7,7 +7,7 @@ and P&L tracking with strict adherence to tier-based limits.
 
 from dataclasses import dataclass
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
-from typing import ClassVar, Optional
+from typing import ClassVar
 
 import structlog
 
@@ -38,8 +38,8 @@ class RiskDecision:
     """Result of a risk check."""
 
     approved: bool
-    reason: Optional[str] = None
-    adjusted_quantity: Optional[Decimal] = None
+    reason: str | None = None
+    adjusted_quantity: Decimal | None = None
     warnings: list[str] = None
 
 
@@ -84,7 +84,7 @@ class RiskEngine:
     def __init__(
         self,
         account: Account,
-        session: Optional[TradingSession] = None,
+        session: TradingSession | None = None,
         use_kelly_sizing: bool = True,
     ):
         """
@@ -126,9 +126,9 @@ class RiskEngine:
         self,
         symbol: str,
         entry_price: Decimal,
-        stop_loss_price: Optional[Decimal] = None,
-        custom_risk_percent: Optional[Decimal] = None,
-        strategy_id: Optional[str] = None,
+        stop_loss_price: Decimal | None = None,
+        custom_risk_percent: Decimal | None = None,
+        strategy_id: str | None = None,
         conviction: ConvictionLevel = ConvictionLevel.MEDIUM,
         use_volatility_adjustment: bool = True,
     ) -> Decimal:
@@ -322,7 +322,7 @@ class RiskEngine:
         self,
         entry_price: Decimal,
         side: PositionSide,
-        stop_loss_percent: Optional[Decimal] = None,
+        stop_loss_percent: Decimal | None = None,
     ) -> Decimal:
         """
         Calculate stop loss price based on entry and percentage.
@@ -717,3 +717,113 @@ class RiskEngine:
         )
 
         return risk_decision
+
+    def validate_configuration(self) -> bool:
+        """
+        Validate risk engine configuration.
+        
+        Returns:
+            True if configuration is valid
+        """
+        try:
+            # Check tier limits exist
+            if self.account.tier not in self.TIER_LIMITS:
+                logger.error("Invalid tier configuration", tier=self.account.tier.value)
+                return False
+
+            # Check account balance is valid
+            if self.account.balance_usdt < 0:
+                logger.error("Invalid account balance", balance=str(self.account.balance_usdt))
+                return False
+
+            # Check session if provided
+            if self.session:
+                if self.session.daily_loss_limit <= 0:
+                    logger.error("Invalid daily loss limit", limit=str(self.session.daily_loss_limit))
+                    return False
+
+            logger.info("Risk engine configuration validated successfully")
+            return True
+
+        except Exception as e:
+            logger.error("Risk engine configuration validation failed", error=str(e))
+            return False
+
+    async def validate_signal(self, signal) -> dict:
+        """
+        Validate a trading signal against risk parameters.
+        
+        Args:
+            signal: Trading signal to validate
+            
+        Returns:
+            Dictionary with approval status and position size
+        """
+        try:
+            # Basic validation
+            if not signal.symbol:
+                return {
+                    "approved": False,
+                    "reason": "Missing symbol",
+                    "position_size": Decimal("0")
+                }
+
+            # Check daily loss limit
+            if self.session and self.session.is_daily_limit_reached():
+                return {
+                    "approved": False,
+                    "reason": "Daily loss limit reached",
+                    "position_size": Decimal("0")
+                }
+
+            # Check position count
+            active_positions = len(self.positions)
+            if active_positions >= self.tier_limits["max_positions"]:
+                return {
+                    "approved": False,
+                    "reason": f"Maximum positions ({self.tier_limits['max_positions']}) reached",
+                    "position_size": Decimal("0")
+                }
+
+            # Calculate position size
+            try:
+                # Use a default entry price if not provided
+                entry_price = signal.price_target or Decimal("50000")  # Default for calculation
+
+                position_size = self.calculate_position_size(
+                    symbol=signal.symbol,
+                    entry_price=entry_price,
+                    stop_loss_price=signal.stop_loss,
+                    strategy_id=signal.strategy_id,
+                    conviction=ConvictionLevel.MEDIUM
+                )
+
+                # Check minimum position size
+                position_value = position_size * entry_price
+                if position_value < self.MINIMUM_POSITION_SIZE:
+                    return {
+                        "approved": False,
+                        "reason": f"Position size below minimum (${self.MINIMUM_POSITION_SIZE})",
+                        "position_size": Decimal("0")
+                    }
+
+                return {
+                    "approved": True,
+                    "position_size": position_size,
+                    "reason": None
+                }
+
+            except (InsufficientBalance, MinimumPositionSize) as e:
+                return {
+                    "approved": False,
+                    "reason": str(e),
+                    "position_size": Decimal("0")
+                }
+
+        except Exception as e:
+            logger.error("Signal validation failed", error=str(e), signal_id=signal.signal_id)
+            return {
+                "approved": False,
+                "reason": f"Validation error: {e!s}",
+                "position_size": Decimal("0")
+            }

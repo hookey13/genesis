@@ -1,9 +1,8 @@
 """Unit tests for StrategyOrchestrator."""
 
 import asyncio
-from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -12,12 +11,10 @@ import structlog
 
 from genesis.analytics.correlation_monitor import CorrelationMonitor
 from genesis.analytics.strategy_performance import StrategyPerformanceTracker
-from genesis.core.events import Event, EventType
-from genesis.core.models import Order, Position, Trade
 from genesis.engine.capital_allocator import CapitalAllocator, StrategyAllocation
 from genesis.engine.conflict_resolver import ConflictResolver
 from genesis.engine.event_bus import EventBus
-from genesis.engine.market_regime_detector import MarketRegime, MarketRegimeDetector
+from genesis.engine.market_regime_detector import MarketRegimeDetector
 from genesis.engine.risk_engine import RiskEngine
 from genesis.engine.strategy_orchestrator import (
     OrchestrationConfig,

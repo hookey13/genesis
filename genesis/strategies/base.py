@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 import structlog
@@ -38,7 +38,7 @@ class StrategyState:
     status: str = "IDLE"  # IDLE, RUNNING, PAUSED, STOPPED
     positions: list[Position] = field(default_factory=list)
     pending_orders: list[Order] = field(default_factory=list)
-    last_signal: Optional[Signal] = None
+    last_signal: Signal | None = None
     pnl_usdt: Decimal = Decimal("0")
     win_rate: Decimal = Decimal("0")
     trades_count: int = 0
@@ -52,13 +52,13 @@ class StrategyState:
 class BaseStrategy(ABC):
     """Abstract base class for trading strategies."""
 
-    def __init__(self, config: Optional[StrategyConfig] = None):
+    def __init__(self, config: StrategyConfig | None = None):
         """Initialize strategy with configuration."""
         self.config = config or StrategyConfig()
         self.state = StrategyState()
         self.event_queue: asyncio.Queue = asyncio.Queue()
         self._running = False
-        self._task: Optional[asyncio.Task] = None
+        self._task: asyncio.Task | None = None
 
     @property
     def strategy_id(self) -> UUID:

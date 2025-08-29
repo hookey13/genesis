@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -42,7 +42,7 @@ class RecoveryProtocol:
     loss_trades_count: int = 0
     total_profit: Decimal = Decimal("0")
     total_loss: Decimal = Decimal("0")
-    recovery_completed_at: Optional[datetime] = None
+    recovery_completed_at: datetime | None = None
     is_active: bool = True
     is_drawdown_recovery: bool = False
     drawdown_percentage: Decimal = Decimal("0")
@@ -81,8 +81,8 @@ class RecoveryProtocolManager:
 
     def __init__(
         self,
-        repository: Optional[SQLiteRepository] = None,
-        event_bus: Optional[EventBus] = None,
+        repository: SQLiteRepository | None = None,
+        event_bus: EventBus | None = None,
     ):
         """Initialize recovery protocol manager.
 
@@ -537,7 +537,7 @@ class RecoveryProtocolManager:
             ),
         )
 
-    def get_active_protocol(self, profile_id: str) -> Optional[RecoveryProtocol]:
+    def get_active_protocol(self, profile_id: str) -> RecoveryProtocol | None:
         """Get active recovery protocol for profile.
 
         Args:

@@ -1,22 +1,21 @@
 """Unit tests for Market Manipulation Detection."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
 from collections import deque
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from unittest.mock import AsyncMock
 
 import pytest
 
 from genesis.analytics.market_manipulation import (
-    ManipulationType,
-    OrderActivity,
     ManipulationPattern,
+    ManipulationType,
     MarketManipulationDetector,
+    OrderActivity,
 )
-from genesis.exchange.order_book_manager import OrderBookSnapshot, OrderBookLevel
 from genesis.engine.event_bus import EventBus
-from genesis.core.events import Event
+from genesis.exchange.order_book_manager import OrderBookLevel, OrderBookSnapshot
 
 
 class TestOrderActivity:
@@ -27,7 +26,7 @@ class TestOrderActivity:
         activity = OrderActivity(
             order_id="order_123",
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             price=Decimal("50000"),
             quantity=Decimal("1"),
             side="bid",
@@ -49,7 +48,7 @@ class TestManipulationPattern:
             pattern_id="spoof_123",
             symbol="BTCUSDT",
             manipulation_type=ManipulationType.SPOOFING,
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
             confidence=Decimal("0.8"),
             severity="high",
         )
@@ -64,7 +63,7 @@ class TestManipulationPattern:
             pattern_id="spoof_123",
             symbol="BTCUSDT",
             manipulation_type=ManipulationType.SPOOFING,
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
         )
 
         # Add orders
@@ -73,7 +72,7 @@ class TestManipulationPattern:
                 OrderActivity(
                     order_id=f"order_{_}",
                     symbol="BTCUSDT",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     price=Decimal("50000"),
                     quantity=Decimal("1"),
                     side="bid",
@@ -88,7 +87,7 @@ class TestManipulationPattern:
                 OrderActivity(
                     order_id=f"order_{_}",
                     symbol="BTCUSDT",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     price=Decimal("50000"),
                     quantity=Decimal("1"),
                     side="bid",
@@ -155,7 +154,7 @@ class TestMarketManipulationDetector:
     async def test_spoofing_detection(self, detector, event_bus):
         """Test detecting spoofing pattern."""
         # Create spoofing pattern: quick placement and cancellation
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
 
         # Place multiple orders
         for i in range(10):
@@ -194,7 +193,7 @@ class TestMarketManipulationDetector:
     async def test_layering_detection(self, detector, event_bus):
         """Test detecting layering pattern."""
         # Place multiple orders at different price levels
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
 
         for i in range(6):  # 6 orders at different levels
             await detector.track_order_placement(
@@ -269,7 +268,7 @@ class TestMarketManipulationDetector:
             OrderActivity(
                 "1",
                 "BTCUSDT",
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 Decimal("50000"),
                 Decimal("1"),
                 "bid",
@@ -279,7 +278,7 @@ class TestMarketManipulationDetector:
             OrderActivity(
                 "2",
                 "BTCUSDT",
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 Decimal("50000"),
                 Decimal("1"),
                 "bid",
@@ -289,7 +288,7 @@ class TestMarketManipulationDetector:
             OrderActivity(
                 "1",
                 "BTCUSDT",
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 Decimal("50000"),
                 Decimal("1"),
                 "bid",
@@ -328,7 +327,7 @@ class TestMarketManipulationDetector:
                 OrderActivity(
                     f"order_{i}",
                     "BTCUSDT",
-                    datetime.now(timezone.utc),
+                    datetime.now(UTC),
                     Decimal("50000") - Decimal(i * 10),  # Different prices
                     Decimal("10"),  # Same quantity (coordinated)
                     "bid",
@@ -358,7 +357,7 @@ class TestMarketManipulationDetector:
     async def test_quote_stuffing_detection(self, detector, event_bus):
         """Test detecting quote stuffing."""
         # Place and cancel many orders rapidly
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
 
         for i in range(60):  # 60 orders in quick succession
             detector.order_history.setdefault("BTCUSDT", deque(maxlen=1000))
@@ -405,7 +404,7 @@ class TestMarketManipulationDetector:
                 OrderActivity(
                     f"o{i}",
                     "BTCUSDT",
-                    datetime.now(timezone.utc),
+                    datetime.now(UTC),
                     Decimal("50000"),
                     Decimal("1"),
                     "bid",

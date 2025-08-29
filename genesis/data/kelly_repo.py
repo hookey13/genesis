@@ -8,7 +8,6 @@ and strategy performance metrics.
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 from sqlalchemy import JSON, Column, DateTime, Integer, Numeric, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -190,7 +189,7 @@ class KellyRepository:
             self.session.rollback()
             raise
 
-    def get_kelly_parameters(self, strategy_id: str) -> Optional[StrategyEdge]:
+    def get_kelly_parameters(self, strategy_id: str) -> StrategyEdge | None:
         """
         Retrieve Kelly parameters for a strategy.
 
@@ -222,7 +221,7 @@ class KellyRepository:
         balance: Decimal,
         kelly_params: KellyParams,
         tier: TradingTier,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """
         Save a Kelly calculation for audit trail.
@@ -295,7 +294,7 @@ class KellyRepository:
             self.session.rollback()
             raise
 
-    def get_strategy_performance(self, strategy_id: str) -> Optional[StrategyMetrics]:
+    def get_strategy_performance(self, strategy_id: str) -> StrategyMetrics | None:
         """
         Retrieve strategy performance metrics.
 

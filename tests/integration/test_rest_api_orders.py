@@ -5,7 +5,6 @@ Tests order placement, status checking, and cancellation through the
 Binance API gateway with proper authentication and testnet support.
 """
 
-import os
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -13,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from genesis.exchange.gateway import BinanceGateway
-from genesis.exchange.models import OrderRequest, OrderResponse
+from genesis.exchange.models import OrderRequest
 
 
 @pytest.fixture
@@ -66,30 +65,30 @@ class TestRestApiOrders:
                 mock_exchange.markets = {"BTC/USDT": {"active": True}}
                 mock_exchange.close = AsyncMock()
                 mock_binance.return_value = mock_exchange
-                
+
                 gateway = BinanceGateway()
                 await gateway.initialize()
-                
+
                 # Verify configuration
                 assert gateway._initialized is True
                 assert gateway.exchange is not None
-                
+
                 # Verify testnet configuration
                 config_call = mock_binance.call_args[0][0]
                 assert config_call["hostname"] == "testnet.binance.vision"
                 assert "testnet.binance.vision" in config_call["urls"]["api"]["public"]
-                
+
                 # Verify authentication
                 assert config_call["apiKey"] == "test_api_key"
                 assert config_call["secret"] == "test_secret"
-                
+
                 # Verify HMAC SHA256 will be used (configured in ccxt)
                 assert config_call["options"]["recvWindow"] == 5000
-                
+
                 # Verify rate limiting enabled
                 assert config_call["enableRateLimit"] is True
                 assert config_call["rateLimit"] == 1200
-                
+
                 await gateway.close()
 
     @pytest.mark.asyncio
@@ -98,7 +97,7 @@ class TestRestApiOrders:
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
             with patch("ccxt.async_support.binance", return_value=mock_ccxt_exchange):
                 gateway = BinanceGateway()
-                
+
                 # Configure mock order response
                 mock_ccxt_exchange.create_order.return_value = {
                     "id": "12345",
@@ -112,7 +111,7 @@ class TestRestApiOrders:
                     "filled": 0.001,
                     "timestamp": datetime.now().timestamp() * 1000,
                 }
-                
+
                 # Create order request
                 request = OrderRequest(
                     symbol="BTC/USDT",
@@ -121,10 +120,10 @@ class TestRestApiOrders:
                     quantity=Decimal("0.001"),
                     client_order_id="client_001",
                 )
-                
+
                 # Place order
                 response = await gateway.place_order(request)
-                
+
                 # Verify order placement
                 assert response.order_id == "12345"
                 assert response.client_order_id == "client_001"
@@ -132,8 +131,8 @@ class TestRestApiOrders:
                 assert response.side == "buy"
                 assert response.type == "market"
                 assert response.status == "closed"
-                assert response.filled_quantity == 0.001
-                
+                assert response.filled_quantity == Decimal("0.001")
+
                 # Verify ccxt was called correctly
                 mock_ccxt_exchange.create_order.assert_called_once_with(
                     symbol="BTC/USDT",
@@ -150,7 +149,7 @@ class TestRestApiOrders:
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
             with patch("ccxt.async_support.binance", return_value=mock_ccxt_exchange):
                 gateway = BinanceGateway()
-                
+
                 # Configure mock order response
                 mock_ccxt_exchange.create_order.return_value = {
                     "id": "12346",
@@ -164,7 +163,7 @@ class TestRestApiOrders:
                     "filled": 0,
                     "timestamp": datetime.now().timestamp() * 1000,
                 }
-                
+
                 # Create order request
                 request = OrderRequest(
                     symbol="BTC/USDT",
@@ -174,16 +173,16 @@ class TestRestApiOrders:
                     quantity=Decimal("0.001"),
                     client_order_id="client_002",
                 )
-                
+
                 # Place order
                 response = await gateway.place_order(request)
-                
+
                 # Verify order placement
                 assert response.order_id == "12346"
                 assert response.status == "open"
-                assert response.price == 51000
-                assert response.filled_quantity == 0
-                
+                assert response.price == Decimal("51000")
+                assert response.filled_quantity == Decimal("0")
+
                 # Verify ccxt was called with price
                 mock_ccxt_exchange.create_order.assert_called_once_with(
                     symbol="BTC/USDT",
@@ -200,7 +199,7 @@ class TestRestApiOrders:
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
             with patch("ccxt.async_support.binance", return_value=mock_ccxt_exchange):
                 gateway = BinanceGateway()
-                
+
                 # Configure mock status response
                 mock_ccxt_exchange.fetch_order.return_value = {
                     "id": "12345",
@@ -215,16 +214,16 @@ class TestRestApiOrders:
                     "timestamp": datetime.now().timestamp() * 1000,
                     "lastUpdateTimestamp": datetime.now().timestamp() * 1000,
                 }
-                
+
                 # Check order status
                 response = await gateway.get_order_status("12345", "BTC/USDT")
-                
+
                 # Verify status
                 assert response.order_id == "12345"
                 assert response.status == "closed"
-                assert response.filled_quantity == 0.001
+                assert response.filled_quantity == Decimal("0.001")
                 assert response.updated_at is not None
-                
+
                 # Verify ccxt was called correctly
                 mock_ccxt_exchange.fetch_order.assert_called_once_with("12345", "BTC/USDT")
 
@@ -234,19 +233,19 @@ class TestRestApiOrders:
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
             with patch("ccxt.async_support.binance", return_value=mock_ccxt_exchange):
                 gateway = BinanceGateway()
-                
+
                 # Configure mock cancel response
                 mock_ccxt_exchange.cancel_order.return_value = {
                     "id": "12345",
                     "status": "canceled",
                 }
-                
+
                 # Cancel order
                 result = await gateway.cancel_order("12345", "BTC/USDT")
-                
+
                 # Verify cancellation
                 assert result is True
-                
+
                 # Verify ccxt was called
                 mock_ccxt_exchange.cancel_order.assert_called_once_with("12345", "BTC/USDT")
 
@@ -260,27 +259,27 @@ class TestRestApiOrders:
                 mock_exchange.markets = {"BTC/USDT": {"active": True}}
                 mock_exchange.close = AsyncMock()
                 mock_binance.return_value = mock_exchange
-                
+
                 # Test with testnet enabled
                 mock_settings.exchange.binance_testnet = True
                 gateway = BinanceGateway()
                 await gateway.initialize()
-                
+
                 config_call = mock_binance.call_args[0][0]
                 assert config_call["hostname"] == "testnet.binance.vision"
                 assert "testnet.binance.vision" in config_call["urls"]["api"]["public"]
-                
+
                 await gateway.close()
-                
+
                 # Test with testnet disabled (production)
                 mock_settings.exchange.binance_testnet = False
                 gateway = BinanceGateway()
                 await gateway.initialize()
-                
+
                 config_call = mock_binance.call_args[0][0]
                 assert "hostname" not in config_call  # No hostname override for production
                 assert "urls" not in config_call  # No URL override for production
-                
+
                 await gateway.close()
 
     @pytest.mark.asyncio
@@ -289,7 +288,7 @@ class TestRestApiOrders:
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
             with patch("ccxt.async_support.binance", return_value=mock_ccxt_exchange):
                 gateway = BinanceGateway()
-                
+
                 # Test with precise decimal values
                 request = OrderRequest(
                     symbol="BTC/USDT",
@@ -299,7 +298,7 @@ class TestRestApiOrders:
                     quantity=Decimal("0.000123456789"),
                     client_order_id="precise_order",
                 )
-                
+
                 mock_ccxt_exchange.create_order.return_value = {
                     "id": "12347",
                     "clientOrderId": "precise_order",
@@ -312,13 +311,13 @@ class TestRestApiOrders:
                     "filled": 0,
                     "timestamp": datetime.now().timestamp() * 1000,
                 }
-                
+
                 response = await gateway.place_order(request)
-                
+
                 # Verify Decimal types are preserved
                 assert isinstance(request.price, Decimal)
                 assert isinstance(request.quantity, Decimal)
-                
+
                 # Verify ccxt receives float conversion
                 mock_ccxt_exchange.create_order.assert_called_once()
                 call_args = mock_ccxt_exchange.create_order.call_args
@@ -331,7 +330,7 @@ class TestRestApiOrders:
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
             with patch("ccxt.async_support.binance", return_value=mock_ccxt_exchange):
                 gateway = BinanceGateway()
-                
+
                 # Test order WITH client_order_id
                 request = OrderRequest(
                     symbol="BTC/USDT",
@@ -340,7 +339,7 @@ class TestRestApiOrders:
                     quantity=Decimal("0.001"),
                     client_order_id="my_idempotent_key",
                 )
-                
+
                 mock_ccxt_exchange.create_order.return_value = {
                     "id": "12348",
                     "clientOrderId": "my_idempotent_key",
@@ -353,9 +352,9 @@ class TestRestApiOrders:
                     "filled": 0.001,
                     "timestamp": datetime.now().timestamp() * 1000,
                 }
-                
+
                 await gateway.place_order(request)
-                
+
                 # Verify client_order_id was passed to params
                 call_args = mock_ccxt_exchange.create_order.call_args
                 assert "clientOrderId" in call_args[1]["params"]
@@ -367,7 +366,7 @@ class TestRestApiOrders:
         with patch("genesis.exchange.gateway.get_settings", return_value=mock_settings):
             with patch("ccxt.async_support.binance", return_value=mock_ccxt_exchange):
                 gateway = BinanceGateway()
-                
+
                 # Spy on rate limiter
                 with patch.object(gateway.rate_limiter, "check_and_wait", new=AsyncMock()) as mock_rate_check:
                     # Place an order
@@ -377,7 +376,7 @@ class TestRestApiOrders:
                         type="market",
                         quantity=Decimal("0.001"),
                     )
-                    
+
                     mock_ccxt_exchange.create_order.return_value = {
                         "id": "12349",
                         "symbol": "BTC/USDT",
@@ -389,15 +388,15 @@ class TestRestApiOrders:
                         "filled": 0.001,
                         "timestamp": datetime.now().timestamp() * 1000,
                     }
-                    
+
                     await gateway.place_order(request)
-                    
+
                     # Verify rate limiter was called
                     mock_rate_check.assert_called_once_with("POST", "/api/v3/order")
-                    
+
                     # Check order status
                     await gateway.get_order_status("12349", "BTC/USDT")
-                    
+
                     # Verify rate limiter was called for status check
                     assert mock_rate_check.call_count == 2
                     mock_rate_check.assert_called_with("GET", "/api/v3/order")
@@ -409,7 +408,7 @@ class TestRestApiOrders:
             # Enable mock mode
             gateway = BinanceGateway(mock_mode=True)
             await gateway.initialize()
-            
+
             # Place order in mock mode
             request = OrderRequest(
                 symbol="BTC/USDT",
@@ -419,20 +418,20 @@ class TestRestApiOrders:
                 quantity=Decimal("0.001"),
                 client_order_id="mock_test",
             )
-            
+
             response = await gateway.place_order(request)
-            
+
             # Verify mock response
             assert response.order_id == "mock_order_001"
             assert response.client_order_id == "mock_test"
             assert response.status == "open"
-            
+
             # Cancel order in mock mode
             result = await gateway.cancel_order("mock_order_001", "BTC/USDT")
             assert result is True
-            
+
             # Check status in mock mode
             status = await gateway.get_order_status("mock_order_001", "BTC/USDT")
             assert status.status == "filled"  # Mock always returns filled
-            
+
             await gateway.close()

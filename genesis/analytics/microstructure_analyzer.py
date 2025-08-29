@@ -1,24 +1,22 @@
 """Main Microstructure Analysis Module - Integrates all components."""
 
-import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
-from enum import Enum
 from collections import deque
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from enum import Enum
 
-import structlog
 import numpy as np
 import pandas as pd
+import structlog
 
-from genesis.engine.event_bus import EventBus
-from genesis.core.events import Event
-from genesis.exchange.order_book_manager import OrderBookManager, OrderBookSnapshot
-from genesis.analytics.order_flow_analysis import OrderFlowAnalyzer
 from genesis.analytics.large_trader_detection import LargeTraderDetector
 from genesis.analytics.market_manipulation import MarketManipulationDetector
+from genesis.analytics.order_flow_analysis import OrderFlowAnalyzer
 from genesis.analytics.price_impact_model import PriceImpactModel
+from genesis.core.events import Event
+from genesis.engine.event_bus import EventBus
+from genesis.exchange.order_book_manager import OrderBookManager, OrderBookSnapshot
 
 logger = structlog.get_logger(__name__)
 
@@ -56,8 +54,8 @@ class MarketMakerProfile:
     quote_frequency: Decimal  # Quotes per minute
     spread_preference: Decimal  # Typical spread maintained
     inventory_bias: str  # 'long', 'short', 'neutral'
-    withdrawal_triggers: List[str]  # Conditions causing withdrawal
-    activity_periods: List[Tuple[datetime, datetime]]  # Active time periods
+    withdrawal_triggers: list[str]  # Conditions causing withdrawal
+    activity_periods: list[tuple[datetime, datetime]]  # Active time periods
 
 
 @dataclass
@@ -83,7 +81,7 @@ class MicrostructureState:
     timestamp: datetime
     regime: MarketRegime
     regime_confidence: Decimal
-    transition_probability: Dict[MarketRegime, Decimal]
+    transition_probability: dict[MarketRegime, Decimal]
     flow_imbalance: Decimal
     whale_activity: bool
     manipulation_detected: bool
@@ -96,13 +94,13 @@ class ExecutionOptimizer:
 
     def __init__(self):
         """Initialize execution optimizer."""
-        self.volume_patterns: Dict[str, pd.DataFrame] = {}
-        self.spread_patterns: Dict[str, pd.DataFrame] = {}
-        self.participation_models: Dict[str, dict] = {}
+        self.volume_patterns: dict[str, pd.DataFrame] = {}
+        self.spread_patterns: dict[str, pd.DataFrame] = {}
+        self.participation_models: dict[str, dict] = {}
 
     def analyze_intraday_patterns(
         self, symbol: str, historical_data: pd.DataFrame
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """Analyze intraday volume and spread patterns.
 
         Args:
@@ -164,7 +162,7 @@ class ExecutionOptimizer:
 
     def get_execution_schedule(
         self, symbol: str, total_quantity: Decimal, duration_minutes: int
-    ) -> List[Tuple[datetime, Decimal]]:
+    ) -> list[tuple[datetime, Decimal]]:
         """Create execution schedule for large orders.
 
         Args:
@@ -176,7 +174,7 @@ class ExecutionOptimizer:
             List of (timestamp, quantity) tuples
         """
         schedule = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Simple TWAP with randomization
         slices = max(10, duration_minutes // 5)
@@ -198,12 +196,12 @@ class MarketMakerAnalyzer:
 
     def __init__(self):
         """Initialize market maker analyzer."""
-        self.maker_profiles: Dict[str, List[MarketMakerProfile]] = {}
-        self.quote_history: Dict[str, deque] = {}
+        self.maker_profiles: dict[str, list[MarketMakerProfile]] = {}
+        self.quote_history: dict[str, deque] = {}
 
     def identify_market_makers(
-        self, symbol: str, order_book_history: List[OrderBookSnapshot]
-    ) -> List[str]:
+        self, symbol: str, order_book_history: list[OrderBookSnapshot]
+    ) -> list[str]:
         """Identify potential market makers.
 
         Args:
@@ -241,7 +239,7 @@ class MarketMakerAnalyzer:
 
         return maker_ids
 
-    def _group_quotes(self, quotes: List[str]) -> List[List[str]]:
+    def _group_quotes(self, quotes: list[str]) -> list[list[str]]:
         """Group quotes that likely belong to same market maker.
 
         Args:
@@ -320,13 +318,13 @@ class ToxicityScorer:
 
     def __init__(self):
         """Initialize toxicity scorer."""
-        self.adverse_selection_history: Dict[str, deque] = {}
-        self.pin_scores: Dict[str, deque] = {}
+        self.adverse_selection_history: dict[str, deque] = {}
+        self.pin_scores: dict[str, deque] = {}
 
     def calculate_toxicity(
         self,
         symbol: str,
-        trades: List[dict],
+        trades: list[dict],
         manipulation_events: int,
         vpin_score: Decimal,
     ) -> ToxicityScore:
@@ -365,7 +363,7 @@ class ToxicityScorer:
 
         return ToxicityScore(
             symbol=symbol,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             toxicity_score=min(toxicity, Decimal("100")),
             adverse_selection=adverse_selection,
             informed_trading_probability=vpin_score,
@@ -375,7 +373,7 @@ class ToxicityScorer:
             recommendation=recommendation,
         )
 
-    def _calculate_adverse_selection(self, trades: List[dict]) -> Decimal:
+    def _calculate_adverse_selection(self, trades: list[dict]) -> Decimal:
         """Calculate adverse selection component.
 
         Args:
@@ -395,14 +393,12 @@ class ToxicityScorer:
             side = trades[i].get("side", "buy")
 
             # Adverse selection: price moves against liquidity provider
-            if side == "buy" and next_price > current_price:
-                adverse_moves += 1
-            elif side == "sell" and next_price < current_price:
+            if (side == "buy" and next_price > current_price) or (side == "sell" and next_price < current_price):
                 adverse_moves += 1
 
         return Decimal(str(adverse_moves * 100 / len(trades)))
 
-    def _calculate_spreads(self, trades: List[dict]) -> Tuple[Decimal, Decimal]:
+    def _calculate_spreads(self, trades: list[dict]) -> tuple[Decimal, Decimal]:
         """Calculate effective and realized spreads.
 
         Args:
@@ -454,15 +450,15 @@ class MicrostructureAnalyzer:
         self.toxicity_scorer = ToxicityScorer()
 
         # State tracking
-        self.current_states: Dict[str, MicrostructureState] = {}
-        self.regime_history: Dict[str, deque] = {}
+        self.current_states: dict[str, MicrostructureState] = {}
+        self.regime_history: dict[str, deque] = {}
 
         # Hidden Markov Model parameters for regime detection
         self.transition_matrix = self._initialize_transition_matrix()
 
     def _initialize_transition_matrix(
         self,
-    ) -> Dict[MarketRegime, Dict[MarketRegime, Decimal]]:
+    ) -> dict[MarketRegime, dict[MarketRegime, Decimal]]:
         """Initialize regime transition probabilities.
 
         Returns:
@@ -507,7 +503,7 @@ class MicrostructureAnalyzer:
         }
 
     async def analyze_market(
-        self, symbol: str, order_book: OrderBookSnapshot, recent_trades: List[dict]
+        self, symbol: str, order_book: OrderBookSnapshot, recent_trades: list[dict]
     ) -> MicrostructureState:
         """Perform comprehensive market microstructure analysis.
 
@@ -556,7 +552,7 @@ class MicrostructureAnalyzer:
             symbol,
             MicrostructureState(
                 symbol=symbol,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 regime=MarketRegime.NORMAL,
                 regime_confidence=Decimal("0.5"),
                 transition_probability={},
@@ -573,7 +569,7 @@ class MicrostructureAnalyzer:
         # Create state
         state = MicrostructureState(
             symbol=symbol,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             regime=regime,
             regime_confidence=confidence,
             transition_probability=transition_probs,
@@ -606,7 +602,7 @@ class MicrostructureAnalyzer:
         whale_activity: bool,
         manipulation_detected: bool,
         toxicity: Decimal,
-    ) -> Tuple[MarketRegime, Decimal]:
+    ) -> tuple[MarketRegime, Decimal]:
         """Detect current market regime using HMM.
 
         Args:
@@ -657,7 +653,7 @@ class MicrostructureAnalyzer:
         return regime, confidence
 
     def _calculate_execution_quality(
-        self, order_book: Optional[OrderBookSnapshot], toxicity: Decimal
+        self, order_book: OrderBookSnapshot | None, toxicity: Decimal
     ) -> Decimal:
         """Calculate execution quality score.
 
@@ -711,7 +707,7 @@ class MicrostructureAnalyzer:
             )
         )
 
-    async def start(self, symbols: List[str]) -> None:
+    async def start(self, symbols: list[str]) -> None:
         """Start microstructure analysis.
 
         Args:

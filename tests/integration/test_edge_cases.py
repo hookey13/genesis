@@ -3,30 +3,28 @@ Edge case validation suite.
 Tests zero balance, partial fills, extreme conditions, and boundary cases.
 """
 
-import asyncio
-import pytest
-from decimal import Decimal, InvalidOperation
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timedelta
-import structlog
-import math
+from decimal import Decimal, InvalidOperation
+from unittest.mock import AsyncMock, Mock
 
+import pytest
+import structlog
+
+from genesis.core.constants import TradingTier as TierType
 from genesis.core.models import (
-    Position,
     Order,
-    Trade,
-    Signal,
+    OrderSide,
     OrderStatus,
     OrderType,
-    OrderSide,
+    Position,
+    Signal,
+    Trade,
 )
-from genesis.core.constants import TradingTier as TierType
-from genesis.engine.strategy_orchestrator import StrategyOrchestrator
-from genesis.engine.risk_engine import RiskEngine
-from genesis.data.repository import Repository
-from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
-from genesis.core.account_manager import AccountManager
 from genesis.core.single_account_manager import SingleAccountManager
+from genesis.data.repository import Repository
+from genesis.engine.risk_engine import RiskEngine
+from genesis.engine.strategy_orchestrator import StrategyOrchestrator
+from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 
 logger = structlog.get_logger()
 

@@ -4,31 +4,29 @@ Tests complete order lifecycle, tier features, risk limits, and emergency proced
 """
 
 import asyncio
-import pytest
-from decimal import Decimal
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from datetime import datetime, timedelta
-import structlog
-import json
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock
 
-from genesis.core.models import (
-    Position,
-    Order,
-    Trade,
-    Signal,
-    OrderStatus,
-    OrderType,
-    OrderSide,
-)
-from genesis.core.constants import TradingTier as TierType
-from genesis.engine.strategy_orchestrator import StrategyOrchestrator
-from genesis.engine.risk_engine import RiskEngine
-from genesis.engine.state_machine import TierStateMachine
-from genesis.data.repository import Repository
-from genesis.data.performance_repo import PerformanceRepository
-from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
+import pytest
+import structlog
+
 from genesis.analytics.performance_attribution import PerformanceAttributionEngine
 from genesis.core.account_manager import AccountManager
+from genesis.core.constants import TradingTier as TierType
+from genesis.core.models import (
+    Order,
+    OrderSide,
+    OrderStatus,
+    OrderType,
+    Position,
+    Trade,
+)
+from genesis.data.repository import Repository
+from genesis.engine.risk_engine import RiskEngine
+from genesis.engine.state_machine import TierStateMachine
+from genesis.engine.strategy_orchestrator import StrategyOrchestrator
+from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 
 logger = structlog.get_logger()
 

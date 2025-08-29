@@ -14,8 +14,6 @@ from enum import Enum
 
 import structlog
 
-from typing import Optional
-
 from genesis.core.exceptions import StateError, ValidationError
 from genesis.data.models_db import (
     PaperTradingSession,
@@ -75,10 +73,10 @@ class PaperTrade:
     side: str  # BUY/SELL
     quantity: Decimal
     entry_price: Decimal
-    exit_price: Optional[Decimal] = None
-    pnl: Optional[Decimal] = None
+    exit_price: Decimal | None = None
+    pnl: Decimal | None = None
     opened_at: datetime = field(default_factory=datetime.utcnow)
-    closed_at: Optional[datetime] = None
+    closed_at: datetime | None = None
     execution_method: str = ""
     notes: str = ""
 
@@ -122,7 +120,7 @@ class SessionMetrics:
 class PaperTradingEnforcer:
     """Enforces paper trading requirements before live trading."""
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """Initialize paper trading enforcer.
 
         Args:
@@ -137,7 +135,7 @@ class PaperTradingEnforcer:
         account_id: str,
         strategy: str,
         duration_hours: int,
-        transition_id: Optional[str] = None,
+        transition_id: str | None = None,
     ) -> str:
         """Create and enforce paper trading requirement.
 
@@ -234,7 +232,7 @@ class PaperTradingEnforcer:
         session_id: str,
         trade_id: str,
         exit_price: Decimal,
-        closed_at: Optional[datetime] = None,
+        closed_at: datetime | None = None,
     ) -> PaperTrade:
         """Close a paper trade and calculate P&L.
 
@@ -597,7 +595,7 @@ class PaperTradingEnforcer:
             )
             self.session.rollback()
 
-    def get_active_sessions(self, account_id: Optional[str] = None) -> list[str]:
+    def get_active_sessions(self, account_id: str | None = None) -> list[str]:
         """Get list of active paper trading sessions.
 
         Args:

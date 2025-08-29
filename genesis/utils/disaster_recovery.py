@@ -6,12 +6,9 @@ emergency position close procedures, and system state snapshot/restore.
 """
 
 import json
-import os
-import shutil
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from uuid import uuid4
+from typing import Any
 
 import structlog
 
@@ -66,7 +63,7 @@ class DisasterRecovery:
                 return False
 
             # Try to load backup
-            with open(backup_file, "r") as f:
+            with open(backup_file) as f:
                 data = json.load(f)
 
             # Verify required fields
@@ -97,7 +94,7 @@ class DisasterRecovery:
             return False
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def recover_positions_from_events(self, account_id: str) -> List[Position]:
+    async def recover_positions_from_events(self, account_id: str) -> list[Position]:
         """
         Recover positions from event store.
 
@@ -164,7 +161,7 @@ class DisasterRecovery:
             raise
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def emergency_close_all_positions(self, account_id: str) -> Dict[str, Any]:
+    async def emergency_close_all_positions(self, account_id: str) -> dict[str, Any]:
         """
         Emergency close all positions.
 
@@ -230,7 +227,7 @@ class DisasterRecovery:
                     "account_id": account_id,
                     "closed_count": len(results["closed_positions"]),
                     "failed_count": len(results["failed_closures"]),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
@@ -256,7 +253,7 @@ class DisasterRecovery:
             Path to snapshot file
         """
         try:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
             snapshot_name = f"snapshot_{timestamp.strftime('%Y%m%d_%H%M%S')}.json"
             snapshot_path = self.backup_path / snapshot_name
 
@@ -339,7 +336,7 @@ class DisasterRecovery:
                 return False
 
             # Load snapshot
-            with open(snapshot_path, "r") as f:
+            with open(snapshot_path) as f:
                 snapshot = json.load(f)
 
             # Restore accounts

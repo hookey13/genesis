@@ -1,12 +1,10 @@
 """Price Impact Model for trade execution analysis."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
 
-import structlog
 import numpy as np
+import structlog
 
 from genesis.exchange.order_book_manager import OrderBookSnapshot
 
@@ -46,16 +44,16 @@ class PriceImpactModel:
         """
         self.alpha = alpha
         self.beta = beta
-        self.market_depth_estimates: Dict[str, Decimal] = {}
-        self.kyle_lambda_estimates: Dict[str, Decimal] = {}
-        self.execution_history: Dict[str, List[Tuple[Decimal, Decimal, Decimal]]] = {}
+        self.market_depth_estimates: dict[str, Decimal] = {}
+        self.kyle_lambda_estimates: dict[str, Decimal] = {}
+        self.execution_history: dict[str, list[tuple[Decimal, Decimal, Decimal]]] = {}
 
     def estimate_impact(
         self,
         symbol: str,
         side: str,
         quantity: Decimal,
-        order_book: Optional[OrderBookSnapshot] = None,
+        order_book: OrderBookSnapshot | None = None,
         participation_rate: Decimal = Decimal("0.1"),
     ) -> PriceImpactEstimate:
         """Estimate price impact for an order.
@@ -117,7 +115,7 @@ class PriceImpactModel:
         )
 
     def _estimate_market_depth(
-        self, symbol: str, order_book: Optional[OrderBookSnapshot]
+        self, symbol: str, order_book: OrderBookSnapshot | None
     ) -> Decimal:
         """Estimate market depth from order book or history.
 
@@ -168,7 +166,7 @@ class PriceImpactModel:
         return kyle_lambda
 
     def _calculate_confidence(
-        self, symbol: str, order_book: Optional[OrderBookSnapshot]
+        self, symbol: str, order_book: OrderBookSnapshot | None
     ) -> Decimal:
         """Calculate confidence in impact estimate.
 
@@ -243,7 +241,7 @@ class PriceImpactModel:
         # Simple linear regression
         if len(impacts) >= 10:
             # Kyle's lambda = impact / quantity
-            lambdas = [i / q for i, q in zip(impacts, quantities) if q > 0]
+            lambdas = [i / q for i, q in zip(impacts, quantities, strict=False) if q > 0]
             if lambdas:
                 self.kyle_lambda_estimates[symbol] = Decimal(str(np.median(lambdas)))
 

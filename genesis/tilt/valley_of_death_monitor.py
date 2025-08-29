@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -60,7 +60,7 @@ class TransitionProximity:
         return self.distance_percentage >= Decimal("95")
 
     @property
-    def days_at_current_rate(self) -> Optional[int]:
+    def days_at_current_rate(self) -> int | None:
         """Estimate days to threshold at current growth rate."""
         # This would need historical data to calculate
         # Placeholder for now
@@ -70,7 +70,7 @@ class TransitionProximity:
 class TransitionMonitor:
     """Monitors account proximity to tier transitions."""
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """Initialize transition monitor.
 
         Args:
@@ -195,7 +195,7 @@ class TransitionMonitor:
             account_id: Account to monitor
             check_interval_seconds: Check interval
         """
-        last_proximity: Optional[TransitionProximity] = None
+        last_proximity: TransitionProximity | None = None
 
         while True:
             try:
@@ -251,7 +251,7 @@ class TransitionMonitor:
         self,
         account_id: str,
         proximity: TransitionProximity,
-        last_proximity: Optional[TransitionProximity],
+        last_proximity: TransitionProximity | None,
     ) -> None:
         """Handle detection of approaching tier transition.
 
@@ -419,7 +419,7 @@ class TransitionMonitor:
 
     def _get_next_tier_info(
         self, current_tier: str
-    ) -> tuple[Optional[str], Optional[Decimal]]:
+    ) -> tuple[str | None, Decimal | None]:
         """Get next tier name and threshold.
 
         Args:

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Repository for correlation data persistence."""
 
 import logging
@@ -17,7 +15,7 @@ logger = logging.getLogger(__name__)
 class CorrelationRepository:
     """Repository for managing correlation data."""
 
-    def __init__(self, connection_string: Optional[str] = None):
+    def __init__(self, connection_string: str | None = None):
         """Initialize repository with database connection.
 
         Args:
@@ -143,7 +141,7 @@ class CorrelationRepository:
 
     async def get_correlation(
         self, position_1_id: UUID, position_2_id: UUID
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Get correlation between two positions.
 
         Args:
@@ -184,7 +182,7 @@ class CorrelationRepository:
         return None
 
     async def get_position_correlations(
-        self, position_id: UUID, threshold: Optional[Decimal] = None
+        self, position_id: UUID, threshold: Decimal | None = None
     ) -> list[dict]:
         """Get all correlations for a specific position.
 

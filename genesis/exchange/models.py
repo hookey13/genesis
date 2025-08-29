@@ -7,7 +7,6 @@ including request/response validation and data structures.
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -22,9 +21,9 @@ class OrderRequest(BaseModel):
         pattern="^(market|limit|stop_limit|FOK|IOC|POST_ONLY|LIMIT_MAKER|MARKET|LIMIT|STOP_LIMIT)$",
     )
     quantity: Decimal = Field(..., gt=0)
-    price: Optional[Decimal] = Field(None, gt=0)
-    stop_price: Optional[Decimal] = Field(None, gt=0)
-    client_order_id: Optional[str] = Field(None, min_length=1, max_length=36)
+    price: Decimal | None = Field(None, gt=0)
+    stop_price: Decimal | None = Field(None, gt=0)
+    client_order_id: str | None = Field(None, min_length=1, max_length=36)
 
     @field_validator("quantity", "price", "stop_price", mode="before")
     @classmethod
@@ -56,16 +55,16 @@ class OrderResponse(BaseModel):
     """Order placement/query response."""
 
     order_id: str = Field(..., description="Exchange order ID")
-    client_order_id: Optional[str] = Field(None, description="Client order ID")
+    client_order_id: str | None = Field(None, description="Client order ID")
     symbol: str
     side: str
     type: str
-    price: Optional[Decimal]
+    price: Decimal | None
     quantity: Decimal
     filled_quantity: Decimal = Field(default=Decimal("0"))
     status: str = Field(..., description="Order status")
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime | None = None
 
     @field_validator("price", "quantity", "filled_quantity", mode="before")
     @classmethod

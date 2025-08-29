@@ -6,28 +6,23 @@ All timestamps are UTC. Enums use CHECK constraints for portability.
 """
 
 import uuid
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import (
+    JSON,
     NUMERIC,
-    Boolean,
     CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     Text,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects import postgresql, sqlite
 
 Base = declarative_base()
 
@@ -48,7 +43,7 @@ def get_timestamp_column(nullable=False, index=False):
     col = Column(
         DateTime(timezone=True),
         nullable=nullable,
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
     )
     if index:
         col.index = True

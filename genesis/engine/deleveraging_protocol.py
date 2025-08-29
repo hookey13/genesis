@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -99,7 +99,7 @@ class DeleveragingResult:
     slippage: Decimal
     realized_pnl: Decimal
     success: bool
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class DeleveragingProtocol:

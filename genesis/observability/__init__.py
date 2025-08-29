@@ -95,7 +95,7 @@ class ObservabilityManager:
             {"version": "1.0.0", "tier": "sniper", "environment": "development"}
         )
 
-    def record_metric(self, name: str, value: float, labels: Optional[dict] = None):
+    def record_metric(self, name: str, value: float, labels: dict | None = None):
         """Record a metric value."""
         if name not in self._metrics:
             logger.warning(f"Metric {name} not found")
@@ -120,7 +120,7 @@ class ObservabilityManager:
         name: str,
         metric_type: MetricType,
         description: str,
-        labels: Optional[list] = None,
+        labels: list | None = None,
     ):
         """Create a new metric."""
         labels = labels or []
@@ -226,7 +226,7 @@ class AlertManager:
         self.alert_handlers[name] = handler
 
     async def send_alert(
-        self, level: str, title: str, message: str, metadata: Optional[dict] = None
+        self, level: str, title: str, message: str, metadata: dict | None = None
     ):
         """Send an alert through all registered handlers."""
         alert = {

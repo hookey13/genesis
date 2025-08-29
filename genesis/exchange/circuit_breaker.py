@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -31,7 +31,7 @@ class FailureRecord:
 
     timestamp: float
     error: str
-    endpoint: Optional[str] = None
+    endpoint: str | None = None
 
 
 class CircuitBreaker:
@@ -78,7 +78,7 @@ class CircuitBreaker:
         self.state = CircuitState.CLOSED
         self.failures: list[FailureRecord] = []
         self.consecutive_successes = 0
-        self.last_failure_time: Optional[float] = None
+        self.last_failure_time: float | None = None
         self.state_changed_at: float = time.time()
         self.current_backoff = 1.0
 
@@ -203,7 +203,7 @@ class CircuitBreaker:
         if self.state == CircuitState.CLOSED:
             self._clean_old_failures()
 
-    def _on_failure(self, error: str, endpoint: Optional[str] = None) -> None:
+    def _on_failure(self, error: str, endpoint: str | None = None) -> None:
         """Handle failed call."""
         self.failed_calls += 1
         self.last_failure_time = time.time()

@@ -1,33 +1,32 @@
 """Integration tests for multi-account institutional workflows - End-to-end validation."""
 
-import pytest
-import asyncio
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
-from typing import Dict, List, Any
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
+
+from genesis.analytics.compliance_reporter import ComplianceReporter
+from genesis.analytics.reconciliation import ReconciliationEngine
+from genesis.analytics.risk_dashboard import RiskDashboard
+from genesis.analytics.tax_optimizer import TaxOptimizer
+from genesis.core.account_manager import AccountManager
 from genesis.core.models import (
     Account,
     AccountType,
-    Position,
     Order,
     OrderSide,
     OrderType,
+    Position,
     TaxMethod,
 )
-from genesis.engine.state_machine import Tier
-from genesis.core.account_manager import AccountManager
-from genesis.analytics.compliance_reporter import ComplianceReporter
-from genesis.analytics.risk_dashboard import RiskDashboard
-from genesis.analytics.reconciliation import ReconciliationEngine
-from genesis.analytics.tax_optimizer import TaxOptimizer
-from genesis.exchange.fix_gateway import FIXGateway
-from genesis.exchange.prime_broker import PrimeBrokerAdapter
-from genesis.utils.disaster_recovery import DisasterRecovery
 from genesis.data.repository import Repository
 from genesis.engine.event_bus import EventBus
+from genesis.engine.state_machine import Tier
+from genesis.exchange.fix_gateway import FIXGateway
 from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
+from genesis.exchange.prime_broker import PrimeBrokerAdapter
+from genesis.utils.disaster_recovery import DisasterRecovery
 
 
 class TestMultiAccountInstitutionalWorkflows:
@@ -223,7 +222,7 @@ class TestMultiAccountInstitutionalWorkflows:
                 "side": "BUY",
                 "quantity": Decimal("1.0"),
                 "price": Decimal("45000.00"),
-                "timestamp": datetime.now(timezone.utc) - timedelta(days=1),
+                "timestamp": datetime.now(UTC) - timedelta(days=1),
             },
             {
                 "trade_id": "T002",
@@ -232,7 +231,7 @@ class TestMultiAccountInstitutionalWorkflows:
                 "side": "SELL",
                 "quantity": Decimal("10.0"),
                 "price": Decimal("3100.00"),
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         ]
 
@@ -242,8 +241,8 @@ class TestMultiAccountInstitutionalWorkflows:
         mifid_report = await compliance_reporter.generate_report(
             account_id="SUB_001",
             report_type="MiFID_II",
-            period_start=datetime.now(timezone.utc) - timedelta(days=7),
-            period_end=datetime.now(timezone.utc),
+            period_start=datetime.now(UTC) - timedelta(days=7),
+            period_end=datetime.now(UTC),
         )
 
         assert mifid_report["report_type"] == "MiFID_II"
@@ -255,8 +254,8 @@ class TestMultiAccountInstitutionalWorkflows:
         emir_report = await compliance_reporter.generate_report(
             account_id="SUB_002",
             report_type="EMIR",
-            period_start=datetime.now(timezone.utc) - timedelta(days=7),
-            period_end=datetime.now(timezone.utc),
+            period_start=datetime.now(UTC) - timedelta(days=7),
+            period_end=datetime.now(UTC),
         )
 
         assert emir_report["report_type"] == "EMIR"
@@ -376,7 +375,7 @@ class TestMultiAccountInstitutionalWorkflows:
                 "symbol": "BTC/USDT",
                 "quantity": Decimal("2.0"),
                 "cost_basis": Decimal("80000.00"),
-                "acquisition_date": datetime.now(timezone.utc) - timedelta(days=400),
+                "acquisition_date": datetime.now(UTC) - timedelta(days=400),
                 "current_price": Decimal("45000.00"),
             },
             {
@@ -385,7 +384,7 @@ class TestMultiAccountInstitutionalWorkflows:
                 "symbol": "BTC/USDT",
                 "quantity": Decimal("3.0"),
                 "cost_basis": Decimal("135000.00"),
-                "acquisition_date": datetime.now(timezone.utc) - timedelta(days=100),
+                "acquisition_date": datetime.now(UTC) - timedelta(days=100),
                 "current_price": Decimal("45000.00"),
             },
         ]

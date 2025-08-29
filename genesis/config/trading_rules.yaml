@@ -1,0 +1,165 @@
+# Trading Rules Configuration for Project GENESIS
+# Tier-based limits and risk parameters
+
+# Tier limits and risk parameters
+tiers:
+  SNIPER:
+    max_position_size: 100.0  # $100 max per position
+    daily_loss_limit: 10.0  # 10% daily loss limit (as percentage)
+    position_risk_percent: 5.0  # 5% risk per trade
+    max_positions: 3  # Maximum 3 concurrent positions
+    stop_loss_percent: 2.0  # 2% stop loss
+    allowed_strategies:
+      - momentum
+      - breakout
+      - simple_arb
+      - spread_capture
+    max_leverage: 1.0  # No leverage for SNIPER
+    min_win_rate: 0.45  # Minimum 45% win rate to progress
+    max_drawdown: 25.0  # Maximum 25% drawdown allowed
+    recovery_lockout_hours: 4  # 4 hour lockout after tilt level 3
+    tilt_thresholds:
+      level_1: 3  # Warning after 3 anomalies
+      level_2: 5  # Position sizing reduction after 5
+      level_3: 7  # Trading lockout after 7
+  
+  HUNTER:
+    max_position_size: 500.0  # $500 max per position
+    daily_loss_limit: 10.0  # 10% daily loss limit
+    position_risk_percent: 5.0  # 5% risk per trade
+    max_positions: 5  # Maximum 5 concurrent positions
+    stop_loss_percent: 2.0  # 2% stop loss
+    allowed_strategies:
+      - momentum
+      - breakout
+      - simple_arb
+      - spread_capture
+      - multi_pair
+      - mean_reversion
+      - iceberg_execution
+    max_leverage: 2.0  # 2x leverage for HUNTER
+    min_win_rate: 0.50  # Minimum 50% win rate to progress
+    max_drawdown: 20.0  # Maximum 20% drawdown allowed
+    recovery_lockout_hours: 2  # 2 hour lockout after tilt level 3
+    tilt_thresholds:
+      level_1: 4
+      level_2: 6
+      level_3: 8
+    kelly_sizing:
+      enabled: true
+      max_kelly_fraction: 0.25
+      lookback_days: 30
+      min_trades: 20
+  
+  STRATEGIST:
+    max_position_size: 2000.0  # $2000 max per position
+    daily_loss_limit: 10.0  # 10% daily loss limit
+    position_risk_percent: 5.0  # 5% risk per trade
+    max_positions: 10  # Maximum 10 concurrent positions
+    stop_loss_percent: 2.0  # 2% stop loss
+    allowed_strategies:
+      - momentum
+      - breakout
+      - simple_arb
+      - spread_capture
+      - multi_pair
+      - mean_reversion
+      - iceberg_execution
+      - statistical_arb
+      - market_making
+      - vwap_execution
+    max_leverage: 3.0  # 3x leverage for STRATEGIST
+    min_win_rate: 0.55  # Minimum 55% win rate to progress
+    max_drawdown: 15.0  # Maximum 15% drawdown allowed
+    recovery_lockout_hours: 1  # 1 hour lockout after tilt level 3
+    tilt_thresholds:
+      level_1: 5
+      level_2: 7
+      level_3: 10
+    kelly_sizing:
+      enabled: true
+      max_kelly_fraction: 0.50
+      lookback_days: 60
+      min_trades: 50
+    conviction_multipliers:
+      HIGH: 1.5
+      MEDIUM: 1.0
+      LOW: 0.5
+  
+  ARCHITECT:
+    max_position_size: 10000.0  # $10000 max per position
+    daily_loss_limit: 10.0  # 10% daily loss limit
+    position_risk_percent: 5.0  # 5% risk per trade
+    max_positions: 20  # Maximum 20 concurrent positions
+    stop_loss_percent: 2.0  # 2% stop loss
+    allowed_strategies:
+      - all  # All strategies available
+    max_leverage: 5.0  # 5x leverage for ARCHITECT
+    min_win_rate: 0.60  # Minimum 60% win rate maintained
+    max_drawdown: 10.0  # Maximum 10% drawdown allowed
+    recovery_lockout_hours: 0.5  # 30 minute lockout after tilt level 3
+    tilt_thresholds:
+      level_1: 6
+      level_2: 9
+      level_3: 12
+    kelly_sizing:
+      enabled: true
+      max_kelly_fraction: 0.75
+      lookback_days: 90
+      min_trades: 100
+    conviction_multipliers:
+      HIGH: 2.0
+      MEDIUM: 1.0
+      LOW: 0.25
+
+# Global risk rules (apply to all tiers)
+global_rules:
+  min_position_size: 10.0  # $10 minimum position size
+  max_portfolio_exposure: 90.0  # 90% max portfolio exposure (percentage)
+  max_correlation_exposure: 60.0  # 60% max in correlated positions
+  force_close_loss_percent: 50.0  # Force close all positions at 50% loss
+  max_daily_trades: 100  # Maximum trades per day
+  max_slippage_percent: 0.5  # Maximum 0.5% slippage allowed
+  order_timeout_seconds: 30  # Cancel orders after 30 seconds
+  
+# Exchange-specific limits
+exchange_limits:
+  binance:
+    rate_limit_per_second: 10  # API calls per second
+    max_order_size_usdt: 100000.0  # Maximum single order size
+    min_order_size_usdt: 10.0  # Minimum order size
+    max_websocket_connections: 5
+
+# Market conditions adjustments
+market_conditions:
+  high_volatility:
+    position_size_multiplier: 0.5  # Reduce position size by 50%
+    stop_loss_multiplier: 1.5  # Widen stop loss by 50%
+    max_positions_multiplier: 0.7  # Reduce max positions by 30%
+  low_volatility:
+    position_size_multiplier: 1.2  # Increase position size by 20%
+    stop_loss_multiplier: 0.8  # Tighten stop loss by 20%
+    max_positions_multiplier: 1.0  # No change to max positions
+  
+# Tier progression gates
+tier_gates:
+  SNIPER_TO_HUNTER:
+    capital_required: 2000.0  # Need $2000
+    trades_required: 100  # Need 100 trades
+    win_rate_required: 0.45  # Need 45% win rate
+    days_required: 30  # Need 30 days of trading
+    max_drawdown_allowed: 25.0  # Cannot exceed 25% drawdown
+  
+  HUNTER_TO_STRATEGIST:
+    capital_required: 10000.0  # Need $10000
+    trades_required: 500  # Need 500 trades
+    win_rate_required: 0.50  # Need 50% win rate
+    days_required: 90  # Need 90 days of trading
+    max_drawdown_allowed: 20.0  # Cannot exceed 20% drawdown
+    
+  STRATEGIST_TO_ARCHITECT:
+    capital_required: 50000.0  # Need $50000
+    trades_required: 2000  # Need 2000 trades
+    win_rate_required: 0.55  # Need 55% win rate
+    days_required: 180  # Need 180 days of trading
+    max_drawdown_allowed: 15.0  # Cannot exceed 15% drawdown

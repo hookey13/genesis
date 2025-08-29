@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Strategy restriction system for recovery mode."""
 
@@ -31,7 +30,7 @@ class StrategyRestrictionManager:
         self._restricted_accounts: dict[str, set[str]] = {}
         self._strategy_performance: dict[str, dict] = {}
         self._cache_ttl = timedelta(hours=1)
-        self._last_cache_update: Optional[datetime] = None
+        self._last_cache_update: datetime | None = None
 
     @requires_tier(TradingTier.HUNTER)
     def restrict_strategies(

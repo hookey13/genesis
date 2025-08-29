@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 from uuid import uuid4
 
 import structlog
@@ -54,26 +53,26 @@ class Order:
     """Order data structure."""
 
     order_id: str
-    position_id: Optional[str]
+    position_id: str | None
     client_order_id: str
     symbol: str
     type: OrderType
     side: OrderSide
-    price: Optional[Decimal]
+    price: Decimal | None
     quantity: Decimal
     filled_quantity: Decimal = Decimal("0")
     status: OrderStatus = OrderStatus.PENDING
-    slice_number: Optional[int] = None
-    total_slices: Optional[int] = None
-    latency_ms: Optional[int] = None
-    slippage_percent: Optional[Decimal] = None
+    slice_number: int | None = None
+    total_slices: int | None = None
+    latency_ms: int | None = None
+    slippage_percent: Decimal | None = None
     created_at: datetime = None
-    executed_at: Optional[datetime] = None
-    exchange_order_id: Optional[str] = None
-    routing_method: Optional[str] = None
-    maker_fee_paid: Optional[Decimal] = None
-    taker_fee_paid: Optional[Decimal] = None
-    execution_score: Optional[float] = None
+    executed_at: datetime | None = None
+    exchange_order_id: str | None = None
+    routing_method: str | None = None
+    maker_fee_paid: Decimal | None = None
+    taker_fee_paid: Decimal | None = None
+    execution_score: float | None = None
 
     def __post_init__(self):
         """Initialize timestamps if not provided."""
@@ -90,10 +89,10 @@ class ExecutionResult:
     success: bool
     order: Order
     message: str
-    actual_price: Optional[Decimal] = None
-    slippage_percent: Optional[Decimal] = None
-    latency_ms: Optional[int] = None
-    error: Optional[str] = None
+    actual_price: Decimal | None = None
+    slippage_percent: Decimal | None = None
+    latency_ms: int | None = None
+    error: str | None = None
 
 
 class ExecutionStrategy(str, Enum):
@@ -205,7 +204,7 @@ class OrderExecutor(ABC):
         pass
 
     @abstractmethod
-    async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
+    async def cancel_all_orders(self, symbol: str | None = None) -> int:
         """
         Emergency cancel all open orders.
 

@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -139,9 +139,9 @@ class ChecklistItem:
     prompt: str
     min_response_length: int
     is_required: bool
-    response: Optional[str] = None
-    completed_at: Optional[datetime] = None
-    category: Optional[ChecklistCategory] = None
+    response: str | None = None
+    completed_at: datetime | None = None
+    category: ChecklistCategory | None = None
     status: ChecklistStatus = ChecklistStatus.PENDING
 
     @property
@@ -156,7 +156,7 @@ class ChecklistItem:
             and self.status == ChecklistStatus.COMPLETED
         )
 
-    def validate_response(self, response: str) -> tuple[bool, Optional[str]]:
+    def validate_response(self, response: str) -> tuple[bool, str | None]:
         """Validate a response for this item.
 
         Args:
@@ -216,7 +216,7 @@ class ChecklistProgress:
 class TransitionChecklist:
     """Manages psychological preparation checklists for tier transitions."""
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """Initialize transition checklist.
 
         Args:
@@ -533,7 +533,7 @@ class TransitionChecklist:
                     "Transition checklist completed", transition_id=transition_id
                 )
 
-    def get_item_prompt(self, target_tier: str, item_name: str) -> Optional[str]:
+    def get_item_prompt(self, target_tier: str, item_name: str) -> str | None:
         """Get the prompt for a specific checklist item.
 
         Args:

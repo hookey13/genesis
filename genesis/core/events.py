@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 
@@ -39,6 +39,8 @@ class EventType(str, Enum):
     RISK_LIMIT_BREACH = "risk_limit_breach"
     DAILY_LOSS_LIMIT_REACHED = "daily_loss_limit_reached"
     CORRELATION_ALERT = "correlation_alert"
+    RISK_CHECK_PASSED = "risk_check_passed"
+    RISK_CHECK_FAILED = "risk_check_failed"
 
     # Arbitrage Events
     ARBITRAGE_SIGNAL = "arbitrage_signal"
@@ -135,8 +137,8 @@ class Event:
     aggregate_id: str = ""  # ID of the entity this event relates to
     event_data: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
-    sequence_number: Optional[int] = None
-    correlation_id: Optional[str] = None  # For tracking related events
+    sequence_number: int | None = None
+    correlation_id: str | None = None  # For tracking related events
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property

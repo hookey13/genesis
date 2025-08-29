@@ -4,25 +4,25 @@ Tests single and multi-strategy execution, VWAP, iceberg orders.
 """
 
 import asyncio
-import pytest
-from decimal import Decimal
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from datetime import datetime, timedelta
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 import structlog
 
 from genesis.core.models import (
-    Position,
     Order,
-    Signal,
+    OrderSide,
     OrderStatus,
     OrderType,
-    OrderSide,
+    Position,
+    Signal,
 )
-from genesis.core.constants import TradingTier as TierType
+from genesis.data.repository import Repository
+from genesis.engine.ab_test_framework import ABTestFramework
 from genesis.engine.strategy_orchestrator import StrategyOrchestrator
 from genesis.engine.strategy_registry import StrategyRegistry
-from genesis.engine.ab_test_framework import ABTestFramework
-from genesis.data.repository import Repository
 from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 
 logger = structlog.get_logger()

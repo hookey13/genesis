@@ -7,9 +7,8 @@ with real database transactions.
 
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -17,12 +16,11 @@ from sqlalchemy.orm import sessionmaker
 
 from genesis.data.models import Base, configure_sqlite_pragmas
 from genesis.data.repositories import (
-    SessionRepository,
-    OrderRepository,
-    TradeRepository,
-    PositionRepository,
     CandleRepository,
     InstrumentRepository,
+    OrderRepository,
+    SessionRepository,
+    TradeRepository,
 )
 from genesis.data.services import PositionService
 
@@ -120,7 +118,7 @@ class TestCompleteOrderFlow:
             "qty": Decimal("0.5"),
             "price": Decimal("49900"),
             "fee_amount": Decimal("10"),
-            "trade_time": datetime.now(timezone.utc),
+            "trade_time": datetime.now(UTC),
         }
         trade1 = trade_repo.record_trade(trade1_data)
         assert trade1 is not None
@@ -149,7 +147,7 @@ class TestCompleteOrderFlow:
             "qty": Decimal("1.0"),
             "price": Decimal("50050"),
             "fee_amount": Decimal("20"),
-            "trade_time": datetime.now(timezone.utc),
+            "trade_time": datetime.now(UTC),
         }
         trade2 = trade_repo.record_trade(trade2_data)
 
@@ -188,7 +186,7 @@ class TestCompleteOrderFlow:
             "qty": Decimal("1.5"),
             "price": Decimal("52000"),
             "fee_amount": Decimal("30"),
-            "trade_time": datetime.now(timezone.utc),
+            "trade_time": datetime.now(UTC),
         }
         sell_trade = trade_repo.record_trade(sell_trade_data)
 
@@ -226,7 +224,7 @@ class TestCompleteOrderFlow:
             "qty": Decimal("5.0"),
             "price": Decimal("3000"),
             "fee_amount": Decimal("5"),
-            "trade_time": datetime.now(timezone.utc),
+            "trade_time": datetime.now(UTC),
         }
 
         trade1 = trade_repo.record_trade(trade_data)
@@ -253,7 +251,7 @@ class TestCompleteOrderFlow:
         # Initial candles
         candles_batch1 = [
             {
-                "open_time": datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc),
+                "open_time": datetime(2024, 1, 1, 0, 0, tzinfo=UTC),
                 "open": Decimal("40000"),
                 "high": Decimal("40500"),
                 "low": Decimal("39500"),
@@ -261,7 +259,7 @@ class TestCompleteOrderFlow:
                 "volume": Decimal("100"),
             },
             {
-                "open_time": datetime(2024, 1, 1, 0, 1, tzinfo=timezone.utc),
+                "open_time": datetime(2024, 1, 1, 0, 1, tzinfo=UTC),
                 "open": Decimal("40200"),
                 "high": Decimal("40300"),
                 "low": Decimal("40100"),
@@ -279,7 +277,7 @@ class TestCompleteOrderFlow:
         # Update with overlapping candles (should update existing)
         candles_batch2 = [
             {
-                "open_time": datetime(2024, 1, 1, 0, 1, tzinfo=timezone.utc),
+                "open_time": datetime(2024, 1, 1, 0, 1, tzinfo=UTC),
                 "open": Decimal("40200"),
                 "high": Decimal("40350"),  # Updated high
                 "low": Decimal("40100"),
@@ -287,7 +285,7 @@ class TestCompleteOrderFlow:
                 "volume": Decimal("75"),  # Updated volume
             },
             {
-                "open_time": datetime(2024, 1, 1, 0, 2, tzinfo=timezone.utc),
+                "open_time": datetime(2024, 1, 1, 0, 2, tzinfo=UTC),
                 "open": Decimal("40300"),
                 "high": Decimal("40400"),
                 "low": Decimal("40250"),
@@ -341,7 +339,7 @@ class TestCompleteOrderFlow:
                 price=Decimal(str(price)),
                 fee_ccy="USDT",
                 fee_amount=Decimal(str(fee)),
-                trade_time=datetime.now(timezone.utc),
+                trade_time=datetime.now(UTC),
             )
             return trade
 

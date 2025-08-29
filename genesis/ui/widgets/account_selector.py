@@ -5,24 +5,20 @@ Provides UI component for switching between multiple trading accounts
 with hierarchy display and permission indicators.
 """
 
-from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
 
 from rich.align import Align
 from rich.console import RenderableType
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.message import Message
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.widgets import Button, Label, Select, Static
+from textual.widgets import Select, Static
 
-from genesis.core.constants import TradingTier
 from genesis.core.models import Account, AccountType
 
 
@@ -48,7 +44,7 @@ class AccountSelectorWidget(Widget):
     accounts = reactive([])
     total_balance = reactive(Decimal("0"))
 
-    def __init__(self, accounts: List[Account] = None, **kwargs):
+    def __init__(self, accounts: list[Account] = None, **kwargs):
         """Initialize account selector widget."""
         super().__init__(**kwargs)
         if accounts:
@@ -64,7 +60,7 @@ class AccountSelectorWidget(Widget):
                 prompt="Select Account",
             )
 
-    def update_accounts(self, accounts: List[Account]) -> None:
+    def update_accounts(self, accounts: list[Account]) -> None:
         """Update the list of available accounts."""
         self.accounts = accounts
 
@@ -230,7 +226,7 @@ class AccountSelectorWidget(Widget):
 
         return ", ".join(perms) if perms else "View Only"
 
-    def _get_selected_account(self) -> Optional[Account]:
+    def _get_selected_account(self) -> Account | None:
         """Get the currently selected account."""
         if not self.selected_account_id:
             return None

@@ -10,7 +10,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 import numpy as np
 import structlog
@@ -104,7 +103,7 @@ class CorrelationSpikeDetector:
         symbol: str,
         price: Decimal,
         volume: Decimal,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """
         Add a price observation for correlation tracking.

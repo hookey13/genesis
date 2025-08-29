@@ -9,7 +9,6 @@ import asyncio
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Optional
 
 import structlog
 
@@ -39,6 +38,10 @@ class RateLimiter:
 
     Binance uses a weight-based system where different endpoints consume
     different amounts of weight. The limit is 1200 weight per minute.
+
+    Additionally, there are order-specific rate limits:
+    - 50 orders per 10 seconds
+    - 160,000 orders per day
     """
 
     # Binance API endpoint weights (as of API v3)
@@ -96,14 +99,23 @@ class RateLimiter:
         self.weight_history: deque = deque()
         self.current_weight = 0
 
+        # Order-specific rate limiting
+        self.order_history_10s: deque = deque()  # For 50 orders/10s limit
+        self.order_history_daily: deque = deque()  # For 160k orders/day limit
+        self.max_orders_10s = 50
+        self.max_orders_daily = 160000
+        self.order_threshold_10s = int(self.max_orders_10s * 0.8)  # 80% threshold
+        self.order_threshold_daily = int(self.max_orders_daily * 0.8)  # 80% threshold
+
         # Backoff state
-        self.backoff_until: Optional[float] = None
+        self.backoff_until: float | None = None
         self.consecutive_threshold_hits = 0
 
         # Statistics
         self.total_requests = 0
         self.total_weight_consumed = 0
         self.threshold_hits = 0
+        self.total_orders_placed = 0
 
         logger.info(
             "RateLimiter initialized",
@@ -121,8 +133,22 @@ class RateLimiter:
             old_weight = self.weight_history.popleft()
             self.current_weight -= old_weight.weight
 
+    def _clean_old_orders(self) -> None:
+        """Remove order entries outside their respective windows."""
+        current_time = time.time()
+
+        # Clean 10-second window
+        cutoff_10s = current_time - 10
+        while self.order_history_10s and self.order_history_10s[0] < cutoff_10s:
+            self.order_history_10s.popleft()
+
+        # Clean daily window (24 hours)
+        cutoff_daily = current_time - (24 * 60 * 60)
+        while self.order_history_daily and self.order_history_daily[0] < cutoff_daily:
+            self.order_history_daily.popleft()
+
     def _get_endpoint_weight(
-        self, method: str, endpoint: str, params: Optional[dict] = None
+        self, method: str, endpoint: str, params: dict | None = None
     ) -> int:
         """
         Get the weight for a specific endpoint.
@@ -160,7 +186,7 @@ class RateLimiter:
         return weight_config if isinstance(weight_config, int) else 1
 
     async def check_and_wait(
-        self, method: str, endpoint: str, params: Optional[dict] = None
+        self, method: str, endpoint: str, params: dict | None = None
     ) -> None:
         """
         Check rate limit and wait if necessary.
@@ -172,6 +198,50 @@ class RateLimiter:
         """
         # Clean old weight entries
         self._clean_old_weights()
+
+        # Check if this is an order placement endpoint
+        is_order_endpoint = method.upper() == "POST" and endpoint == "/api/v3/order"
+
+        if is_order_endpoint:
+            # Clean old order entries
+            self._clean_old_orders()
+
+            # Check 10-second order limit
+            if len(self.order_history_10s) >= self.order_threshold_10s:
+                logger.warning(
+                    "Order rate limit threshold reached (10s window)",
+                    current_orders_10s=len(self.order_history_10s),
+                    max_orders_10s=self.max_orders_10s,
+                    threshold_orders_10s=self.order_threshold_10s,
+                )
+                # Wait until oldest order falls out of 10s window
+                if self.order_history_10s:
+                    oldest_order = self.order_history_10s[0]
+                    wait_time = max(0, (oldest_order + 10) - time.time() + 0.1)
+                    await asyncio.sleep(wait_time)
+                    self._clean_old_orders()
+
+            # Check daily order limit
+            if len(self.order_history_daily) >= self.order_threshold_daily:
+                logger.error(
+                    "Daily order limit threshold reached",
+                    current_orders_daily=len(self.order_history_daily),
+                    max_orders_daily=self.max_orders_daily,
+                    threshold_orders_daily=self.order_threshold_daily,
+                )
+                # For daily limit, we need to wait significant time
+                # Calculate when the oldest order will expire
+                if self.order_history_daily:
+                    oldest_order = self.order_history_daily[0]
+                    wait_time = max(0, (oldest_order + 24 * 60 * 60) - time.time())
+                    logger.error(
+                        "Daily order limit requires long wait",
+                        wait_hours=wait_time / 3600,
+                    )
+                    # Raise exception instead of waiting for hours
+                    raise Exception(
+                        f"Daily order limit reached. Must wait {wait_time/3600:.1f} hours."
+                    )
 
         # Calculate weight for this request
         weight = self._get_endpoint_weight(method, endpoint, params)
@@ -226,6 +296,19 @@ class RateLimiter:
         self.total_weight_consumed += weight
         self.total_requests += 1
 
+        # Track order placement if applicable
+        if is_order_endpoint:
+            self.order_history_10s.append(current_time)
+            self.order_history_daily.append(current_time)
+            self.total_orders_placed += 1
+
+            logger.info(
+                "Order placed",
+                orders_10s=len(self.order_history_10s),
+                orders_daily=len(self.order_history_daily),
+                total_orders=self.total_orders_placed,
+            )
+
         # Log if we're approaching the limit
         utilization = (self.current_weight / self.max_weight) * 100
         if utilization > 60:
@@ -261,6 +344,8 @@ class RateLimiter:
         """Force reset the rate limit window (for testing)."""
         self.weight_history.clear()
         self.current_weight = 0
+        self.order_history_10s.clear()
+        self.order_history_daily.clear()
         self.backoff_until = None
         self.consecutive_threshold_hits = 0
         logger.info("Rate limit window reset")
@@ -273,6 +358,7 @@ class RateLimiter:
             Dictionary with usage statistics
         """
         self._clean_old_weights()
+        self._clean_old_orders()
 
         return {
             "total_requests": self.total_requests,
@@ -286,4 +372,20 @@ class RateLimiter:
             "backoff_remaining": (
                 max(0, self.backoff_until - time.time()) if self.backoff_until else 0
             ),
+            "orders": {
+                "total_placed": self.total_orders_placed,
+                "current_10s": len(self.order_history_10s),
+                "current_daily": len(self.order_history_daily),
+                "remaining_10s": self.max_orders_10s - len(self.order_history_10s),
+                "remaining_daily": self.max_orders_daily
+                - len(self.order_history_daily),
+                "utilization_10s_percent": (
+                    len(self.order_history_10s) / self.max_orders_10s
+                )
+                * 100,
+                "utilization_daily_percent": (
+                    len(self.order_history_daily) / self.max_orders_daily
+                )
+                * 100,
+            },
         }

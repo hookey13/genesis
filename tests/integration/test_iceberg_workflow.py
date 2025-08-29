@@ -11,17 +11,19 @@ import pytest
 from genesis.analytics.iceberg_report_generator import IcebergReportGenerator
 from genesis.analytics.market_impact_monitor import MarketImpactMonitor
 from genesis.analytics.order_book_analyzer import OrderBookAnalyzer
+from genesis.core.constants import TradingTier
 from genesis.core.exceptions import (
     InsufficientLiquidity,
     OrderExecutionError,
-    TierViolation as TierGateViolation,
     ValidationError,
+)
+from genesis.core.exceptions import (
+    TierViolation as TierGateViolation,
 )
 from genesis.core.models import Order, OrderSide, OrderStatus, OrderType
 from genesis.engine.executor.iceberg import IcebergOrderExecutor
 from genesis.engine.executor.market import MarketOrderExecutor
 from genesis.engine.state_machine import TierStateMachine
-from genesis.core.constants import TradingTier
 from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 from genesis.exchange.models import OrderBook, OrderBookLevel
 
@@ -530,7 +532,7 @@ class TestIcebergWorkflow:
                 )
             else:
                 # Simulate network timeout
-                raise asyncio.TimeoutError("Network timeout")
+                raise TimeoutError("Network timeout")
 
         exchange.place_order.side_effect = mock_network_failure
 

@@ -6,16 +6,16 @@ for institutional-grade regulatory compliance requirements.
 """
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
-import structlog
 import pandas as pd
+import structlog
 
 from genesis.core.constants import TradingTier
-from genesis.core.models import Order, OrderSide, Position, Trade
+from genesis.core.models import OrderSide
 from genesis.data.repository import Repository
 from genesis.utils.decorators import requires_tier
 
@@ -37,7 +37,7 @@ class ComplianceReporter:
         start_date: datetime,
         end_date: datetime,
         include_metadata: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Extract trade audit log from events table.
 
@@ -148,7 +148,7 @@ class ComplianceReporter:
         report_type: str,
         start_date: datetime,
         end_date: datetime,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate regulatory compliance report.
 
@@ -187,7 +187,7 @@ class ComplianceReporter:
 
     async def _generate_mifid_ii_report(
         self, account_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate MiFID II compliance report."""
         # Get trading data
         trades = await self.repository.get_trades_by_account(
@@ -235,12 +235,12 @@ class ComplianceReporter:
                 "pre_trade_transparency": "Compliant",
                 "post_trade_transparency": "Compliant",
             },
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     async def _generate_emir_report(
         self, account_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate EMIR (European Market Infrastructure Regulation) report."""
         positions = await self.repository.get_positions_by_account(account_id)
 
@@ -268,12 +268,12 @@ class ComplianceReporter:
                 "dispute_resolution": "Automated",
                 "portfolio_compression": "Not applicable",
             },
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     async def _generate_cftc_report(
         self, account_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate CFTC (Commodity Futures Trading Commission) report."""
         trades = await self.repository.get_trades_by_account(
             account_id, start_date, end_date
@@ -304,12 +304,12 @@ class ComplianceReporter:
             },
             "position_limits": "Within regulatory limits",
             "swap_dealer_status": "Not applicable",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     async def _generate_best_execution_report(
         self, account_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate best execution analysis report."""
         orders = await self.repository.get_orders_by_account(
             account_id, start_date, end_date
@@ -366,12 +366,12 @@ class ComplianceReporter:
                 "primary": "Binance",
                 "alternative": "None",
             },
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     async def _generate_transaction_cost_report(
         self, account_id: str, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate transaction cost analysis report."""
         trades = await self.repository.get_trades_by_account(
             account_id, start_date, end_date
@@ -423,7 +423,7 @@ class ComplianceReporter:
             "total_transaction_costs": str(
                 total_maker_fees + total_taker_fees + slippage_costs
             ),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     @requires_tier(TradingTier.STRATEGIST)
@@ -433,7 +433,7 @@ class ComplianceReporter:
         export_format: str,
         start_date: datetime,
         end_date: datetime,
-        output_path: Optional[str] = None,
+        output_path: str | None = None,
     ) -> str:
         """
         Export compliance data in specified format.
@@ -456,7 +456,7 @@ class ComplianceReporter:
         if export_format == "JSON":
             export_data = {
                 "account_id": account_id,
-                "export_date": datetime.now(timezone.utc).isoformat(),
+                "export_date": datetime.now(UTC).isoformat(),
                 "reporting_period": {
                     "start": start_date.isoformat(),
                     "end": end_date.isoformat(),
@@ -487,8 +487,8 @@ class ComplianceReporter:
 
     @requires_tier(TradingTier.STRATEGIST)
     async def validate_compliance_requirements(
-        self, account_id: str, compliance_settings: Dict[str, Any]
-    ) -> Dict[str, bool]:
+        self, account_id: str, compliance_settings: dict[str, Any]
+    ) -> dict[str, bool]:
         """
         Validate account compliance with regulatory requirements.
 
@@ -513,7 +513,7 @@ class ComplianceReporter:
 
         # Check daily trade limits
         if "max_daily_trades" in compliance_settings:
-            today_start = datetime.now(timezone.utc).replace(
+            today_start = datetime.now(UTC).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             today_end = today_start + timedelta(days=1)

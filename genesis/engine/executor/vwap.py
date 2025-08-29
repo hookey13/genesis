@@ -17,8 +17,6 @@ import structlog
 from genesis.analytics.volume_analyzer import VolumeAnalyzer, VolumePrediction
 from genesis.analytics.vwap_tracker import VWAPTracker
 from genesis.core.constants import TradingTier
-from typing import Optional
-
 from genesis.core.events import Event, EventType
 from genesis.core.models import Symbol
 from genesis.engine.event_bus import EventBus
@@ -54,7 +52,7 @@ class VWAPSlice:
         symbol: Symbol,
         side: OrderSide,
         quantity: Decimal,
-        target_price: Optional[Decimal],
+        target_price: Decimal | None,
         scheduled_time: datetime,
         bucket_minute: int,
     ):
@@ -69,9 +67,9 @@ class VWAPSlice:
         self.executed_quantity = Decimal("0")
         self.executed_value = Decimal("0")
         self.status = OrderStatus.PENDING
-        self.order: Optional[Order] = None
+        self.order: Order | None = None
         self.attempts = 0
-        self.last_error: Optional[str] = None
+        self.last_error: str | None = None
 
 
 class VWAPExecutor(OrderExecutor):
@@ -132,8 +130,8 @@ class VWAPExecutor(OrderExecutor):
         self,
         order: Order,
         mode: ExecutionMode = ExecutionMode.NORMAL,
-        time_horizon_minutes: Optional[int] = None,
-        participation_rate: Optional[Decimal] = None,
+        time_horizon_minutes: int | None = None,
+        participation_rate: Decimal | None = None,
         use_iceberg: bool = True,
     ) -> ExecutionResult:
         """Execute an order using VWAP algorithm.
@@ -701,7 +699,7 @@ class VWAPExecutor(OrderExecutor):
         logger.info("cancelling_order", order_id=order_id, symbol=symbol)
         return True
 
-    async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
+    async def cancel_all_orders(self, symbol: str | None = None) -> int:
         """Cancel all orders.
 
         Args:

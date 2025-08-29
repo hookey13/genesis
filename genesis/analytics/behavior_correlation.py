@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import numpy as np
 import structlog
@@ -60,8 +60,8 @@ class BehaviorPnLCorrelator:
         self,
         min_sample_size: int = 30,
         significance_threshold: float = 0.05,
-        repository: Optional[Repository] = None,
-        profile_id: Optional[str] = None,
+        repository: Repository | None = None,
+        profile_id: str | None = None,
     ) -> None:
         """
         Initialize correlator.
@@ -98,7 +98,7 @@ class BehaviorPnLCorrelator:
         behavior_type: str,
         timestamp: datetime,
         value: float,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> None:
         """
         Add behavioral data point.
@@ -125,7 +125,7 @@ class BehaviorPnLCorrelator:
             del self.correlation_cache[behavior_type]
 
     def add_pnl_data(
-        self, timestamp: datetime, pnl: Decimal, position_id: Optional[str] = None
+        self, timestamp: datetime, pnl: Decimal, position_id: str | None = None
     ) -> None:
         """
         Add P&L data point.

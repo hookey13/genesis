@@ -1,7 +1,6 @@
 """Unit tests for multi-account management infrastructure."""
 
-import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -49,8 +48,8 @@ def sample_master_account():
         tier=TradingTier.STRATEGIST,
         permissions={"trading": True, "withdrawals": True},
         compliance_settings={"reporting": "monthly"},
-        last_sync=datetime.now(timezone.utc),
-        created_at=datetime.now(timezone.utc),
+        last_sync=datetime.now(UTC),
+        created_at=datetime.now(UTC),
     )
 
 
@@ -66,8 +65,8 @@ def sample_sub_account():
         tier=TradingTier.STRATEGIST,
         permissions={"trading": True, "withdrawals": False},
         compliance_settings={"reporting": "weekly"},
-        last_sync=datetime.now(timezone.utc),
-        created_at=datetime.now(timezone.utc),
+        last_sync=datetime.now(UTC),
+        created_at=datetime.now(UTC),
     )
 
 

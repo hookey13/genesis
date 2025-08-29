@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -41,16 +41,16 @@ class SliceExecutionRecord:
     total_slices: int
     quantity: Decimal
     value_usdt: Decimal
-    expected_price: Optional[Decimal]
-    actual_price: Optional[Decimal]
-    slippage_percent: Optional[Decimal]
+    expected_price: Decimal | None
+    actual_price: Decimal | None
+    slippage_percent: Decimal | None
     delay_seconds: float
     status: OrderStatus
-    fees_usdt: Optional[Decimal]
-    latency_ms: Optional[int]
+    fees_usdt: Decimal | None
+    latency_ms: int | None
     submitted_at: datetime
-    filled_at: Optional[datetime]
-    error_message: Optional[str] = None
+    filled_at: datetime | None
+    error_message: str | None = None
 
 
 @dataclass
@@ -79,13 +79,13 @@ class ExecutionProgress:
 
     # Time metrics
     started_at: datetime
-    estimated_completion: Optional[datetime]
+    estimated_completion: datetime | None
     elapsed_seconds: float
     average_slice_time: float
 
     # Status
     status: ExecutionStatus
-    abort_reason: Optional[str] = None
+    abort_reason: str | None = None
     last_updated: datetime = field(default_factory=datetime.now)
 
 
@@ -144,7 +144,7 @@ class ExecutionReport:
     started_at: datetime
     completed_at: datetime
     status: ExecutionStatus
-    abort_reason: Optional[str]
+    abort_reason: str | None
     generated_at: datetime = field(default_factory=datetime.now)
 
 
@@ -156,7 +156,7 @@ class IcebergReportGenerator:
     post-execution analysis reports for performance optimization.
     """
 
-    def __init__(self, repository: Optional[Repository] = None):
+    def __init__(self, repository: Repository | None = None):
         """
         Initialize the report generator.
 

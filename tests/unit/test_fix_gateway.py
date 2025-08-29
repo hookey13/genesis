@@ -1,21 +1,17 @@
 """Unit tests for FIXGateway - Protocol validation for future FIX integration."""
 
-import pytest
 from decimal import Decimal
-from datetime import datetime, timezone
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, Any
 
+import pytest
+
+from genesis.core.models import Order, OrderSide, OrderType
 from genesis.exchange.fix_gateway import (
+    FIXField,
     FIXGateway,
     FIXMessage,
     FIXMessageType,
-    FIXField,
-    FIXSession,
     FIXOrderStatus,
-    FIXExecutionReport,
 )
-from genesis.core.models import Order, OrderType, OrderSide, Position
 
 
 class TestFIXGateway:

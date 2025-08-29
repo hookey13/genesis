@@ -1,7 +1,6 @@
 """Unit tests for risk dashboard module."""
 
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -11,8 +10,7 @@ import pytest
 
 from genesis.analytics.risk_dashboard import RiskDashboard
 from genesis.analytics.risk_metrics import RiskMetrics
-from genesis.core.constants import TradingTier
-from genesis.core.models import Position, PositionSide, Trade, OrderSide
+from genesis.core.models import OrderSide, Position, PositionSide, Trade
 
 
 @pytest.fixture
@@ -111,7 +109,7 @@ def sample_price_history():
         close_price = base_price + price_change
         prices.append(
             MagicMock(
-                timestamp=datetime.now(timezone.utc) - timedelta(days=100 - i),
+                timestamp=datetime.now(UTC) - timedelta(days=100 - i),
                 close=Decimal(str(close_price)),
             )
         )

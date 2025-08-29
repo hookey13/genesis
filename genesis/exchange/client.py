@@ -8,33 +8,31 @@ proper event emission, idempotency, and reconciliation support.
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
 import ccxt.async_support as ccxt
 
+from genesis.exchange.circuit_breaker import CircuitBreaker
 from genesis.exchange.events import (
+    ClockSkewEvent,
     EventBus,
-    EventType,
+    ExchangeHeartbeat,
     OrderAck,
-    OrderFill,
     OrderCancel,
     OrderReject,
-    ExchangeHeartbeat,
     ReconciliationEvent,
-    ClockSkewEvent,
 )
-from genesis.exchange.circuit_breaker import CircuitBreaker
-from genesis.exchange.rate_limiter import RateLimiter
 from genesis.exchange.exceptions import (
     ExchangeError,
     OrderNotFoundError,
-    InsufficientBalanceError,
     RateLimitError,
+)
+from genesis.exchange.exceptions import (
     MaintenanceError as ExchangeNotAvailable,
 )
+from genesis.exchange.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +50,7 @@ class ExchangeClient:
         api_key: str,
         api_secret: str,
         testnet: bool = True,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
     ):
         """Initialize exchange client."""
         self.api_key = api_key
@@ -70,8 +68,8 @@ class ExchangeClient:
         self.rate_limiter = RateLimiter(max_requests=1200, time_window=60)
 
         # State tracking
-        self._pending_orders: Dict[str, Dict] = {}
-        self._idempotency_cache: Dict[str, Dict] = {}
+        self._pending_orders: dict[str, dict] = {}
+        self._idempotency_cache: dict[str, dict] = {}
         self._last_reconciliation = None
         self._clock_drift_ms = 0
 
@@ -135,13 +133,13 @@ class ExchangeClient:
 
             if drift_ms > 1000:  # More than 1 second
                 event = ClockSkewEvent(
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     sequence=0,
                     local_time=datetime.fromtimestamp(
-                        local_time / 1000, tz=timezone.utc
+                        local_time / 1000, tz=UTC
                     ),
                     server_time=datetime.fromtimestamp(
-                        server_time / 1000, tz=timezone.utc
+                        server_time / 1000, tz=UTC
                     ),
                     skew_ms=drift_ms,
                     threshold_ms=1000,
@@ -162,7 +160,7 @@ class ExchangeClient:
         """Generate unique client order ID with prefix."""
         return f"{prefix}_{uuid4().hex[:16]}"
 
-    def _check_idempotency(self, client_order_id: str) -> Optional[Dict]:
+    def _check_idempotency(self, client_order_id: str) -> dict | None:
         """Check if order was already submitted."""
         return self._idempotency_cache.get(client_order_id)
 
@@ -172,10 +170,10 @@ class ExchangeClient:
         side: str,
         order_type: str,
         quantity: Decimal,
-        price: Optional[Decimal] = None,
-        client_order_id: Optional[str] = None,
+        price: Decimal | None = None,
+        client_order_id: str | None = None,
         time_in_force: str = "GTC",
-    ) -> Dict:
+    ) -> dict:
         """
         Place order with idempotency and event emission.
 
@@ -235,7 +233,7 @@ class ExchangeClient:
 
             # Emit OrderAck event
             event = OrderAck(
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 sequence=0,
                 client_order_id=client_order_id,
                 exchange_order_id=str(order_result["id"]),
@@ -255,7 +253,7 @@ class ExchangeClient:
         except Exception as e:
             # Emit OrderReject event
             event = OrderReject(
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 sequence=0,
                 client_order_id=client_order_id,
                 symbol=symbol,
@@ -273,9 +271,9 @@ class ExchangeClient:
     async def cancel_order(
         self,
         symbol: str,
-        client_order_id: Optional[str] = None,
-        exchange_order_id: Optional[str] = None,
-    ) -> Dict:
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> dict:
         """
         Cancel order with post-cancel verification.
 
@@ -336,7 +334,7 @@ class ExchangeClient:
 
             # Emit OrderCancel event
             event = OrderCancel(
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 sequence=0,
                 client_order_id=client_order_id or "",
                 exchange_order_id=exchange_order_id or "",
@@ -357,9 +355,9 @@ class ExchangeClient:
     async def get_order(
         self,
         symbol: str,
-        client_order_id: Optional[str] = None,
-        exchange_order_id: Optional[str] = None,
-    ) -> Dict:
+        client_order_id: str | None = None,
+        exchange_order_id: str | None = None,
+    ) -> dict:
         """Get order status."""
         if not client_order_id and not exchange_order_id:
             raise ValueError("Either client_order_id or exchange_order_id required")
@@ -383,7 +381,7 @@ class ExchangeClient:
 
         return await _get_order()
 
-    async def get_open_orders(self, symbol: Optional[str] = None) -> List[Dict]:
+    async def get_open_orders(self, symbol: str | None = None) -> list[dict]:
         """Get all open orders."""
         # Rate limiting
         if not await self.rate_limiter.acquire():
@@ -395,7 +393,7 @@ class ExchangeClient:
 
         return await _get_open_orders()
 
-    async def get_balance(self) -> Dict[str, Dict]:
+    async def get_balance(self) -> dict[str, dict]:
         """Get account balances."""
         # Rate limiting
         if not await self.rate_limiter.acquire():
@@ -416,7 +414,7 @@ class ExchangeClient:
 
         return await _get_balance()
 
-    async def reconcile_positions(self) -> Dict:
+    async def reconcile_positions(self) -> dict:
         """
         Reconcile local positions with exchange.
 
@@ -427,7 +425,7 @@ class ExchangeClient:
 
         # Emit reconciliation start event
         start_event = ReconciliationEvent(
-            timestamp=datetime.now(timezone.utc), sequence=0, phase="START"
+            timestamp=datetime.now(UTC), sequence=0, phase="START"
         )
         self.event_bus.publish(start_event)
 
@@ -462,7 +460,7 @@ class ExchangeClient:
 
             # Emit reconciliation complete event
             complete_event = ReconciliationEvent(
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 sequence=0,
                 phase="COMPLETE",
                 orders_reconciled=len(open_orders),
@@ -473,7 +471,7 @@ class ExchangeClient:
             )
             self.event_bus.publish(complete_event)
 
-            self._last_reconciliation = datetime.now(timezone.utc)
+            self._last_reconciliation = datetime.now(UTC)
 
             logger.info(f"Reconciliation complete: {corrections} corrections made")
 
@@ -499,7 +497,7 @@ class ExchangeClient:
             rate_limit_remaining = self.rate_limiter.available_tokens
 
             heartbeat = ExchangeHeartbeat(
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 sequence=0,
                 exchange="binance",
                 ws_connected=False,  # Will be set by WSManager

@@ -10,7 +10,7 @@ import json
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -138,7 +138,7 @@ class CeremonyRecord:
 class HabitFuneralCeremony:
     """Manages the old habits funeral ceremony."""
 
-    def __init__(self, session: Optional[Session] = None):
+    def __init__(self, session: Session | None = None):
         """Initialize funeral ceremony manager.
 
         Args:
@@ -267,7 +267,7 @@ class HabitFuneralCeremony:
 
     async def validate_ceremony_completion(
         self, transition_id: str
-    ) -> tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Validate that funeral ceremony is complete.
 
         Args:
@@ -293,7 +293,7 @@ class HabitFuneralCeremony:
 
         return False, None
 
-    async def get_ceremony_record(self, transition_id: str) -> Optional[CeremonyRecord]:
+    async def get_ceremony_record(self, transition_id: str) -> CeremonyRecord | None:
         """Get ceremony record for a transition.
 
         Args:

@@ -9,7 +9,6 @@ import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 from genesis.core.models import Trade
 
@@ -111,7 +110,7 @@ class StrategyPerformanceTracker:
             "Recorded trade for strategy %s: PnL=%s", strategy_id, trade.pnl_dollars
         )
 
-    def get_strategy_metrics(self, strategy_id: str) -> Optional[StrategyMetrics]:
+    def get_strategy_metrics(self, strategy_id: str) -> StrategyMetrics | None:
         """
         Get performance metrics for a strategy.
 
@@ -214,7 +213,7 @@ class StrategyPerformanceTracker:
         }
 
     def calculate_drawdown(
-        self, strategy_id: str, window_days: Optional[int] = None
+        self, strategy_id: str, window_days: int | None = None
     ) -> Decimal:
         """
         Calculate maximum drawdown for a strategy.

@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Dashboard screen with three-panel layout for Genesis trading terminal."""
 
@@ -54,17 +53,17 @@ class DashboardScreen(Screen):
     }
     """
 
-    def __init__(self, integration: Optional[UIIntegration] = None, **kwargs):
+    def __init__(self, integration: UIIntegration | None = None, **kwargs):
         """Initialize the dashboard screen."""
         super().__init__(**kwargs)
-        self.pnl_widget: Optional[PnLWidget] = None
-        self.position_widget: Optional[PositionWidget] = None
-        self.iceberg_widget: Optional[IcebergStatusWidget] = None
-        self.tier_gate_widget: Optional[TierGateProgressWidget] = None
-        self.command_input: Optional[CommandInput] = None
+        self.pnl_widget: PnLWidget | None = None
+        self.position_widget: PositionWidget | None = None
+        self.iceberg_widget: IcebergStatusWidget | None = None
+        self.tier_gate_widget: TierGateProgressWidget | None = None
+        self.command_input: CommandInput | None = None
         self.command_parser = CommandParser()
-        self.status_message: Optional[Static] = None
-        self.status_timer: Optional[asyncio.Task] = None
+        self.status_message: Static | None = None
+        self.status_timer: asyncio.Task | None = None
         self.integration = integration or UIIntegration()
         self.state_machine = TierStateMachine()  # Initialize tier state machine
 

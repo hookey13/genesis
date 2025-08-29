@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Drawdown detection and monitoring for recovery protocol."""
 
@@ -52,7 +51,7 @@ class DrawdownDetector:
 
     @requires_tier(TradingTier.HUNTER)
     def detect_drawdown_breach(
-        self, account_id: str, threshold: Optional[Decimal] = None
+        self, account_id: str, threshold: Decimal | None = None
     ) -> bool:
         """Check if account has breached drawdown threshold.
 

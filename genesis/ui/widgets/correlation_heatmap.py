@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from rich.console import RenderableType
@@ -38,8 +38,8 @@ class CorrelationHeatmap(Widget):
 
     def __init__(
         self,
-        correlation_monitor: Optional[CorrelationMonitor] = None,
-        event_bus: Optional[EventBus] = None,
+        correlation_monitor: CorrelationMonitor | None = None,
+        event_bus: EventBus | None = None,
         **kwargs,
     ):
         """Initialize correlation heatmap widget.
@@ -106,7 +106,7 @@ class CorrelationHeatmap(Widget):
                 self.log.error(f"Error in periodic update: {e}")
 
     async def update_correlation(
-        self, positions: Optional[list[Position]] = None
+        self, positions: list[Position] | None = None
     ) -> None:
         """Update correlation matrix with new position data.
 
@@ -295,7 +295,7 @@ class CorrelationSummaryWidget(Static):
     """Compact correlation summary widget."""
 
     def __init__(
-        self, correlation_monitor: Optional[CorrelationMonitor] = None, **kwargs
+        self, correlation_monitor: CorrelationMonitor | None = None, **kwargs
     ):
         """Initialize correlation summary widget.
 

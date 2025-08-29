@@ -17,14 +17,14 @@ import structlog
 import yaml
 
 from genesis.analytics.efficient_frontier import EfficientFrontierAnalyzer
-from typing import Optional
-
 from genesis.analytics.rebalancing_engine import RebalancingEngine
 from genesis.analytics.sharpe_ratio import SharpeRatioCalculator
 from genesis.core.constants import TradingTier
 from genesis.core.events import Event, EventType
 from genesis.core.exceptions import (
     DataError as InvalidDataError,
+)
+from genesis.core.exceptions import (
     GenesisException as CalculationError,
 )
 from genesis.engine.event_bus import EventBus
@@ -40,8 +40,8 @@ class Strategy:
     name: str
     returns: list[Decimal]
     current_allocation: Decimal
-    min_allocation: Optional[Decimal] = None
-    max_allocation: Optional[Decimal] = None
+    min_allocation: Decimal | None = None
+    max_allocation: Decimal | None = None
     is_active: bool = True
 
 
@@ -53,7 +53,7 @@ class OptimizationConstraints:
     max_allocation: Decimal = Decimal("0.40")  # 40% maximum
     max_correlation: Decimal = Decimal("0.60")  # 60% max correlation
     min_strategies: int = 2  # Minimum active strategies
-    tier_limits: Optional[dict] = None  # Tier-based position limits
+    tier_limits: dict | None = None  # Tier-based position limits
 
 
 @dataclass
@@ -76,8 +76,8 @@ class OptimizationResult:
     expected_risk: Decimal
     sharpe_ratio: Decimal
     correlation_matrix: dict[tuple[str, str], Decimal]
-    validation: Optional[ValidationResult]
-    rebalance_recommendation: Optional[dict]
+    validation: ValidationResult | None
+    rebalance_recommendation: dict | None
     optimization_time_ms: int
     calculated_at: datetime = None
 
@@ -103,7 +103,7 @@ class PortfolioOptimizer:
     WALK_FORWARD_WINDOWS = 5
 
     def __init__(
-        self, event_bus: Optional[EventBus] = None, config_path: Optional[str] = None
+        self, event_bus: EventBus | None = None, config_path: str | None = None
     ):
         """
         Initialize portfolio optimizer.
@@ -508,7 +508,7 @@ class PortfolioOptimizer:
 
         return results
 
-    def _load_configuration(self, config_path: Optional[str]) -> dict:
+    def _load_configuration(self, config_path: str | None) -> dict:
         """Load configuration from file"""
         if not config_path:
             config_path = "config/trading_rules.yaml"

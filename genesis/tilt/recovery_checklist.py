@@ -6,7 +6,7 @@ import asyncio
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -34,7 +34,7 @@ class ChecklistItem:
     description: str
     item_type: ChecklistItemType
     is_completed: bool = False
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 @dataclass
@@ -47,7 +47,7 @@ class RecoveryChecklist:
     items: list[ChecklistItem] = field(default_factory=list)
     last_updated: datetime = field(default_factory=lambda: datetime.now(UTC))
     is_complete: bool = False
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
 
 class RecoveryChecklistManager:
@@ -89,8 +89,8 @@ class RecoveryChecklistManager:
 
     def __init__(
         self,
-        repository: Optional[SQLiteRepository] = None,
-        event_bus: Optional[EventBus] = None,
+        repository: SQLiteRepository | None = None,
+        event_bus: EventBus | None = None,
     ):
         """Initialize recovery checklist manager.
 
@@ -107,7 +107,7 @@ class RecoveryChecklistManager:
     def create_checklist(
         self,
         profile_id: str,
-        custom_items: Optional[list[dict[str, Any]]] = None,
+        custom_items: list[dict[str, Any]] | None = None,
     ) -> RecoveryChecklist:
         """Create a new recovery checklist for a profile.
 
@@ -157,7 +157,7 @@ class RecoveryChecklistManager:
 
         return checklist
 
-    def get_checklist(self, profile_id: str) -> Optional[RecoveryChecklist]:
+    def get_checklist(self, profile_id: str) -> RecoveryChecklist | None:
         """Get active checklist for a profile.
 
         Args:

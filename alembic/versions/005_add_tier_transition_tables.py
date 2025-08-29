@@ -5,10 +5,9 @@ Revises: 004
 Create Date: 2025-08-26
 
 """
-from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.sql import text
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '005'
@@ -19,7 +18,7 @@ depends_on = None
 
 def upgrade() -> None:
     """Create tier transition tables for valley of death protection."""
-    
+
     # Create tier_transitions table
     op.create_table(
         'tier_transitions',
@@ -37,12 +36,12 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
         sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
     )
-    
+
     # Skip foreign key constraint as accounts table doesn't exist yet
-    
+
     # SQLite doesn't support ALTER TABLE ADD CONSTRAINT, skip this for SQLite
     # The constraint would be handled during table creation in production
-    
+
     # Create paper_trading_sessions table
     op.create_table(
         'paper_trading_sessions',
@@ -59,7 +58,7 @@ def upgrade() -> None:
         sa.Column('completed_at', sa.DateTime()),
         sa.Column('status', sa.String(20), nullable=False, default='ACTIVE'),
     )
-    
+
     # Add foreign key constraints
     with op.batch_alter_table('paper_trading_sessions') as batch_op:
         batch_op.create_foreign_key(
@@ -74,7 +73,7 @@ def upgrade() -> None:
             ['transition_id'],
             ['transition_id']
         )
-    
+
     # Create transition_checklists table
     op.create_table(
         'transition_checklists',
@@ -87,7 +86,7 @@ def upgrade() -> None:
         sa.Column('completed_at', sa.DateTime()),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
     )
-    
+
     # Add foreign key constraint
     with op.batch_alter_table('transition_checklists') as batch_op:
         batch_op.create_foreign_key(
@@ -96,7 +95,7 @@ def upgrade() -> None:
             ['transition_id'],
             ['transition_id']
         )
-    
+
     # Create habit_funeral_records table
     op.create_table(
         'habit_funeral_records',
@@ -108,7 +107,7 @@ def upgrade() -> None:
         sa.Column('certificate_generated', sa.Boolean(), default=False),
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
     )
-    
+
     # Add foreign key constraint
     with op.batch_alter_table('habit_funeral_records') as batch_op:
         batch_op.create_foreign_key(
@@ -117,7 +116,7 @@ def upgrade() -> None:
             ['transition_id'],
             ['transition_id']
         )
-    
+
     # Create adjustment_periods table
     op.create_table(
         'adjustment_periods',
@@ -134,7 +133,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
         sa.Column('updated_at', sa.DateTime(), nullable=False, server_default=sa.func.current_timestamp()),
     )
-    
+
     # Add foreign key constraints
     with op.batch_alter_table('adjustment_periods') as batch_op:
         batch_op.create_foreign_key(
@@ -149,7 +148,7 @@ def upgrade() -> None:
             ['account_id'],
             ['account_id']
         )
-    
+
     # Create indices for performance
     op.create_index('idx_tier_transitions_account_status', 'tier_transitions', ['account_id', 'transition_status'])
     op.create_index('idx_paper_trading_account_status', 'paper_trading_sessions', ['account_id', 'status'])
@@ -159,13 +158,13 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Drop tier transition tables."""
-    
+
     # Drop indices
     op.drop_index('idx_adjustment_account_active')
     op.drop_index('idx_checklists_transition_completed')
     op.drop_index('idx_paper_trading_account_status')
     op.drop_index('idx_tier_transitions_account_status')
-    
+
     # Drop tables in reverse order due to foreign key constraints
     op.drop_table('adjustment_periods')
     op.drop_table('habit_funeral_records')

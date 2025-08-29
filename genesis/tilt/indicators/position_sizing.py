@@ -7,7 +7,6 @@ Tracks position size patterns to detect emotional trading behavior.
 from collections import deque
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 
 import numpy as np
 import structlog
@@ -31,7 +30,7 @@ class PositionSizingIndicator:
         self.position_outcomes = deque(maxlen=window_size)  # win/loss/open
 
     def record_position(
-        self, size: Decimal, timestamp: datetime, outcome: Optional[str] = None
+        self, size: Decimal, timestamp: datetime, outcome: str | None = None
     ) -> dict:
         """
         Record a position and calculate variance metrics.

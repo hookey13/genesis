@@ -8,11 +8,10 @@ post-execution verification, and automatic stop-loss placement.
 import asyncio
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional
 from uuid import uuid4
 
 import structlog
-
-from typing import Optional
 
 from genesis.core.exceptions import (
     OrderExecutionError,
@@ -307,7 +306,7 @@ class MarketOrderExecutor(OrderExecutor):
 
     async def _place_stop_loss(
         self, entry_order: Order, entry_price: Decimal
-    ) -> Optional[Order]:
+    ) -> Order | None:
         """
         Place automatic stop-loss order after entry.
 
@@ -410,7 +409,7 @@ class MarketOrderExecutor(OrderExecutor):
             logger.error("Failed to cancel order", order_id=order_id, error=str(e))
             return False
 
-    async def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
+    async def cancel_all_orders(self, symbol: str | None = None) -> int:
         """
         Emergency cancel all open orders.
 

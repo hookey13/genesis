@@ -8,7 +8,6 @@ slippage, market impact, timing effectiveness, and generating detailed reports.
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
@@ -61,7 +60,7 @@ class TwapReport:
     # Timing effectiveness
     timing_score: Decimal  # 0-100 score
     early_completion: bool
-    early_completion_benefit: Optional[Decimal]  # Saved/lost from early completion
+    early_completion_benefit: Decimal | None  # Saved/lost from early completion
 
     # Risk metrics
     execution_risk_score: Decimal  # 0-100, lower is better
@@ -470,7 +469,7 @@ class TwapAnalyzer:
         execution_data: dict,
         slice_history: list[dict],
         price_metrics: dict[str, Decimal],
-    ) -> dict[str, Optional[Decimal]]:
+    ) -> dict[str, Decimal | None]:
         """
         Calculate timing effectiveness metrics.
 

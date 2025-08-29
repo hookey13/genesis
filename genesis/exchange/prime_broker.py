@@ -6,9 +6,7 @@ multi-venue order routing preparation.
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -28,17 +26,17 @@ class PrimeBrokerAdapter(ABC):
         pass
 
     @abstractmethod
-    async def get_account_info(self) -> Dict[str, Any]:
+    async def get_account_info(self) -> dict[str, Any]:
         """Get account information."""
         pass
 
     @abstractmethod
-    async def send_order(self, order: Dict[str, Any]) -> str:
+    async def send_order(self, order: dict[str, Any]) -> str:
         """Send order to prime broker."""
         pass
 
     @abstractmethod
-    async def get_positions(self) -> List[Dict[str, Any]]:
+    async def get_positions(self) -> list[dict[str, Any]]:
         """Get current positions."""
         pass
 
@@ -46,7 +44,7 @@ class PrimeBrokerAdapter(ABC):
 class GoldmanSachsAdapter(PrimeBrokerAdapter):
     """Goldman Sachs prime broker adapter (stub)."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         self.config = config
         self.connected = False
 
@@ -56,26 +54,26 @@ class GoldmanSachsAdapter(PrimeBrokerAdapter):
         logger.info("gs_adapter_connected")
         return True
 
-    async def get_account_info(self) -> Dict[str, Any]:
+    async def get_account_info(self) -> dict[str, Any]:
         return {
             "account_id": self.config.get("account_id"),
             "balance": "1000000",
             "buying_power": "4000000",
         }
 
-    async def send_order(self, order: Dict[str, Any]) -> str:
+    async def send_order(self, order: dict[str, Any]) -> str:
         order_id = str(uuid4())
         logger.info("gs_order_sent", order_id=order_id)
         return order_id
 
-    async def get_positions(self) -> List[Dict[str, Any]]:
+    async def get_positions(self) -> list[dict[str, Any]]:
         return []
 
 
 class MorganStanleyAdapter(PrimeBrokerAdapter):
     """Morgan Stanley prime broker adapter (stub)."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         self.config = config
         self.connected = False
 
@@ -85,19 +83,19 @@ class MorganStanleyAdapter(PrimeBrokerAdapter):
         logger.info("ms_adapter_connected")
         return True
 
-    async def get_account_info(self) -> Dict[str, Any]:
+    async def get_account_info(self) -> dict[str, Any]:
         return {
             "account_id": self.config.get("account_id"),
             "balance": "1000000",
             "margin_available": "3000000",
         }
 
-    async def send_order(self, order: Dict[str, Any]) -> str:
+    async def send_order(self, order: dict[str, Any]) -> str:
         order_id = str(uuid4())
         logger.info("ms_order_sent", order_id=order_id)
         return order_id
 
-    async def get_positions(self) -> List[Dict[str, Any]]:
+    async def get_positions(self) -> list[dict[str, Any]]:
         return []
 
 
@@ -105,7 +103,7 @@ class MultiVenueRouter:
     """Routes orders to multiple venues."""
 
     def __init__(self):
-        self.adapters: Dict[str, PrimeBrokerAdapter] = {}
+        self.adapters: dict[str, PrimeBrokerAdapter] = {}
         self.routing_rules = {}
         logger.info("multi_venue_router_initialized")
 
@@ -116,7 +114,7 @@ class MultiVenueRouter:
         logger.info("venue_added", venue=name)
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def route_order(self, order: Dict[str, Any]) -> str:
+    async def route_order(self, order: dict[str, Any]) -> str:
         """Route order to best venue."""
         # Smart order routing logic would go here
         venue = self._select_venue(order)
@@ -136,7 +134,7 @@ class MultiVenueRouter:
 
         return order_id
 
-    def _select_venue(self, order: Dict[str, Any]) -> str:
+    def _select_venue(self, order: dict[str, Any]) -> str:
         """Select best venue for order."""
         # Simplified venue selection
         # In production would consider liquidity, fees, etc.

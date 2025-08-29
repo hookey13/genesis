@@ -10,7 +10,6 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 import structlog
 
@@ -31,9 +30,9 @@ class HealthMetric:
     """Single health metric measurement."""
 
     timestamp: float
-    response_time_ms: Optional[float] = None
+    response_time_ms: float | None = None
     success: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @dataclass
@@ -46,7 +45,7 @@ class ComponentHealth:
     success_rate: float
     avg_response_time_ms: float
     error_count: int
-    last_error: Optional[str] = None
+    last_error: str | None = None
     details: dict = field(default_factory=dict)
 
 
@@ -90,7 +89,7 @@ class HealthMonitor:
 
         # Monitoring state
         self._monitoring = False
-        self._monitor_task: Optional[asyncio.Task] = None
+        self._monitor_task: asyncio.Task | None = None
 
         # Callbacks for health changes
         self.health_change_callbacks = []
@@ -320,7 +319,7 @@ class HealthMonitor:
         # Update stored status
         setattr(self, previous_key, health.status)
 
-    def get_component_health(self, name: str) -> Optional[ComponentHealth]:
+    def get_component_health(self, name: str) -> ComponentHealth | None:
         """
         Get current health status for a component.
 

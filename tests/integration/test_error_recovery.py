@@ -4,28 +4,28 @@ Tests disconnection handling, crash recovery, and system resilience.
 """
 
 import asyncio
-import pytest
-from decimal import Decimal
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
-from datetime import datetime, timedelta
-import structlog
-import sqlite3
-import psutil
 import os
+import sqlite3
+from datetime import datetime
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock, patch
+
+import psutil
+import pytest
+import structlog
 
 from genesis.core.models import (
-    Position,
     Order,
+    OrderSide,
     OrderStatus,
     OrderType,
-    OrderSide,
+    Position,
 )
-from genesis.core.constants import TradingTier as TierType
-from genesis.engine.strategy_orchestrator import StrategyOrchestrator
 from genesis.data.repository import Repository
+from genesis.engine.strategy_orchestrator import StrategyOrchestrator
+from genesis.exchange.circuit_breaker import CircuitBreaker
 from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 from genesis.exchange.websocket_manager import WebSocketManager
-from genesis.exchange.circuit_breaker import CircuitBreaker
 from genesis.utils.disaster_recovery import DisasterRecoveryManager
 
 logger = structlog.get_logger()

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Journal entry widget for tilt recovery UI."""
 
 from textual import on
@@ -103,7 +101,7 @@ class JournalEntryWidget(Container):
 
     def __init__(
         self,
-        journal_system: Optional[JournalSystem] = None,
+        journal_system: JournalSystem | None = None,
         profile_id: str = "default",
         min_word_count: int = 100,
         **kwargs,

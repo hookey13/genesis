@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Tilt intervention strategies and management."""
 
 from dataclasses import dataclass
@@ -37,8 +35,8 @@ class Intervention:
     intervention_type: InterventionType
     message: str
     applied_at: datetime
-    expires_at: Optional[datetime]
-    position_size_multiplier: Optional[Decimal]
+    expires_at: datetime | None
+    position_size_multiplier: Decimal | None
     is_active: bool
 
 
@@ -69,10 +67,10 @@ class InterventionManager:
 
     def __init__(
         self,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
         cooldown_minutes: dict[TiltLevel, int] = None,
         emergency_contact_enabled: bool = False,
-        emergency_contact_info: Optional[dict[str, str]] = None,
+        emergency_contact_info: dict[str, str] | None = None,
     ):
         """Initialize intervention manager.
 
@@ -388,7 +386,7 @@ class InterventionManager:
         return False
 
     async def notify_emergency_contact(
-        self, profile_id: str, tilt_level: TiltLevel, message: Optional[str] = None
+        self, profile_id: str, tilt_level: TiltLevel, message: str | None = None
     ) -> bool:
         """Notify emergency contact about severe tilt episode (placeholder).
 

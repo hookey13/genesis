@@ -4,31 +4,29 @@ Verifies market data → strategy → execution → analytics pipeline.
 """
 
 import asyncio
-import pytest
-from decimal import Decimal
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime, timedelta
-import json
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock
+
+import pytest
 import structlog
 
+from genesis.analytics.performance_attribution import PerformanceAttributionEngine
+from genesis.analytics.risk_metrics import RiskMetricsCalculator
 from genesis.core.models import (
-    Position,
-    Order,
-    Trade,
-    OrderStatus,
-    OrderType,
     OrderSide,
+    Position,
     Signal,
+    Trade,
+)
+from genesis.core.models import (
     PriceData as MarketData,  # Using PriceData as MarketData
 )
-from genesis.core.constants import TradingTier as TierType
+from genesis.data.performance_repo import PerformanceRepository
+from genesis.data.repository import Repository
 from genesis.engine.strategy_orchestrator import StrategyOrchestrator
 from genesis.engine.strategy_registry import StrategyRegistry
-from genesis.data.repository import Repository
-from genesis.data.performance_repo import PerformanceRepository
 from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
-from genesis.analytics.risk_metrics import RiskMetricsCalculator
-from genesis.analytics.performance_attribution import PerformanceAttributionEngine
 
 logger = structlog.get_logger()
 

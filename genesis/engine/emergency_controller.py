@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -56,8 +56,8 @@ class EmergencyEvent:
     trigger_values: dict[str, Any]
     affected_symbols: list[str]
     actions_taken: list[str]
-    resolution: Optional[str] = None
-    resolved_at: Optional[datetime] = None
+    resolution: str | None = None
+    resolved_at: datetime | None = None
 
 
 class EmergencyController:
@@ -92,16 +92,16 @@ class EmergencyController:
 
         # Override management
         self.override_active = False
-        self.override_expiry: Optional[datetime] = None
+        self.override_expiry: datetime | None = None
         self.override_confirmation_phrase = "OVERRIDE EMERGENCY HALT"
 
         # Monitoring state
         self.monitoring = False
-        self.monitor_task: Optional[asyncio.Task] = None
+        self.monitor_task: asyncio.Task | None = None
 
         # Daily loss tracking
-        self.daily_start_balance: Optional[Decimal] = None
-        self.current_balance: Optional[Decimal] = None
+        self.daily_start_balance: Decimal | None = None
+        self.current_balance: Decimal | None = None
         self.daily_loss_percent: Decimal = Decimal("0")
 
         # Market state tracking

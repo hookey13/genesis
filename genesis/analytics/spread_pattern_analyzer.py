@@ -9,7 +9,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -40,7 +39,7 @@ class RecurringPattern:
     pattern_type: str  # 'compression', 'expansion', 'cyclical'
     frequency_hours: Decimal
     confidence: Decimal  # 0-1 confidence score
-    next_occurrence: Optional[datetime]
+    next_occurrence: datetime | None
     description: str
 
 
@@ -360,7 +359,7 @@ class SpreadPatternAnalyzer:
         current_spread: Decimal,
         spread_history: list[tuple[datetime, Decimal]],
         z_threshold: Decimal = Decimal("3"),
-    ) -> Optional[SpreadAnomalyEvent]:
+    ) -> SpreadAnomalyEvent | None:
         """
         Detect anomalies in spread behavior
 

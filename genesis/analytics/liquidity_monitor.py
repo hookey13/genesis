@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 
 import structlog
 
@@ -128,7 +127,7 @@ class LiquidityMonitor:
         symbol: str,
         bids: list[tuple[Decimal, Decimal]],  # [(price, volume), ...]
         asks: list[tuple[Decimal, Decimal]],
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> OrderBookSnapshot:
         """
         Process order book data and calculate liquidity metrics.

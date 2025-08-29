@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Multi-level tilt detection system."""
 
 import asyncio
@@ -77,14 +75,14 @@ class TiltDetector:
     def __init__(
         self,
         profile_manager: ProfileManager,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
         anomaly_buffer_size: int = 100,
-        click_tracker: Optional[ClickLatencyTracker] = None,
-        modification_tracker: Optional[OrderModificationTracker] = None,
-        focus_detector: Optional[FocusPatternDetector] = None,
-        inactivity_tracker: Optional[InactivityTracker] = None,
-        session_analyzer: Optional[SessionAnalyzer] = None,
-        config_tracker: Optional[ConfigurationChangeTracker] = None,
+        click_tracker: ClickLatencyTracker | None = None,
+        modification_tracker: OrderModificationTracker | None = None,
+        focus_detector: FocusPatternDetector | None = None,
+        inactivity_tracker: InactivityTracker | None = None,
+        session_analyzer: SessionAnalyzer | None = None,
+        config_tracker: ConfigurationChangeTracker | None = None,
     ):
         """Initialize tilt detector.
 
@@ -233,7 +231,7 @@ class TiltDetector:
 
     async def _get_cached_baseline(
         self, profile_id: str
-    ) -> Optional[BehavioralBaseline]:
+    ) -> BehavioralBaseline | None:
         """Get baseline from cache or refresh if needed.
 
         Args:
@@ -488,7 +486,7 @@ class TiltDetector:
             )
 
     def get_anomaly_history(
-        self, profile_id: str, limit: Optional[int] = None
+        self, profile_id: str, limit: int | None = None
     ) -> list[Anomaly]:
         """Get anomaly history for profile.
 

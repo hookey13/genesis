@@ -8,7 +8,7 @@ retry logic for transient errors.
 import asyncio
 import functools
 from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -21,8 +21,8 @@ class ExchangeError(Exception):
     def __init__(
         self,
         message: str,
-        code: Optional[int] = None,
-        retry_after: Optional[int] = None,
+        code: int | None = None,
+        retry_after: int | None = None,
     ):
         """
         Initialize exchange error.

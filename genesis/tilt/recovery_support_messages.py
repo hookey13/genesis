@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Psychological support messaging system for recovery."""
 
@@ -17,7 +16,7 @@ logger = structlog.get_logger(__name__)
 class RecoverySupportMessenger:
     """Provides psychological support messages during recovery."""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         """Initialize recovery support messenger.
 
         Args:

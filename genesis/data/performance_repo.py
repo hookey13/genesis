@@ -7,7 +7,7 @@ This module provides persistence and retrieval for all performance analytics dat
 import json
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -66,7 +66,7 @@ class PerformanceRepository(Repository):
         event_type: str,
         start_date: datetime,
         end_date: datetime,
-        aggregate_id: Optional[str] = None,
+        aggregate_id: str | None = None,
     ) -> list[dict]:
         """
         Query events from the event store.
@@ -244,7 +244,7 @@ class PerformanceRepository(Repository):
             logger.error(f"Failed to store pattern analysis: {e}")
             raise
 
-    async def get_latest_risk_metrics(self) -> Optional[dict]:
+    async def get_latest_risk_metrics(self) -> dict | None:
         """
         Get the most recent risk metrics.
 
@@ -363,7 +363,7 @@ class PerformanceRepository(Repository):
         except Exception as e:
             logger.error(f"Failed to cache calculation: {e}")
 
-    async def get_cached_calculation(self, cache_key: str) -> Optional[Any]:
+    async def get_cached_calculation(self, cache_key: str) -> Any | None:
         """
         Retrieve cached calculation if not expired.
 

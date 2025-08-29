@@ -5,10 +5,9 @@ Provides FIFO/LIFO/HIFO lot selection methods, tax-aware position closing,
 and year-end tax reporting for institutional-grade tax optimization.
 """
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -36,7 +35,7 @@ class TaxOptimizer:
         symbol: str,
         quantity: Decimal,
         method: TaxMethod = TaxMethod.FIFO,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Select tax lots for position closure.
 
@@ -121,7 +120,7 @@ class TaxOptimizer:
         position: Position,
         exit_price: Decimal,
         tax_rate: Decimal = Decimal("0.20"),
-    ) -> Dict[str, Decimal]:
+    ) -> dict[str, Decimal]:
         """
         Calculate tax impact of closing position.
 
@@ -139,10 +138,10 @@ class TaxOptimizer:
 
         # Check holding period for long/short term
         if position.acquisition_date:
-            holding_period = datetime.now(timezone.utc) - position.acquisition_date
+            holding_period = datetime.now(UTC) - position.acquisition_date
             is_long_term = holding_period.days > 365
         else:
-            holding_period = datetime.now(timezone.utc) - position.created_at
+            holding_period = datetime.now(UTC) - position.created_at
             is_long_term = holding_period.days > 365
 
         # Apply different rates for long/short term
@@ -169,7 +168,7 @@ class TaxOptimizer:
         self,
         account_id: str,
         year: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate year-end tax report.
 
@@ -180,8 +179,8 @@ class TaxOptimizer:
         Returns:
             Tax report with gains/losses
         """
-        start_date = datetime(year, 1, 1, tzinfo=timezone.utc)
-        end_date = datetime(year, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+        start_date = datetime(year, 1, 1, tzinfo=UTC)
+        end_date = datetime(year, 12, 31, 23, 59, 59, tzinfo=UTC)
 
         # Get all closed positions for the year
         trades = await self.repository.get_trades_by_account(
@@ -243,7 +242,7 @@ class TaxOptimizer:
             "report_id": str(uuid4()),
             "account_id": account_id,
             "tax_year": year,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "summary": {
                 "short_term_gains": str(short_term_gains),
                 "short_term_losses": str(short_term_losses),
@@ -271,7 +270,7 @@ class TaxOptimizer:
         self,
         account_id: str,
         target_net_gain: Decimal = Decimal("0"),
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Suggest positions to close for tax optimization.
 
@@ -283,7 +282,7 @@ class TaxOptimizer:
             List of suggested position closures
         """
         # Get current year's realized gains
-        current_year = datetime.now(timezone.utc).year
+        current_year = datetime.now(UTC).year
         tax_report = await self.generate_tax_report(account_id, current_year)
         current_net = Decimal(tax_report["summary"]["total_net_gain_loss"])
 
@@ -319,7 +318,7 @@ class TaxOptimizer:
                 # Check if long-term for better tax treatment
                 if position.acquisition_date:
                     holding_period = (
-                        datetime.now(timezone.utc) - position.acquisition_date
+                        datetime.now(UTC) - position.acquisition_date
                     )
                     is_long_term = holding_period.days > 365
                 else:

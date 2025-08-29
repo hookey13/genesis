@@ -12,7 +12,6 @@ from rich.align import Align
 from rich.console import RenderableType
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 from textual.app import ComposeResult
 from textual.reactive import reactive
 from textual.widget import Widget

@@ -4,13 +4,14 @@ Database metrics collection for monitoring.
 Tracks repository operations, transaction times, and data flow.
 """
 
-import time
 import functools
 import logging
-from typing import Any, Callable
+import time
+from collections.abc import Callable
 from contextlib import contextmanager
+from typing import Any
 
-from prometheus_client import Counter, Histogram, Gauge
+from prometheus_client import Counter, Gauge, Histogram
 
 logger = logging.getLogger(__name__)
 

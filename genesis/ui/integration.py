@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Integration layer connecting UI to Genesis core components."""
 
@@ -22,10 +21,10 @@ class UIIntegration:
 
     def __init__(
         self,
-        account_manager: Optional[AccountManager] = None,
-        risk_engine: Optional[RiskEngine] = None,
-        order_executor: Optional[MarketOrderExecutor] = None,
-        gateway: Optional[BinanceGateway] = None,
+        account_manager: AccountManager | None = None,
+        risk_engine: RiskEngine | None = None,
+        order_executor: MarketOrderExecutor | None = None,
+        gateway: BinanceGateway | None = None,
     ):
         """
         Initialize UI integration.
@@ -42,8 +41,8 @@ class UIIntegration:
         self.gateway = gateway
 
         # Widget references
-        self.pnl_widget: Optional[PnLWidget] = None
-        self.position_widget: Optional[PositionWidget] = None
+        self.pnl_widget: PnLWidget | None = None
+        self.position_widget: PositionWidget | None = None
 
     def connect_widgets(
         self, pnl_widget: PnLWidget, position_widget: PositionWidget

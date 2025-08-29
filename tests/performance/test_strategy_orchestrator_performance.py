@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
 from decimal import Decimal
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from genesis.core.events import Event, EventType
+from genesis.core.models import Signal, SignalType
 from genesis.engine.event_bus import EventBus
-from genesis.core.models import PriceData, Signal, SignalType
 from genesis.engine.strategy_orchestrator import StrategyOrchestrator
 
 
@@ -446,7 +444,7 @@ class TestOrchestratorPerformance:
             signals = [
                 Signal(
                     signal_type=SignalType.BUY,
-                    symbol=f"TEST/USDT",
+                    symbol="TEST/USDT",
                     confidence=Decimal("0.8"),
                     metadata={"iteration": _},
                 )

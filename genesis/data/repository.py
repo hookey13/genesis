@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from genesis.core.models import (
     Account,
@@ -39,7 +39,7 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_account(self, account_id: str) -> Optional[Account]:
+    async def get_account(self, account_id: str) -> Account | None:
         """Get account by ID."""
         pass
 
@@ -64,7 +64,7 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def list_positions(self, account_id: Optional[str] = None) -> list[Position]:
+    async def list_positions(self, account_id: str | None = None) -> list[Position]:
         """List positions with optional account filter."""
         pass
 
@@ -75,13 +75,13 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_position(self, position_id: str) -> Optional[Position]:
+    async def get_position(self, position_id: str) -> Position | None:
         """Get position by ID."""
         pass
 
     @abstractmethod
     async def get_positions_by_account(
-        self, account_id: str, status: Optional[str] = None
+        self, account_id: str, status: str | None = None
     ) -> list[Position]:
         """Get all positions for an account."""
         pass
@@ -103,12 +103,12 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_session(self, session_id: str) -> Optional[TradingSession]:
+    async def get_session(self, session_id: str) -> TradingSession | None:
         """Get session by ID."""
         pass
 
     @abstractmethod
-    async def get_active_session(self, account_id: str) -> Optional[TradingSession]:
+    async def get_active_session(self, account_id: str) -> TradingSession | None:
         """Get active session for an account."""
         pass
 
@@ -156,7 +156,7 @@ class Repository(ABC):
 
     @abstractmethod
     async def get_events(
-        self, aggregate_id: str, event_type: Optional[str] = None
+        self, aggregate_id: str, event_type: str | None = None
     ) -> list[dict[str, Any]]:
         """Get events for an aggregate."""
         pass
@@ -215,7 +215,7 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_order(self, order_id: str) -> Optional[dict[str, Any]]:
+    async def get_order(self, order_id: str) -> dict[str, Any] | None:
         """Get order by ID."""
         pass
 
@@ -226,7 +226,7 @@ class Repository(ABC):
 
     @abstractmethod
     async def update_order_status(
-        self, order_id: str, status: str, executed_at: Optional[datetime] = None
+        self, order_id: str, status: str, executed_at: datetime | None = None
     ) -> None:
         """Update order status."""
         pass
@@ -246,7 +246,7 @@ class Repository(ABC):
 
     # Backup and restore methods
     @abstractmethod
-    async def backup(self, backup_path: Optional[Path] = None) -> Path:
+    async def backup(self, backup_path: Path | None = None) -> Path:
         """Create a backup of the database."""
         pass
 
@@ -283,7 +283,7 @@ class Repository(ABC):
     # Performance metrics methods
     @abstractmethod
     async def calculate_performance_metrics(
-        self, account_id: str, session_id: Optional[str] = None
+        self, account_id: str, session_id: str | None = None
     ) -> dict[str, Any]:
         """Calculate performance metrics (win rate, average R, etc.)."""
         pass
@@ -303,7 +303,7 @@ class Repository(ABC):
         event_type: str,
         severity: str,
         indicator_values: dict[str, Any],
-        intervention: Optional[str] = None,
+        intervention: str | None = None,
     ) -> str:
         """Save a tilt event."""
         pass
@@ -336,6 +336,6 @@ class Repository(ABC):
         pass
 
     @abstractmethod
-    async def get_database_info(self, key: str) -> Optional[str]:
+    async def get_database_info(self, key: str) -> str | None:
         """Get database metadata."""
         pass

@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Recovery pattern analysis for learning from recovery attempts."""
 
@@ -27,7 +26,7 @@ class RecoveryAnalysis:
     worst_recovery_days: int
     most_effective_strategies: list[str]
     common_failure_patterns: list[str]
-    current_recovery_progress: Optional[float]
+    current_recovery_progress: float | None
     recommendations: list[str]
 
 
@@ -232,7 +231,7 @@ class RecoveryPatternAnalyzer:
 
         return patterns
 
-    def _get_current_recovery_progress(self, account_id: str) -> Optional[float]:
+    def _get_current_recovery_progress(self, account_id: str) -> float | None:
         """Get current recovery progress if actively recovering.
 
         Args:

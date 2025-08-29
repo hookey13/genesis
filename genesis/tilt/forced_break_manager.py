@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Forced break management for consecutive losses."""
 
@@ -69,7 +68,7 @@ class ForcedBreakManager:
 
     def record_trade_result(
         self, account_id: str, is_profitable: bool
-    ) -> Optional[datetime]:
+    ) -> datetime | None:
         """Record trade result and check for forced break trigger.
 
         Args:

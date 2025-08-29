@@ -3,18 +3,18 @@ Unit tests for settings validation and configuration.
 """
 
 import os
-import pytest
 from decimal import Decimal
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from config.settings import (
+    ExchangeSettings,
     Settings,
     TimeSyncSettings,
     TradingSettings,
-    ExchangeSettings,
     TradingTier,
     ValidationError,
-    get_settings,
 )
 
 
@@ -237,7 +237,7 @@ class TestConfigurationValidation:
 
     def test_validate_configuration_warnings(self):
         """Test configuration validation generates appropriate warnings."""
-        from config.settings import validate_configuration, DeploymentEnv
+        from config.settings import DeploymentEnv, validate_configuration
 
         with patch("config.settings.get_settings") as mock_get_settings:
             mock_settings = MagicMock()

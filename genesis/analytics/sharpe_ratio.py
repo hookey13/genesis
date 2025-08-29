@@ -15,11 +15,11 @@ from enum import Enum
 import numpy as np
 import structlog
 
-from typing import Optional
-
 from genesis.core.constants import TradingTier
 from genesis.core.exceptions import (
     DataError as InvalidDataError,
+)
+from genesis.core.exceptions import (
     GenesisException as CalculationError,
 )
 from genesis.utils.decorators import requires_tier, with_timeout
@@ -46,8 +46,8 @@ class SharpeRatioResult:
     risk_free_rate: Decimal
     period: TimePeriod
     num_periods: int
-    confidence_interval_lower: Optional[Decimal] = None
-    confidence_interval_upper: Optional[Decimal] = None
+    confidence_interval_lower: Decimal | None = None
+    confidence_interval_upper: Decimal | None = None
     calculated_at: datetime = None
 
     def __post_init__(self):
@@ -245,7 +245,7 @@ class SharpeRatioCalculator:
         annualization_factor: Decimal,
         confidence_level: float,
         n_bootstrap: int = 1000,
-    ) -> tuple[Optional[Decimal], Optional[Decimal]]:
+    ) -> tuple[Decimal | None, Decimal | None]:
         """
         Calculate confidence intervals using bootstrap method.
 
@@ -306,7 +306,7 @@ class SharpeRatioCalculator:
         returns_hash = hash(tuple(returns))
         return f"{returns_hash}_{risk_free_rate}_{period.value}"
 
-    async def _get_cached_result(self, cache_key: str) -> Optional[SharpeRatioResult]:
+    async def _get_cached_result(self, cache_key: str) -> SharpeRatioResult | None:
         """Get cached result if still valid"""
         async with self._cache_lock:
             if cache_key in self._cache:

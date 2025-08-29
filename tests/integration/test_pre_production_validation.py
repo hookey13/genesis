@@ -4,17 +4,17 @@ Orchestrates all tests, runs stability tests, and generates comprehensive report
 """
 
 import asyncio
-import pytest
-from decimal import Decimal
-from unittest.mock import Mock, patch, AsyncMock
-from datetime import datetime, timedelta
-import structlog
 import json
-import time
-import psutil
 import os
-from typing import Dict, List, Any
-from dataclasses import dataclass, asdict
+import time
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+
+import psutil
+import pytest
+import structlog
 
 logger = structlog.get_logger()
 
@@ -45,8 +45,8 @@ class TestReport:
     failed: int
     skipped: int
     duration: float
-    test_results: List[TestResult]
-    performance_metrics: Dict[str, Any]
+    test_results: list[TestResult]
+    performance_metrics: dict[str, Any]
     stability_test_passed: bool
     recommendation: str
 

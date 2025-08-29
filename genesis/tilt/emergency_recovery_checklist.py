@@ -8,7 +8,7 @@ emergency events to ensure safe return to normal trading operations.
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -50,11 +50,11 @@ class ChecklistItem:
     validation_required: bool  # Requires system validation
     estimated_duration_minutes: int
     status: ChecklistItemStatus = ChecklistItemStatus.PENDING
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    completed_by: Optional[str] = None
-    notes: Optional[str] = None
-    validation_result: Optional[dict[str, Any]] = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    completed_by: str | None = None
+    notes: str | None = None
+    validation_result: dict[str, Any] | None = None
 
 
 @dataclass
@@ -589,7 +589,7 @@ class EmergencyRecoveryChecklist:
         ]
 
     async def start_item(
-        self, checklist_id: str, item_id: str, user_id: Optional[str] = None
+        self, checklist_id: str, item_id: str, user_id: str | None = None
     ) -> bool:
         """
         Mark a checklist item as started.
@@ -653,8 +653,8 @@ class EmergencyRecoveryChecklist:
         self,
         checklist_id: str,
         item_id: str,
-        notes: Optional[str] = None,
-        user_id: Optional[str] = None,
+        notes: str | None = None,
+        user_id: str | None = None,
     ) -> bool:
         """
         Mark a checklist item as completed.
@@ -783,7 +783,7 @@ class EmergencyRecoveryChecklist:
             ],
         }
 
-    def _get_next_phase(self, current_phase: RecoveryPhase) -> Optional[RecoveryPhase]:
+    def _get_next_phase(self, current_phase: RecoveryPhase) -> RecoveryPhase | None:
         """Get next recovery phase."""
         phases = [
             RecoveryPhase.IMMEDIATE,
@@ -844,7 +844,7 @@ class EmergencyRecoveryChecklist:
             emergency_type=checklist.emergency_type,
         )
 
-    def get_checklist_status(self, checklist_id: str) -> Optional[dict[str, Any]]:
+    def get_checklist_status(self, checklist_id: str) -> dict[str, Any] | None:
         """
         Get current status of a checklist.
 

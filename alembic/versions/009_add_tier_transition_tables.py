@@ -5,10 +5,10 @@ Revises: 008
 Create Date: 2025-08-26
 
 """
-from alembic import op
+
 import sqlalchemy as sa
-from sqlalchemy.dialects import sqlite
-import json
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '009'
@@ -25,7 +25,7 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('gates_passed', sa.JSON(), nullable=True))
         batch_op.add_column(sa.Column('transition_type', sa.String(20), nullable=True))
         batch_op.add_column(sa.Column('grace_period_hours', sa.Integer(), nullable=True))
-    
+
     # Create tier_gate_progress table
     op.create_table('tier_gate_progress',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -45,7 +45,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_gate_progress_account', 'tier_gate_progress', ['account_id'])
     op.create_index('idx_gate_progress_tier', 'tier_gate_progress', ['target_tier'])
-    
+
     # Create tier_feature_unlocks table
     op.create_table('tier_feature_unlocks',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -62,7 +62,7 @@ def upgrade() -> None:
         sa.UniqueConstraint('tier', 'feature_name', name='uq_tier_feature')
     )
     op.create_index('idx_feature_unlocks_tier', 'tier_feature_unlocks', ['tier'])
-    
+
     # Create transition_ceremonies table for tracking ceremony completion
     op.create_table('transition_ceremonies',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -76,7 +76,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         # Foreign key would reference tier_transitions.id
     )
-    
+
     # Create valley_of_death_events table for monitoring critical transitions
     op.create_table('valley_of_death_events',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -95,7 +95,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_valley_events_account', 'valley_of_death_events', ['account_id'])
     op.create_index('idx_valley_events_timestamp', 'valley_of_death_events', ['timestamp'])
-    
+
     # Add constraint to prevent manual tier changes (enforced at application level)
     # Skip trigger creation as accounts table doesn't exist yet
     # Trigger would be: prevent_manual_tier_update on accounts table
@@ -105,13 +105,13 @@ def upgrade() -> None:
 def downgrade() -> None:
     # No trigger to drop since we skipped it
     pass
-    
+
     # Drop new tables
     op.drop_table('valley_of_death_events')
     op.drop_table('transition_ceremonies')
     op.drop_table('tier_feature_unlocks')
     op.drop_table('tier_gate_progress')
-    
+
     # Remove added columns from tier_transitions
     with op.batch_alter_table('tier_transitions') as batch_op:
         batch_op.drop_column('grace_period_hours')

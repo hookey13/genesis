@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_DOWN, Decimal
 from enum import Enum
-from typing import Optional
 
 import numpy as np
 from scipy import stats
@@ -54,7 +53,7 @@ class SimulationResult:
     median_final_balance: Decimal
     percentile_5: Decimal
     percentile_95: Decimal
-    paths: Optional[np.ndarray] = None
+    paths: np.ndarray | None = None
 
 
 class VolatilityRegime(Enum):
@@ -140,7 +139,7 @@ class KellyCalculator:
         return kelly_f.quantize(Decimal("0.0001"), rounding=ROUND_DOWN)
 
     def calculate_position_size(
-        self, kelly_f: Decimal, balance: Decimal, fraction: Optional[Decimal] = None
+        self, kelly_f: Decimal, balance: Decimal, fraction: Decimal | None = None
     ) -> Decimal:
         """
         Calculate position size using fractional Kelly.
@@ -247,7 +246,7 @@ class KellyCalculator:
         return Decimal(str(confidence_score)).quantize(Decimal("0.0001"))
 
     def calculate_strategy_edge(
-        self, strategy_id: str, trades: list[Trade], window_days: Optional[int] = None
+        self, strategy_id: str, trades: list[Trade], window_days: int | None = None
     ) -> StrategyEdge:
         """
         Calculate edge for a specific strategy.
@@ -371,7 +370,7 @@ class KellyCalculator:
         self,
         kelly_size: Decimal,
         conviction: ConvictionLevel,
-        multipliers: Optional[dict[ConvictionLevel, Decimal]] = None,
+        multipliers: dict[ConvictionLevel, Decimal] | None = None,
     ) -> Decimal:
         """
         Apply conviction multiplier to Kelly-based position size.
@@ -412,7 +411,7 @@ class KellyCalculator:
         calculated_size: Decimal,
         balance: Decimal,
         tier: TradingTier,
-        boundaries: Optional[dict[str, Decimal]] = None,
+        boundaries: dict[str, Decimal] | None = None,
     ) -> Decimal:
         """
         Enforce minimum and maximum position size boundaries.

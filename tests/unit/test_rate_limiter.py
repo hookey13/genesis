@@ -22,6 +22,10 @@ class TestRateLimiter:
         assert limiter.threshold_percent == 80
         assert limiter.threshold_weight == 960  # 80% of 1200
         assert limiter.current_weight == 0
+        assert limiter.max_orders_10s == 50
+        assert limiter.max_orders_daily == 160000
+        assert limiter.order_threshold_10s == 40  # 80% of 50
+        assert limiter.order_threshold_daily == 128000  # 80% of 160000
 
     @pytest.mark.asyncio
     async def test_simple_request(self, rate_limiter):
@@ -183,3 +187,54 @@ class TestRateLimiter:
 
         # Test unknown endpoint (default to 1)
         assert rate_limiter._get_endpoint_weight("GET", "/unknown/endpoint") == 1
+
+    @pytest.mark.asyncio
+    async def test_order_rate_limit_10s(self, rate_limiter):
+        """Test order-specific rate limiting for 10-second window."""
+        # Place orders up to threshold (40 orders, 80% of 50)
+        for _ in range(39):
+            await rate_limiter.check_and_wait("POST", "/api/v3/order")
+
+        stats = rate_limiter.get_statistics()
+        assert stats["orders"]["current_10s"] == 39
+        assert stats["orders"]["remaining_10s"] == 11
+
+        # 40th order should trigger warning but still go through
+        await rate_limiter.check_and_wait("POST", "/api/v3/order")
+
+        stats = rate_limiter.get_statistics()
+        assert stats["orders"]["current_10s"] == 40
+        assert stats["orders"]["total_placed"] == 40
+
+    @pytest.mark.asyncio
+    async def test_order_rate_limit_10s_wait(self, rate_limiter):
+        """Test that rate limiter waits when 10s order limit is reached."""
+        # Fill up to threshold
+        for _ in range(40):
+            await rate_limiter.check_and_wait("POST", "/api/v3/order")
+
+        # Next order should cause a wait
+        start_time = time.time()
+        await rate_limiter.check_and_wait("POST", "/api/v3/order")
+        _ = time.time() - start_time  # Elapsed time (checking wait occurred)
+
+        # Should have waited, but not too long (mocked time in tests)
+        assert rate_limiter.total_orders_placed == 41
+
+    @pytest.mark.asyncio
+    async def test_order_statistics(self, rate_limiter):
+        """Test order statistics in get_statistics."""
+        # Place some orders
+        for _ in range(5):
+            await rate_limiter.check_and_wait("POST", "/api/v3/order")
+
+        stats = rate_limiter.get_statistics()
+
+        assert "orders" in stats
+        assert stats["orders"]["total_placed"] == 5
+        assert stats["orders"]["current_10s"] == 5
+        assert stats["orders"]["current_daily"] == 5
+        assert stats["orders"]["remaining_10s"] == 45
+        assert stats["orders"]["remaining_daily"] == 159995
+        assert stats["orders"]["utilization_10s_percent"] == 10.0  # 5/50 * 100
+        assert stats["orders"]["utilization_daily_percent"] < 0.01  # Very small

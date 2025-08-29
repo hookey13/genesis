@@ -6,18 +6,14 @@ to the Event Bus using the publish-subscribe pattern.
 """
 
 import asyncio
-import json
 from datetime import datetime
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from genesis.core.events import Event, EventPriority, EventType
 from genesis.engine.event_bus import EventBus
 from genesis.exchange.websocket_manager import (
-    StreamSubscription,
-    WebSocketConnection,
     WebSocketManager,
 )
 
@@ -48,19 +44,19 @@ class TestWebSocketEventBusIntegration:
         """Test that trade stream data publishes market data event."""
         # Create WebSocket manager with event bus
         manager = WebSocketManager(event_bus=event_bus)
-        
+
         # Set up event capture
         captured_events = []
-        
+
         def event_handler(event: Event):
             captured_events.append(event)
-        
+
         # Subscribe to market data events
         event_bus.subscribe(
             event_handler,
             {EventType.MARKET_DATA_UPDATED},
         )
-        
+
         # Simulate trade data
         trade_data = {
             "stream": "btcusdt@trade",
@@ -76,13 +72,13 @@ class TestWebSocketEventBusIntegration:
                 "M": True,
             },
         }
-        
+
         # Handle the trade data
         await manager._handle_trade(trade_data)
-        
+
         # Allow event to propagate
         await asyncio.sleep(0.1)
-        
+
         # Verify event was published
         assert len(captured_events) == 1
         event = captured_events[0]
@@ -97,19 +93,19 @@ class TestWebSocketEventBusIntegration:
         """Test that depth stream publishes order book snapshot event."""
         # Create WebSocket manager with event bus
         manager = WebSocketManager(event_bus=event_bus)
-        
+
         # Set up event capture
         captured_events = []
-        
+
         def event_handler(event: Event):
             captured_events.append(event)
-        
+
         # Subscribe to order book events
         event_bus.subscribe(
             event_handler,
             {EventType.ORDER_BOOK_SNAPSHOT},
         )
-        
+
         # Simulate depth data
         depth_data = {
             "stream": "btcusdt@depth20@100ms",
@@ -130,13 +126,13 @@ class TestWebSocketEventBusIntegration:
                 ],
             },
         }
-        
+
         # Handle the depth data
         await manager._handle_depth(depth_data)
-        
+
         # Allow event to propagate
         await asyncio.sleep(0.1)
-        
+
         # Verify event was published
         assert len(captured_events) == 1
         event = captured_events[0]
@@ -151,19 +147,19 @@ class TestWebSocketEventBusIntegration:
         """Test that ticker stream detects and alerts on spread compression."""
         # Create WebSocket manager with event bus
         manager = WebSocketManager(event_bus=event_bus)
-        
+
         # Set up event capture for both event types
         captured_events = []
-        
+
         def event_handler(event: Event):
             captured_events.append(event)
-        
+
         # Subscribe to spread compression and market data events
         event_bus.subscribe(
             event_handler,
             {EventType.SPREAD_COMPRESSION, EventType.MARKET_DATA_UPDATED},
         )
-        
+
         # Simulate ticker data with tight spread (< 10 bps)
         ticker_data = {
             "stream": "btcusdt@ticker",
@@ -180,16 +176,16 @@ class TestWebSocketEventBusIntegration:
                 "w": "50000.00",  # Weighted avg price
             },
         }
-        
+
         # Handle the ticker data
         await manager._handle_ticker(ticker_data)
-        
+
         # Allow events to propagate
         await asyncio.sleep(0.1)
-        
+
         # Verify both events were published
         assert len(captured_events) == 2
-        
+
         # Find spread compression event
         spread_event = next(
             (e for e in captured_events if e.event_type == EventType.SPREAD_COMPRESSION),
@@ -198,7 +194,7 @@ class TestWebSocketEventBusIntegration:
         assert spread_event is not None
         assert spread_event.aggregate_id == "BTCUSDT"
         assert spread_event.event_data["spread_bps"] < 10
-        
+
         # Find market data event
         market_event = next(
             (e for e in captured_events if e.event_type == EventType.MARKET_DATA_UPDATED),
@@ -212,19 +208,19 @@ class TestWebSocketEventBusIntegration:
         """Test that kline stream publishes low priority events."""
         # Create WebSocket manager with event bus
         manager = WebSocketManager(event_bus=event_bus)
-        
+
         # Track event priorities
         event_priorities = []
-        
+
         # Patch the publish method to capture priority
         original_publish = event_bus.publish
-        
+
         async def mock_publish(event, priority=EventPriority.NORMAL):
             event_priorities.append(priority)
             await original_publish(event, priority)
-        
+
         event_bus.publish = mock_publish
-        
+
         # Simulate kline data
         kline_data = {
             "stream": "btcusdt@kline_1m",
@@ -245,13 +241,13 @@ class TestWebSocketEventBusIntegration:
                 },
             },
         }
-        
+
         # Handle the kline data
         await manager._handle_kline(kline_data)
-        
+
         # Allow event to propagate
         await asyncio.sleep(0.1)
-        
+
         # Verify low priority was used
         assert len(event_priorities) == 1
         assert event_priorities[0] == EventPriority.LOW
@@ -261,13 +257,13 @@ class TestWebSocketEventBusIntegration:
         """Test handling multiple stream subscriptions with event publishing."""
         with patch("genesis.exchange.websocket_manager.get_settings", return_value=mock_settings):
             manager = WebSocketManager(event_bus=event_bus)
-            
+
             # Track all events
             all_events = []
-            
+
             def event_handler(event: Event):
                 all_events.append(event)
-            
+
             # Subscribe to all relevant event types
             event_bus.subscribe(
                 event_handler,
@@ -277,7 +273,7 @@ class TestWebSocketEventBusIntegration:
                     EventType.SPREAD_COMPRESSION,
                 },
             )
-            
+
             # Simulate multiple data streams
             streams_data = [
                 {
@@ -297,20 +293,20 @@ class TestWebSocketEventBusIntegration:
                     },
                 },
             ]
-            
+
             # Handle all streams
             for data in streams_data:
                 if "@trade" in data["stream"]:
                     await manager._handle_trade(data)
                 elif "@depth" in data["stream"]:
                     await manager._handle_depth(data)
-            
+
             # Allow events to propagate
             await asyncio.sleep(0.1)
-            
+
             # Verify all events were published
             assert len(all_events) == 3
-            
+
             # Check we have events for both symbols
             symbols = {event.aggregate_id for event in all_events}
             assert "BTCUSDT" in symbols
@@ -321,30 +317,30 @@ class TestWebSocketEventBusIntegration:
         """Test that both callbacks and events work together."""
         # Create WebSocket manager with event bus
         manager = WebSocketManager(event_bus=event_bus)
-        
+
         # Track callback invocations
         callback_invoked = False
         callback_data = None
-        
+
         def stream_callback(data):
             nonlocal callback_invoked, callback_data
             callback_invoked = True
             callback_data = data
-        
+
         # Register callback
         manager.subscribe("trade", stream_callback)
-        
+
         # Track events
         captured_events = []
-        
+
         def event_handler(event: Event):
             captured_events.append(event)
-        
+
         event_bus.subscribe(
             event_handler,
             {EventType.MARKET_DATA_UPDATED},
         )
-        
+
         # Simulate trade data
         trade_data = {
             "stream": "btcusdt@trade",
@@ -354,13 +350,13 @@ class TestWebSocketEventBusIntegration:
                 "q": "0.001",
             },
         }
-        
+
         # Handle the trade
         await manager._handle_trade(trade_data)
-        
+
         # Allow processing
         await asyncio.sleep(0.1)
-        
+
         # Verify both callback and event were processed
         assert callback_invoked is True
         assert callback_data == trade_data
@@ -373,16 +369,16 @@ class TestWebSocketEventBusIntegration:
         # This would require modifying WebSocketConnection to publish
         # connection state events (CONNECTED, DISCONNECTED, RECONNECTING)
         # For now, we'll verify the structure is in place
-        
+
         with patch("genesis.exchange.websocket_manager.get_settings", return_value=mock_settings):
             manager = WebSocketManager(event_bus=event_bus)
-            
+
             # Verify event bus is assigned
             assert manager.event_bus == event_bus
-            
+
             # Verify manager can handle events from all connection pools
             await manager._setup_connections()
-            
+
             assert "execution" in manager.connections
             assert "monitoring" in manager.connections
             assert "backup" in manager.connections
@@ -392,18 +388,18 @@ class TestWebSocketEventBusIntegration:
         """Test that events use proper Pydantic validation."""
         # Create WebSocket manager with event bus
         manager = WebSocketManager(event_bus=event_bus)
-        
+
         # Track events
         captured_events = []
-        
+
         def event_handler(event: Event):
             captured_events.append(event)
-        
+
         event_bus.subscribe(
             event_handler,
             {EventType.MARKET_DATA_UPDATED},
         )
-        
+
         # Simulate trade with all fields
         trade_data = {
             "stream": "btcusdt@trade",
@@ -421,17 +417,17 @@ class TestWebSocketEventBusIntegration:
                 "M": True,
             },
         }
-        
+
         # Handle the trade
         await manager._handle_trade(trade_data)
-        
+
         # Allow processing
         await asyncio.sleep(0.1)
-        
+
         # Verify event structure
         assert len(captured_events) == 1
         event = captured_events[0]
-        
+
         # Verify Event model attributes
         assert hasattr(event, "event_id")
         assert hasattr(event, "event_type")

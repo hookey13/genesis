@@ -6,10 +6,9 @@ and real-time risk monitoring for institutional-grade risk management.
 """
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
-from uuid import uuid4
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -33,9 +32,9 @@ class RiskDashboard:
         """Initialize RiskDashboard with repository and event bus."""
         self.repository = repository
         self.event_bus = event_bus
-        self._risk_cache: Dict[str, RiskMetrics] = {}
-        self._var_cache: Dict[str, Tuple[Decimal, datetime]] = {}
-        self._cvar_cache: Dict[str, Tuple[Decimal, datetime]] = {}
+        self._risk_cache: dict[str, RiskMetrics] = {}
+        self._var_cache: dict[str, tuple[Decimal, datetime]] = {}
+        self._cvar_cache: dict[str, tuple[Decimal, datetime]] = {}
 
         # Subscribe to position updates
         asyncio.create_task(self._subscribe_to_events())
@@ -49,7 +48,7 @@ class RiskDashboard:
         await self.event_bus.subscribe("position.updated", self._handle_position_update)
         await self.event_bus.subscribe("trade.completed", self._handle_trade_completed)
 
-    async def _handle_position_update(self, event_data: Dict[str, Any]):
+    async def _handle_position_update(self, event_data: dict[str, Any]):
         """Handle position update events."""
         account_id = event_data.get("account_id")
         if account_id:
@@ -61,7 +60,7 @@ class RiskDashboard:
             # Recalculate and publish updated metrics
             await self.update_risk_metrics(account_id)
 
-    async def _handle_trade_completed(self, event_data: Dict[str, Any]):
+    async def _handle_trade_completed(self, event_data: dict[str, Any]):
         """Handle trade completion events."""
         account_id = event_data.get("account_id")
         if account_id:
@@ -91,7 +90,7 @@ class RiskDashboard:
         cache_key = f"{account_id}_{confidence_level}_{time_horizon_days}_{method}"
         if cache_key in self._var_cache:
             cached_var, cached_time = self._var_cache[cache_key]
-            if datetime.now(timezone.utc) - cached_time < timedelta(minutes=5):
+            if datetime.now(UTC) - cached_time < timedelta(minutes=5):
                 return cached_var
 
         try:
@@ -101,7 +100,7 @@ class RiskDashboard:
                 return Decimal("0")
 
             # Get historical returns data
-            end_date = datetime.now(timezone.utc)
+            end_date = datetime.now(UTC)
             start_date = end_date - timedelta(days=252)  # 1 year of data
 
             if method == "historical":
@@ -120,7 +119,7 @@ class RiskDashboard:
                 raise ValueError(f"Unsupported VaR method: {method}")
 
             # Cache the result
-            self._var_cache[cache_key] = (var_value, datetime.now(timezone.utc))
+            self._var_cache[cache_key] = (var_value, datetime.now(UTC))
 
             # Publish VaR update
             await self.event_bus.publish(
@@ -131,7 +130,7 @@ class RiskDashboard:
                     "confidence_level": str(confidence_level),
                     "time_horizon_days": time_horizon_days,
                     "method": method,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
@@ -151,7 +150,7 @@ class RiskDashboard:
 
     async def _calculate_historical_var(
         self,
-        positions: List[Position],
+        positions: list[Position],
         confidence_level: Decimal,
         time_horizon_days: int,
         start_date: datetime,
@@ -212,7 +211,7 @@ class RiskDashboard:
 
     async def _calculate_parametric_var(
         self,
-        positions: List[Position],
+        positions: list[Position],
         confidence_level: Decimal,
         time_horizon_days: int,
         start_date: datetime,
@@ -268,7 +267,7 @@ class RiskDashboard:
 
     async def _calculate_monte_carlo_var(
         self,
-        positions: List[Position],
+        positions: list[Position],
         confidence_level: Decimal,
         time_horizon_days: int,
         num_simulations: int = 10000,
@@ -332,7 +331,7 @@ class RiskDashboard:
         cache_key = f"{account_id}_{confidence_level}_{time_horizon_days}"
         if cache_key in self._cvar_cache:
             cached_cvar, cached_time = self._cvar_cache[cache_key]
-            if datetime.now(timezone.utc) - cached_time < timedelta(minutes=5):
+            if datetime.now(UTC) - cached_time < timedelta(minutes=5):
                 return cached_cvar
 
         try:
@@ -347,7 +346,7 @@ class RiskDashboard:
                 return Decimal("0")
 
             # Get historical returns
-            end_date = datetime.now(timezone.utc)
+            end_date = datetime.now(UTC)
             start_date = end_date - timedelta(days=252)
 
             # Calculate portfolio returns (simplified)
@@ -370,7 +369,7 @@ class RiskDashboard:
                 cvar_value = var_value  # If no tail returns, CVaR equals VaR
 
             # Cache the result
-            self._cvar_cache[cache_key] = (cvar_value, datetime.now(timezone.utc))
+            self._cvar_cache[cache_key] = (cvar_value, datetime.now(UTC))
 
             # Publish CVaR update
             await self.event_bus.publish(
@@ -380,7 +379,7 @@ class RiskDashboard:
                     "cvar_value": str(cvar_value),
                     "var_value": str(var_value),
                     "confidence_level": str(confidence_level),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
@@ -399,7 +398,7 @@ class RiskDashboard:
             raise
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def calculate_portfolio_greeks(self, account_id: str) -> Dict[str, Decimal]:
+    async def calculate_portfolio_greeks(self, account_id: str) -> dict[str, Decimal]:
         """
         Calculate portfolio Greeks for options readiness.
 
@@ -453,7 +452,7 @@ class RiskDashboard:
                 {
                     "account_id": account_id,
                     "greeks": {k: str(v) for k, v in greeks.items()},
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
@@ -487,7 +486,7 @@ class RiskDashboard:
             cvar_95 = await self.calculate_conditional_var(account_id)
 
             # Get performance data
-            end_date = datetime.now(timezone.utc)
+            end_date = datetime.now(UTC)
             start_date = end_date - timedelta(days=30)
 
             trades = await self.repository.get_trades_by_account(
@@ -565,7 +564,7 @@ class RiskDashboard:
                 {
                     "account_id": account_id,
                     "metrics": metrics.to_dict(),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 },
             )
 
@@ -584,7 +583,7 @@ class RiskDashboard:
             raise
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def get_risk_limits_status(self, account_id: str) -> Dict[str, Any]:
+    async def get_risk_limits_status(self, account_id: str) -> dict[str, Any]:
         """
         Check current risk metrics against configured limits.
 
@@ -648,7 +647,7 @@ class RiskDashboard:
                             k for k, v in status.items() if v["breached"]
                         ],
                         "status": status,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     },
                 )
 

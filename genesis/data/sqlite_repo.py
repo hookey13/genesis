@@ -11,7 +11,7 @@ import shutil
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import aiosqlite
@@ -52,7 +52,7 @@ class SQLiteRepository(Repository):
             db_path: Path to SQLite database file
         """
         self.db_path = db_path
-        self.connection: Optional[aiosqlite.Connection] = None
+        self.connection: aiosqlite.Connection | None = None
 
         # Ensure directory exists
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -539,7 +539,7 @@ class SQLiteRepository(Repository):
         return event_id
 
     async def get_events(
-        self, aggregate_id: str, event_type: Optional[str] = None
+        self, aggregate_id: str, event_type: str | None = None
     ) -> list[dict[str, Any]]:
         """Get events for an aggregate."""
         if event_type:
@@ -633,7 +633,7 @@ class SQLiteRepository(Repository):
         logger.info("Account created", account_id=account.account_id)
         return account.account_id
 
-    async def get_account(self, account_id: str) -> Optional[Account]:
+    async def get_account(self, account_id: str) -> Account | None:
         """Get account by ID."""
         import json
 
@@ -737,7 +737,7 @@ class SQLiteRepository(Repository):
         logger.info("Order saved", order_id=order_id)
         return order_id
 
-    async def get_order(self, order_id: str) -> Optional[dict[str, Any]]:
+    async def get_order(self, order_id: str) -> dict[str, Any] | None:
         """Get order by ID."""
         cursor = await self.connection.execute(
             "SELECT * FROM orders WHERE order_id = ?", (order_id,)
@@ -826,7 +826,7 @@ class SQLiteRepository(Repository):
         return orders
 
     async def update_order_status(
-        self, order_id: str, status: str, executed_at: Optional[datetime] = None
+        self, order_id: str, status: str, executed_at: datetime | None = None
     ) -> None:
         """Update order status."""
         await self.connection.execute(
@@ -886,7 +886,7 @@ class SQLiteRepository(Repository):
         logger.info("Position created", position_id=position.position_id)
         return position.position_id
 
-    async def get_position(self, position_id: str) -> Optional[Position]:
+    async def get_position(self, position_id: str) -> Position | None:
         """Get position by ID."""
         cursor = await self.connection.execute(
             "SELECT * FROM positions WHERE position_id = ?", (position_id,)
@@ -919,7 +919,7 @@ class SQLiteRepository(Repository):
         return None
 
     async def get_positions_by_account(
-        self, account_id: str, status: Optional[str] = None
+        self, account_id: str, status: str | None = None
     ) -> list[Position]:
         """Get all positions for an account."""
         if status:
@@ -1041,7 +1041,7 @@ class SQLiteRepository(Repository):
         logger.info("Trading session created", session_id=session.session_id)
         return session.session_id
 
-    async def get_session(self, session_id: str) -> Optional[TradingSession]:
+    async def get_session(self, session_id: str) -> TradingSession | None:
         """Get session by ID."""
         cursor = await self.connection.execute(
             "SELECT * FROM trading_sessions WHERE session_id = ?", (session_id,)
@@ -1071,7 +1071,7 @@ class SQLiteRepository(Repository):
             )
         return None
 
-    async def get_active_session(self, account_id: str) -> Optional[TradingSession]:
+    async def get_active_session(self, account_id: str) -> TradingSession | None:
         """Get active session for an account."""
         cursor = await self.connection.execute(
             "SELECT * FROM trading_sessions WHERE account_id = ? AND is_active = 1",
@@ -1312,7 +1312,7 @@ class SQLiteRepository(Repository):
 
         logger.info("Order updated", order_id=order.order_id, status=order.status.value)
 
-    async def get_open_orders(self, symbol: Optional[str] = None) -> list[Order]:
+    async def get_open_orders(self, symbol: str | None = None) -> list[Order]:
         """Get all open orders, optionally filtered by symbol."""
         if symbol:
             cursor = await self.connection.execute(
@@ -1419,7 +1419,7 @@ class SQLiteRepository(Repository):
         return orphaned_positions
 
     # Backup and restore methods
-    async def backup(self, backup_path: Optional[Path] = None) -> Path:
+    async def backup(self, backup_path: Path | None = None) -> Path:
         """Create a backup of the database."""
         if backup_path is None:
             # Default backup path with timestamp
@@ -1621,7 +1621,7 @@ class SQLiteRepository(Repository):
 
     # Performance metrics methods
     async def calculate_performance_metrics(
-        self, account_id: str, session_id: Optional[str] = None
+        self, account_id: str, session_id: str | None = None
     ) -> dict[str, Any]:
         """Calculate performance metrics (win rate, average R, etc.)."""
         if session_id:
@@ -1762,7 +1762,7 @@ class SQLiteRepository(Repository):
         event_type: str,
         severity: str,
         indicator_values: dict[str, Any],
-        intervention: Optional[str] = None,
+        intervention: str | None = None,
     ) -> str:
         """Save a tilt event."""
         event_id = str(uuid4())
@@ -1837,7 +1837,7 @@ class SQLiteRepository(Repository):
         )
         await self.connection.commit()
 
-    async def get_database_info(self, key: str) -> Optional[str]:
+    async def get_database_info(self, key: str) -> str | None:
         """Get database metadata."""
         cursor = await self.connection.execute(
             "SELECT value FROM database_info WHERE key = ?", (key,)
@@ -2327,7 +2327,7 @@ class SQLiteRepository(Repository):
             f"Saved market state for {market_state['symbol']}: {market_state['state']}"
         )
 
-    async def get_latest_market_state(self, symbol: str) -> Optional[dict]:
+    async def get_latest_market_state(self, symbol: str) -> dict | None:
         """
         Get the latest market state for a symbol.
 
@@ -2460,7 +2460,7 @@ class SQLiteRepository(Repository):
         await self.connection.commit()
         logger.info(f"Saved global market state: {global_state['state']}")
 
-    async def get_latest_global_market_state(self) -> Optional[dict]:
+    async def get_latest_global_market_state(self) -> dict | None:
         """
         Get the latest global market state.
 
@@ -2546,8 +2546,8 @@ class SQLiteRepository(Repository):
     async def get_spread_history(
         self,
         symbol: str,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 1000,
     ) -> list[dict]:
         """
@@ -3052,7 +3052,7 @@ class SQLiteRepository(Repository):
 
         return profile_id
 
-    async def get_tilt_profile(self, account_id: str) -> Optional[dict]:
+    async def get_tilt_profile(self, account_id: str) -> dict | None:
         """
         Get tilt profile for an account.
 
@@ -3207,7 +3207,7 @@ class SQLiteRepository(Repository):
         )
 
     async def get_execution_quality_records(
-        self, start_time: datetime, symbol: Optional[str] = None
+        self, start_time: datetime, symbol: str | None = None
     ) -> list[Any]:
         """
         Retrieve execution quality records from the database.

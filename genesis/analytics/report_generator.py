@@ -6,10 +6,8 @@ all analytics metrics, charts, and insights.
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
-from io import BytesIO
-from typing import Optional
 
 import structlog
 
@@ -253,7 +251,7 @@ class MonthlyReportGenerator:
         )
 
         logger.info(
-            f"Monthly report generated",
+            "Monthly report generated",
             period=report_period,
             total_pnl=float(report.total_pnl),
             trades=report.total_trades,

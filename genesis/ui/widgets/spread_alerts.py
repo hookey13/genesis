@@ -9,7 +9,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Literal
 
 import structlog
 from rich.console import RenderableType
@@ -38,7 +38,7 @@ class SpreadAlert:
     message: str
     level: AlertLevel
     timestamp: datetime
-    data: Optional[dict] = None
+    data: dict | None = None
 
 
 class SpreadAlertsWidget(Widget):
@@ -48,8 +48,8 @@ class SpreadAlertsWidget(Widget):
     """
 
     # Reactive attributes
-    filter_symbol: reactive[Optional[str]] = reactive(None)
-    filter_level: reactive[Optional[AlertLevel]] = reactive(None)
+    filter_symbol: reactive[str | None] = reactive(None)
+    filter_level: reactive[AlertLevel | None] = reactive(None)
     max_alerts: reactive[int] = reactive(50)
 
     # CSS for styling
@@ -219,7 +219,7 @@ class SpreadAlertsWidget(Widget):
         alert_type: str,
         message: str,
         level: AlertLevel = "info",
-        data: Optional[dict] = None,
+        data: dict | None = None,
     ) -> None:
         """
         Add a new alert

@@ -26,7 +26,7 @@ import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -134,7 +134,7 @@ class EmergencyClosureHandler:
         response = input("\nType 'CLOSE ALL' to confirm: ")
         return response == "CLOSE ALL"
 
-    def connect_exchange(self) -> Optional[Any]:
+    def connect_exchange(self) -> Any | None:
         """
         Connect to exchange with emergency credentials.
 

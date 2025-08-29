@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Multi-pair concurrent trading manager for Hunter tier and above."""
 
@@ -70,7 +69,7 @@ class MultiPairManager:
         self.account_id = account_id
         self._active_positions: dict[str, Position] = {}
         self._position_correlations: dict[tuple[str, str], Decimal] = {}
-        self._limits: Optional[PortfolioLimits] = None
+        self._limits: PortfolioLimits | None = None
         self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:

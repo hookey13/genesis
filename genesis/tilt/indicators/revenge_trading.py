@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Revenge trading pattern detection indicator."""
 
 from dataclasses import dataclass
@@ -56,7 +54,7 @@ class RevengeTradingDetector:
         pnl: Decimal,
         symbol: str,
         position_size: Decimal,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """Record a trade result for pattern detection.
 
@@ -99,7 +97,7 @@ class RevengeTradingDetector:
 
     def detect_revenge_pattern(
         self, profile_id: str, current_metric: BehavioralMetric
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Detect revenge trading pattern.
 
         Args:

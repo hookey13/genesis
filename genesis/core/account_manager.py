@@ -5,10 +5,8 @@ Provides account isolation, hierarchy management, and permission controls
 for institutional-grade multi-account trading operations.
 """
 
-import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Dict, List, Optional
 from uuid import uuid4
 
 import structlog
@@ -30,8 +28,8 @@ class AccountManager:
         """Initialize AccountManager with repository and event bus."""
         self.repository = repository
         self.event_bus = event_bus
-        self._accounts_cache: Dict[str, Account] = {}
-        self._active_account_id: Optional[str] = None
+        self._accounts_cache: dict[str, Account] = {}
+        self._active_account_id: str | None = None
         logger.info("account_manager_initialized")
 
     @requires_tier(TradingTier.STRATEGIST)
@@ -39,10 +37,10 @@ class AccountManager:
         self,
         balance_usdt: Decimal,
         account_type: AccountType = AccountType.MASTER,
-        parent_account_id: Optional[str] = None,
+        parent_account_id: str | None = None,
         tier: TradingTier = TradingTier.SNIPER,
-        permissions: Optional[Dict] = None,
-        compliance_settings: Optional[Dict] = None,
+        permissions: dict | None = None,
+        compliance_settings: dict | None = None,
     ) -> Account:
         """
         Create a new trading account.
@@ -85,8 +83,8 @@ class AccountManager:
                 tier=tier,
                 permissions=permissions or {},
                 compliance_settings=compliance_settings or {},
-                last_sync=datetime.now(timezone.utc),
-                created_at=datetime.now(timezone.utc),
+                last_sync=datetime.now(UTC),
+                created_at=datetime.now(UTC),
             )
 
             # Store in repository
@@ -122,7 +120,7 @@ class AccountManager:
             raise
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def get_account(self, account_id: str) -> Optional[Account]:
+    async def get_account(self, account_id: str) -> Account | None:
         """
         Retrieve an account by ID.
 
@@ -146,9 +144,9 @@ class AccountManager:
     @requires_tier(TradingTier.STRATEGIST)
     async def list_accounts(
         self,
-        parent_account_id: Optional[str] = None,
-        account_type: Optional[AccountType] = None,
-    ) -> List[Account]:
+        parent_account_id: str | None = None,
+        account_type: AccountType | None = None,
+    ) -> list[Account]:
         """
         List accounts with optional filtering.
 
@@ -208,7 +206,7 @@ class AccountManager:
             {
                 "old_account_id": old_account_id,
                 "new_account_id": account_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 
@@ -221,7 +219,7 @@ class AccountManager:
         return True
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def get_active_account(self) -> Optional[Account]:
+    async def get_active_account(self) -> Account | None:
         """
         Get the currently active account.
 
@@ -255,7 +253,7 @@ class AccountManager:
 
         old_balance = account.balance_usdt
         account.balance_usdt = new_balance
-        account.last_sync = datetime.now(timezone.utc)
+        account.last_sync = datetime.now(UTC)
 
         # Save to repository
         await self.repository.update_account(account)
@@ -284,7 +282,7 @@ class AccountManager:
         return True
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def get_account_positions(self, account_id: str) -> List[Position]:
+    async def get_account_positions(self, account_id: str) -> list[Position]:
         """
         Get all positions for an account.
 
@@ -325,7 +323,7 @@ class AccountManager:
 
     @requires_tier(TradingTier.STRATEGIST)
     async def update_account_permissions(
-        self, account_id: str, permissions: Dict
+        self, account_id: str, permissions: dict
     ) -> bool:
         """
         Update an account's permissions.
@@ -360,7 +358,7 @@ class AccountManager:
                 "account_id": account_id,
                 "old_permissions": old_permissions,
                 "new_permissions": permissions,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             },
         )
 

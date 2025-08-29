@@ -6,12 +6,11 @@ All values normalized to quote currency (USDT).
 """
 
 import logging
-from decimal import Decimal, ROUND_HALF_UP
-from typing import Dict, Optional, Tuple
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.orm import Session as DBSession
 
-from genesis.data.models import Trade, Position, PnLLedger
+from genesis.data.models import PnLLedger, Position, Trade
 from genesis.data.repositories import PositionRepository
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,7 @@ class PositionService:
         self.db_session = db_session
         self.position_repo = PositionRepository(db_session)
 
-    def apply_trade(self, trade: Trade) -> Tuple[Position, Decimal]:
+    def apply_trade(self, trade: Trade) -> tuple[Position, Decimal]:
         """
         Apply trade to position and calculate realized PnL.
 
@@ -133,7 +132,7 @@ class PositionService:
         return abs(position.qty) * current_price
 
     def close_all_positions(
-        self, session_id: str, prices: Dict[str, Decimal]
+        self, session_id: str, prices: dict[str, Decimal]
     ) -> Decimal:
         """
         Mark all positions closed at given prices and calculate total PnL.
@@ -187,8 +186,8 @@ class PositionService:
         return (a >= 0 and b >= 0) or (a < 0 and b < 0)
 
     def get_position_summary(
-        self, symbol: str, current_price: Optional[Decimal] = None
-    ) -> Dict:
+        self, symbol: str, current_price: Decimal | None = None
+    ) -> dict:
         """
         Get comprehensive position summary.
 

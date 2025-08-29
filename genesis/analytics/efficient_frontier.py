@@ -15,11 +15,11 @@ import numpy as np
 import structlog
 from scipy.optimize import minimize
 
-from typing import Optional
-
 from genesis.core.constants import TradingTier
 from genesis.core.exceptions import (
     DataError as InvalidDataError,
+)
+from genesis.core.exceptions import (
     GenesisException as CalculationError,
 )
 from genesis.utils.decorators import requires_tier, with_timeout
@@ -89,7 +89,7 @@ class EfficientFrontierAnalyzer:
         self,
         strategy_returns: dict[str, list[Decimal]],
         risk_free_rate: Decimal = Decimal("0.02"),
-        constraints: Optional[dict] = None,
+        constraints: dict | None = None,
     ) -> EfficientFrontierResult:
         """
         Calculate the efficient frontier for a set of strategies.
@@ -199,7 +199,7 @@ class EfficientFrontierAnalyzer:
         cov_matrix: np.ndarray,
         strategies: list[str],
         risk_free_rate: Decimal,
-        constraints: Optional[dict],
+        constraints: dict | None,
     ) -> list[PortfolioPoint]:
         """Calculate points along the efficient frontier"""
         n_strategies = len(strategies)
@@ -286,7 +286,7 @@ class EfficientFrontierAnalyzer:
         cov_matrix: np.ndarray,
         strategies: list[str],
         risk_free_rate: Decimal,
-        constraints: Optional[dict],
+        constraints: dict | None,
     ) -> PortfolioPoint:
         """Find the portfolio with maximum Sharpe ratio"""
         n_strategies = len(strategies)
@@ -352,7 +352,7 @@ class EfficientFrontierAnalyzer:
         expected_returns: np.ndarray,
         cov_matrix: np.ndarray,
         strategies: list[str],
-        constraints: Optional[dict],
+        constraints: dict | None,
     ) -> PortfolioPoint:
         """Find the minimum variance portfolio"""
         n_strategies = len(strategies)
@@ -446,7 +446,7 @@ class EfficientFrontierAnalyzer:
 
     async def _get_cached_result(
         self, cache_key: str
-    ) -> Optional[EfficientFrontierResult]:
+    ) -> EfficientFrontierResult | None:
         """Get cached result if valid"""
         async with self._cache_lock:
             if cache_key in self._cache:

@@ -8,11 +8,8 @@ trading operations remain synchronized with exchange servers.
 import asyncio
 import logging
 import time
-from datetime import datetime, timezone
-from typing import Optional, Tuple
 
 import aiohttp
-import ccxt.async_support as ccxt
 import ntplib
 from pydantic import BaseModel
 
@@ -27,10 +24,10 @@ class ClockDriftResult(BaseModel):
     drift_ms: int
     is_acceptable: bool
     source: str
-    error: Optional[str] = None
+    error: str | None = None
 
 
-async def check_binance_time() -> Optional[int]:
+async def check_binance_time() -> int | None:
     """
     Get current server time from Binance API.
 
@@ -52,7 +49,7 @@ async def check_binance_time() -> Optional[int]:
         return None
 
 
-def check_ntp_time(server: str = "pool.ntp.org") -> Optional[int]:
+def check_ntp_time(server: str = "pool.ntp.org") -> int | None:
     """
     Get current time from NTP server.
 

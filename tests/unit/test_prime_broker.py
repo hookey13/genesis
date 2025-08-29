@@ -1,21 +1,19 @@
 """Unit tests for PrimeBrokerAdapter - Integration point validation for prime brokers."""
 
-import pytest
+from datetime import UTC, datetime
 from decimal import Decimal
-from datetime import datetime, timezone
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
-from typing import Dict, List, Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from genesis.core.models import Order, OrderSide, OrderType, Position
 from genesis.exchange.prime_broker import (
-    PrimeBrokerAdapter,
-    PrimeBrokerType,
     AllocationInstruction,
-    ExecutionReport,
+    PrimeBrokerAdapter,
     PrimeBrokerConfig,
-    MultiVenueOrder,
+    PrimeBrokerType,
     VenueAllocation,
 )
-from genesis.core.models import Order, OrderType, OrderSide, Position, Account
 
 
 class TestPrimeBrokerAdapter:
@@ -376,13 +374,13 @@ class TestPrimeBrokerAdapter:
 
         # Execute
         settlement = await gs_adapter.generate_settlement_instructions(
-            trades=trades, settlement_date=datetime(2024, 1, 3, tzinfo=timezone.utc)
+            trades=trades, settlement_date=datetime(2024, 1, 3, tzinfo=UTC)
         )
 
         # Verify
         assert settlement.total_value == Decimal("375000.00")  # 5*45000 + 50*3000
         assert len(settlement.instructions) == 2
-        assert settlement.settlement_date == datetime(2024, 1, 3, tzinfo=timezone.utc)
+        assert settlement.settlement_date == datetime(2024, 1, 3, tzinfo=UTC)
         assert all(
             isinstance(inst["value"], Decimal) for inst in settlement.instructions
         )
@@ -428,7 +426,7 @@ class TestPrimeBrokerAdapter:
             "symbol": "BTC/USD",
             "quantity": Decimal("10.0"),
             "price": Decimal("45000.00"),
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": datetime.now(UTC),
             "counterparty": "BINANCE",
             "client_id": "CLIENT_001",
         }

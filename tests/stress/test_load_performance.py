@@ -4,17 +4,15 @@ Tests system behavior under extreme load conditions.
 """
 
 import asyncio
-import pytest
-from decimal import Decimal
-from unittest.mock import Mock, AsyncMock
-from datetime import datetime, timedelta
-import structlog
-import time
-import random
-import psutil
 import os
-from typing import List, Dict, Any
-import concurrent.futures
+import random
+import time
+from datetime import datetime
+from decimal import Decimal
+
+import psutil
+import pytest
+import structlog
 
 logger = structlog.get_logger()
 

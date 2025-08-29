@@ -7,7 +7,7 @@ and request/response validation.
 """
 
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import ccxt.async_support as ccxt
 import structlog
@@ -46,8 +46,8 @@ class BinanceGateway:
         """
         self.settings = get_settings()
         self.mock_mode = mock_mode or self.settings.development.use_mock_exchange
-        self.exchange: Optional[ccxt.Exchange] = None
-        self.mock_exchange: Optional[MockExchange] = None
+        self.exchange: ccxt.Exchange | None = None
+        self.mock_exchange: MockExchange | None = None
         self.rate_limiter = RateLimiter()
         self._initialized = False
 
@@ -288,7 +288,7 @@ class BinanceGateway:
             raise
 
     async def get_open_orders(
-        self, symbol: Optional[str] = None
+        self, symbol: str | None = None
     ) -> list[OrderResponse]:
         """
         Get all open orders.
@@ -659,3 +659,88 @@ class BinanceGateway:
                 else:
                     # Different error, re-raise
                     raise
+
+    async def validate_connection(self) -> bool:
+        """
+        Validate the exchange connection is working.
+        
+        Returns:
+            True if connection is valid and working
+        """
+        try:
+            if not self._initialized:
+                await self.initialize()
+
+            # Try to get server time as a simple connectivity check
+            server_time = await self.get_server_time()
+
+            if server_time and server_time > 0:
+                logger.info("Exchange connection validated successfully", server_time=server_time)
+                return True
+            else:
+                logger.error("Exchange connection validation failed - invalid server time")
+                return False
+
+        except Exception as e:
+            logger.error("Exchange connection validation failed", error=str(e))
+            return False
+
+    async def execute_order(self, order) -> dict[str, Any]:
+        """
+        Execute an order through the exchange.
+        
+        Args:
+            order: Order model to execute
+            
+        Returns:
+            Dictionary with execution results
+        """
+        try:
+            # Convert order model to OrderRequest
+            request = OrderRequest(
+                symbol=order.symbol,
+                side=order.side.value,
+                type=order.type.value,
+                quantity=order.quantity,
+                price=order.price,
+                client_order_id=order.client_order_id
+            )
+
+            # Track execution time
+            import time
+            start_time = time.time()
+
+            # Place the order
+            response = await self.place_order(request)
+
+            # Calculate latency
+            latency_ms = int((time.time() - start_time) * 1000)
+
+            if response.status in ["FILLED", "PARTIALLY_FILLED"]:
+                return {
+                    "success": True,
+                    "exchange_order_id": response.order_id,
+                    "fill_price": response.price or response.average_price,
+                    "filled_quantity": response.filled_quantity,
+                    "status": response.status,
+                    "latency_ms": latency_ms
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"Order not filled: {response.status}",
+                    "exchange_order_id": response.order_id,
+                    "status": response.status,
+                    "latency_ms": latency_ms
+                }
+
+        except Exception as e:
+            logger.error("Order execution failed", error=str(e), order_id=order.order_id)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+
+# Alias for compatibility
+ExchangeGateway = BinanceGateway

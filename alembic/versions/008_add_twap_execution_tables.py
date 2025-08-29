@@ -5,18 +5,17 @@ Revises: 007
 Create Date: 2025-08-26
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+
+import sqlalchemy as sa
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy import Index
-
 
 # revision identifiers, used by Alembic.
 revision: str = '008'
-down_revision: Union[str, None] = '007'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = '007'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -46,7 +45,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime, server_default=sa.text('CURRENT_TIMESTAMP')),
         sa.Column('updated_at', sa.DateTime, server_default=sa.text('CURRENT_TIMESTAMP'))
     )
-    
+
     # Create twap_slice_history table for individual slice tracking
     op.create_table(
         'twap_slice_history',
@@ -69,13 +68,13 @@ def upgrade() -> None:
         sa.Column('executed_at', sa.DateTime, nullable=False),
         sa.Column('created_at', sa.DateTime, server_default=sa.text('CURRENT_TIMESTAMP'))
     )
-    
+
     # Create indexes for performance queries
     op.create_index('idx_twap_executions_symbol', 'twap_executions', ['symbol'])
     op.create_index('idx_twap_executions_status', 'twap_executions', ['status'])
     op.create_index('idx_twap_executions_started_at', 'twap_executions', ['started_at'])
     op.create_index('idx_twap_executions_symbol_status', 'twap_executions', ['symbol', 'status'])
-    
+
     op.create_index('idx_twap_slice_execution_id', 'twap_slice_history', ['execution_id'])
     op.create_index('idx_twap_slice_executed_at', 'twap_slice_history', ['executed_at'])
     op.create_index('idx_twap_slice_execution_slice', 'twap_slice_history', ['execution_id', 'slice_number'])
@@ -86,12 +85,12 @@ def downgrade() -> None:
     op.drop_index('idx_twap_slice_execution_slice', 'twap_slice_history')
     op.drop_index('idx_twap_slice_executed_at', 'twap_slice_history')
     op.drop_index('idx_twap_slice_execution_id', 'twap_slice_history')
-    
+
     op.drop_index('idx_twap_executions_symbol_status', 'twap_executions')
     op.drop_index('idx_twap_executions_started_at', 'twap_executions')
     op.drop_index('idx_twap_executions_status', 'twap_executions')
     op.drop_index('idx_twap_executions_symbol', 'twap_executions')
-    
+
     # Drop tables
     op.drop_table('twap_slice_history')
     op.drop_table('twap_executions')

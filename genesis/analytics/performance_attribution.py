@@ -271,11 +271,9 @@ class PerformanceAttributionEngine:
                     min_mae = mae
 
                 # Check if position recovered (use recovered_from_mae if available)
-                if position.get("recovered_from_mae", False):
-                    mae_stats["recovered_positions"] += 1
-                elif position.get("pnl_dollars", Decimal("0")) > 0 and mae > Decimal(
+                if position.get("recovered_from_mae", False) or (position.get("pnl_dollars", Decimal("0")) > 0 and mae > Decimal(
                     "0"
-                ):
+                )):
                     mae_stats["recovered_positions"] += 1
 
                 # Group by strategy

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Tilt indicator widget for multi-level tilt visualization."""
 
 from datetime import UTC, datetime
@@ -50,7 +48,7 @@ class TiltIndicator(Widget):
         TiltLevel.LEVEL3: "red",
     }
 
-    def __init__(self, event_bus: Optional[EventBus] = None, **kwargs):
+    def __init__(self, event_bus: EventBus | None = None, **kwargs):
         """Initialize tilt indicator.
 
         Args:
@@ -160,7 +158,7 @@ class TiltIndicator(Widget):
         level: TiltLevel,
         score: int,
         anomalies: list[dict],
-        message: Optional[str] = None,
+        message: str | None = None,
     ) -> None:
         """Update the tilt status display.
 

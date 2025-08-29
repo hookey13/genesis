@@ -7,7 +7,6 @@ profile contexts and operations.
 
 import json
 from datetime import UTC, datetime
-from typing import Optional
 
 import structlog
 
@@ -226,7 +225,7 @@ class ProfileManager:
 
     async def get_profile_by_account(
         self, account_id: str
-    ) -> Optional[BaselineProfile]:
+    ) -> BaselineProfile | None:
         """
         Get profile for an account.
 
@@ -251,7 +250,7 @@ class ProfileManager:
         # Load from database
         return await self._load_profile_from_db(profile_id)
 
-    async def _get_or_load_profile(self, profile_id: str) -> Optional[BaselineProfile]:
+    async def _get_or_load_profile(self, profile_id: str) -> BaselineProfile | None:
         """
         Get profile from cache or load from database.
 
@@ -268,7 +267,7 @@ class ProfileManager:
         # Load from database
         return await self._load_profile_from_db(profile_id)
 
-    async def _load_profile_from_db(self, profile_id: str) -> Optional[BaselineProfile]:
+    async def _load_profile_from_db(self, profile_id: str) -> BaselineProfile | None:
         """
         Load profile from database.
 

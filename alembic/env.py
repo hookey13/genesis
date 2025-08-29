@@ -4,13 +4,13 @@ Alembic environment configuration for Project GENESIS.
 This file is executed whenever alembic commands are run.
 """
 
-import os
 import sys
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -28,6 +28,7 @@ if config.config_file_name is not None:
 
 # Add your model's MetaData object here for 'autogenerate' support
 from genesis.data.models import Base
+
 target_metadata = Base.metadata
 
 # Get database URL from settings
@@ -52,7 +53,7 @@ def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
     configuration = config.get_section(config.config_ini_section)
     configuration["sqlalchemy.url"] = database_url
-    
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",

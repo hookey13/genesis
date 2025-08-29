@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -44,8 +44,8 @@ class ConfigurationChangeTracker:
         self,
         window_size: int = 100,
         frequent_change_threshold: int = 3,
-        repository: Optional[Repository] = None,
-        profile_id: Optional[str] = None,
+        repository: Repository | None = None,
+        profile_id: str | None = None,
     ) -> None:
         """
         Initialize configuration tracker.

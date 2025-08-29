@@ -4,7 +4,7 @@ Displays real-time progress towards tier requirements and
 celebrates transitions with appropriate restraint.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import RenderableType
 from rich.panel import Panel
@@ -87,7 +87,7 @@ class TierCeremonyAnimation(Widget):
         self.from_tier = from_tier
         self.to_tier = to_tier
         self.animation_frame = 0
-        self.timer: Optional[Timer] = None
+        self.timer: Timer | None = None
 
     def on_mount(self) -> None:
         """Start animation on mount."""
@@ -171,7 +171,7 @@ class TierGateProgressWidget(Widget):
         super().__init__(**kwargs)
         self.state_machine = state_machine
         self.gate_bars: dict[str, GateProgressBar] = {}
-        self.update_timer: Optional[Timer] = None
+        self.update_timer: Timer | None = None
 
     def on_mount(self) -> None:
         """Start update timer on mount."""

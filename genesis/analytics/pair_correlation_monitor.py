@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Correlation monitoring system for multi-pair trading."""
 
@@ -89,7 +88,7 @@ class CorrelationMonitor:
         self._lock = asyncio.Lock()
 
     async def update_price(
-        self, symbol: str, price: Decimal, timestamp: Optional[datetime] = None
+        self, symbol: str, price: Decimal, timestamp: datetime | None = None
     ) -> None:
         """Update price for a symbol.
 
@@ -222,7 +221,7 @@ class CorrelationMonitor:
                 return Decimal("0")
 
     async def get_correlation_matrix(
-        self, symbols: Optional[list[str]] = None
+        self, symbols: list[str] | None = None
     ) -> np.ndarray:
         """Get correlation matrix for specified symbols.
 
@@ -254,7 +253,7 @@ class CorrelationMonitor:
             return matrix
 
     async def get_highly_correlated_pairs(
-        self, threshold: Optional[Decimal] = None
+        self, threshold: Decimal | None = None
     ) -> list[tuple[str, str, Decimal]]:
         """Get pairs with correlation above threshold.
 

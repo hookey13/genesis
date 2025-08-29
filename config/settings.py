@@ -23,7 +23,7 @@ import sys
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings
@@ -252,8 +252,8 @@ class TiltDetectionSettings(BaseSettings):
 class BackupSettings(BaseSettings):
     """Backup configuration."""
 
-    do_spaces_key: Optional[str] = Field(None, env="DO_SPACES_KEY")
-    do_spaces_secret: Optional[str] = Field(None, env="DO_SPACES_SECRET")
+    do_spaces_key: str | None = Field(None, env="DO_SPACES_KEY")
+    do_spaces_secret: str | None = Field(None, env="DO_SPACES_SECRET")
     do_spaces_region: str = Field("sgp1", env="DO_SPACES_REGION")
     do_spaces_bucket: str = Field("genesis-backups", env="DO_SPACES_BUCKET")
     backup_schedule: str = Field("0 */4 * * *", env="BACKUP_SCHEDULE")  # Cron format
@@ -291,11 +291,11 @@ class DeploymentSettings(BaseSettings):
 class NotificationSettings(BaseSettings):
     """Notification configuration."""
 
-    smtp_host: Optional[str] = Field(None, env="SMTP_HOST")
+    smtp_host: str | None = Field(None, env="SMTP_HOST")
     smtp_port: int = Field(587, env="SMTP_PORT", gt=0, le=65535)
-    smtp_username: Optional[str] = Field(None, env="SMTP_USERNAME")
-    smtp_password: Optional[str] = Field(None, env="SMTP_PASSWORD")
-    alert_email_to: Optional[str] = Field(None, env="ALERT_EMAIL_TO")
+    smtp_username: str | None = Field(None, env="SMTP_USERNAME")
+    smtp_password: str | None = Field(None, env="SMTP_PASSWORD")
+    alert_email_to: str | None = Field(None, env="ALERT_EMAIL_TO")
 
     alert_on_tilt: bool = Field(True, env="ALERT_ON_TILT")
     alert_on_daily_loss_limit: bool = Field(True, env="ALERT_ON_DAILY_LOSS_LIMIT")
@@ -483,7 +483,6 @@ class Settings:
 
     def redacted_dict(self) -> dict:
         """Return configuration as dict with sensitive values redacted."""
-        import json
         import re
 
         def redact_sensitive(obj, parent_key=""):
@@ -536,7 +535,7 @@ class Settings:
         return redact_sensitive(config_dict)
 
 
-_settings_instance: Optional[Settings] = None
+_settings_instance: Settings | None = None
 
 
 def get_settings(reload: bool = False) -> Settings:

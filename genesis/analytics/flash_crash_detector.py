@@ -10,7 +10,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -113,8 +113,8 @@ class FlashCrashDetector:
         price: Decimal,
         volume: Decimal = Decimal("0"),
         trades_count: int = 0,
-        timestamp: Optional[datetime] = None,
-    ) -> Optional[FlashCrashEvent]:
+        timestamp: datetime | None = None,
+    ) -> FlashCrashEvent | None:
         """
         Process a new price and check for flash crash.
 
@@ -179,7 +179,7 @@ class FlashCrashDetector:
         ):
             self.price_history[symbol].popleft()
 
-    async def _detect_flash_crash(self, symbol: str) -> Optional[FlashCrashEvent]:
+    async def _detect_flash_crash(self, symbol: str) -> FlashCrashEvent | None:
         """
         Detect flash crash in recent price history.
 
@@ -407,7 +407,7 @@ class FlashCrashDetector:
 
         return result
 
-    def get_crash_history(self, symbol: Optional[str] = None) -> list[dict[str, Any]]:
+    def get_crash_history(self, symbol: str | None = None) -> list[dict[str, Any]]:
         """
         Get crash history, optionally filtered by symbol.
 

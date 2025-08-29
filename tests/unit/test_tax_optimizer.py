@@ -1,20 +1,16 @@
 """Unit tests for TaxOptimizer - Essential for compliance and tax calculations."""
 
-import pytest
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch, AsyncMock
-from typing import List, Dict, Any
+
+import pytest
 
 from genesis.analytics.tax_optimizer import (
-    TaxOptimizer,
-    TaxLot,
-    TaxMethod,
-    TaxReport,
     CapitalGain,
-    TaxCalculation,
+    TaxLot,
+    TaxOptimizer,
 )
-from genesis.core.models import Position, Order, Account, Tier
+from genesis.core.models import Order
 
 
 class TestTaxOptimizer:
@@ -23,7 +19,7 @@ class TestTaxOptimizer:
     @pytest.fixture
     def sample_tax_lots(self):
         """Create sample tax lots for testing."""
-        base_date = datetime.now(timezone.utc)
+        base_date = datetime.now(UTC)
         return [
             TaxLot(
                 lot_id="lot_1",
@@ -107,7 +103,7 @@ class TestTaxOptimizer:
             lot_id="lot_1",
             position_id="pos_1",
             symbol="BTC/USDT",
-            acquisition_date=datetime.now(timezone.utc) - timedelta(days=400),
+            acquisition_date=datetime.now(UTC) - timedelta(days=400),
             quantity=Decimal("1.0"),
             cost_basis=Decimal("30000.00"),
             current_price=Decimal("45000.00"),
@@ -132,7 +128,7 @@ class TestTaxOptimizer:
             lot_id="lot_1",
             position_id="pos_1",
             symbol="BTC/USDT",
-            acquisition_date=datetime.now(timezone.utc) - timedelta(days=100),
+            acquisition_date=datetime.now(UTC) - timedelta(days=100),
             quantity=Decimal("1.0"),
             cost_basis=Decimal("40000.00"),
             current_price=Decimal("45000.00"),
@@ -157,7 +153,7 @@ class TestTaxOptimizer:
             lot_id="lot_1",
             position_id="pos_1",
             symbol="BTC/USDT",
-            acquisition_date=datetime.now(timezone.utc) - timedelta(days=200),
+            acquisition_date=datetime.now(UTC) - timedelta(days=200),
             quantity=Decimal("1.0"),
             cost_basis=Decimal("50000.00"),
             current_price=Decimal("45000.00"),
@@ -190,7 +186,7 @@ class TestTaxOptimizer:
     def test_wash_sale_detection(self, tax_optimizer):
         """Test wash sale rule detection (30-day rule)."""
         # Setup
-        base_date = datetime.now(timezone.utc)
+        base_date = datetime.now(UTC)
 
         sale = Order(
             order_id="sell_1",
@@ -223,8 +219,8 @@ class TestTaxOptimizer:
             CapitalGain(
                 lot_id="lot_1",
                 symbol="BTC/USDT",
-                acquisition_date=datetime(2024, 1, 15, tzinfo=timezone.utc),
-                sale_date=datetime(2024, 11, 20, tzinfo=timezone.utc),
+                acquisition_date=datetime(2024, 1, 15, tzinfo=UTC),
+                sale_date=datetime(2024, 11, 20, tzinfo=UTC),
                 cost_basis=Decimal("30000.00"),
                 sale_proceeds=Decimal("45000.00"),
                 capital_gain=Decimal("15000.00"),
@@ -234,8 +230,8 @@ class TestTaxOptimizer:
             CapitalGain(
                 lot_id="lot_2",
                 symbol="ETH/USDT",
-                acquisition_date=datetime(2024, 8, 1, tzinfo=timezone.utc),
-                sale_date=datetime(2024, 10, 15, tzinfo=timezone.utc),
+                acquisition_date=datetime(2024, 8, 1, tzinfo=UTC),
+                sale_date=datetime(2024, 10, 15, tzinfo=UTC),
                 cost_basis=Decimal("2000.00"),
                 sale_proceeds=Decimal("2500.00"),
                 capital_gain=Decimal("500.00"),
@@ -262,7 +258,7 @@ class TestTaxOptimizer:
                 lot_id="lot_1",
                 position_id="pos_1",
                 symbol="BTC/USDT",
-                acquisition_date=datetime.now(timezone.utc) - timedelta(days=200),
+                acquisition_date=datetime.now(UTC) - timedelta(days=200),
                 quantity=Decimal("1.0"),
                 cost_basis=Decimal("50000.00"),
                 current_price=Decimal("45000.00"),  # $5k loss
@@ -271,7 +267,7 @@ class TestTaxOptimizer:
                 lot_id="lot_2",
                 position_id="pos_2",
                 symbol="ETH/USDT",
-                acquisition_date=datetime.now(timezone.utc) - timedelta(days=180),
+                acquisition_date=datetime.now(UTC) - timedelta(days=180),
                 quantity=Decimal("10.0"),
                 cost_basis=Decimal("20000.00"),
                 current_price=Decimal("25000.00"),  # $5k gain
@@ -299,7 +295,7 @@ class TestTaxOptimizer:
             lot_id="lot_1",
             position_id="pos_1",
             symbol="BTC/USDT",
-            acquisition_date=datetime.now(timezone.utc) - timedelta(days=200),
+            acquisition_date=datetime.now(UTC) - timedelta(days=200),
             quantity=Decimal("0.123456789"),
             cost_basis=Decimal("5432.109876543"),
             current_price=Decimal("44000.00"),
@@ -329,7 +325,7 @@ class TestTaxOptimizer:
                 lot_id="lot_1",
                 position_id="pos_1",
                 symbol="BTC/USDT",
-                acquisition_date=datetime.now(timezone.utc) - timedelta(days=200),
+                acquisition_date=datetime.now(UTC) - timedelta(days=200),
                 quantity=Decimal("1.0"),
                 cost_basis=Decimal("40000.00"),
                 current_price=Decimal("45000.00"),
@@ -338,7 +334,7 @@ class TestTaxOptimizer:
                 lot_id="lot_2",
                 position_id="pos_2",
                 symbol="ETH/USDT",
-                acquisition_date=datetime.now(timezone.utc) - timedelta(days=150),
+                acquisition_date=datetime.now(UTC) - timedelta(days=150),
                 quantity=Decimal("10.0"),
                 cost_basis=Decimal("20000.00"),
                 current_price=Decimal("25000.00"),
@@ -347,7 +343,7 @@ class TestTaxOptimizer:
                 lot_id="lot_3",
                 position_id="pos_3",
                 symbol="EUR/USD",
-                acquisition_date=datetime.now(timezone.utc) - timedelta(days=100),
+                acquisition_date=datetime.now(UTC) - timedelta(days=100),
                 quantity=Decimal("10000.0"),
                 cost_basis=Decimal("11000.00"),
                 current_price=Decimal("1.08"),

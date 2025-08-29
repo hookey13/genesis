@@ -7,7 +7,6 @@ based on spread analysis and market conditions.
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
@@ -48,7 +47,7 @@ class SpreadProfitabilityCalculator:
 
     def __init__(
         self,
-        trading_costs: Optional[TradingCosts] = None,
+        trading_costs: TradingCosts | None = None,
         min_profit_bps: Decimal = Decimal("5"),
     ):
         """
@@ -67,8 +66,8 @@ class SpreadProfitabilityCalculator:
         symbol: str,
         spread_bps: Decimal,
         volume: Decimal,
-        fee_bps: Optional[Decimal] = None,
-        custom_slippage: Optional[Decimal] = None,
+        fee_bps: Decimal | None = None,
+        custom_slippage: Decimal | None = None,
     ) -> ProfitabilityMetrics:
         """
         Calculate profit potential for a spread opportunity
@@ -151,7 +150,7 @@ class SpreadProfitabilityCalculator:
         return metrics
 
     def calculate_break_even_spread(
-        self, fee_bps: Optional[Decimal] = None, slippage_bps: Optional[Decimal] = None
+        self, fee_bps: Decimal | None = None, slippage_bps: Decimal | None = None
     ) -> Decimal:
         """
         Calculate minimum spread needed to break even

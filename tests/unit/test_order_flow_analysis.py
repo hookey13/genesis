@@ -1,22 +1,21 @@
 """Unit tests for Order Flow Analysis."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
 from collections import deque
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from unittest.mock import AsyncMock
 
 import pytest
 
 from genesis.analytics.order_flow_analysis import (
-    OrderFlowMetrics,
-    TradeFlow,
     FlowWindow,
     OrderFlowAnalyzer,
+    OrderFlowMetrics,
+    TradeFlow,
 )
-from genesis.exchange.order_book_manager import OrderBookSnapshot, OrderBookLevel
 from genesis.engine.event_bus import EventBus
-from genesis.core.events import Event
+from genesis.exchange.order_book_manager import OrderBookLevel, OrderBookSnapshot
 
 
 class TestOrderFlowMetrics:
@@ -26,7 +25,7 @@ class TestOrderFlowMetrics:
         """Test creating order flow metrics."""
         metrics = OrderFlowMetrics(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ofi=Decimal("0.5"),
             volume_ratio=Decimal("2.0"),
             aggression_ratio=Decimal("1.5"),
@@ -45,7 +44,7 @@ class TestOrderFlowMetrics:
         # Bullish metrics
         metrics = OrderFlowMetrics(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ofi=Decimal("0.5"),
             volume_ratio=Decimal("2.0"),
             aggression_ratio=Decimal("1.5"),
@@ -71,7 +70,7 @@ class TestOrderFlowMetrics:
         """Test significance checking."""
         metrics = OrderFlowMetrics(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ofi=Decimal("0.4"),
             volume_ratio=Decimal("2.0"),
             aggression_ratio=Decimal("1.5"),
@@ -100,7 +99,7 @@ class TestTradeFlow:
     def test_trade_flow_creation(self):
         """Test creating trade flow record."""
         trade = TradeFlow(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             price=Decimal("50000"),
             quantity=Decimal("1.5"),
             side="buy",
@@ -123,7 +122,7 @@ class TestFlowWindow:
 
         # Add recent trade
         recent_trade = TradeFlow(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             price=Decimal("50000"),
             quantity=Decimal("1"),
             side="buy",
@@ -134,7 +133,7 @@ class TestFlowWindow:
 
         # Add old trade (should be removed)
         old_trade = TradeFlow(
-            timestamp=datetime.now(timezone.utc) - timedelta(minutes=10),
+            timestamp=datetime.now(UTC) - timedelta(minutes=10),
             price=Decimal("49000"),
             quantity=Decimal("2"),
             side="sell",
@@ -153,20 +152,20 @@ class TestFlowWindow:
         # Add various trades
         trades = [
             TradeFlow(
-                datetime.now(timezone.utc), Decimal("50000"), Decimal("1"), "buy", True
+                datetime.now(UTC), Decimal("50000"), Decimal("1"), "buy", True
             ),
             TradeFlow(
-                datetime.now(timezone.utc), Decimal("50001"), Decimal("2"), "buy", False
+                datetime.now(UTC), Decimal("50001"), Decimal("2"), "buy", False
             ),
             TradeFlow(
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 Decimal("49999"),
                 Decimal("1.5"),
                 "sell",
                 True,
             ),
             TradeFlow(
-                datetime.now(timezone.utc),
+                datetime.now(UTC),
                 Decimal("49998"),
                 Decimal("0.5"),
                 "sell",
@@ -258,10 +257,10 @@ class TestOrderFlowAnalyzer:
         # Add balanced trades
         trades = [
             TradeFlow(
-                datetime.now(timezone.utc), Decimal("50000"), Decimal("1"), "buy", True
+                datetime.now(UTC), Decimal("50000"), Decimal("1"), "buy", True
             ),
             TradeFlow(
-                datetime.now(timezone.utc), Decimal("49999"), Decimal("1"), "sell", True
+                datetime.now(UTC), Decimal("49999"), Decimal("1"), "sell", True
             ),
         ]
 
@@ -317,7 +316,7 @@ class TestOrderFlowAnalyzer:
         for _ in range(150):
             window.trades.append(
                 TradeFlow(
-                    datetime.now(timezone.utc),
+                    datetime.now(UTC),
                     Decimal("50000"),
                     Decimal("1"),
                     "buy",
@@ -362,10 +361,10 @@ class TestOrderFlowAnalyzer:
         window = FlowWindow(window_size=timedelta(minutes=5))
         trades = [
             TradeFlow(
-                datetime.now(timezone.utc), Decimal("50000"), Decimal("3"), "buy", True
+                datetime.now(UTC), Decimal("50000"), Decimal("3"), "buy", True
             ),
             TradeFlow(
-                datetime.now(timezone.utc), Decimal("49999"), Decimal("1"), "sell", True
+                datetime.now(UTC), Decimal("49999"), Decimal("1"), "sell", True
             ),
         ]
         for trade in trades:
@@ -383,7 +382,7 @@ class TestOrderFlowAnalyzer:
             [
                 OrderFlowMetrics(
                     symbol="BTCUSDT",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     ofi=Decimal("0.5"),
                     volume_ratio=Decimal("2"),
                     aggression_ratio=Decimal("1.5"),

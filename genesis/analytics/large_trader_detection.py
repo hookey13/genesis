@@ -1,19 +1,16 @@
 """Large Trader (Whale) Detection Algorithms."""
 
-import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
-from collections import deque
 import statistics
+from collections import deque
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
-import structlog
 import numpy as np
-import pandas as pd
+import structlog
 
-from genesis.engine.event_bus import EventBus
 from genesis.core.events import Event
+from genesis.engine.event_bus import EventBus
 
 logger = structlog.get_logger(__name__)
 
@@ -29,7 +26,7 @@ class WhaleActivity:
     side: str  # 'buy' or 'sell'
     percentile: Decimal  # Size percentile (0-100)
     vpin_score: Decimal  # Volume-synchronized PIN score
-    cluster_id: Optional[str] = None  # ID if part of a cluster
+    cluster_id: str | None = None  # ID if part of a cluster
     cumulative_volume: Decimal = Decimal("0")  # Total volume from this entity
     confidence: Decimal = Decimal("0.5")  # Detection confidence
 
@@ -49,9 +46,9 @@ class TradeCluster:
 
     cluster_id: str
     symbol: str
-    trades: List[WhaleActivity] = field(default_factory=list)
-    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    end_time: Optional[datetime] = None
+    trades: list[WhaleActivity] = field(default_factory=list)
+    start_time: datetime = field(default_factory=lambda: datetime.now(UTC))
+    end_time: datetime | None = None
 
     @property
     def total_volume(self) -> Decimal:
@@ -121,18 +118,18 @@ class LargeTraderDetector:
         self.vpin_bucket_size = vpin_bucket_size
 
         # Trade history for distribution analysis
-        self.trade_history: Dict[str, deque] = {}
+        self.trade_history: dict[str, deque] = {}
         self.history_size = 1000
 
         # Active clusters
-        self.active_clusters: Dict[str, TradeCluster] = {}
+        self.active_clusters: dict[str, TradeCluster] = {}
 
         # VPIN calculation data
-        self.vpin_buckets: Dict[str, List[Tuple[Decimal, Decimal]]] = {}
-        self.vpin_history: Dict[str, deque] = {}
+        self.vpin_buckets: dict[str, list[tuple[Decimal, Decimal]]] = {}
+        self.vpin_history: dict[str, deque] = {}
 
         # Cumulative volumes by suspected entities
-        self.entity_volumes: Dict[str, Dict[str, Decimal]] = {}
+        self.entity_volumes: dict[str, dict[str, Decimal]] = {}
 
     async def analyze_trade(
         self,
@@ -140,8 +137,8 @@ class LargeTraderDetector:
         price: Decimal,
         quantity: Decimal,
         side: str,
-        timestamp: Optional[datetime] = None,
-    ) -> Optional[WhaleActivity]:
+        timestamp: datetime | None = None,
+    ) -> WhaleActivity | None:
         """Analyze trade for large trader activity.
 
         Args:
@@ -155,7 +152,7 @@ class LargeTraderDetector:
             Whale activity if detected
         """
         if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         # Update trade history
         if symbol not in self.trade_history:
@@ -269,7 +266,7 @@ class LargeTraderDetector:
         # Store VPIN data
         vpin_data = VPINData(
             symbol=symbol,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             vpin=vpin,
             buy_volume=buckets[-1][0] if buckets else Decimal("0"),
             sell_volume=buckets[-1][1] if buckets else Decimal("0"),
@@ -295,7 +292,7 @@ class LargeTraderDetector:
 
         return vpin
 
-    def _calculate_vpin(self, buckets: List[Tuple[Decimal, Decimal]]) -> Decimal:
+    def _calculate_vpin(self, buckets: list[tuple[Decimal, Decimal]]) -> Decimal:
         """Calculate VPIN from volume buckets.
 
         Args:
@@ -322,7 +319,7 @@ class LargeTraderDetector:
         vpin = sum(imbalances) / len(imbalances)
         return min(Decimal("1"), vpin)
 
-    def _vpin_confidence(self, buckets: List[Tuple[Decimal, Decimal]]) -> Decimal:
+    def _vpin_confidence(self, buckets: list[tuple[Decimal, Decimal]]) -> Decimal:
         """Calculate confidence in VPIN score.
 
         Args:
@@ -340,7 +337,7 @@ class LargeTraderDetector:
 
     def _find_or_create_cluster(
         self, whale_activity: WhaleActivity
-    ) -> Optional[TradeCluster]:
+    ) -> TradeCluster | None:
         """Find existing cluster or create new one.
 
         Args:
@@ -497,7 +494,7 @@ class LargeTraderDetector:
             side=whale_activity.side,
         )
 
-    def get_active_whales(self, symbol: str) -> List[TradeCluster]:
+    def get_active_whales(self, symbol: str) -> list[TradeCluster]:
         """Get currently active whale clusters.
 
         Args:
@@ -512,7 +509,7 @@ class LargeTraderDetector:
             if cluster.symbol == symbol
         ]
 
-    def get_whale_statistics(self, symbol: str) -> Dict[str, any]:
+    def get_whale_statistics(self, symbol: str) -> dict[str, any]:
         """Get whale activity statistics.
 
         Args:
@@ -540,7 +537,7 @@ class LargeTraderDetector:
             "total_entities": len(self.entity_volumes.get(symbol, {})),
         }
 
-    def get_vpin_trend(self, symbol: str, periods: int = 10) -> Optional[str]:
+    def get_vpin_trend(self, symbol: str, periods: int = 10) -> str | None:
         """Get VPIN trend direction.
 
         Args:

@@ -13,12 +13,12 @@ from enum import Enum
 
 import structlog
 
-from typing import Optional
-
 from genesis.core.constants import TradingTier
 from genesis.core.events import Event, EventType
 from genesis.core.exceptions import (
     DataError as InvalidDataError,
+)
+from genesis.core.exceptions import (
     GenesisException as CalculationError,
 )
 from genesis.engine.event_bus import EventBus
@@ -116,7 +116,7 @@ class RebalancingEngine:
     DEFAULT_SLIPPAGE = Decimal("0.0005")  # 0.05% slippage estimate
 
     def __init__(
-        self, event_bus: Optional[EventBus] = None, config: Optional[dict] = None
+        self, event_bus: EventBus | None = None, config: dict | None = None
     ):
         """
         Initialize rebalancing engine.
@@ -160,7 +160,7 @@ class RebalancingEngine:
         current_weights: dict[str, Decimal],
         target_weights: dict[str, Decimal],
         portfolio_value_usdt: Decimal,
-        expected_sharpe_improvement: Optional[Decimal] = None,
+        expected_sharpe_improvement: Decimal | None = None,
     ) -> RebalanceRecommendation:
         """
         Check if rebalancing should be triggered and generate recommendation.
@@ -236,7 +236,7 @@ class RebalancingEngine:
 
     async def _determine_trigger(
         self, current_weights: dict[str, Decimal], target_weights: dict[str, Decimal]
-    ) -> Optional[RebalanceTrigger]:
+    ) -> RebalanceTrigger | None:
         """Determine if any rebalancing trigger is met"""
         # Check threshold trigger
         max_deviation = Decimal("0")

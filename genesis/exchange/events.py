@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Optional, Dict, Any, List
+from typing import Any
 from uuid import uuid4
 
 
@@ -60,16 +60,16 @@ class MarketTick:
     ts: datetime
 
     # Optional fields with defaults
-    bid: Optional[Decimal] = None
-    ask: Optional[Decimal] = None
-    bid_qty: Optional[Decimal] = None
-    ask_qty: Optional[Decimal] = None
-    volume_24h: Optional[Decimal] = None
+    bid: Decimal | None = None
+    ask: Decimal | None = None
+    bid_qty: Decimal | None = None
+    ask_qty: Decimal | None = None
+    volume_24h: Decimal | None = None
 
     # Event metadata
     event_type: EventType = field(default=EventType.MARKET_TICK, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
 
 @dataclass
@@ -81,18 +81,18 @@ class OrderAck:
     ts: datetime
 
     # Optional fields
-    symbol: Optional[str] = None
-    side: Optional[str] = None
-    order_type: Optional[str] = None
-    quantity: Optional[Decimal] = None
-    price: Optional[Decimal] = None
-    time_in_force: Optional[str] = None
+    symbol: str | None = None
+    side: str | None = None
+    order_type: str | None = None
+    quantity: Decimal | None = None
+    price: Decimal | None = None
+    time_in_force: str | None = None
     status: str = "NEW"
 
     # Event metadata
     event_type: EventType = field(default=EventType.ORDER_ACK, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
 
 @dataclass
@@ -108,18 +108,18 @@ class OrderFill:
     ts: datetime
 
     # Optional fields
-    exchange_order_id: Optional[str] = None
-    symbol: Optional[str] = None
-    side: Optional[str] = None
-    cumulative_qty: Optional[Decimal] = None
-    remaining_qty: Optional[Decimal] = None
+    exchange_order_id: str | None = None
+    symbol: str | None = None
+    side: str | None = None
+    cumulative_qty: Decimal | None = None
+    remaining_qty: Decimal | None = None
     is_partial: bool = False
     status: str = "FILLED"
 
     # Event metadata
     event_type: EventType = field(default=EventType.ORDER_FILL, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
     def __post_init__(self):
         """Set event type based on fill type."""
@@ -136,16 +136,16 @@ class OrderCancel:
     ts: datetime
 
     # Optional fields
-    exchange_order_id: Optional[str] = None
-    symbol: Optional[str] = None
-    canceled_qty: Optional[Decimal] = None
-    executed_qty: Optional[Decimal] = None
+    exchange_order_id: str | None = None
+    symbol: str | None = None
+    canceled_qty: Decimal | None = None
+    executed_qty: Decimal | None = None
     status: str = "CANCELED"
 
     # Event metadata
     event_type: EventType = field(default=EventType.ORDER_CANCEL, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
 
 @dataclass
@@ -157,18 +157,18 @@ class OrderReject:
     ts: datetime
 
     # Optional fields
-    symbol: Optional[str] = None
-    side: Optional[str] = None
-    order_type: Optional[str] = None
-    quantity: Optional[Decimal] = None
-    price: Optional[Decimal] = None
-    error_code: Optional[int] = None
+    symbol: str | None = None
+    side: str | None = None
+    order_type: str | None = None
+    quantity: Decimal | None = None
+    price: Decimal | None = None
+    error_code: int | None = None
     status: str = "REJECTED"
 
     # Event metadata
     event_type: EventType = field(default=EventType.ORDER_REJECT, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
 
 @dataclass
@@ -181,17 +181,17 @@ class ExchangeHeartbeat:
 
     # Optional health metrics
     exchange: str = "binance"
-    ws_connected: Optional[bool] = None
-    rest_responsive: Optional[bool] = None
-    latency_ms: Optional[int] = None
-    open_orders: Optional[int] = None
-    rate_limit_remaining: Optional[int] = None
-    listen_key_valid: Optional[bool] = None
+    ws_connected: bool | None = None
+    rest_responsive: bool | None = None
+    latency_ms: int | None = None
+    open_orders: int | None = None
+    rate_limit_remaining: int | None = None
+    listen_key_valid: bool | None = None
 
     # Event metadata
     event_type: EventType = field(default=EventType.EXCHANGE_HEARTBEAT, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
 
 @dataclass
@@ -204,14 +204,14 @@ class CircuitBreaker:
 
     # Optional fields
     state: str = "CLOSED"  # OPEN, CLOSED, HALF_OPEN
-    error_count: Optional[int] = None
-    error_rate: Optional[float] = None
-    cooldown_seconds: Optional[int] = None
+    error_count: int | None = None
+    error_rate: float | None = None
+    cooldown_seconds: int | None = None
 
     # Event metadata
     event_type: EventType = field(default=EventType.CIRCUIT_BREAKER_OPEN, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
     def __post_init__(self):
         """Set event type and state based on tripped status."""
@@ -232,14 +232,14 @@ class WebSocketEvent:
     ts: datetime
 
     # Optional fields
-    url: Optional[str] = None
+    url: str | None = None
     reconnect_attempt: int = 0
-    error: Optional[str] = None
+    error: str | None = None
 
     # Event metadata
     event_type: EventType = field(default=EventType.WS_CONNECTED, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
     def __post_init__(self):
         """Set event type based on status."""
@@ -263,12 +263,12 @@ class ReconciliationEvent:
     positions_reconciled: int = 0
     discrepancies_found: int = 0
     corrections_made: int = 0
-    duration_ms: Optional[int] = None
+    duration_ms: int | None = None
 
     # Event metadata
     event_type: EventType = field(default=EventType.RECONCILIATION_START, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
     def __post_init__(self):
         """Set event type based on phase."""
@@ -294,7 +294,7 @@ class ClockSkewEvent:
     # Event metadata
     event_type: EventType = field(default=EventType.CLOCK_SKEW_DETECTED, init=False)
     event_id: str = field(default_factory=create_event_id)
-    sequence: Optional[int] = None
+    sequence: int | None = None
 
 
 class EventBus:
@@ -305,10 +305,10 @@ class EventBus:
     """
 
     def __init__(self):
-        self._subscribers: Dict[EventType, List[Any]] = {}
-        self._all_subscribers: List[Any] = []
+        self._subscribers: dict[EventType, list[Any]] = {}
+        self._all_subscribers: list[Any] = []
         self._sequence = 0
-        self._event_history: List[Any] = []
+        self._event_history: list[Any] = []
         self._max_history = 1000
 
     def publish(self, event: Any) -> None:
@@ -348,7 +348,7 @@ class EventBus:
 
                 logging.error(f"All-event subscriber error: {e}")
 
-    def subscribe(self, event_type: Optional[EventType], callback: Any) -> None:
+    def subscribe(self, event_type: EventType | None, callback: Any) -> None:
         """
         Subscribe to events.
 
@@ -363,7 +363,7 @@ class EventBus:
                 self._subscribers[event_type] = []
             self._subscribers[event_type].append(callback)
 
-    def unsubscribe(self, event_type: Optional[EventType], callback: Any) -> None:
+    def unsubscribe(self, event_type: EventType | None, callback: Any) -> None:
         """
         Unsubscribe from events.
 
@@ -379,8 +379,8 @@ class EventBus:
                 self._subscribers[event_type].remove(callback)
 
     def get_history(
-        self, event_type: Optional[EventType] = None, limit: int = 100
-    ) -> List[Any]:
+        self, event_type: EventType | None = None, limit: int = 100
+    ) -> list[Any]:
         """
         Get event history.
 

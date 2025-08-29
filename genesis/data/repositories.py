@@ -6,28 +6,26 @@ Financial values use Decimal throughout for precision.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_
 from sqlalchemy.orm import Session as DBSession
-from sqlalchemy.exc import IntegrityError
 
-from genesis.data.models import (
-    Session,
-    Order,
-    Trade,
-    Position,
-    PnLLedger,
-    Instrument,
-    Candle,
-    Journal,
-    OutboxEvent,
-    InboxEvent,
-)
 from genesis.data import metrics
+from genesis.data.models import (
+    Candle,
+    InboxEvent,
+    Instrument,
+    Journal,
+    Order,
+    OutboxEvent,
+    PnLLedger,
+    Position,
+    Session,
+    Trade,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +53,11 @@ class BaseRepository:
 class SessionRepository(BaseRepository):
     """Repository for trading sessions."""
 
-    def start(self, notes: Optional[str] = None) -> str:
+    def start(self, notes: str | None = None) -> str:
         """Start a new trading session."""
         session = Session(
             id=str(uuid4()),
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             state="running",
             notes=notes,
         )
@@ -68,17 +66,17 @@ class SessionRepository(BaseRepository):
         logger.info(f"Started session {session.id}")
         return session.id
 
-    def end(self, session_id: str, state: str, reason: Optional[str] = None):
+    def end(self, session_id: str, state: str, reason: str | None = None):
         """End a trading session."""
         session = self.session.query(Session).filter_by(id=session_id).first()
         if session:
-            session.ended_at = datetime.now(timezone.utc)
+            session.ended_at = datetime.now(UTC)
             session.state = state
             session.reason = reason
             self.commit()
             logger.info(f"Ended session {session_id} with state={state}")
 
-    def get_active(self) -> Optional[Session]:
+    def get_active(self) -> Session | None:
         """Get current active session."""
         return (
             self.session.query(Session)
@@ -109,7 +107,7 @@ class InstrumentRepository(BaseRepository):
             instrument.tick_size = tick_size
             instrument.lot_step = lot_step
             instrument.min_notional = min_notional
-            instrument.updated_at = datetime.now(timezone.utc)
+            instrument.updated_at = datetime.now(UTC)
         else:
             instrument = Instrument(
                 symbol=symbol,
@@ -124,7 +122,7 @@ class InstrumentRepository(BaseRepository):
         self.commit()
         return instrument
 
-    def get(self, symbol: str) -> Optional[Instrument]:
+    def get(self, symbol: str) -> Instrument | None:
         """Get instrument by symbol."""
         return self.session.query(Instrument).filter_by(symbol=symbol).first()
 
@@ -133,7 +131,7 @@ class OrderRepository(BaseRepository):
     """Repository for order management."""
 
     @metrics.track_db_operation("create_order")
-    def create(self, order_data: Dict) -> Order:
+    def create(self, order_data: dict) -> Order:
         """Create new order with NEW status."""
         order = Order(
             id=str(uuid4()),
@@ -151,8 +149,8 @@ class OrderRepository(BaseRepository):
             ),
             time_in_force=order_data.get("time_in_force"),
             status="new",
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         self.save(order)
         self.commit()
@@ -174,7 +172,7 @@ class OrderRepository(BaseRepository):
             return None
 
         order.status = status
-        order.updated_at = datetime.now(timezone.utc)
+        order.updated_at = datetime.now(UTC)
 
         # Update optional fields
         if "avg_price" in fields:
@@ -224,7 +222,7 @@ class OrderRepository(BaseRepository):
         else:
             order.status = "partially_filled"
 
-        order.updated_at = datetime.now(timezone.utc)
+        order.updated_at = datetime.now(UTC)
 
         # Write to PnL ledger
         pnl_entry = PnLLedger(
@@ -259,7 +257,7 @@ class OrderRepository(BaseRepository):
         )
         return order
 
-    def get_open_by_symbol(self, symbol: str) -> List[Order]:
+    def get_open_by_symbol(self, symbol: str) -> list[Order]:
         """Get all open orders for a symbol."""
         return (
             self.session.query(Order)
@@ -272,7 +270,7 @@ class OrderRepository(BaseRepository):
             .all()
         )
 
-    def get_by_client_id(self, client_order_id: str) -> Optional[Order]:
+    def get_by_client_id(self, client_order_id: str) -> Order | None:
         """Get order by client order ID."""
         return (
             self.session.query(Order).filter_by(client_order_id=client_order_id).first()
@@ -283,7 +281,7 @@ class TradeRepository(BaseRepository):
     """Repository for trade records."""
 
     @metrics.track_db_operation("record_trade")
-    def record_trade(self, trade_data: Dict) -> Optional[Trade]:
+    def record_trade(self, trade_data: dict) -> Trade | None:
         """Record trade with idempotency on exchange_trade_id."""
         # Check for duplicate
         existing = (
@@ -309,7 +307,7 @@ class TradeRepository(BaseRepository):
             price=Decimal(str(trade_data["price"])),
             fee_ccy=trade_data.get("fee_ccy", "USDT"),
             fee_amount=Decimal(str(trade_data.get("fee_amount", 0))),
-            trade_time=trade_data.get("trade_time", datetime.now(timezone.utc)),
+            trade_time=trade_data.get("trade_time", datetime.now(UTC)),
         )
 
         self.save(trade)
@@ -322,7 +320,7 @@ class TradeRepository(BaseRepository):
         logger.info(f"Recorded trade {trade.exchange_trade_id}")
         return trade
 
-    def list_for_order(self, order_id: str) -> List[Trade]:
+    def list_for_order(self, order_id: str) -> list[Trade]:
         """List all trades for an order."""
         return self.session.query(Trade).filter_by(order_id=order_id).all()
 
@@ -340,7 +338,7 @@ class PositionRepository(BaseRepository):
                 qty=Decimal("0"),
                 avg_entry_price=Decimal("0"),
                 realised_pnl=Decimal("0"),
-                updated_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(UTC),
             )
             self.save(position)
 
@@ -359,7 +357,7 @@ class PositionRepository(BaseRepository):
         position.qty = qty
         position.avg_entry_price = avg_entry_price
         position.realised_pnl += realised_pnl_delta
-        position.updated_at = datetime.now(timezone.utc)
+        position.updated_at = datetime.now(UTC)
 
         self.commit()
         logger.info(f"Updated position {symbol}: qty={qty}, avg={avg_entry_price}")
@@ -370,7 +368,7 @@ class CandleRepository(BaseRepository):
     """Repository for OHLCV candle data."""
 
     @metrics.track_db_operation("upsert_candles")
-    def upsert_bulk(self, symbol: str, timeframe: str, candles: List[Dict]):
+    def upsert_bulk(self, symbol: str, timeframe: str, candles: list[dict]):
         """Bulk upsert candle data with conflict resolution."""
         for candle_data in candles:
             existing = (
@@ -411,7 +409,7 @@ class CandleRepository(BaseRepository):
 
         logger.info(f"Upserted {len(candles)} candles for {symbol} {timeframe}")
 
-    def latest(self, symbol: str, timeframe: str) -> Optional[Candle]:
+    def latest(self, symbol: str, timeframe: str) -> Candle | None:
         """Get most recent candle."""
         return (
             self.session.query(Candle)
@@ -422,7 +420,7 @@ class CandleRepository(BaseRepository):
 
     def get_range(
         self, symbol: str, timeframe: str, start_time: datetime, end_time: datetime
-    ) -> List[Candle]:
+    ) -> list[Candle]:
         """Get candles in time range."""
         return (
             self.session.query(Candle)
@@ -442,11 +440,11 @@ class CandleRepository(BaseRepository):
 class JournalRepository(BaseRepository):
     """Repository for system journal."""
 
-    def log(self, level: str, category: str, message: str, ctx: Optional[Dict] = None):
+    def log(self, level: str, category: str, message: str, ctx: dict | None = None):
         """Write journal entry."""
         entry = Journal(
             id=str(uuid4()),
-            at=datetime.now(timezone.utc),
+            at=datetime.now(UTC),
             level=level,
             category=category,
             message=message,
@@ -459,11 +457,11 @@ class JournalRepository(BaseRepository):
 class EventRepository(BaseRepository):
     """Repository for event inbox/outbox patterns."""
 
-    def publish_event(self, event_type: str, payload: Dict) -> str:
+    def publish_event(self, event_type: str, payload: dict) -> str:
         """Publish event to outbox."""
         event = OutboxEvent(
             id=str(uuid4()),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             event_type=event_type,
             payload=payload,
         )
@@ -475,7 +473,7 @@ class EventRepository(BaseRepository):
 
         return event.id
 
-    def consume_event(self, dedupe_key: str, event_type: str, payload: Dict) -> bool:
+    def consume_event(self, dedupe_key: str, event_type: str, payload: dict) -> bool:
         """Consume event with idempotency check."""
         # Check if already processed
         existing = (
@@ -490,10 +488,10 @@ class EventRepository(BaseRepository):
         event = InboxEvent(
             id=str(uuid4()),
             dedupe_key=dedupe_key,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             event_type=event_type,
             payload=payload,
-            consumed_at=datetime.now(timezone.utc),
+            consumed_at=datetime.now(UTC),
         )
         self.save(event)
         self.commit()
@@ -503,7 +501,7 @@ class EventRepository(BaseRepository):
 
         return True
 
-    def get_unprocessed_events(self, limit: int = 100) -> List[OutboxEvent]:
+    def get_unprocessed_events(self, limit: int = 100) -> list[OutboxEvent]:
         """Get unprocessed outbox events."""
         return (
             self.session.query(OutboxEvent)
@@ -517,5 +515,5 @@ class EventRepository(BaseRepository):
         """Mark outbox event as processed."""
         event = self.session.query(OutboxEvent).filter_by(id=event_id).first()
         if event:
-            event.processed_at = datetime.now(timezone.utc)
+            event.processed_at = datetime.now(UTC)
             self.commit()

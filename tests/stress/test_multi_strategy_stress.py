@@ -7,11 +7,10 @@ import gc
 import time
 import tracemalloc
 from decimal import Decimal
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 import numpy as np
+import pytest
 
 from genesis.core.models import Signal, SignalType
 from genesis.engine.strategy_orchestrator import StrategyOrchestrator

@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 
 import structlog
 
@@ -37,7 +36,7 @@ class ExecutionQuality:
     order_id: str
     symbol: str
     order_type: str
-    routing_method: Optional[str]
+    routing_method: str | None
     timestamp: datetime
     slippage_bps: Decimal  # Basis points
     total_fees: Decimal
@@ -47,7 +46,7 @@ class ExecutionQuality:
     fill_rate: Decimal  # Percentage filled
     price_improvement_bps: Decimal  # Positive = favorable
     execution_score: float
-    market_conditions: Optional[str]  # JSON string of conditions
+    market_conditions: str | None  # JSON string of conditions
 
 
 @dataclass
@@ -361,7 +360,7 @@ class ExecutionQualityTracker:
         return score
 
     async def get_statistics(
-        self, period: str = "24h", symbol: Optional[str] = None
+        self, period: str = "24h", symbol: str | None = None
     ) -> ExecutionStats:
         """
         Get aggregated execution statistics.
@@ -475,7 +474,7 @@ class ExecutionQualityTracker:
             )
 
     async def _get_quality_records(
-        self, start_time: datetime, symbol: Optional[str] = None
+        self, start_time: datetime, symbol: str | None = None
     ) -> list[ExecutionQuality]:
         """Get quality records from cache and database."""
         # Filter cache records

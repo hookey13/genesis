@@ -7,7 +7,6 @@ including slice execution status, participation rates, and price tracking.
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 from rich.align import Align
@@ -66,7 +65,7 @@ class TwapProgressWidget(Widget):
     """
 
     # Reactive properties for live updates
-    execution_id: reactive[Optional[str]] = reactive(None)
+    execution_id: reactive[str | None] = reactive(None)
     symbol: reactive[str] = reactive("")
     side: reactive[str] = reactive("")
     total_quantity: reactive[Decimal] = reactive(Decimal("0"))
@@ -81,7 +80,7 @@ class TwapProgressWidget(Widget):
     implementation_shortfall: reactive[Decimal] = reactive(Decimal("0"))
     status: reactive[str] = reactive("INACTIVE")
     time_remaining_seconds: reactive[int] = reactive(0)
-    started_at: reactive[Optional[datetime]] = reactive(None)
+    started_at: reactive[datetime | None] = reactive(None)
 
     # Slice history
     slice_history: reactive[list[dict]] = reactive([])

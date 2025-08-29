@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Optional
 
 import structlog
 
@@ -92,7 +91,7 @@ class OrderBookAnalyzer:
         logger.info("Order book analyzer initialized")
 
     def analyze_liquidity_depth(
-        self, order_book: OrderBook, side: Optional[OrderSide] = None
+        self, order_book: OrderBook, side: OrderSide | None = None
     ) -> LiquidityProfile:
         """
         Perform comprehensive liquidity analysis on order book.
@@ -468,7 +467,7 @@ class OrderBookAnalyzer:
 
         return slippage.quantize(Decimal("0.0001"))
 
-    def clear_cache(self, symbol: Optional[str] = None) -> None:
+    def clear_cache(self, symbol: str | None = None) -> None:
         """
         Clear cached liquidity profiles.
 

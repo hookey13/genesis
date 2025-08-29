@@ -8,14 +8,14 @@ and persistence with the exchange.
 import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
 from genesis.core.exceptions import ExchangeError
-from genesis.core.models import Account, TradingTier, Tier
+from genesis.core.models import Account, Tier, TradingTier
 from genesis.exchange.gateway import BinanceGateway
-from genesis.utils.decorators import retry, with_timeout, requires_tier
+from genesis.utils.decorators import requires_tier, retry, with_timeout
 
 logger = structlog.get_logger(__name__)
 
@@ -33,7 +33,7 @@ class AccountManager:
     def __init__(
         self,
         gateway: BinanceGateway,
-        account: Optional[Account] = None,
+        account: Account | None = None,
         auto_sync: bool = True,
     ):
         """
@@ -49,8 +49,8 @@ class AccountManager:
             balance_usdt=Decimal("0"), tier=TradingTier.SNIPER
         )
         self.auto_sync = auto_sync
-        self._sync_task: Optional[asyncio.Task] = None
-        self._last_sync_error: Optional[str] = None
+        self._sync_task: asyncio.Task | None = None
+        self._last_sync_error: str | None = None
         self._sync_count = 0
 
         logger.info(

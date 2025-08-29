@@ -1,19 +1,18 @@
 """Unit tests for ReconciliationEngine - Critical for financial accuracy."""
 
-import pytest
+from datetime import UTC, datetime
 from decimal import Decimal
-from datetime import datetime, timedelta, timezone
-from unittest.mock import Mock, patch, AsyncMock
-from typing import Dict, List, Any
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 from genesis.analytics.reconciliation import (
+    BalanceDiscrepancy,
     ReconciliationEngine,
     ReconciliationReport,
-    BalanceDiscrepancy,
-    PositionDiscrepancy,
     ReconciliationStatus,
 )
-from genesis.core.models import Account, Position, AccountType, Tier
+from genesis.core.models import Account, AccountType, Position, Tier
 from genesis.data.repository import Repository
 
 
@@ -47,7 +46,7 @@ class TestReconciliationEngine:
             tier=Tier.STRATEGIST,
             account_type=AccountType.MASTER,
             balance_usdt=Decimal("50000.00"),
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
 
     @pytest.fixture
@@ -311,7 +310,7 @@ class TestReconciliationEngine:
         # Setup
         report = ReconciliationReport(
             account_id="test_account",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             status=ReconciliationStatus.DISCREPANCY,
             balance_discrepancies=[
                 BalanceDiscrepancy(

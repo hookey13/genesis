@@ -1,26 +1,21 @@
 """Unit tests for DisasterRecovery - Recovery procedure validation."""
 
-import pytest
-import json
-import os
 import tempfile
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import Mock, patch, AsyncMock, MagicMock, mock_open
-from typing import Dict, List, Any
+from unittest.mock import AsyncMock, Mock, patch
 
-from genesis.utils.disaster_recovery import (
-    DisasterRecovery,
-    RecoveryMode,
-    SystemSnapshot,
-    BackupVerification,
-    RecoveryStatus,
-    EmergencyProcedure,
-)
-from genesis.core.models import Position, Order, Account, Tier, OrderSide, OrderType
+import pytest
+
+from genesis.core.models import Account, Order, OrderSide, OrderType, Position, Tier
 from genesis.data.repository import Repository
 from genesis.engine.event_bus import EventBus
+from genesis.utils.disaster_recovery import (
+    DisasterRecovery,
+    RecoveryStatus,
+    SystemSnapshot,
+)
 
 
 class TestDisasterRecovery:
@@ -190,7 +185,7 @@ class TestDisasterRecovery:
         """Test system restoration from snapshot."""
         # Setup
         snapshot = SystemSnapshot(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             positions=[],
             orders=[],
             accounts=[],
@@ -249,7 +244,7 @@ class TestDisasterRecovery:
 
         # Execute
         recovered_positions = await disaster_recovery.recover_positions_from_events(
-            since=datetime.now(timezone.utc) - timedelta(days=1)
+            since=datetime.now(UTC) - timedelta(days=1)
         )
 
         # Verify
@@ -261,7 +256,7 @@ class TestDisasterRecovery:
     async def test_incremental_backup(self, disaster_recovery, mock_repo):
         """Test incremental backup creation."""
         # Setup
-        last_backup_time = datetime.now(timezone.utc) - timedelta(hours=6)
+        last_backup_time = datetime.now(UTC) - timedelta(hours=6)
         changes = {
             "positions": [{"position_id": "pos_1", "action": "UPDATE"}],
             "orders": [{"order_id": "ord_1", "action": "CREATE"}],
@@ -365,11 +360,11 @@ class TestDisasterRecovery:
         checkpoints = [
             {
                 "checkpoint_id": "cp_1",
-                "timestamp": datetime.now(timezone.utc) - timedelta(hours=2),
+                "timestamp": datetime.now(UTC) - timedelta(hours=2),
             },
             {
                 "checkpoint_id": "cp_2",
-                "timestamp": datetime.now(timezone.utc) - timedelta(hours=1),
+                "timestamp": datetime.now(UTC) - timedelta(hours=1),
             },
         ]
 
@@ -416,7 +411,7 @@ class TestDisasterRecovery:
             positions=[position],
             orders=[],
             accounts=[],
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
 
         mock_repo.load_snapshot.return_value = snapshot

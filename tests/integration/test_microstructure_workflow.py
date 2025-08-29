@@ -1,19 +1,17 @@
 """Integration tests for microstructure analysis workflow."""
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from genesis.analytics.microstructure_analyzer import (
-    MicrostructureAnalyzer,
     MarketRegime,
-    MicrostructureState,
+    MicrostructureAnalyzer,
 )
-from genesis.exchange.order_book_manager import OrderBookSnapshot, OrderBookLevel
 from genesis.engine.event_bus import EventBus
+from genesis.exchange.order_book_manager import OrderBookLevel, OrderBookSnapshot
 
 
 @pytest.mark.asyncio
@@ -55,19 +53,19 @@ class TestMicrostructureWorkflow:
                 "price": 50000,
                 "quantity": 1,
                 "side": "buy",
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
             {
                 "price": 50001,
                 "quantity": 0.5,
                 "side": "sell",
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
             {
                 "price": 50000,
                 "quantity": 2,
                 "side": "buy",
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             },
         ]
 
@@ -137,7 +135,7 @@ class TestMicrostructureWorkflow:
         symbol = "BTCUSDT"
 
         # Simulate spoofing pattern
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
 
         # Place orders
         for i in range(10):

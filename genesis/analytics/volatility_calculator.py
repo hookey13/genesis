@@ -8,7 +8,6 @@ and volatility percentile rankings for market analysis.
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -201,7 +200,7 @@ class VolatilityCalculator:
         return percentile
 
     def calculate_rolling_volatility(
-        self, prices: pd.Series, window: int = 20, min_periods: Optional[int] = None
+        self, prices: pd.Series, window: int = 20, min_periods: int | None = None
     ) -> pd.Series:
         """
         Calculate rolling volatility using pandas.
@@ -469,7 +468,7 @@ class VolatilityCalculator:
         else:
             return "NORMAL"
 
-    def clear_cache(self, symbol: Optional[str] = None):
+    def clear_cache(self, symbol: str | None = None):
         """
         Clear volatility cache.
 

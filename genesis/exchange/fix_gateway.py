@@ -5,10 +5,9 @@ Provides FIX message parsing structures and adapter pattern
 for future FIX protocol integration with institutional venues.
 """
 
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -35,7 +34,7 @@ class FIXMessageType(str, Enum):
 class FIXGateway:
     """FIX protocol gateway stub for future integration."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """Initialize FIX gateway."""
         self.config = config
         self.session_id = None
@@ -53,7 +52,7 @@ class FIXGateway:
         return True
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def send_order(self, order: Dict[str, Any]) -> str:
+    async def send_order(self, order: dict[str, Any]) -> str:
         """Send order via FIX (stub)."""
         if not self.connected:
             raise ConnectionError("FIX session not connected")
@@ -64,7 +63,7 @@ class FIXGateway:
             "49": self.config.get("sender_comp_id"),
             "56": self.config.get("target_comp_id"),
             "34": self.sequence_number,
-            "52": datetime.now(timezone.utc).strftime("%Y%m%d-%H:%M:%S.%f")[:-3],
+            "52": datetime.now(UTC).strftime("%Y%m%d-%H:%M:%S.%f")[:-3],
             "11": order.get("client_order_id", str(uuid4())),
             "55": order["symbol"],
             "54": "1" if order["side"] == "BUY" else "2",
@@ -85,7 +84,7 @@ class FIXGateway:
         return fix_message["11"]
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def parse_execution_report(self, message: str) -> Dict[str, Any]:
+    async def parse_execution_report(self, message: str) -> dict[str, Any]:
         """Parse FIX execution report (stub)."""
         # Stub parser
         return {

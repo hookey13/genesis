@@ -1,17 +1,15 @@
 """Market Manipulation Detection - Spoofing and Layering."""
 
-import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Dict, List, Optional, Set
 from collections import deque
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from enum import Enum
 
 import structlog
 
-from genesis.engine.event_bus import EventBus
 from genesis.core.events import Event
+from genesis.engine.event_bus import EventBus
 from genesis.exchange.order_book_manager import OrderBookSnapshot
 
 logger = structlog.get_logger(__name__)
@@ -54,13 +52,13 @@ class ManipulationPattern:
     symbol: str
     manipulation_type: ManipulationType
     start_time: datetime
-    end_time: Optional[datetime]
-    orders: List[OrderActivity] = field(default_factory=list)
+    end_time: datetime | None
+    orders: list[OrderActivity] = field(default_factory=list)
     confidence: Decimal = Decimal("0.5")
     severity: str = "medium"  # 'low', 'medium', 'high'
 
     @property
-    def duration(self) -> Optional[timedelta]:
+    def duration(self) -> timedelta | None:
         """Calculate pattern duration."""
         if self.end_time:
             return self.end_time - self.start_time
@@ -110,18 +108,18 @@ class MarketManipulationDetector:
         self.min_orders = min_orders_for_pattern
 
         # Order activity tracking
-        self.order_history: Dict[str, deque] = {}
-        self.active_orders: Dict[str, Dict[str, OrderActivity]] = {}
+        self.order_history: dict[str, deque] = {}
+        self.active_orders: dict[str, dict[str, OrderActivity]] = {}
 
         # Detected patterns
-        self.active_patterns: Dict[str, ManipulationPattern] = {}
-        self.pattern_history: Dict[str, deque] = {}
+        self.active_patterns: dict[str, ManipulationPattern] = {}
+        self.pattern_history: dict[str, deque] = {}
 
         # Order book snapshots for context
-        self.last_snapshots: Dict[str, OrderBookSnapshot] = {}
+        self.last_snapshots: dict[str, OrderBookSnapshot] = {}
 
         # Statistics
-        self.order_to_trade_ratios: Dict[str, deque] = {}
+        self.order_to_trade_ratios: dict[str, deque] = {}
 
     async def track_order_placement(
         self,
@@ -130,7 +128,7 @@ class MarketManipulationDetector:
         price: Decimal,
         quantity: Decimal,
         side: str,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """Track order placement for manipulation detection.
 
@@ -143,7 +141,7 @@ class MarketManipulationDetector:
             timestamp: Order timestamp
         """
         if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         # Calculate distance from best price
         levels_from_best = self._calculate_levels_from_best(symbol, price, side)
@@ -174,7 +172,7 @@ class MarketManipulationDetector:
         await self._detect_layering(symbol)
 
     async def track_order_cancellation(
-        self, symbol: str, order_id: str, timestamp: Optional[datetime] = None
+        self, symbol: str, order_id: str, timestamp: datetime | None = None
     ) -> None:
         """Track order cancellation for manipulation detection.
 
@@ -184,7 +182,7 @@ class MarketManipulationDetector:
             timestamp: Cancellation timestamp
         """
         if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         # Find original order
         if (
@@ -219,10 +217,10 @@ class MarketManipulationDetector:
     async def track_trade_execution(
         self,
         symbol: str,
-        order_id: Optional[str],
+        order_id: str | None,
         price: Decimal,
         quantity: Decimal,
-        timestamp: Optional[datetime] = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """Track trade execution for ratio calculation.
 
@@ -234,7 +232,7 @@ class MarketManipulationDetector:
             timestamp: Trade timestamp
         """
         if timestamp is None:
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         # Remove from active orders if matched
         if (
@@ -327,7 +325,7 @@ class MarketManipulationDetector:
 
                 if confidence >= Decimal("0.6"):
                     pattern = ManipulationPattern(
-                        pattern_id=f"spoof_{symbol}_{datetime.now(timezone.utc).timestamp()}",
+                        pattern_id=f"spoof_{symbol}_{datetime.now(UTC).timestamp()}",
                         symbol=symbol,
                         manipulation_type=ManipulationType.SPOOFING,
                         start_time=original_order.timestamp,
@@ -373,7 +371,7 @@ class MarketManipulationDetector:
 
                         if confidence >= Decimal("0.6"):
                             pattern = ManipulationPattern(
-                                pattern_id=f"layer_{symbol}_{datetime.now(timezone.utc).timestamp()}",
+                                pattern_id=f"layer_{symbol}_{datetime.now(UTC).timestamp()}",
                                 symbol=symbol,
                                 manipulation_type=ManipulationType.LAYERING,
                                 start_time=min(o.timestamp for o in side_orders),
@@ -400,7 +398,7 @@ class MarketManipulationDetector:
 
             if cancellation_rate >= Decimal("0.9"):
                 pattern = ManipulationPattern(
-                    pattern_id=f"stuff_{symbol}_{datetime.now(timezone.utc).timestamp()}",
+                    pattern_id=f"stuff_{symbol}_{datetime.now(UTC).timestamp()}",
                     symbol=symbol,
                     manipulation_type=ManipulationType.QUOTE_STUFFING,
                     start_time=recent_orders[0].timestamp,
@@ -414,7 +412,7 @@ class MarketManipulationDetector:
 
     def _get_recent_orders(
         self, symbol: str, time_window: timedelta
-    ) -> List[OrderActivity]:
+    ) -> list[OrderActivity]:
         """Get recent orders within time window.
 
         Args:
@@ -427,10 +425,10 @@ class MarketManipulationDetector:
         if symbol not in self.order_history:
             return []
 
-        cutoff = datetime.now(timezone.utc) - time_window
+        cutoff = datetime.now(UTC) - time_window
         return [o for o in self.order_history[symbol] if o.timestamp >= cutoff]
 
-    def _calculate_cancellation_rate(self, orders: List[OrderActivity]) -> Decimal:
+    def _calculate_cancellation_rate(self, orders: list[OrderActivity]) -> Decimal:
         """Calculate cancellation rate for orders.
 
         Args:
@@ -484,7 +482,7 @@ class MarketManipulationDetector:
 
         return min(Decimal("1"), confidence)
 
-    def _calculate_layering_confidence(self, orders: List[OrderActivity]) -> Decimal:
+    def _calculate_layering_confidence(self, orders: list[OrderActivity]) -> Decimal:
         """Calculate confidence in layering detection.
 
         Args:
@@ -587,7 +585,7 @@ class MarketManipulationDetector:
                 severity=pattern.severity,
             )
 
-    def get_manipulation_statistics(self, symbol: str) -> Dict[str, any]:
+    def get_manipulation_statistics(self, symbol: str) -> dict[str, any]:
         """Get manipulation statistics for a symbol.
 
         Args:

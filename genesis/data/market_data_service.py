@@ -84,15 +84,15 @@ class OrderBook:
     last_update_id: int = 0
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
 
-    def best_bid(self) -> Optional[Decimal]:
+    def best_bid(self) -> Decimal | None:
         """Get best bid price."""
         return self.bids[0].price if self.bids else None
 
-    def best_ask(self) -> Optional[Decimal]:
+    def best_ask(self) -> Decimal | None:
         """Get best ask price."""
         return self.asks[0].price if self.asks else None
 
-    def spread(self) -> Optional[Decimal]:
+    def spread(self) -> Decimal | None:
         """Calculate spread."""
         bid = self.best_bid()
         ask = self.best_ask()
@@ -100,7 +100,7 @@ class OrderBook:
             return ask - bid
         return None
 
-    def spread_basis_points(self) -> Optional[int]:
+    def spread_basis_points(self) -> int | None:
         """Calculate spread in basis points."""
         bid = self.best_bid()
         ask = self.best_ask()
@@ -110,7 +110,7 @@ class OrderBook:
             return int((spread / mid) * Decimal("10000"))
         return None
 
-    def mid_price(self) -> Optional[Decimal]:
+    def mid_price(self) -> Decimal | None:
         """Calculate mid price."""
         bid = self.best_bid()
         ask = self.best_ask()
@@ -163,9 +163,9 @@ class MarketDataService:
 
     def __init__(
         self,
-        websocket_manager: Optional[WebSocketManager] = None,
-        gateway: Optional[BinanceGateway] = None,
-        event_bus: Optional[EventBus] = None,
+        websocket_manager: WebSocketManager | None = None,
+        gateway: BinanceGateway | None = None,
+        event_bus: EventBus | None = None,
         repository: Optional["Repository"] = None,
     ):
         """
@@ -261,7 +261,7 @@ class MarketDataService:
                 latest_tick = tick_queue[-1]
                 yield latest_tick
 
-    def get_current_price(self, symbol: str) -> Optional[Decimal]:
+    def get_current_price(self, symbol: str) -> Decimal | None:
         """
         Get current price for a symbol.
 
@@ -273,7 +273,7 @@ class MarketDataService:
         """
         return self.current_prices.get(symbol)
 
-    def get_order_book(self, symbol: str, depth: int = 5) -> Optional[OrderBook]:
+    def get_order_book(self, symbol: str, depth: int = 5) -> OrderBook | None:
         """
         Get order book for a symbol.
 
@@ -295,7 +295,7 @@ class MarketDataService:
             return limited_book
         return book
 
-    def calculate_spread(self, symbol: str) -> Optional[Decimal]:
+    def calculate_spread(self, symbol: str) -> Decimal | None:
         """
         Calculate spread in basis points.
 
@@ -895,7 +895,7 @@ class MarketDataService:
 
     async def get_order_book_snapshot(
         self, symbol: str, limit: int = 10
-    ) -> Optional[OrderBook]:
+    ) -> OrderBook | None:
         """
         Get order book snapshot with specified depth.
 

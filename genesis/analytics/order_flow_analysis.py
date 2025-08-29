@@ -1,18 +1,15 @@
 """Order Flow Imbalance Detection and Analysis."""
 
-import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
 from collections import deque
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
-import structlog
 import numpy as np
-import pandas as pd
+import structlog
 
-from genesis.engine.event_bus import EventBus
 from genesis.core.events import Event
+from genesis.engine.event_bus import EventBus
 from genesis.exchange.order_book_manager import OrderBookSnapshot
 
 logger = structlog.get_logger(__name__)
@@ -71,7 +68,7 @@ class FlowWindow:
     def add_trade(self, trade: TradeFlow) -> None:
         """Add trade to window and remove expired trades."""
         self.trades.append(trade)
-        cutoff_time = datetime.now(timezone.utc) - self.window_size
+        cutoff_time = datetime.now(UTC) - self.window_size
 
         # Remove old trades
         while self.trades and self.trades[0].timestamp < cutoff_time:
@@ -115,18 +112,18 @@ class OrderFlowAnalyzer:
         self.sensitivity = sensitivity
 
         # Flow windows per symbol
-        self.flow_windows: Dict[str, FlowWindow] = {}
+        self.flow_windows: dict[str, FlowWindow] = {}
 
         # Historical metrics for trend analysis
-        self.metrics_history: Dict[str, deque] = {}
+        self.metrics_history: dict[str, deque] = {}
         self.history_size = 100
 
         # Order book snapshots for context
-        self.last_snapshots: Dict[str, OrderBookSnapshot] = {}
+        self.last_snapshots: dict[str, OrderBookSnapshot] = {}
 
     async def analyze_trade(
         self, symbol: str, price: Decimal, quantity: Decimal, is_buyer_maker: bool
-    ) -> Optional[OrderFlowMetrics]:
+    ) -> OrderFlowMetrics | None:
         """Analyze individual trade for flow imbalance.
 
         Args:
@@ -144,7 +141,7 @@ class OrderFlowAnalyzer:
 
         # Create trade flow record
         trade = TradeFlow(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             price=price,
             quantity=quantity,
             side=side,
@@ -235,7 +232,7 @@ class OrderFlowAnalyzer:
 
         return OrderFlowMetrics(
             symbol=symbol,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             ofi=ofi,
             volume_ratio=volume_ratio,
             aggression_ratio=aggression_ratio,
@@ -259,7 +256,7 @@ class OrderFlowAnalyzer:
             return Decimal("0")
 
         previous_metrics = self.metrics_history[symbol][-1]
-        time_diff = datetime.now(timezone.utc) - previous_metrics.timestamp
+        time_diff = datetime.now(UTC) - previous_metrics.timestamp
 
         if time_diff.total_seconds() > 0:
             velocity = (current_flow - previous_metrics.net_flow) / Decimal(
@@ -399,7 +396,7 @@ class OrderFlowAnalyzer:
             direction=direction,
         )
 
-    def get_flow_trend(self, symbol: str, periods: int = 10) -> Optional[str]:
+    def get_flow_trend(self, symbol: str, periods: int = 10) -> str | None:
         """Get order flow trend over recent periods.
 
         Args:
@@ -430,7 +427,7 @@ class OrderFlowAnalyzer:
         else:
             return "neutral"
 
-    def get_cumulative_flow(self, symbol: str) -> Optional[Decimal]:
+    def get_cumulative_flow(self, symbol: str) -> Decimal | None:
         """Get cumulative net flow for a symbol.
 
         Args:
@@ -445,7 +442,7 @@ class OrderFlowAnalyzer:
         window = self.flow_windows[symbol]
         return window.get_buy_volume() - window.get_sell_volume()
 
-    def detect_flow_divergence(self, symbol: str, price_trend: str) -> Optional[str]:
+    def detect_flow_divergence(self, symbol: str, price_trend: str) -> str | None:
         """Detect divergence between price and flow.
 
         Args:

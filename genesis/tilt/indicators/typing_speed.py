@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Typing speed behavioral indicator for tilt detection."""
 
 from collections import deque
@@ -47,13 +45,13 @@ class TypingSpeedIndicator:
 
         # Track typing bursts
         self.burst_count = 0
-        self.last_burst_time: Optional[datetime] = None
+        self.last_burst_time: datetime | None = None
 
         # Average characters per word for WPM calculation
         self.chars_per_word = 5
 
     def record_keystroke_event(
-        self, key_count: int, duration_ms: float, timestamp: Optional[datetime] = None
+        self, key_count: int, duration_ms: float, timestamp: datetime | None = None
     ) -> dict:
         """Record a keystroke event and analyze patterns.
 
@@ -234,7 +232,7 @@ class TypingSpeedIndicator:
 
         return min(score, 100)
 
-    def detect_stress_typing(self) -> Optional[dict]:
+    def detect_stress_typing(self) -> dict | None:
         """Detect stress-induced typing patterns.
 
         Returns:

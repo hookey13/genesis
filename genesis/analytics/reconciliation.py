@@ -5,16 +5,14 @@ Provides automated balance verification, position reconciliation,
 and discrepancy alerts for institutional-grade accounting accuracy.
 """
 
-import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 import structlog
 
 from genesis.core.constants import TradingTier
-from genesis.core.models import Account, Position
 from genesis.data.repository import Repository
 from genesis.engine.event_bus import EventBus
 from genesis.exchange.gateway import BinanceGateway
@@ -36,11 +34,11 @@ class ReconciliationEngine:
         self.repository = repository
         self.event_bus = event_bus
         self.gateway = gateway
-        self._reconciliation_history: List[Dict[str, Any]] = []
+        self._reconciliation_history: list[dict[str, Any]] = []
         logger.info("reconciliation_engine_initialized")
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def perform_balance_reconciliation(self, account_id: str) -> Dict[str, Any]:
+    async def perform_balance_reconciliation(self, account_id: str) -> dict[str, Any]:
         """
         Verify account balance against exchange.
 
@@ -74,7 +72,7 @@ class ReconciliationEngine:
             result = {
                 "reconciliation_id": str(uuid4()),
                 "account_id": account_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "type": "balance",
                 "database_balance": str(db_balance),
                 "exchange_balance": str(exchange_balance),
@@ -119,7 +117,7 @@ class ReconciliationEngine:
             raise
 
     @requires_tier(TradingTier.STRATEGIST)
-    async def perform_position_reconciliation(self, account_id: str) -> Dict[str, Any]:
+    async def perform_position_reconciliation(self, account_id: str) -> dict[str, Any]:
         """
         Reconcile positions with exchange.
 
@@ -198,7 +196,7 @@ class ReconciliationEngine:
             result = {
                 "reconciliation_id": str(uuid4()),
                 "account_id": account_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "type": "positions",
                 "database_position_count": len(db_positions),
                 "exchange_position_count": len(exchange_position_map),
@@ -243,7 +241,7 @@ class ReconciliationEngine:
     @requires_tier(TradingTier.STRATEGIST)
     async def generate_reconciliation_report(
         self, account_id: str, period_end: datetime = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate comprehensive reconciliation report.
 
@@ -255,7 +253,7 @@ class ReconciliationEngine:
             Reconciliation report
         """
         if period_end is None:
-            period_end = datetime.now(timezone.utc)
+            period_end = datetime.now(UTC)
 
         period_start = period_end.replace(day=1, hour=0, minute=0, second=0)
 
@@ -286,7 +284,7 @@ class ReconciliationEngine:
             "account_id": account_id,
             "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(),
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "current_status": {
                 "balance": balance_result,
                 "positions": position_result,
@@ -341,9 +339,9 @@ class ReconciliationEngine:
         logger.info(
             "monthly_reconciliation_scheduled",
             account_id=account_id,
-            next_run=datetime.now(timezone.utc)
+            next_run=datetime.now(UTC)
             .replace(
-                month=datetime.now(timezone.utc).month + 1,
+                month=datetime.now(UTC).month + 1,
                 day=1,
                 hour=0,
                 minute=0,
@@ -406,7 +404,7 @@ class ReconciliationEngine:
             # Mark as resolved
             reconciliation["resolved"] = True
             reconciliation["resolution_action"] = resolution_action
-            reconciliation["resolved_at"] = datetime.now(timezone.utc).isoformat()
+            reconciliation["resolved_at"] = datetime.now(UTC).isoformat()
 
             # Publish resolution event
             await self.event_bus.publish(

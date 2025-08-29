@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 """Recovery checklist UI widget for tilt recovery."""
 
 from textual import on
@@ -117,7 +115,7 @@ class RecoveryChecklistWidget(Container):
 
     def __init__(
         self,
-        checklist_manager: Optional[RecoveryChecklistManager] = None,
+        checklist_manager: RecoveryChecklistManager | None = None,
         profile_id: str = "default",
         **kwargs,
     ) -> None:

@@ -164,7 +164,7 @@ class TierStateMachine:
             )
             return False
 
-    async def evaluate_progression(self, account_id: str) -> Optional[TierTransition]:
+    async def evaluate_progression(self, account_id: str) -> TierTransition | None:
         """Evaluate if account is ready for tier progression.
 
         Args:
@@ -513,7 +513,7 @@ class TierStateMachine:
         # This would trigger UI update in real implementation
         logger.debug("Tier badge updated", account_id=account_id, new_tier=new_tier)
 
-    def get_next_tier(self, current_tier: str) -> Optional[str]:
+    def get_next_tier(self, current_tier: str) -> str | None:
         """Get the next tier in progression.
 
         Args:

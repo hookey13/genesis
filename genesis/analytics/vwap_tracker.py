@@ -9,7 +9,6 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
@@ -27,7 +26,7 @@ class Trade:
     timestamp: datetime
     price: Decimal
     volume: Decimal
-    side: Optional[Side] = None
+    side: Side | None = None
 
     @property
     def value(self) -> Decimal:
@@ -67,7 +66,7 @@ class ExecutionPerformance:
     symbol: Symbol
     execution_id: str
     start_time: datetime
-    end_time: Optional[datetime]
+    end_time: datetime | None
     executed_volume: Decimal
     executed_value: Decimal
     execution_vwap: Decimal
@@ -120,7 +119,7 @@ class VWAPTracker:
 
         # Update interval
         self._update_interval = 1.0  # seconds
-        self._update_task: Optional[asyncio.Task] = None
+        self._update_task: asyncio.Task | None = None
 
     async def start(self):
         """Start VWAP tracking with periodic updates."""
@@ -192,7 +191,7 @@ class VWAPTracker:
         while trades and trades[0].timestamp < cutoff_time:
             trades.popleft()
 
-    def _calculate_vwap(self, symbol: str) -> Optional[VWAPMetrics]:
+    def _calculate_vwap(self, symbol: str) -> VWAPMetrics | None:
         """Calculate current VWAP for a symbol.
 
         Args:
@@ -243,7 +242,7 @@ class VWAPTracker:
 
         await self.event_bus.emit(event)
 
-    def get_current_vwap(self, symbol: Symbol) -> Optional[Decimal]:
+    def get_current_vwap(self, symbol: Symbol) -> Decimal | None:
         """Get current VWAP for a symbol.
 
         Args:
@@ -342,7 +341,7 @@ class VWAPTracker:
 
     def complete_execution(
         self, execution_id: str, target_volume: Decimal
-    ) -> Optional[ExecutionPerformance]:
+    ) -> ExecutionPerformance | None:
         """Complete execution tracking and return final performance.
 
         Args:
@@ -383,7 +382,7 @@ class VWAPTracker:
         return performance
 
     def get_performance_stats(
-        self, symbol: Optional[Symbol] = None, hours: int = 24
+        self, symbol: Symbol | None = None, hours: int = 24
     ) -> dict:
         """Get aggregated performance statistics.
 
@@ -436,7 +435,7 @@ class VWAPTracker:
         }
 
     async def calculate_real_time_vwap(
-        self, trades: list[Trade], time_window: Optional[timedelta] = None
+        self, trades: list[Trade], time_window: timedelta | None = None
     ) -> Decimal:
         """Calculate VWAP from a list of trades.
 

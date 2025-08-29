@@ -6,7 +6,7 @@ with color gradients and sorting capabilities.
 """
 
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Literal
 
 import structlog
 from rich.console import RenderableType
@@ -35,7 +35,7 @@ class SpreadHeatmap(Widget):
 
     # Reactive attributes for state management
     sort_mode: reactive[SortMode] = reactive("spread")
-    selected_symbol: reactive[Optional[str]] = reactive(None)
+    selected_symbol: reactive[str | None] = reactive(None)
     refresh_interval: reactive[int] = reactive(1)  # seconds
 
     # CSS for styling
@@ -63,8 +63,8 @@ class SpreadHeatmap(Widget):
 
     def __init__(
         self,
-        spread_data: Optional[dict[str, SpreadMetrics]] = None,
-        update_callback: Optional[callable] = None,
+        spread_data: dict[str, SpreadMetrics] | None = None,
+        update_callback: callable | None = None,
         **kwargs,
     ):
         """
@@ -333,7 +333,7 @@ class SpreadHeatmap(Widget):
         self._fetch_updates()
         self._refresh_display()
 
-    def get_selected_metrics(self) -> Optional[SpreadMetrics]:
+    def get_selected_metrics(self) -> SpreadMetrics | None:
         """
         Get metrics for selected symbol
 

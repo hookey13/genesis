@@ -156,6 +156,7 @@ class TradingSession(BaseModel):
     starting_balance: Decimal
     current_balance: Decimal
     realized_pnl: Decimal = Decimal("0")
+    unrealized_pnl: Decimal = Decimal("0")
     total_trades: int = 0
     winning_trades: int = 0
     losing_trades: int = 0
@@ -169,6 +170,7 @@ class TradingSession(BaseModel):
         "starting_balance",
         "current_balance",
         "realized_pnl",
+        "unrealized_pnl",
         "max_drawdown",
         "daily_loss_limit",
         mode="before",

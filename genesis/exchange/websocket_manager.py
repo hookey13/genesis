@@ -21,7 +21,7 @@ from websockets.exceptions import ConnectionClosed, WebSocketException
 from config.settings import get_settings
 from genesis.core.events import Event, EventPriority, EventType
 from genesis.engine.event_bus import EventBus
-from genesis.exchange.circuit_breaker import CircuitBreakerManager
+from genesis.exchange.circuit_breaker_v2 import EnhancedCircuitBreaker
 from genesis.exchange.gateway import BinanceGateway
 
 logger = structlog.get_logger(__name__)
@@ -43,7 +43,7 @@ class StreamSubscription:
 
     stream: str
     callback: Callable[[dict], None]
-    symbol: Optional[str] = None
+    symbol: str | None = None
 
 
 class WebSocketConnection:
@@ -57,7 +57,7 @@ class WebSocketConnection:
         reconnect_delay: float = 1.0,
         max_reconnect_delay: float = 30.0,  # Maximum 30s as per requirements
         heartbeat_interval: float = 30.0,
-        circuit_breaker: Optional["CircuitBreaker"] = None,
+        circuit_breaker: Optional["EnhancedCircuitBreaker"] = None,
         gateway: Optional["BinanceGateway"] = None,
     ):
         """
@@ -83,15 +83,15 @@ class WebSocketConnection:
         self.gateway = gateway
 
         self.state = ConnectionState.DISCONNECTED
-        self.websocket: Optional[Any] = None  # WebSocket connection object
+        self.websocket: Any | None = None  # WebSocket connection object
         self.current_reconnect_delay = reconnect_delay
         self.last_heartbeat = time.time()
         self.message_buffer = deque(maxlen=1000)
 
         # Tasks
-        self.connection_task: Optional[asyncio.Task] = None
-        self.heartbeat_task: Optional[asyncio.Task] = None
-        self.message_handler_task: Optional[asyncio.Task] = None
+        self.connection_task: asyncio.Task | None = None
+        self.heartbeat_task: asyncio.Task | None = None
+        self.message_handler_task: asyncio.Task | None = None
 
         # Statistics
         self.messages_received = 0
@@ -409,8 +409,8 @@ class WebSocketManager:
 
     def __init__(
         self,
-        gateway: Optional[BinanceGateway] = None,
-        event_bus: Optional[EventBus] = None,
+        gateway: BinanceGateway | None = None,
+        event_bus: EventBus | None = None,
     ):
         """Initialize the WebSocket manager."""
         self.settings = get_settings()
@@ -420,8 +420,10 @@ class WebSocketManager:
         self.gateway = gateway
         self.event_bus = event_bus
 
-        # Circuit breaker manager
-        self.circuit_breaker_manager = CircuitBreakerManager()
+        # Circuit breaker for connection protection
+        self.circuit_breaker = EnhancedCircuitBreaker(
+            failure_threshold=5, recovery_timeout=60, half_open_max_calls=3
+        )
 
         # URLs
         if self.settings.exchange.binance_testnet:
@@ -514,9 +516,7 @@ class WebSocketManager:
                 "execution",
                 self.base_url,
                 execution_subs,
-                circuit_breaker=self.circuit_breaker_manager.get_breaker(
-                    "websocket_execution"
-                ),
+                circuit_breaker=self.circuit_breaker,
                 gateway=self.gateway,
             )
 
@@ -525,9 +525,7 @@ class WebSocketManager:
                 "monitoring",
                 self.base_url,
                 monitoring_subs,
-                circuit_breaker=self.circuit_breaker_manager.get_breaker(
-                    "websocket_monitoring"
-                ),
+                circuit_breaker=self.circuit_breaker,
                 gateway=self.gateway,
             )
 
@@ -536,9 +534,7 @@ class WebSocketManager:
                 "backup",
                 self.base_url,
                 backup_subs,
-                circuit_breaker=self.circuit_breaker_manager.get_breaker(
-                    "websocket_backup"
-                ),
+                circuit_breaker=self.circuit_breaker,
                 gateway=self.gateway,
             )
 
@@ -574,7 +570,7 @@ class WebSocketManager:
     async def _handle_trade(self, data: dict) -> None:
         """Handle trade stream data."""
         stream = data.get("stream", "")
-        
+
         # Publish event to Event Bus if available
         if self.event_bus and "data" in data:
             trade_data = data["data"]
@@ -591,7 +587,7 @@ class WebSocketManager:
                 },
             )
             await self.event_bus.publish(event, priority=EventPriority.NORMAL)
-        
+
         # Also call registered callbacks
         callbacks = self.stream_callbacks.get("trade", [])
         for callback in callbacks:
@@ -606,7 +602,7 @@ class WebSocketManager:
     async def _handle_depth(self, data: dict) -> None:
         """Handle depth stream data."""
         stream = data.get("stream", "")
-        
+
         # Publish event to Event Bus if available
         if self.event_bus and "data" in data:
             depth_data = data["data"]
@@ -622,7 +618,7 @@ class WebSocketManager:
                 },
             )
             await self.event_bus.publish(event, priority=EventPriority.NORMAL)
-        
+
         # Also call registered callbacks
         callbacks = self.stream_callbacks.get("depth", [])
         for callback in callbacks:
@@ -637,7 +633,7 @@ class WebSocketManager:
     async def _handle_kline(self, data: dict) -> None:
         """Handle kline stream data."""
         stream = data.get("stream", "")
-        
+
         # Publish event to Event Bus if available
         if self.event_bus and "data" in data:
             kline_data = data["data"]["k"] if "k" in data.get("data", {}) else {}
@@ -658,7 +654,7 @@ class WebSocketManager:
                     },
                 )
                 await self.event_bus.publish(event, priority=EventPriority.LOW)
-        
+
         # Also call registered callbacks
         callbacks = self.stream_callbacks.get("kline", [])
         for callback in callbacks:
@@ -673,11 +669,11 @@ class WebSocketManager:
     async def _handle_ticker(self, data: dict) -> None:
         """Handle ticker stream data."""
         stream = data.get("stream", "")
-        
+
         # Publish event to Event Bus if available
         if self.event_bus and "data" in data:
             ticker_data = data["data"]
-            
+
             # Check for significant spread changes
             if "a" in ticker_data and "b" in ticker_data:
                 try:
@@ -701,7 +697,7 @@ class WebSocketManager:
                             )
                 except (ValueError, ZeroDivisionError):
                     pass
-            
+
             # Publish ticker update event
             event = Event(
                 event_type=EventType.MARKET_DATA_UPDATED,
@@ -719,7 +715,7 @@ class WebSocketManager:
                 },
             )
             await self.event_bus.publish(event, priority=EventPriority.NORMAL)
-        
+
         # Also call registered callbacks
         callbacks = self.stream_callbacks.get("ticker", [])
         for callback in callbacks:

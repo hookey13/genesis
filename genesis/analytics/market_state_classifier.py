@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 import structlog
@@ -65,7 +65,7 @@ class MarketStateContext:
 
     symbol: str
     current_state: MarketState
-    previous_state: Optional[MarketState]
+    previous_state: MarketState | None
     volatility_atr: Decimal
     realized_volatility: Decimal
     volatility_percentile: int
@@ -89,7 +89,7 @@ class MarketStateClassifier:
     the current market state for risk-adjusted trading.
     """
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         """
         Initialize the market state classifier.
 
@@ -668,8 +668,8 @@ class MarketStateClassifier:
         return False, "Volume within normal patterns"
 
     async def check_maintenance_status(
-        self, api_key: Optional[str] = None, base_url: str = "https://api.binance.com"
-    ) -> Optional[tuple[bool, dict[str, Any]]]:
+        self, api_key: str | None = None, base_url: str = "https://api.binance.com"
+    ) -> tuple[bool, dict[str, Any]] | None:
         """
         Check Binance system maintenance status.
 
@@ -825,7 +825,7 @@ class MaintenanceMonitor:
         self.classifier = classifier
         self.poll_interval = poll_interval_seconds
         self.buffer_minutes = pre_maintenance_buffer_minutes
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self._monitoring_task: asyncio.Task | None = None
         self._scheduled_maintenances: dict[str, datetime] = {}
 
         logger.info(
@@ -833,7 +833,7 @@ class MaintenanceMonitor:
             f"buffer={pre_maintenance_buffer_minutes}min"
         )
 
-    async def start_monitoring(self, api_key: Optional[str] = None):
+    async def start_monitoring(self, api_key: str | None = None):
         """
         Start maintenance monitoring.
 
@@ -858,7 +858,7 @@ class MaintenanceMonitor:
             self._monitoring_task = None
             logger.info("Maintenance monitoring stopped")
 
-    async def _monitor_loop(self, api_key: Optional[str]):
+    async def _monitor_loop(self, api_key: str | None):
         """
         Main monitoring loop.
 
@@ -888,7 +888,7 @@ class MaintenanceMonitor:
                 logger.error(f"Error in maintenance monitor loop: {e}")
                 await asyncio.sleep(self.poll_interval)
 
-    async def _handle_system_maintenance(self, status_data: Optional[dict[str, Any]]):
+    async def _handle_system_maintenance(self, status_data: dict[str, Any] | None):
         """
         Handle system-wide maintenance.
 
@@ -960,11 +960,11 @@ class GlobalMarketContext:
     """Context for global market state."""
 
     btc_price: Decimal
-    total_market_cap: Optional[Decimal]
-    fear_greed_index: Optional[int]
+    total_market_cap: Decimal | None
+    fear_greed_index: int | None
     correlation_spike: bool
     state: GlobalMarketState
-    vix_crypto: Optional[Decimal]
+    vix_crypto: Decimal | None
     detected_at: datetime
     major_pairs_correlation: Decimal
     panic_indicators: int  # Count of panic signals
@@ -978,7 +978,7 @@ class GlobalMarketStateClassifier:
     market sentiment to classify global crypto market regimes.
     """
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         """
         Initialize global market state classifier.
 
@@ -1005,7 +1005,7 @@ class GlobalMarketStateClassifier:
         self,
         btc_price: Decimal,
         major_pairs: list[dict[str, Decimal]],
-        fear_greed_index: Optional[int] = None,
+        fear_greed_index: int | None = None,
     ) -> GlobalMarketState:
         """
         Classify global market state.
@@ -1105,7 +1105,7 @@ class GlobalMarketStateClassifier:
         btc_change: Decimal,
         correlation: Decimal,
         panic_count: int,
-        fear_greed_index: Optional[int],
+        fear_greed_index: int | None,
     ) -> GlobalMarketState:
         """
         Determine global market state based on indicators.
@@ -1194,7 +1194,7 @@ class StateTransitionManager:
     based on market state changes.
     """
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         """
         Initialize the state transition manager.
 
@@ -1220,7 +1220,7 @@ class StateTransitionManager:
         symbol: str,
         new_state: MarketState,
         reason: str,
-        context: Optional[MarketStateContext] = None,
+        context: MarketStateContext | None = None,
     ):
         """
         Execute transition to new market state.
@@ -1281,7 +1281,7 @@ class StateTransitionManager:
         logger.info(f"Strategy adjustments for {symbol} in {state.value}: {actions}")
 
     def get_transition_history(
-        self, symbol: Optional[str] = None, limit: int = 100
+        self, symbol: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]:
         """
         Get transition history.
@@ -1309,7 +1309,7 @@ class PositionSizeAdjuster:
     conditions to manage risk appropriately.
     """
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         """
         Initialize position size adjuster.
 
@@ -1347,8 +1347,8 @@ class PositionSizeAdjuster:
         symbol: str,
         base_size: Decimal,
         market_state: MarketState,
-        global_state: Optional[GlobalMarketState] = None,
-        volatility_percentile: Optional[int] = None,
+        global_state: GlobalMarketState | None = None,
+        volatility_percentile: int | None = None,
     ) -> tuple[Decimal, str]:
         """
         Calculate adjusted position size.
@@ -1463,7 +1463,7 @@ class PositionSizeAdjuster:
         return self._current_adjustments.get(symbol, Decimal("1.0"))
 
     def get_adjustment_history(
-        self, symbol: Optional[str] = None, limit: int = 100
+        self, symbol: str | None = None, limit: int = 100
     ) -> list[dict[str, Any]]:
         """Get adjustment history."""
         history = self._adjustment_history
@@ -1482,7 +1482,7 @@ class StrategyStateManager:
     market conditions to optimize performance and risk.
     """
 
-    def __init__(self, event_bus: Optional[EventBus] = None):
+    def __init__(self, event_bus: EventBus | None = None):
         """
         Initialize strategy state manager.
 
@@ -1538,7 +1538,7 @@ class StrategyStateManager:
         logger.info("StrategyStateManager initialized")
 
     async def update_strategy_states(
-        self, market_state: MarketState, symbol: Optional[str] = None
+        self, market_state: MarketState, symbol: str | None = None
     ) -> dict[str, bool]:
         """
         Update strategy activation states based on market state.

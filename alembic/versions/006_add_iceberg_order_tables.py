@@ -5,23 +5,22 @@ Revises: 005_add_tier_transition_tables
 Create Date: 2025-08-26
 
 """
-from decimal import Decimal
-from typing import Sequence, Union
+from collections.abc import Sequence
+
+import sqlalchemy as sa
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import sqlite
 
 # revision identifiers, used by Alembic.
 revision: str = '006'
-down_revision: Union[str, None] = '005'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = '005'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
     """Create iceberg order tracking and market impact tables."""
-    
+
     # Create iceberg_executions table for tracking sliced orders
     op.create_table(
         'iceberg_executions',
@@ -55,7 +54,7 @@ def upgrade() -> None:
         sa.Index('idx_iceberg_symbol', 'symbol'),
         sa.Index('idx_iceberg_created', 'created_at')
     )
-    
+
     # Create iceberg_slices table for individual slice tracking
     op.create_table(
         'iceberg_slices',
@@ -83,7 +82,7 @@ def upgrade() -> None:
         sa.Index('idx_slice_status', 'status'),
         sa.UniqueConstraint('execution_id', 'slice_number', name='uq_execution_slice_number')
     )
-    
+
     # Create market_impact_metrics table for impact monitoring
     op.create_table(
         'market_impact_metrics',
@@ -108,7 +107,7 @@ def upgrade() -> None:
         sa.Index('idx_impact_symbol', 'symbol'),
         sa.Index('idx_impact_measured', 'measured_at')
     )
-    
+
     # Create iceberg_rollbacks table for rollback tracking
     op.create_table(
         'iceberg_rollbacks',
@@ -131,28 +130,28 @@ def upgrade() -> None:
         sa.Index('idx_rollback_execution', 'execution_id'),
         sa.Index('idx_rollback_status', 'status')
     )
-    
+
     # Add iceberg-related columns to existing orders table if not present
     with op.batch_alter_table('orders') as batch_op:
         # Check if columns exist before adding (for idempotency)
         inspector = sa.inspect(op.get_bind())
         existing_columns = [col['name'] for col in inspector.get_columns('orders')]
-        
+
         if 'iceberg_execution_id' not in existing_columns:
             batch_op.add_column(sa.Column('iceberg_execution_id', sa.String(36), nullable=True))
-        
+
         if 'is_iceberg_slice' not in existing_columns:
             batch_op.add_column(sa.Column('is_iceberg_slice', sa.Boolean, nullable=False, server_default='0'))
 
 
 def downgrade() -> None:
     """Remove iceberg order tracking tables."""
-    
+
     # Remove iceberg-related columns from orders table
     with op.batch_alter_table('orders') as batch_op:
         batch_op.drop_column('iceberg_execution_id')
         batch_op.drop_column('is_iceberg_slice')
-    
+
     # Drop tables in reverse order of creation (respect foreign keys)
     op.drop_table('iceberg_rollbacks')
     op.drop_table('market_impact_metrics')

@@ -9,7 +9,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -26,7 +26,7 @@ class Subscription:
     subscription_id: str
     event_types: set[EventType]
     callback: Callable[[Event], None]
-    filter_func: Optional[Callable[[Event], bool]] = None
+    filter_func: Callable[[Event], bool] | None = None
     priority: EventPriority = EventPriority.NORMAL
 
 
@@ -87,7 +87,7 @@ class EventBus:
         self.priority_queue = PriorityQueue()
         self.max_queue_size = max_queue_size
         self.running = False
-        self.processor_task: Optional[asyncio.Task] = None
+        self.processor_task: asyncio.Task | None = None
 
         # Statistics
         self.events_published = 0
@@ -135,7 +135,7 @@ class EventBus:
         self,
         event_type_or_callback: Any,
         callback_or_event_types: Any = None,
-        filter_func: Optional[Callable[[Event], bool]] = None,
+        filter_func: Callable[[Event], bool] | None = None,
         priority: EventPriority = EventPriority.NORMAL,
     ) -> str:
         """
@@ -352,9 +352,9 @@ class EventBus:
     async def wait_for_event(
         self,
         event_type: EventType,
-        timeout: Optional[float] = None,
-        filter_func: Optional[Callable[[Event], bool]] = None,
-    ) -> Optional[Event]:
+        timeout: float | None = None,
+        filter_func: Callable[[Event], bool] | None = None,
+    ) -> Event | None:
         """
         Wait for a specific event type.
 

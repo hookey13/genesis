@@ -8,36 +8,22 @@ enhanced circuit breaker, and event emission.
 import asyncio
 import json
 import time
-from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import websockets
 
+from genesis.exchange.circuit_breaker_v2 import CircuitState, EnhancedCircuitBreaker
 from genesis.exchange.client import ExchangeClient
-from genesis.exchange.ws_manager import WSManager
-from genesis.exchange.circuit_breaker_v2 import EnhancedCircuitBreaker, CircuitState
 from genesis.exchange.events import (
     EventBus,
     EventType,
-    OrderAck,
-    OrderFill,
-    OrderCancel,
-    MarketTick,
-    WebSocketEvent,
-    CircuitBreakerEvent,
-    ReconciliationEvent,
-    ClockSkewEvent,
 )
 from genesis.exchange.exceptions import (
     ExchangeError,
-    OrderNotFoundError,
-    RateLimitError,
-    InsufficientBalanceError,
 )
+from genesis.exchange.ws_manager import WSManager
 
 
 class TestExchangeClient:

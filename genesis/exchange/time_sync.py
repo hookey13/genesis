@@ -7,7 +7,6 @@ with the exchange server time.
 
 import asyncio
 import time
-from typing import Optional
 
 import structlog
 
@@ -28,10 +27,10 @@ class TimeSync:
         """Initialize the time synchronization manager."""
         self.settings = get_settings()
         self.time_offset: int = 0  # Milliseconds difference between local and server
-        self.last_sync_time: Optional[float] = None
+        self.last_sync_time: float | None = None
         self.sync_interval: int = 300  # 5 minutes default
         self.recv_window: int = 5000  # 5 second tolerance window
-        self._sync_task: Optional[asyncio.Task] = None
+        self._sync_task: asyncio.Task | None = None
         self._running = False
 
         # Statistics

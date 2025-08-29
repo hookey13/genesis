@@ -10,7 +10,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Optional
 
 import structlog
 
@@ -59,7 +58,7 @@ class SpreadTracker:
     def __init__(
         self,
         spread_analyzer: SpreadAnalyzer,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
         aggregation_interval_seconds: int = 3600,
     ):
         """
@@ -88,7 +87,7 @@ class SpreadTracker:
 
         self._logger = logger.bind(component="SpreadTracker")
         self._running = False
-        self._aggregation_task: Optional[asyncio.Task] = None
+        self._aggregation_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         """Start spread tracking system"""
@@ -385,7 +384,7 @@ class SpreadTracker:
 
         return sorted_patterns[:top_n]
 
-    def clear_history(self, symbol: Optional[str] = None) -> None:
+    def clear_history(self, symbol: str | None = None) -> None:
         """
         Clear spread history
 

@@ -1,21 +1,19 @@
 """Unit tests for Large Trader Detection."""
 
-import asyncio
-from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
 from collections import deque
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from unittest.mock import AsyncMock
 
 import pytest
 
 from genesis.analytics.large_trader_detection import (
-    WhaleActivity,
+    LargeTraderDetector,
     TradeCluster,
     VPINData,
-    LargeTraderDetector,
+    WhaleActivity,
 )
 from genesis.engine.event_bus import EventBus
-from genesis.core.events import Event
 
 
 class TestWhaleActivity:
@@ -25,7 +23,7 @@ class TestWhaleActivity:
         """Test creating whale activity record."""
         activity = WhaleActivity(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trade_size=Decimal("10"),
             price=Decimal("50000"),
             side="buy",
@@ -43,7 +41,7 @@ class TestWhaleActivity:
         """Test significance checking."""
         activity = WhaleActivity(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trade_size=Decimal("10"),
             price=Decimal("50000"),
             side="buy",
@@ -85,7 +83,7 @@ class TestTradeCluster:
         for i in range(3):
             activity = WhaleActivity(
                 symbol="BTCUSDT",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 trade_size=Decimal("10"),
                 price=Decimal("50000"),
                 side="buy",
@@ -109,7 +107,7 @@ class TestTradeCluster:
             cluster.add_trade(
                 WhaleActivity(
                     symbol="BTCUSDT",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     trade_size=Decimal("10"),
                     price=Decimal("50000"),
                     side="buy",
@@ -122,7 +120,7 @@ class TestTradeCluster:
             cluster.add_trade(
                 WhaleActivity(
                     symbol="BTCUSDT",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     trade_size=Decimal("5"),
                     price=Decimal("50000"),
                     side="sell",
@@ -142,7 +140,7 @@ class TestVPINData:
         """Test creating VPIN data record."""
         vpin_data = VPINData(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             vpin=Decimal("0.35"),
             buy_volume=Decimal("60"),
             sell_volume=Decimal("40"),
@@ -275,7 +273,7 @@ class TestLargeTraderDetector:
 
     async def test_clustering(self, detector):
         """Test whale trade clustering."""
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
 
         # Create first whale trade
         whale1 = WhaleActivity(
@@ -315,7 +313,7 @@ class TestLargeTraderDetector:
             cluster.add_trade(
                 WhaleActivity(
                     symbol="BTCUSDT",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     trade_size=Decimal("100"),
                     price=Decimal("50000"),
                     side="buy",
@@ -327,7 +325,7 @@ class TestLargeTraderDetector:
         # Similar trade
         similar = WhaleActivity(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trade_size=Decimal("110"),  # Within 50% of average
             price=Decimal("50100"),
             side="buy",  # Same side
@@ -339,7 +337,7 @@ class TestLargeTraderDetector:
         # Different side
         different_side = WhaleActivity(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trade_size=Decimal("100"),
             price=Decimal("50000"),
             side="sell",  # Different side
@@ -351,7 +349,7 @@ class TestLargeTraderDetector:
         # Very different size
         different_size = WhaleActivity(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trade_size=Decimal("200"),  # >50% different
             price=Decimal("50000"),
             side="buy",
@@ -384,7 +382,7 @@ class TestLargeTraderDetector:
         """Test cumulative entity volume tracking."""
         whale = WhaleActivity(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trade_size=Decimal("100"),
             price=Decimal("50000"),
             side="buy",
@@ -402,7 +400,7 @@ class TestLargeTraderDetector:
         # Add more volume to same entity
         whale2 = WhaleActivity(
             symbol="BTCUSDT",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             trade_size=Decimal("50"),
             price=Decimal("50100"),
             side="buy",
@@ -449,7 +447,7 @@ class TestLargeTraderDetector:
             [
                 VPINData(
                     symbol="BTCUSDT",
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=datetime.now(UTC),
                     vpin=Decimal(str(i / 10)),
                     buy_volume=Decimal("50"),
                     sell_volume=Decimal("50"),

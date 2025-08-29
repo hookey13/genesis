@@ -10,11 +10,11 @@ Trip conditions:
 import asyncio
 import time
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Callable, Optional, Deque, Tuple, Dict, List
 from functools import wraps
+from typing import Any
 
 import structlog
 
@@ -37,9 +37,9 @@ class ErrorRecord:
     """Record of an error event."""
 
     timestamp: float
-    status_code: Optional[int] = None
-    error_type: Optional[str] = None
-    endpoint: Optional[str] = None
+    status_code: int | None = None
+    error_type: str | None = None
+    endpoint: str | None = None
 
 
 class EnhancedCircuitBreaker:
@@ -61,7 +61,7 @@ class EnhancedCircuitBreaker:
         clock_skew_threshold: int = 5000,  # 5 seconds in ms
         recovery_timeout: int = 30,  # 30 seconds cooldown
         half_open_success_threshold: int = 3,
-        event_bus: Optional[EventBus] = None,
+        event_bus: EventBus | None = None,
     ):
         """Initialize enhanced circuit breaker."""
         self.name = name
@@ -78,11 +78,11 @@ class EnhancedCircuitBreaker:
         self.state_changed_at = time.time()
 
         # Error tracking (sliding window)
-        self.error_records: Deque[ErrorRecord] = deque()
-        self.success_records: Deque[float] = deque()
+        self.error_records: deque[ErrorRecord] = deque()
+        self.success_records: deque[float] = deque()
 
         # WebSocket tracking
-        self.ws_disconnected_at: Optional[float] = None
+        self.ws_disconnected_at: float | None = None
         self.ws_connected = True
 
         # Clock skew tracking
@@ -133,7 +133,7 @@ class EnhancedCircuitBreaker:
 
         return error_count / total
 
-    def _check_trip_conditions(self) -> Tuple[bool, str]:
+    def _check_trip_conditions(self) -> tuple[bool, str]:
         """
         Check if circuit should trip.
 
@@ -198,14 +198,21 @@ class EnhancedCircuitBreaker:
                     ),
                 },
             )
-            asyncio.create_task(
-                self.event_bus.publish(
-                    event,
-                    priority=EventPriority.CRITICAL if new_state == CircuitState.OPEN else EventPriority.HIGH,
+            # Only create task if there's a running event loop
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(
+                    self.event_bus.publish(
+                        event,
+                        priority=EventPriority.CRITICAL if new_state == CircuitState.OPEN else EventPriority.HIGH,
+                    )
                 )
-            )
+            except RuntimeError:
+                # No running loop (e.g., in synchronous tests)
+                # Event publishing is best-effort, continue without it
+                pass
 
-    def record_success(self, endpoint: Optional[str] = None):
+    def record_success(self, endpoint: str | None = None):
         """Record successful request."""
         self.success_records.append(time.time())
         self.total_requests += 1
@@ -218,8 +225,8 @@ class EnhancedCircuitBreaker:
     def record_error(
         self,
         error: Exception,
-        status_code: Optional[int] = None,
-        endpoint: Optional[str] = None,
+        status_code: int | None = None,
+        endpoint: str | None = None,
     ):
         """Record error and check if circuit should trip."""
         self.error_records.append(
@@ -320,7 +327,7 @@ class EnhancedCircuitBreaker:
 
         return wrapper
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get circuit breaker statistics."""
         self._clean_old_records()
 

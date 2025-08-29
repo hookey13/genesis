@@ -2,18 +2,15 @@
 Unit tests for time synchronization utilities.
 """
 
-import asyncio
 import time
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import aiohttp
 
 from genesis.utils.time_sync import (
-    check_clock_drift_ms,
     check_binance_time,
+    check_clock_drift_ms,
     check_ntp_time,
-    ClockDriftResult,
 )
 
 
@@ -125,7 +122,7 @@ class TestBinanceTime:
         """Test Binance time retrieval with timeout."""
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = AsyncMock()
-            mock_session.get = AsyncMock(side_effect=asyncio.TimeoutError())
+            mock_session.get = AsyncMock(side_effect=TimeoutError())
             mock_session_class.return_value.__aenter__ = AsyncMock(
                 return_value=mock_session
             )

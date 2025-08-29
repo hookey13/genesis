@@ -17,10 +17,10 @@ from genesis.core.models import (
     Signal,
     SignalType,
 )
-from genesis.engine.state_machine import Tier
 from genesis.engine.executor.multi_pair import MultiPairManager
 from genesis.engine.risk_engine import RiskEngine
 from genesis.engine.signal_queue import ConflictResolution, SignalQueue
+from genesis.engine.state_machine import Tier
 
 
 class TestMultiPairWorkflow:

@@ -101,7 +101,7 @@ class TestBinanceIntegration:
                         stats = manager.get_statistics()
                         assert stats["running"] is True
 
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         # If timeout occurs, it means connections are hanging - this is the bug we're fixing
                         pytest.fail(
                             "WebSocketManager.start() timed out - connections are hanging"
@@ -110,7 +110,7 @@ class TestBinanceIntegration:
                         # Ensure cleanup happens even if test times out
                         try:
                             await asyncio.wait_for(manager.stop(), timeout=2.0)
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             # Force cleanup of any remaining tasks
                             for conn in manager.connections.values():
                                 conn.state = "closed"
@@ -302,7 +302,7 @@ class TestBinanceIntegration:
                                 "reconnecting",
                             ]
 
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         pytest.fail(
                             "WebSocketManager.start() timed out - connections are hanging"
                         )
@@ -310,7 +310,7 @@ class TestBinanceIntegration:
                         # Ensure cleanup happens even if test times out
                         try:
                             await asyncio.wait_for(manager.stop(), timeout=2.0)
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             # Force cleanup of any remaining tasks
                             for conn in manager.connections.values():
                                 conn.state = "closed"

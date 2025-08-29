@@ -1,4 +1,3 @@
-from typing import Optional
 
 """Widget for displaying iceberg order execution status."""
 
@@ -26,8 +25,8 @@ class IcebergStatusWidget(Widget):
         completed_slices: int,
         total_slices: int,
         status: str,
-        current_slippage: Optional[Decimal] = None,
-        cumulative_impact: Optional[Decimal] = None,
+        current_slippage: Decimal | None = None,
+        cumulative_impact: Decimal | None = None,
     ):
         """Update execution status."""
         self.active_executions[execution_id] = {

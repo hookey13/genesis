@@ -12,7 +12,6 @@ from genesis.strategies.loader import (
     StrategyLoader,
     StrategyStatus,
     TierStrategy,
-    MigrationPlan,
 )
 
 

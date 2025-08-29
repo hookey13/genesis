@@ -8,23 +8,22 @@ is properly configured and ready for operation.
 import asyncio
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 import aiohttp
 import click
-from alembic import command
-from alembic.config import Config as AlembicConfig
-from alembic.script import ScriptDirectory
-from alembic.runtime.migration import MigrationContext
-from sqlalchemy import create_engine, text
 from rich.console import Console
 from rich.table import Table
+from sqlalchemy import create_engine, text
+
+from alembic.config import Config as AlembicConfig
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from config.settings import get_settings, validate_configuration, ValidationError
+from config.settings import ValidationError, get_settings, validate_configuration
 from genesis.utils.time_sync import check_clock_drift_ms
 
 console = Console()
@@ -44,7 +43,7 @@ class DoctorRunner:
     """Runs system health checks."""
 
     def __init__(self):
-        self.checks: List[HealthCheck] = []
+        self.checks: list[HealthCheck] = []
         self.settings = None
 
     async def run_all_checks(self) -> bool:

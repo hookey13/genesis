@@ -4,38 +4,32 @@ Tests all modules start without errors and can communicate.
 """
 
 import asyncio
-import pytest
-from decimal import Decimal
-from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
+from decimal import Decimal
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 import structlog
 
-from genesis.core.models import (
-    Position,
-    Order,
-    OrderStatus,
-    OrderType,
-    OrderSide,
-)
+from genesis.analytics.behavioral_correlation import BehavioralCorrelationAnalyzer
+from genesis.analytics.microstructure_analyzer import MicrostructureAnalyzer
+from genesis.analytics.performance_attribution import PerformanceAttributionEngine
+from genesis.analytics.risk_metrics import RiskMetricsCalculator
+from genesis.core.account_manager import AccountManager
 from genesis.core.constants import TradingTier as TierType
+from genesis.core.single_account_manager import SingleAccountManager
+from genesis.data.correlation_repo import CorrelationRepository
+from genesis.data.market_microstructure_repo import MarketMicrostructureRepository
+from genesis.data.performance_repo import PerformanceRepository
+from genesis.data.repository import Repository
+from genesis.engine.ab_test_framework import ABTestFramework
 from genesis.engine.strategy_orchestrator import StrategyOrchestrator
 from genesis.engine.strategy_registry import StrategyRegistry
-from genesis.engine.ab_test_framework import ABTestFramework
-from genesis.data.repository import Repository
-from genesis.data.correlation_repo import CorrelationRepository
-from genesis.data.performance_repo import PerformanceRepository
-from genesis.data.market_microstructure_repo import MarketMicrostructureRepository
-from genesis.core.account_manager import AccountManager
-from genesis.core.single_account_manager import SingleAccountManager
-from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
-from genesis.exchange.websocket_manager import WebSocketManager
 from genesis.exchange.fix_gateway import FIXGateway
+from genesis.exchange.gateway import BinanceGateway as ExchangeGateway
 from genesis.exchange.order_book_manager import OrderBookManager
 from genesis.exchange.prime_broker import PrimeBroker
-from genesis.analytics.risk_metrics import RiskMetricsCalculator
-from genesis.analytics.performance_attribution import PerformanceAttributionEngine
-from genesis.analytics.microstructure_analyzer import MicrostructureAnalyzer
-from genesis.analytics.behavioral_correlation import BehavioralCorrelationAnalyzer
+from genesis.exchange.websocket_manager import WebSocketManager
 from genesis.tilt.detector import TiltDetector
 from genesis.tilt.interventions import InterventionSystem
 
@@ -227,8 +221,9 @@ class TestComponentStartup:
     @pytest.mark.asyncio
     async def test_memory_leak_detection_setup(self):
         """Test memory monitoring setup for 24-hour leak detection."""
-        import psutil
         import os
+
+        import psutil
 
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB

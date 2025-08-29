@@ -4,13 +4,14 @@ Unit tests for PositionService with PnL calculations.
 Tests FIFO position management, PnL realization, and Decimal precision.
 """
 
-import pytest
+from datetime import UTC, datetime
 from decimal import Decimal
-from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
+import pytest
+
+from genesis.data.models import Position, Trade
 from genesis.data.services import PositionService, RiskService
-from genesis.data.models import Trade, Position
 
 
 class TestPositionService:
@@ -36,7 +37,7 @@ class TestPositionService:
         trade.qty = Decimal(qty)
         trade.price = Decimal(price)
         trade.fee_amount = Decimal(fee)
-        trade.trade_time = datetime.now(timezone.utc)
+        trade.trade_time = datetime.now(UTC)
         trade.id = "test-trade-id"
         return trade
 

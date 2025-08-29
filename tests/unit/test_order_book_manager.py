@@ -2,20 +2,17 @@
 
 import asyncio
 import json
-from datetime import datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
-import websockets
 
+from genesis.engine.event_bus import EventBus
 from genesis.exchange.order_book_manager import (
     OrderBookLevel,
-    OrderBookSnapshot,
     OrderBookManager,
+    OrderBookSnapshot,
 )
-from genesis.engine.event_bus import EventBus
-from genesis.core.events import Event
 
 
 class TestOrderBookLevel:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -24,8 +24,8 @@ class JournalEntry:
     profile_id: str = ""
     content: str = ""
     word_count: int = 0
-    trigger_analysis: Optional[str] = None
-    prevention_plan: Optional[str] = None
+    trigger_analysis: str | None = None
+    prevention_plan: str | None = None
     submitted_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     is_valid: bool = False
@@ -48,8 +48,8 @@ class JournalSystem:
 
     def __init__(
         self,
-        repository: Optional[SQLiteRepository] = None,
-        event_bus: Optional[EventBus] = None,
+        repository: SQLiteRepository | None = None,
+        event_bus: EventBus | None = None,
         min_word_count: int = MIN_WORD_COUNT,
     ):
         """Initialize journal system.
@@ -96,8 +96,8 @@ class JournalSystem:
     def validate_entry_content(
         self,
         content: str,
-        trigger_analysis: Optional[str] = None,
-        prevention_plan: Optional[str] = None,
+        trigger_analysis: str | None = None,
+        prevention_plan: str | None = None,
     ) -> tuple[bool, str]:
         """Validate journal entry content.
 
@@ -146,9 +146,9 @@ class JournalSystem:
         self,
         profile_id: str,
         content: str,
-        trigger_analysis: Optional[str] = None,
-        prevention_plan: Optional[str] = None,
-    ) -> Optional[JournalEntry]:
+        trigger_analysis: str | None = None,
+        prevention_plan: str | None = None,
+    ) -> JournalEntry | None:
         """Submit a journal entry for recovery.
 
         Args:
@@ -304,7 +304,7 @@ class JournalSystem:
 
         return []
 
-    async def get_entry_by_id(self, entry_id: str) -> Optional[JournalEntry]:
+    async def get_entry_by_id(self, entry_id: str) -> JournalEntry | None:
         """Get a specific journal entry by ID.
 
         Args:

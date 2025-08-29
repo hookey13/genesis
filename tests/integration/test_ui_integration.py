@@ -4,35 +4,30 @@ Tests dashboard data accuracy, terminal stability, and widget updates.
 """
 
 import asyncio
-import pytest
 from decimal import Decimal
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
-from datetime import datetime, timedelta
+from unittest.mock import Mock
+
+import pytest
 import structlog
-from textual.app import App
-from textual.widgets import Static, DataTable, Button
 from rich.console import Console
 from rich.table import Table
+from textual.app import App
+from textual.widgets import Static
 
 from genesis.core.models import (
-    Position,
-    Order,
-    Trade,
-    TierType,
-    OrderStatus,
-    OrderType,
     OrderSide,
     PerformanceMetrics,
+    Position,
+    TierType,
 )
-from genesis.ui.app import TradingApp
-from genesis.ui.dashboard import Dashboard
-from genesis.ui.widgets.positions import PositionsWidget
-from genesis.ui.widgets.pnl import PnLWidget
-from genesis.ui.widgets.tilt_indicator import TiltIndicatorWidget
-from genesis.ui.widgets.tier_progress import TierProgressWidget
-from genesis.ui.widgets.risk_metrics import RiskMetricsWidget
-from genesis.ui.widgets.account_selector import AccountSelectorWidget
 from genesis.data.repository import Repository
+from genesis.ui.dashboard import Dashboard
+from genesis.ui.widgets.account_selector import AccountSelectorWidget
+from genesis.ui.widgets.pnl import PnLWidget
+from genesis.ui.widgets.positions import PositionsWidget
+from genesis.ui.widgets.risk_metrics import RiskMetricsWidget
+from genesis.ui.widgets.tier_progress import TierProgressWidget
+from genesis.ui.widgets.tilt_indicator import TiltIndicatorWidget
 
 logger = structlog.get_logger()
 
@@ -173,7 +168,7 @@ class TestUIIntegration:
                 await asyncio.wait_for(
                     mock_app.execute_command(command, params), timeout=1.0
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 execution_times.append(("timeout", command))
             except AttributeError:
                 # Mock doesn't have execute_command, simulate
@@ -386,8 +381,9 @@ class TestUIIntegration:
     @pytest.mark.asyncio
     async def test_ui_memory_usage(self, mock_repository):
         """Test UI doesn't leak memory during updates."""
-        import psutil
         import gc
+
+        import psutil
 
         process = psutil.Process()
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB

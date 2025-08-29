@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, getcontext
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -20,18 +20,18 @@ class Trade:
     """Represents a single trade in backtesting."""
 
     entry_time: datetime
-    exit_time: Optional[datetime]
+    exit_time: datetime | None
     pair1_symbol: str
     pair2_symbol: str
     entry_zscore: Decimal
-    exit_zscore: Optional[Decimal]
+    exit_zscore: Decimal | None
     entry_price1: Decimal
     entry_price2: Decimal
-    exit_price1: Optional[Decimal]
-    exit_price2: Optional[Decimal]
+    exit_price1: Decimal | None
+    exit_price2: Decimal | None
     position_size: Decimal
-    pnl: Optional[Decimal] = None
-    pnl_percent: Optional[Decimal] = None
+    pnl: Decimal | None = None
+    pnl_percent: Decimal | None = None
     is_open: bool = True
 
     def calculate_pnl(self) -> Decimal:

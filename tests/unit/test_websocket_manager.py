@@ -102,7 +102,7 @@ class TestWebSocketConnection:
         # Patch websockets.connect to return the mock directly
         async def mock_connect(*args, **kwargs):
             return mock_websocket
-        
+
         with patch("websockets.connect", new=mock_connect):
             await conn.connect()
 

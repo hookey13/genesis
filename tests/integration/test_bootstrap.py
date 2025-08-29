@@ -5,11 +5,10 @@ These tests verify the complete startup flow including
 configuration, database, and connectivity checks.
 """
 
-import asyncio
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -216,7 +215,7 @@ class TestConnectivityChecks:
 
         with patch("aiohttp.ClientSession") as mock_session_class:
             mock_session = AsyncMock()
-            mock_session.get = AsyncMock(side_effect=asyncio.TimeoutError())
+            mock_session.get = AsyncMock(side_effect=TimeoutError())
             mock_session_class.return_value.__aenter__ = AsyncMock(
                 return_value=mock_session
             )

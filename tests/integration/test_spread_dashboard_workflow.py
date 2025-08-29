@@ -417,7 +417,7 @@ class TestSpreadDashboardWorkflow:
                 collected_events[event.type].append(event)
 
         # Subscribe to all alert types
-        for event_type in collected_events.keys():
+        for event_type in collected_events:
             event_bus.subscribe(event_type, event_collector)
 
         try:

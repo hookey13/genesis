@@ -1,16 +1,14 @@
 """Unit tests for compliance reporting module."""
 
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-import pandas as pd
 
 from genesis.analytics.compliance_reporter import ComplianceReporter
-from genesis.core.constants import TradingTier
 from genesis.core.models import Order, OrderSide, OrderStatus, OrderType, Trade
 
 
@@ -37,7 +35,7 @@ def sample_events():
     return [
         MagicMock(
             event_type="order.executed",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             sequence_number=1,
             event_data=json.dumps(
                 {
@@ -52,7 +50,7 @@ def sample_events():
         ),
         MagicMock(
             event_type="trade.completed",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             sequence_number=2,
             event_data=json.dumps(
                 {
@@ -68,7 +66,7 @@ def sample_events():
         ),
         MagicMock(
             event_type="position.opened",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             sequence_number=3,
             event_data=json.dumps(
                 {
@@ -155,8 +153,8 @@ async def test_extract_trade_audit_log(
 ):
     """Test extracting trade audit log."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=7)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=7)
+    end_date = datetime.now(UTC)
 
     # Setup mock
     mock_repository.get_events_by_aggregate.return_value = sample_events
@@ -192,8 +190,8 @@ async def test_generate_mifid_ii_report(
 ):
     """Test generating MiFID II compliance report."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=30)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=30)
+    end_date = datetime.now(UTC)
 
     # Setup mock
     mock_repository.get_trades_by_account.return_value = sample_trades
@@ -219,8 +217,8 @@ async def test_generate_mifid_ii_report(
 async def test_generate_emir_report(compliance_reporter, mock_repository):
     """Test generating EMIR report."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=30)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=30)
+    end_date = datetime.now(UTC)
 
     # Setup mock positions
     positions = [
@@ -250,8 +248,8 @@ async def test_generate_cftc_report(
 ):
     """Test generating CFTC report."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=30)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=30)
+    end_date = datetime.now(UTC)
 
     # Setup mock with large trades
     large_trade = Trade(
@@ -291,8 +289,8 @@ async def test_generate_best_execution_report(
 ):
     """Test generating best execution report."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=30)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=30)
+    end_date = datetime.now(UTC)
 
     # Setup mock
     mock_repository.get_orders_by_account.return_value = sample_orders
@@ -318,8 +316,8 @@ async def test_generate_transaction_cost_report(
 ):
     """Test generating transaction cost analysis report."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=30)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=30)
+    end_date = datetime.now(UTC)
 
     # Setup mock
     mock_repository.get_trades_by_account.return_value = sample_trades
@@ -346,8 +344,8 @@ async def test_export_compliance_data_json(
 ):
     """Test exporting compliance data as JSON."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=7)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=7)
+    end_date = datetime.now(UTC)
 
     # Setup mock
     mock_repository.get_events_by_aggregate.return_value = sample_events
@@ -373,8 +371,8 @@ async def test_export_compliance_data_csv(
 ):
     """Test exporting compliance data as CSV."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=7)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=7)
+    end_date = datetime.now(UTC)
 
     # Setup mock
     mock_repository.get_events_by_aggregate.return_value = sample_events
@@ -399,8 +397,8 @@ async def test_export_compliance_data_to_file(
 ):
     """Test exporting compliance data to file."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=7)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=7)
+    end_date = datetime.now(UTC)
     output_path = tmp_path / "compliance_export.json"
 
     # Setup mock
@@ -526,8 +524,8 @@ async def test_validate_compliance_trade_limit_exceeded(
 async def test_unsupported_report_type(compliance_reporter):
     """Test generating report with unsupported type."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=30)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=30)
+    end_date = datetime.now(UTC)
 
     with patch(
         "genesis.analytics.compliance_reporter.requires_tier", lambda x: lambda f: f
@@ -544,8 +542,8 @@ async def test_unsupported_export_format(
 ):
     """Test exporting with unsupported format."""
     account_id = str(uuid4())
-    start_date = datetime.now(timezone.utc) - timedelta(days=7)
-    end_date = datetime.now(timezone.utc)
+    start_date = datetime.now(UTC) - timedelta(days=7)
+    end_date = datetime.now(UTC)
 
     # Setup mock
     mock_repository.get_events_by_aggregate.return_value = sample_events

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -57,8 +57,8 @@ class WeeklyMetrics:
     config_stability_score: float
 
     # P&L correlation
-    strongest_loss_behavior: Optional[str]
-    loss_behavior_correlation: Optional[float]
+    strongest_loss_behavior: str | None
+    loss_behavior_correlation: float | None
 
 
 @dataclass
@@ -85,8 +85,8 @@ class WeeklyBehavioralReport:
     metrics: WeeklyMetrics
 
     # Week-over-week comparison
-    comparison_to_previous: Optional[dict[str, float]]
-    comparison_to_baseline: Optional[dict[str, float]]
+    comparison_to_previous: dict[str, float] | None
+    comparison_to_baseline: dict[str, float] | None
 
     # Insights
     insights: list[BehavioralInsight]
@@ -99,7 +99,7 @@ class WeeklyBehavioralReport:
     tilt_risk_score: float  # 0-100
 
     # Raw data for export
-    raw_data: Optional[dict[str, Any]]
+    raw_data: dict[str, Any] | None
 
 
 class WeeklyBehavioralReportGenerator:
@@ -112,13 +112,13 @@ class WeeklyBehavioralReportGenerator:
 
     def __init__(
         self,
-        click_tracker: Optional[ClickLatencyTracker] = None,
-        modification_tracker: Optional[OrderModificationTracker] = None,
-        focus_detector: Optional[FocusPatternDetector] = None,
-        inactivity_tracker: Optional[InactivityTracker] = None,
-        session_analyzer: Optional[SessionAnalyzer] = None,
-        config_tracker: Optional[ConfigurationChangeTracker] = None,
-        correlator: Optional[BehaviorPnLCorrelator] = None,
+        click_tracker: ClickLatencyTracker | None = None,
+        modification_tracker: OrderModificationTracker | None = None,
+        focus_detector: FocusPatternDetector | None = None,
+        inactivity_tracker: InactivityTracker | None = None,
+        session_analyzer: SessionAnalyzer | None = None,
+        config_tracker: ConfigurationChangeTracker | None = None,
+        correlator: BehaviorPnLCorrelator | None = None,
     ) -> None:
         """
         Initialize report generator.
@@ -136,7 +136,7 @@ class WeeklyBehavioralReportGenerator:
 
         # Historical data for comparisons
         self.previous_reports: list[WeeklyBehavioralReport] = []
-        self.baseline_metrics: Optional[WeeklyMetrics] = None
+        self.baseline_metrics: WeeklyMetrics | None = None
 
         logger.info("weekly_report_generator_initialized")
 
@@ -311,7 +311,7 @@ class WeeklyBehavioralReportGenerator:
 
     def _compare_to_previous_week(
         self, current: WeeklyMetrics
-    ) -> Optional[dict[str, float]]:
+    ) -> dict[str, float] | None:
         """
         Compare current week to previous week.
 
@@ -354,7 +354,7 @@ class WeeklyBehavioralReportGenerator:
 
     def _compare_to_baseline(
         self, current: WeeklyMetrics
-    ) -> Optional[dict[str, float]]:
+    ) -> dict[str, float] | None:
         """
         Compare current week to baseline.
 
@@ -390,8 +390,8 @@ class WeeklyBehavioralReportGenerator:
     def _generate_insights(
         self,
         metrics: WeeklyMetrics,
-        comparison_previous: Optional[dict],
-        comparison_baseline: Optional[dict],
+        comparison_previous: dict | None,
+        comparison_baseline: dict | None,
     ) -> list[BehavioralInsight]:
         """
         Generate behavioral insights from metrics.
