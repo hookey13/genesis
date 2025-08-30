@@ -178,6 +178,40 @@ def setup_logging(
         )
         file_handler.setLevel(numeric_level)
         file_handler.setFormatter(formatter)
+        
+        # Custom rotation callback for archival integration
+        def rotation_callback(source, dest):
+            """Callback triggered on log rotation for archival."""
+            try:
+                import asyncio
+                from genesis.operations.log_archiver import LogArchiver, LogArchivalConfig
+                import os
+                
+                # Only archive if enabled
+                if os.getenv('LOG_ARCHIVAL_ENABLED', 'true').lower() == 'true':
+                    config = LogArchivalConfig(
+                        local_retention_days=30,
+                        archive_retention_days=365,
+                        compression_level=9,
+                        batch_size=10,
+                        s3_bucket=os.getenv('BACKUP_BUCKET', 'genesis-backups'),
+                        s3_prefix="logs/",
+                        archive_on_rotation=True,
+                        min_file_size_bytes=1024,
+                        metadata_index_enabled=True
+                    )
+                    archiver = LogArchiver(config)
+                    
+                    # Schedule archival in background
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(archiver._archive_file(Path(dest)))
+            except Exception as e:
+                # Don't fail rotation if archival fails
+                print(f"Log archival failed: {e}", file=sys.stderr)
+        
+        # Set rotation callback
+        file_handler.rotator = rotation_callback
 
         # Create specific logger for each type
         specific_logger = logging.getLogger(f"genesis.{log_type}")

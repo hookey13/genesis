@@ -1,0 +1,28 @@
+{
+  "test_type": "chaos_engineering",
+  "data_consistent": true,
+  "metrics": {
+    "start_time": "2025-08-30T13:34:26.731083",
+    "end_time": null,
+    "total_events": 1,
+    "failures_detected": 0,
+    "successful_recoveries": 0,
+    "failed_recoveries": 0,
+    "mean_recovery_time_seconds": 5.0,
+    "max_recovery_time_seconds": 5,
+    "service_availability_percent": 100,
+    "data_consistency_checks": 1,
+    "data_inconsistencies": 0,
+    "events": [
+      {
+        "type": "cpu_stress",
+        "timestamp": "2025-08-30T13:34:26.731094",
+        "duration": 10,
+        "target": "cpu",
+        "recovered": true,
+        "recovery_time": 5
+      }
+    ]
+  },
+  "success": true
+}
