@@ -149,3 +149,10 @@ class StateError(GenesisException):
 
     def __init__(self, message: str):
         super().__init__(message, code="STATE_ERROR")
+
+
+class BackupError(GenesisException):
+    """Raised when backup or recovery operations fail."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="BACKUP_ERROR")

@@ -1,0 +1,91 @@
+# Prometheus configuration for Project GENESIS
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'genesis-monitor'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'prometheus'
+
+  # GENESIS application metrics
+  - job_name: 'genesis'
+    scrape_interval: 10s
+    metrics_path: '/metrics'
+    scheme: 'http'
+    bearer_token: '${PROMETHEUS_AUTH_TOKEN}'
+    static_configs:
+      - targets: ['genesis:9090']
+        labels:
+          service: 'genesis-trading'
+          tier: 'production'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+)(?::\d+)?'
+        replacement: '${1}'
+
+  # Node exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          service: 'node-exporter'
+
+  # Binance API health check
+  - job_name: 'binance-health'
+    scrape_interval: 60s
+    metrics_path: '/api/v3/ping'
+    scheme: 'https'
+    static_configs:
+      - targets: ['api.binance.com']
+        labels:
+          service: 'binance-api'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'up'
+        target_label: __name__
+        replacement: 'binance_api_up'
+
+# Remote write configuration for long-term storage
+remote_write:
+  - url: 'http://prometheus-storage:9090/api/v1/write'
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'genesis_.*'
+        action: keep
+    queue_config:
+      capacity: 10000
+      max_shards: 5
+      min_shards: 1
+      max_samples_per_send: 1000
+      batch_send_deadline: 5s
+      min_backoff: 30ms
+      max_backoff: 100ms
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus
+    retention:
+      time: 15d
+      size: 10GB

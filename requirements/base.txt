@@ -33,3 +33,7 @@ supervisor==4.2.5
 
 # System monitoring
 psutil==5.9.8
+
+# Backup and recovery
+boto3==1.35.0  # AWS SDK for S3-compatible storage
+apscheduler==3.10.4  # Scheduled backup tasks
