@@ -7,9 +7,7 @@ for more efficient burst handling and smoother rate limiting.
 
 import asyncio
 import time
-from collections import deque
 from dataclasses import dataclass
-from typing import Optional
 
 import structlog
 
@@ -25,22 +23,22 @@ class TokenBucket:
     constant rate. Requests consume tokens, and if not enough tokens are
     available, the request must wait.
     """
-    
+
     capacity: int  # Maximum number of tokens
     refill_rate: float  # Tokens added per second
     tokens: float  # Current number of tokens
     last_refill: float  # Timestamp of last refill
-    
+
     def refill(self) -> None:
         """Refill tokens based on elapsed time."""
         current_time = time.time()
         elapsed = current_time - self.last_refill
-        
+
         # Add tokens based on refill rate
         tokens_to_add = elapsed * self.refill_rate
         self.tokens = min(self.capacity, self.tokens + tokens_to_add)
         self.last_refill = current_time
-    
+
     def consume(self, amount: int) -> bool:
         """
         Try to consume tokens from the bucket.
@@ -52,12 +50,12 @@ class TokenBucket:
             True if tokens were consumed, False if not enough available
         """
         self.refill()
-        
+
         if self.tokens >= amount:
             self.tokens -= amount
             return True
         return False
-    
+
     def time_until_tokens_available(self, amount: int) -> float:
         """
         Calculate time to wait until enough tokens are available.
@@ -69,10 +67,10 @@ class TokenBucket:
             Seconds to wait (0 if tokens available now)
         """
         self.refill()
-        
+
         if self.tokens >= amount:
             return 0
-        
+
         tokens_needed = amount - self.tokens
         return tokens_needed / self.refill_rate
 
@@ -85,7 +83,7 @@ class TokenBucketRateLimiter:
     Default configuration: 1200 tokens capacity, 20 tokens/second refill rate
     (equivalent to 1200 tokens per minute).
     """
-    
+
     # Binance API endpoint weights (same as before)
     ENDPOINT_WEIGHTS = {
         # Account endpoints
@@ -117,7 +115,7 @@ class TokenBucketRateLimiter:
         ("GET", "/api/v3/time"): 1,
         ("GET", "/api/v3/exchangeInfo"): 10,
     }
-    
+
     def __init__(
         self,
         bucket_capacity: int = 1200,
@@ -138,10 +136,10 @@ class TokenBucketRateLimiter:
             tokens=bucket_capacity,  # Start with full bucket
             last_refill=time.time()
         )
-        
+
         self.burst_reserve = burst_reserve
         self.effective_capacity = bucket_capacity - burst_reserve
-        
+
         # Order-specific token buckets
         self.order_bucket_10s = TokenBucket(
             capacity=50,
@@ -149,32 +147,32 @@ class TokenBucketRateLimiter:
             tokens=50,
             last_refill=time.time()
         )
-        
+
         self.order_bucket_daily = TokenBucket(
             capacity=160000,
             refill_rate=1.85,  # ~160k per day
             tokens=160000,
             last_refill=time.time()
         )
-        
+
         # Statistics
         self.total_requests = 0
         self.total_weight_consumed = 0
         self.total_orders_placed = 0
         self.burst_activations = 0
         self.wait_times = []
-        
+
         # Dynamic weight tracking from response headers
         self.last_response_weight = {}
         self.weight_adjustments = {}
-        
+
         logger.info(
             "TokenBucketRateLimiter initialized",
             capacity=bucket_capacity,
             refill_rate=refill_rate,
             burst_reserve=burst_reserve,
         )
-    
+
     def _get_endpoint_weight(
         self, method: str, endpoint: str, params: dict | None = None
     ) -> int:
@@ -190,13 +188,13 @@ class TokenBucketRateLimiter:
             Weight value for the endpoint
         """
         key = (method.upper(), endpoint)
-        
+
         # Check if we have a dynamic weight adjustment from response headers
         if key in self.weight_adjustments:
             return self.weight_adjustments[key]
-        
+
         weight_config = self.ENDPOINT_WEIGHTS.get(key, 1)
-        
+
         # Handle conditional weights
         if isinstance(weight_config, dict):
             if "limit" in str(weight_config):
@@ -213,9 +211,9 @@ class TokenBucketRateLimiter:
             elif "symbol" in str(weight_config):
                 has_symbol = params and "symbol" in params
                 return weight_config["symbol" if has_symbol else "no symbol"]
-        
+
         return weight_config if isinstance(weight_config, int) else 1
-    
+
     def update_weight_from_headers(self, headers: dict) -> None:
         """
         Update weight consumption based on API response headers.
@@ -243,14 +241,14 @@ class TokenBucketRateLimiter:
                     )
             except (ValueError, KeyError):
                 pass
-        
+
         if "X-MBX-USED-WEIGHT-1M" in headers:
             try:
                 total_used = int(headers["X-MBX-USED-WEIGHT-1M"])
                 # Sync our bucket state with server state
                 tokens_used = total_used
                 expected_tokens = self.bucket.capacity - self.bucket.tokens
-                
+
                 if abs(tokens_used - expected_tokens) > 10:
                     # Significant discrepancy, adjust our bucket
                     self.bucket.tokens = max(0, self.bucket.capacity - tokens_used)
@@ -262,7 +260,7 @@ class TokenBucketRateLimiter:
                     )
             except (ValueError, KeyError):
                 pass
-    
+
     async def check_and_wait(
         self, method: str, endpoint: str, params: dict | None = None
     ) -> None:
@@ -277,10 +275,10 @@ class TokenBucketRateLimiter:
         # Calculate weight for this request
         weight = self._get_endpoint_weight(method, endpoint, params)
         self.last_request_weight = weight
-        
+
         # Check if this is an order placement
         is_order = method.upper() == "POST" and endpoint == "/api/v3/order"
-        
+
         # Handle order-specific limits
         if is_order:
             # Check 10-second order limit
@@ -292,7 +290,7 @@ class TokenBucketRateLimiter:
                     current_tokens=self.order_bucket_10s.tokens,
                 )
                 await asyncio.sleep(wait_time_10s)
-            
+
             # Check daily order limit
             wait_time_daily = self.order_bucket_daily.time_until_tokens_available(1)
             if wait_time_daily > 3600:  # More than 1 hour wait
@@ -306,15 +304,15 @@ class TokenBucketRateLimiter:
                     current_tokens=self.order_bucket_daily.tokens,
                 )
                 await asyncio.sleep(wait_time_daily)
-            
+
             # Consume order tokens
             self.order_bucket_10s.consume(1)
             self.order_bucket_daily.consume(1)
             self.total_orders_placed += 1
-        
+
         # Check main weight limit
         wait_time = self.bucket.time_until_tokens_available(weight)
-        
+
         # Check if we need to use burst capacity
         if wait_time > 0 and weight <= self.burst_reserve:
             # Try to use burst capacity for important operations
@@ -328,7 +326,7 @@ class TokenBucketRateLimiter:
                 self.burst_activations += 1
                 # Allow the request to proceed even with low tokens
                 wait_time = 0
-        
+
         if wait_time > 0:
             logger.info(
                 "Token bucket rate limit: waiting",
@@ -339,7 +337,7 @@ class TokenBucketRateLimiter:
             )
             self.wait_times.append(wait_time)
             await asyncio.sleep(wait_time)
-        
+
         # Consume tokens
         success = self.bucket.consume(weight)
         if not success:
@@ -353,11 +351,11 @@ class TokenBucketRateLimiter:
             await asyncio.sleep(1)
             self.bucket.refill()
             self.bucket.consume(weight)
-        
+
         # Update statistics
         self.total_requests += 1
         self.total_weight_consumed += weight
-        
+
         # Log utilization if high
         utilization = ((self.bucket.capacity - self.bucket.tokens) / self.bucket.capacity) * 100
         if utilization > 70:
@@ -367,7 +365,7 @@ class TokenBucketRateLimiter:
                 tokens_remaining=self.bucket.tokens,
                 capacity=self.bucket.capacity,
             )
-    
+
     def get_current_utilization(self) -> float:
         """
         Get current bucket utilization as a percentage.
@@ -378,7 +376,7 @@ class TokenBucketRateLimiter:
         self.bucket.refill()
         used = self.bucket.capacity - self.bucket.tokens
         return (used / self.bucket.capacity) * 100
-    
+
     def get_remaining_capacity(self) -> int:
         """
         Get remaining token capacity.
@@ -388,20 +386,20 @@ class TokenBucketRateLimiter:
         """
         self.bucket.refill()
         return int(self.bucket.tokens)
-    
+
     def reset(self) -> None:
         """Reset all buckets to full capacity (for testing)."""
         self.bucket.tokens = self.bucket.capacity
         self.bucket.last_refill = time.time()
-        
+
         self.order_bucket_10s.tokens = self.order_bucket_10s.capacity
         self.order_bucket_10s.last_refill = time.time()
-        
+
         self.order_bucket_daily.tokens = self.order_bucket_daily.capacity
         self.order_bucket_daily.last_refill = time.time()
-        
+
         logger.info("All token buckets reset to full capacity")
-    
+
     def get_statistics(self) -> dict:
         """
         Get rate limiter statistics.
@@ -412,9 +410,9 @@ class TokenBucketRateLimiter:
         self.bucket.refill()
         self.order_bucket_10s.refill()
         self.order_bucket_daily.refill()
-        
+
         avg_wait = sum(self.wait_times) / len(self.wait_times) if self.wait_times else 0
-        
+
         return {
             "total_requests": self.total_requests,
             "total_weight_consumed": self.total_weight_consumed,

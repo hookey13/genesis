@@ -5,12 +5,12 @@ import hashlib
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import boto3
 import structlog
 from botocore.exceptions import ClientError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from genesis.core.exceptions import BackupError
 
@@ -19,7 +19,7 @@ logger = structlog.get_logger(__name__)
 
 class BackupMetadata(BaseModel):
     """Metadata for backup files."""
-    
+
     backup_id: str
     timestamp: datetime
     size_bytes: int
@@ -29,9 +29,9 @@ class BackupMetadata(BaseModel):
     retention_policy: str  # hourly, daily, monthly, yearly
     source_path: str
     destination_key: str
-    encryption_key_id: Optional[str] = None
-    compression_ratio: Optional[Decimal] = None
-    
+    encryption_key_id: str | None = None
+    compression_ratio: Decimal | None = None
+
     class Config:
         json_encoders = {
             datetime: lambda v: v.isoformat(),
@@ -41,7 +41,7 @@ class BackupMetadata(BaseModel):
 
 class S3Client:
     """S3-compatible client for backup storage."""
-    
+
     def __init__(
         self,
         endpoint_url: str,
@@ -63,7 +63,7 @@ class S3Client:
         """
         self.bucket_name = bucket_name
         self.region = region
-        
+
         # Initialize boto3 client
         self.client = boto3.client(
             "s3",
@@ -73,9 +73,9 @@ class S3Client:
             region_name=region,
             use_ssl=use_ssl
         )
-        
+
         self._ensure_bucket_exists()
-        
+
     def _ensure_bucket_exists(self) -> None:
         """Ensure the backup bucket exists."""
         try:
@@ -92,13 +92,13 @@ class S3Client:
                 logger.info("Created backup bucket", bucket=self.bucket_name)
             else:
                 raise BackupError(f"Failed to verify bucket: {e}")
-    
+
     async def upload_backup(
         self,
         file_path: Path,
         key_prefix: str,
         metadata: BackupMetadata,
-        encryption: Optional[str] = "AES256"
+        encryption: str | None = "AES256"
     ) -> str:
         """Upload backup file to S3.
         
@@ -113,16 +113,16 @@ class S3Client:
         """
         if not file_path.exists():
             raise BackupError(f"Backup file not found: {file_path}")
-        
+
         # Generate S3 key
         timestamp_str = metadata.timestamp.strftime("%Y%m%d_%H%M%S")
         key = f"{key_prefix}{timestamp_str}_{metadata.backup_id}.bak"
-        
+
         # Calculate checksum
         checksum = await self._calculate_checksum(file_path)
         if checksum != metadata.checksum:
             raise BackupError("Checksum mismatch before upload")
-        
+
         # Upload with metadata
         extra_args = {
             "Metadata": {
@@ -134,10 +134,10 @@ class S3Client:
                 "retention-policy": metadata.retention_policy
             }
         }
-        
+
         if encryption:
             extra_args["ServerSideEncryption"] = encryption
-        
+
         try:
             # Run upload in executor to avoid blocking
             loop = asyncio.get_event_loop()
@@ -150,20 +150,20 @@ class S3Client:
                     ExtraArgs=extra_args
                 )
             )
-            
+
             logger.info(
                 "Backup uploaded successfully",
                 key=key,
                 size_mb=metadata.size_bytes / 1024 / 1024,
                 checksum=metadata.checksum
             )
-            
+
             return key
-            
+
         except ClientError as e:
             logger.error("Failed to upload backup", error=str(e))
             raise BackupError(f"Upload failed: {e}")
-    
+
     async def download_backup(
         self,
         key: str,
@@ -184,7 +184,7 @@ class S3Client:
             # Get object metadata first
             response = self.client.head_object(Bucket=self.bucket_name, Key=key)
             metadata_dict = response.get("Metadata", {})
-            
+
             # Download file
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
@@ -195,13 +195,13 @@ class S3Client:
                     str(destination_path)
                 )
             )
-            
+
             # Verify checksum if requested
             if verify_checksum and "checksum" in metadata_dict:
                 calculated_checksum = await self._calculate_checksum(destination_path)
                 if calculated_checksum != metadata_dict["checksum"]:
                     raise BackupError("Checksum verification failed after download")
-            
+
             # Reconstruct metadata
             metadata = BackupMetadata(
                 backup_id=metadata_dict.get("backup-id", "unknown"),
@@ -214,24 +214,24 @@ class S3Client:
                 source_path=str(destination_path),
                 destination_key=key
             )
-            
+
             logger.info(
                 "Backup downloaded successfully",
                 key=key,
                 size_mb=metadata.size_bytes / 1024 / 1024
             )
-            
+
             return metadata
-            
+
         except ClientError as e:
             logger.error("Failed to download backup", error=str(e))
             raise BackupError(f"Download failed: {e}")
-    
+
     async def list_backups(
         self,
-        prefix: Optional[str] = None,
+        prefix: str | None = None,
         max_keys: int = 1000
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """List backups in S3.
         
         Args:
@@ -246,12 +246,12 @@ class S3Client:
                 "Bucket": self.bucket_name,
                 "MaxKeys": max_keys
             }
-            
+
             if prefix:
                 params["Prefix"] = prefix
-            
+
             response = self.client.list_objects_v2(**params)
-            
+
             backups = []
             for obj in response.get("Contents", []):
                 # Get full metadata for each object
@@ -259,20 +259,20 @@ class S3Client:
                     Bucket=self.bucket_name,
                     Key=obj["Key"]
                 )
-                
+
                 backups.append({
                     "key": obj["Key"],
                     "size_bytes": obj["Size"],
                     "last_modified": obj["LastModified"],
                     "metadata": head_response.get("Metadata", {})
                 })
-            
+
             return backups
-            
+
         except ClientError as e:
             logger.error("Failed to list backups", error=str(e))
             raise BackupError(f"List failed: {e}")
-    
+
     async def delete_backup(self, key: str) -> None:
         """Delete backup from S3.
         
@@ -285,14 +285,14 @@ class S3Client:
         except ClientError as e:
             logger.error("Failed to delete backup", error=str(e))
             raise BackupError(f"Delete failed: {e}")
-    
+
     async def apply_retention_policy(
         self,
         prefix: str,
         hourly_days: int = 7,
         daily_days: int = 30,
         monthly_days: int = 365
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """Apply retention policy to backups.
         
         Args:
@@ -306,36 +306,36 @@ class S3Client:
         """
         now = datetime.utcnow()
         deleted_counts = {"hourly": 0, "daily": 0, "monthly": 0}
-        
+
         backups = await self.list_backups(prefix=prefix)
-        
+
         # Group backups by retention policy
-        by_policy: Dict[str, List[Dict]] = {"hourly": [], "daily": [], "monthly": []}
-        
+        by_policy: dict[str, list[dict]] = {"hourly": [], "daily": [], "monthly": []}
+
         for backup in backups:
             policy = backup["metadata"].get("retention-policy", "daily")
             if policy in by_policy:
                 by_policy[policy].append(backup)
-        
+
         # Apply retention for each policy
         retention_days = {
             "hourly": hourly_days,
             "daily": daily_days,
             "monthly": monthly_days
         }
-        
+
         for policy, days in retention_days.items():
             for backup in by_policy[policy]:
                 age_days = (now - backup["last_modified"].replace(tzinfo=None)).days
                 if age_days > days:
                     await self.delete_backup(backup["key"])
                     deleted_counts[policy] += 1
-        
+
         if sum(deleted_counts.values()) > 0:
             logger.info("Retention policy applied", deleted=deleted_counts)
-        
+
         return deleted_counts
-    
+
     async def _calculate_checksum(self, file_path: Path) -> str:
         """Calculate SHA256 checksum of file.
         
@@ -346,18 +346,18 @@ class S3Client:
             Hexadecimal checksum string
         """
         sha256_hash = hashlib.sha256()
-        
+
         # Read in chunks to handle large files
         loop = asyncio.get_event_loop()
-        
+
         def calculate():
             with open(file_path, "rb") as f:
                 for chunk in iter(lambda: f.read(8192), b""):
                     sha256_hash.update(chunk)
             return sha256_hash.hexdigest()
-        
+
         return await loop.run_in_executor(None, calculate)
-    
+
     def get_backup_url(self, key: str, expiry_seconds: int = 3600) -> str:
         """Generate presigned URL for backup download.
         

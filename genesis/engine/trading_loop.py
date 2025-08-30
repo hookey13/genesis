@@ -373,12 +373,12 @@ class TradingLoop:
                     "price": str(result.get("fill_price", 0)),
                     "exchange_order_id": order.exchange_order_id,
                 }
-                
+
                 # Add paper trading prefix if in paper mode
                 if self.paper_trading_mode:
                     event_data["paper_trade"] = True
                     event_data["session_id"] = self.paper_trading_session_id
-                
+
                 filled_event = Event(
                     event_type=EventType.ORDER_FILLED,
                     aggregate_id=order.order_id,
@@ -886,11 +886,11 @@ class TradingLoop:
         """Monitor trading loop heartbeat for continuous operation."""
         last_heartbeat = time.time()
         heartbeat_interval = 30  # Send heartbeat every 30 seconds
-        
+
         while self.running:
             try:
                 await asyncio.sleep(heartbeat_interval)
-                
+
                 # Send heartbeat event
                 heartbeat_event = Event(
                     event_type=EventType.SYSTEM_HEARTBEAT,
@@ -904,41 +904,41 @@ class TradingLoop:
                         "paper_trading_mode": self.paper_trading_mode,
                     }
                 )
-                
+
                 await self.event_bus.publish(heartbeat_event, priority=EventPriority.LOW)
-                
+
                 logger.debug(
                     "Heartbeat sent",
                     events_processed=self.events_processed,
                     active_positions=len(self.positions),
                 )
-                
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error("Error in heartbeat monitor", error=str(e))
-                
+
     async def _health_check_monitor(self) -> None:
         """Monitor system health and connectivity."""
         health_check_interval = 60  # Check health every minute
         consecutive_failures = 0
         max_failures = 3
-        
+
         while self.running:
             try:
                 await asyncio.sleep(health_check_interval)
-                
+
                 # Check exchange connection
                 exchange_healthy = await self.exchange_gateway.validate_connection()
-                
+
                 # Check event bus health
                 event_bus_healthy = self.event_bus.is_running if hasattr(self.event_bus, 'is_running') else True
-                
+
                 # Check risk engine
                 risk_engine_healthy = self.risk_engine.validate_configuration()
-                
+
                 all_healthy = exchange_healthy and event_bus_healthy and risk_engine_healthy
-                
+
                 if not all_healthy:
                     consecutive_failures += 1
                     logger.warning(
@@ -948,7 +948,7 @@ class TradingLoop:
                         risk_engine_healthy=risk_engine_healthy,
                         consecutive_failures=consecutive_failures,
                     )
-                    
+
                     if consecutive_failures >= max_failures:
                         logger.error(
                             "Maximum health check failures reached, initiating shutdown",
@@ -959,22 +959,22 @@ class TradingLoop:
                     if consecutive_failures > 0:
                         logger.info("Health check recovered", previous_failures=consecutive_failures)
                     consecutive_failures = 0
-                    
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error("Error in health check monitor", error=str(e))
                 consecutive_failures += 1
-                
+
     async def _position_reconciliation(self) -> None:
         """Reconcile positions with exchange periodically."""
         try:
             logger.debug("Starting position reconciliation")
-            
+
             # In paper trading mode, skip exchange reconciliation
             if self.paper_trading_mode:
                 return
-                
+
             # Get positions from exchange
             # This would normally query exchange for actual positions
             # For now, just log current internal state
@@ -983,15 +983,15 @@ class TradingLoop:
                 internal_positions=len(self.positions),
                 pending_orders=len(self.pending_orders),
             )
-            
+
         except Exception as e:
             logger.error("Error in position reconciliation", error=str(e))
-            
+
     async def _log_performance_metrics(self) -> None:
         """Log performance metrics periodically."""
         try:
             metrics = self.get_performance_metrics()
-            
+
             logger.info(
                 "Performance metrics",
                 events_processed=metrics["event_processing"]["total_events"],
@@ -1002,10 +1002,10 @@ class TradingLoop:
                 positions_active=metrics["positions"]["active"],
                 paper_trading_mode=self.paper_trading_mode,
             )
-            
+
         except Exception as e:
             logger.error("Error logging performance metrics", error=str(e))
-    
+
     async def reconstruct_position_state(self, position_id: str) -> dict[str, Any] | None:
         """
         Reconstruct position state from event history.

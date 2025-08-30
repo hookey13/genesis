@@ -39,6 +39,30 @@ For detailed architecture documentation, see [docs/architecture.md](docs/archite
 - Docker (optional, for containerized deployment)
 - Binance API credentials
 
+### Python Version Management
+
+We recommend using pyenv to manage Python versions:
+
+**Linux/macOS:**
+```bash
+# Install pyenv (if not already installed)
+curl https://pyenv.run | bash
+
+# Install Python 3.11.8
+pyenv install 3.11.8
+pyenv local 3.11.8
+```
+
+**Windows:**
+```powershell
+# Install pyenv-win (if not already installed)
+git clone https://github.com/pyenv-win/pyenv-win.git %USERPROFILE%\.pyenv
+
+# Install Python 3.11.8
+pyenv install 3.11.8
+pyenv local 3.11.8
+```
+
 ### Installation
 
 1. **Clone the repository:**
@@ -47,10 +71,30 @@ For detailed architecture documentation, see [docs/architecture.md](docs/archite
    cd genesis
    ```
 
-2. **Set up Python environment:**
+2. **Set up Python environment (Automated):**
+   
+   **Linux/macOS:**
    ```bash
-   python3.11 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   # Set tier (optional, defaults to sniper)
+   export TIER=sniper  # or hunter, strategist
+   
+   # Activate environment and install dependencies
+   source scripts/activate_env.sh
+   ```
+   
+   **Windows PowerShell:**
+   ```powershell
+   # Set tier (optional, defaults to sniper)
+   $env:TIER = "sniper"  # or hunter, strategist
+   
+   # Activate environment and install dependencies
+   .\scripts\activate_env.ps1
+   ```
+
+   **Manual Setup (Alternative):**
+   ```bash
+   python3.11 -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    make setup
    ```
 

@@ -4,17 +4,18 @@ Implements IP whitelisting, rate limiting, and security headers.
 """
 
 import time
-from typing import Optional, Dict, Any, Callable
 from collections import defaultdict
+from typing import Any
+
 import structlog
-from fastapi import Request, Response, HTTPException
+from fastapi import HTTPException, Request, Response
 from fastapi.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.base import RequestResponseEndpoint
 
 from genesis.security.ip_whitelist import (
     IPWhitelistManager,
+    NetworkSegmentation,
     NetworkZone,
-    NetworkSegmentation
 )
 
 logger = structlog.get_logger(__name__)
@@ -22,11 +23,11 @@ logger = structlog.get_logger(__name__)
 
 class SecurityMiddleware(BaseHTTPMiddleware):
     """Comprehensive security middleware for API protection."""
-    
+
     def __init__(
         self,
         app,
-        whitelist_manager: Optional[IPWhitelistManager] = None,
+        whitelist_manager: IPWhitelistManager | None = None,
         rate_limit: int = 10,  # Requests per second
         enable_ip_whitelist: bool = True,
         enable_rate_limit: bool = True,
@@ -49,11 +50,11 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         self.enable_ip_whitelist = enable_ip_whitelist
         self.enable_rate_limit = enable_rate_limit
         self.enable_security_headers = enable_security_headers
-        
+
         # Rate limiting state
-        self._request_counts: Dict[str, list] = defaultdict(list)
-        self._blocked_ips: Dict[str, float] = {}  # IP -> block expiry time
-    
+        self._request_counts: dict[str, list] = defaultdict(list)
+        self._blocked_ips: dict[str, float] = {}  # IP -> block expiry time
+
     async def dispatch(
         self,
         request: Request,
@@ -70,44 +71,44 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         """
         # Get client IP
         client_ip = self._get_client_ip(request)
-        
+
         # Check if IP is blocked
         if self._is_ip_blocked(client_ip):
             logger.warning("Blocked IP attempted access", ip=client_ip)
             raise HTTPException(status_code=403, detail="IP temporarily blocked")
-        
+
         # IP whitelist check
         if self.enable_ip_whitelist:
             if not self._check_ip_whitelist(client_ip, request.url.path):
-                logger.warning("IP not whitelisted", 
-                             ip=client_ip, 
+                logger.warning("IP not whitelisted",
+                             ip=client_ip,
                              path=request.url.path)
                 raise HTTPException(status_code=403, detail="IP not authorized")
-        
+
         # Rate limiting
         if self.enable_rate_limit:
             if not self._check_rate_limit(client_ip):
                 # Block IP temporarily
                 self._block_ip(client_ip, duration=60)  # Block for 1 minute
-                logger.warning("Rate limit exceeded, IP blocked", 
+                logger.warning("Rate limit exceeded, IP blocked",
                              ip=client_ip,
                              limit=self.rate_limit)
                 raise HTTPException(status_code=429, detail="Rate limit exceeded")
-        
+
         # Log request
         start_time = time.time()
-        logger.info("API request", 
+        logger.info("API request",
                    ip=client_ip,
                    method=request.method,
                    path=request.url.path)
-        
+
         # Process request
         response = await call_next(request)
-        
+
         # Add security headers
         if self.enable_security_headers:
             self._add_security_headers(response)
-        
+
         # Log response
         duration = time.time() - start_time
         logger.info("API response",
@@ -116,9 +117,9 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                    path=request.url.path,
                    status=response.status_code,
                    duration=duration)
-        
+
         return response
-    
+
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request.
         
@@ -133,15 +134,15 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         if forwarded_for:
             # Get first IP in the chain
             return forwarded_for.split(",")[0].strip()
-        
+
         # Check X-Real-IP header
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
             return real_ip
-        
+
         # Fall back to client host
         return request.client.host if request.client else "unknown"
-    
+
     def _check_ip_whitelist(self, ip: str, path: str) -> bool:
         """Check if IP is whitelisted for the requested path.
         
@@ -154,10 +155,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         """
         # Determine required zone based on path
         zone = self._get_zone_for_path(path)
-        
+
         # Check if IP is allowed in the zone
         return self.whitelist_manager.is_allowed(ip, zone)
-    
+
     def _get_zone_for_path(self, path: str) -> NetworkZone:
         """Determine network zone for a path.
         
@@ -176,7 +177,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             return NetworkZone.RESTRICTED
         else:
             return NetworkZone.PUBLIC
-    
+
     def _check_rate_limit(self, ip: str) -> bool:
         """Check if IP is within rate limit.
         
@@ -187,23 +188,23 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             True if within rate limit
         """
         current_time = time.time()
-        
+
         # Clean old requests (older than 1 second)
         if ip in self._request_counts:
             self._request_counts[ip] = [
                 t for t in self._request_counts[ip]
                 if current_time - t < 1.0
             ]
-        
+
         # Check request count
         request_count = len(self._request_counts[ip])
         if request_count >= self.rate_limit:
             return False
-        
+
         # Add current request
         self._request_counts[ip].append(current_time)
         return True
-    
+
     def _is_ip_blocked(self, ip: str) -> bool:
         """Check if IP is temporarily blocked.
         
@@ -220,7 +221,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 # Block expired, remove it
                 del self._blocked_ips[ip]
         return False
-    
+
     def _block_ip(self, ip: str, duration: int = 60):
         """Temporarily block an IP.
         
@@ -229,7 +230,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             duration: Block duration in seconds
         """
         self._blocked_ips[ip] = time.time() + duration
-    
+
     def _add_security_headers(self, response: Response):
         """Add security headers to response.
         
@@ -248,11 +249,11 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
 class IPWhitelistMiddleware(BaseHTTPMiddleware):
     """Dedicated IP whitelist middleware."""
-    
+
     def __init__(
         self,
         app,
-        whitelist_manager: Optional[IPWhitelistManager] = None,
+        whitelist_manager: IPWhitelistManager | None = None,
         strict_mode: bool = True
     ):
         """Initialize IP whitelist middleware.
@@ -265,7 +266,7 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.whitelist_manager = whitelist_manager or IPWhitelistManager()
         self.strict_mode = strict_mode
-    
+
     async def dispatch(
         self,
         request: Request,
@@ -282,10 +283,10 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
         """
         # Get client IP
         client_ip = self._get_client_ip(request)
-        
+
         # Determine required zone
         zone = self._get_zone_for_path(request.url.path)
-        
+
         # Check whitelist
         if not self.whitelist_manager.is_allowed(client_ip, zone):
             if self.strict_mode:
@@ -302,21 +303,21 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
                 logger.warning("Non-whitelisted IP allowed (non-strict mode)",
                              ip=client_ip,
                              zone=zone.value)
-        
+
         return await call_next(request)
-    
+
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request."""
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             return forwarded_for.split(",")[0].strip()
-        
+
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
             return real_ip
-        
+
         return request.client.host if request.client else "unknown"
-    
+
     def _get_zone_for_path(self, path: str) -> NetworkZone:
         """Determine network zone for a path."""
         if "/admin" in path or "/management" in path:
@@ -331,7 +332,7 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Dedicated rate limiting middleware."""
-    
+
     def __init__(
         self,
         app,
@@ -351,16 +352,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.requests_per_second = requests_per_second
         self.burst_size = burst_size
         self.block_duration = block_duration
-        
+
         # Token bucket implementation
-        self._buckets: Dict[str, Dict[str, Any]] = defaultdict(
+        self._buckets: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "tokens": burst_size,
                 "last_update": time.time()
             }
         )
-        self._blocked_until: Dict[str, float] = {}
-    
+        self._blocked_until: dict[str, float] = {}
+
     async def dispatch(
         self,
         request: Request,
@@ -376,7 +377,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             Response if within rate limit
         """
         client_ip = self._get_client_ip(request)
-        
+
         # Check if blocked
         if client_ip in self._blocked_until:
             if time.time() < self._blocked_until[client_ip]:
@@ -391,7 +392,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
             else:
                 del self._blocked_until[client_ip]
-        
+
         # Update token bucket
         if not self._consume_token(client_ip):
             # Block the IP
@@ -404,16 +405,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 detail=f"Rate limit exceeded. Blocked for {self.block_duration} seconds",
                 headers={"Retry-After": str(self.block_duration)}
             )
-        
+
         return await call_next(request)
-    
+
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request."""
         forwarded_for = request.headers.get("X-Forwarded-For")
         if forwarded_for:
             return forwarded_for.split(",")[0].strip()
         return request.client.host if request.client else "unknown"
-    
+
     def _consume_token(self, ip: str) -> bool:
         """Consume a token from the bucket.
         
@@ -425,20 +426,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         bucket = self._buckets[ip]
         current_time = time.time()
-        
+
         # Refill tokens based on time elapsed
         time_elapsed = current_time - bucket["last_update"]
         tokens_to_add = time_elapsed * self.requests_per_second
-        
+
         bucket["tokens"] = min(
             self.burst_size,
             bucket["tokens"] + tokens_to_add
         )
         bucket["last_update"] = current_time
-        
+
         # Try to consume a token
         if bucket["tokens"] >= 1:
             bucket["tokens"] -= 1
             return True
-        
+
         return False

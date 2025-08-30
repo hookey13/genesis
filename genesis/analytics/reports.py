@@ -1,27 +1,32 @@
 """P&L and financial reporting system."""
 import json
-from datetime import datetime, date, timedelta
+from dataclasses import dataclass
+from datetime import date, datetime
 from decimal import Decimal
-from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, asdict
+from typing import Any
+
 import structlog
-from pathlib import Path
-from io import BytesIO
 
 # Optional imports for PDF generation
 try:
-    from reportlab.lib.pagesizes import letter, A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
     from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
     HAS_REPORTLAB = True
 except ImportError:
     HAS_REPORTLAB = False
 
 # Optional Jinja2 for HTML templates
 try:
-    from jinja2 import Template, Environment, FileSystemLoader
+    from jinja2 import Environment, FileSystemLoader, Template
     HAS_JINJA2 = True
 except ImportError:
     HAS_JINJA2 = False
@@ -32,7 +37,7 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class PnLEntry:
     """Individual P&L entry."""
-    
+
     date: date
     symbol: str
     quantity: Decimal
@@ -43,8 +48,8 @@ class PnLEntry:
     net_pnl: Decimal
     position_type: str  # LONG or SHORT
     holding_period_days: int
-    
-    def to_dict(self) -> Dict[str, Any]:
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
             "date": self.date.isoformat(),
@@ -63,7 +68,7 @@ class PnLEntry:
 @dataclass
 class MonthlyPnLSummary:
     """Monthly P&L summary."""
-    
+
     year: int
     month: int
     total_trades: int
@@ -78,10 +83,10 @@ class MonthlyPnLSummary:
     average_loss: Decimal
     profit_factor: Decimal
     max_drawdown: Decimal
-    best_trade: Optional[PnLEntry] = None
-    worst_trade: Optional[PnLEntry] = None
-    
-    def to_dict(self) -> Dict[str, Any]:
+    best_trade: PnLEntry | None = None
+    worst_trade: PnLEntry | None = None
+
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         data = {
             "year": self.year,
@@ -99,30 +104,30 @@ class MonthlyPnLSummary:
             "profit_factor": str(self.profit_factor),
             "max_drawdown": str(self.max_drawdown)
         }
-        
+
         if self.best_trade:
             data["best_trade"] = self.best_trade.to_dict()
         if self.worst_trade:
             data["worst_trade"] = self.worst_trade.to_dict()
-        
+
         return data
 
 
 class PnLReportGenerator:
     """P&L statement and report generator."""
-    
-    def __init__(self, template_dir: Optional[str] = None):
+
+    def __init__(self, template_dir: str | None = None):
         self.logger = structlog.get_logger(self.__class__.__name__)
         self.template_dir = template_dir
-        
+
         if HAS_JINJA2 and template_dir:
             self.jinja_env = Environment(loader=FileSystemLoader(template_dir))
         else:
             self.jinja_env = None
-    
+
     def calculate_monthly_summary(
         self,
-        trades: List[PnLEntry],
+        trades: list[PnLEntry],
         year: int,
         month: int
     ) -> MonthlyPnLSummary:
@@ -131,7 +136,7 @@ class PnLReportGenerator:
             t for t in trades
             if t.date.year == year and t.date.month == month
         ]
-        
+
         if not month_trades:
             return MonthlyPnLSummary(
                 year=year,
@@ -149,40 +154,40 @@ class PnLReportGenerator:
                 profit_factor=Decimal("0"),
                 max_drawdown=Decimal("0")
             )
-        
+
         winning_trades = [t for t in month_trades if t.net_pnl > 0]
         losing_trades = [t for t in month_trades if t.net_pnl < 0]
-        
+
         gross_profit = sum(t.gross_pnl for t in winning_trades)
         gross_loss = abs(sum(t.gross_pnl for t in losing_trades))
         total_fees = sum(t.fees for t in month_trades)
         net_pnl = sum(t.net_pnl for t in month_trades)
-        
+
         win_rate = (
             Decimal(len(winning_trades)) / Decimal(len(month_trades)) * 100
             if month_trades else Decimal("0")
         )
-        
+
         average_win = (
             gross_profit / Decimal(len(winning_trades))
             if winning_trades else Decimal("0")
         )
-        
+
         average_loss = (
             gross_loss / Decimal(len(losing_trades))
             if losing_trades else Decimal("0")
         )
-        
+
         profit_factor = (
             gross_profit / gross_loss
             if gross_loss > 0 else Decimal("999")
         )
-        
+
         # Calculate max drawdown
         cumulative_pnl = Decimal("0")
         peak = Decimal("0")
         max_drawdown = Decimal("0")
-        
+
         for trade in sorted(month_trades, key=lambda x: x.date):
             cumulative_pnl += trade.net_pnl
             if cumulative_pnl > peak:
@@ -190,11 +195,11 @@ class PnLReportGenerator:
             drawdown = peak - cumulative_pnl
             if drawdown > max_drawdown:
                 max_drawdown = drawdown
-        
+
         # Find best and worst trades
         best_trade = max(month_trades, key=lambda x: x.net_pnl) if month_trades else None
         worst_trade = min(month_trades, key=lambda x: x.net_pnl) if month_trades else None
-        
+
         return MonthlyPnLSummary(
             year=year,
             month=month,
@@ -213,7 +218,7 @@ class PnLReportGenerator:
             best_trade=best_trade,
             worst_trade=worst_trade
         )
-    
+
     def generate_json_report(
         self,
         summary: MonthlyPnLSummary,
@@ -225,28 +230,28 @@ class PnLReportGenerator:
             "generated_at": datetime.now().isoformat(),
             "summary": summary.to_dict()
         }
-        
+
         with open(output_path, 'w') as f:
             json.dump(report_data, f, indent=2)
-        
+
         self.logger.info(
             "json_pnl_report_generated",
             path=output_path,
             year=summary.year,
             month=summary.month
         )
-    
+
     def generate_html_report(
         self,
         summary: MonthlyPnLSummary,
         output_path: str,
-        template_name: Optional[str] = None
+        template_name: str | None = None
     ) -> None:
         """Generate HTML format P&L report."""
         if not HAS_JINJA2:
             self.logger.warning("jinja2_not_available", format="HTML")
             return
-        
+
         if template_name and self.jinja_env:
             # Use custom template
             template = self.jinja_env.get_template(template_name)
@@ -254,17 +259,17 @@ class PnLReportGenerator:
         else:
             # Use default template
             html_content = self._generate_default_html(summary)
-        
+
         with open(output_path, 'w') as f:
             f.write(html_content)
-        
+
         self.logger.info(
             "html_pnl_report_generated",
             path=output_path,
             year=summary.year,
             month=summary.month
         )
-    
+
     def _generate_default_html(self, summary: MonthlyPnLSummary) -> str:
         """Generate default HTML report without template."""
         html = f"""
@@ -350,7 +355,7 @@ class PnLReportGenerator:
 </html>
 """
         return html
-    
+
     def generate_pdf_report(
         self,
         summary: MonthlyPnLSummary,
@@ -360,7 +365,7 @@ class PnLReportGenerator:
         if not HAS_REPORTLAB:
             self.logger.warning("reportlab_not_available", format="PDF")
             return
-        
+
         # Create PDF document
         doc = SimpleDocTemplate(
             output_path,
@@ -368,27 +373,27 @@ class PnLReportGenerator:
             topMargin=0.5*inch,
             bottomMargin=0.5*inch
         )
-        
+
         # Container for the 'Flowable' objects
         elements = []
-        
+
         # Define styles
         styles = getSampleStyleSheet()
         title_style = styles['Title']
         heading_style = styles['Heading2']
         normal_style = styles['Normal']
-        
+
         # Title
         elements.append(Paragraph(
             f"Monthly P&L Report - {summary.year}/{summary.month:02d}",
             title_style
         ))
         elements.append(Spacer(1, 12))
-        
+
         # Summary section
         elements.append(Paragraph("Summary", heading_style))
         elements.append(Spacer(1, 6))
-        
+
         # Create summary table
         summary_data = [
             ["Metric", "Value"],
@@ -401,7 +406,7 @@ class PnLReportGenerator:
             ["Gross Loss", f"${summary.gross_loss:,.2f}"],
             ["Total Fees", f"${summary.total_fees:,.2f}"],
         ]
-        
+
         summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
         summary_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -413,14 +418,14 @@ class PnLReportGenerator:
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ]))
-        
+
         elements.append(summary_table)
         elements.append(Spacer(1, 20))
-        
+
         # Performance metrics section
         elements.append(Paragraph("Performance Metrics", heading_style))
         elements.append(Spacer(1, 6))
-        
+
         metrics_data = [
             ["Metric", "Value"],
             ["Average Win", f"${summary.average_win:,.2f}"],
@@ -428,7 +433,7 @@ class PnLReportGenerator:
             ["Profit Factor", f"{summary.profit_factor:.2f}"],
             ["Max Drawdown", f"${summary.max_drawdown:,.2f}"],
         ]
-        
+
         metrics_table = Table(metrics_data, colWidths=[3*inch, 2*inch])
         metrics_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -440,33 +445,33 @@ class PnLReportGenerator:
             ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ]))
-        
+
         elements.append(metrics_table)
         elements.append(Spacer(1, 20))
-        
+
         # Footer
         elements.append(Paragraph(
             f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             normal_style
         ))
-        
+
         # Build PDF
         doc.build(elements)
-        
+
         self.logger.info(
             "pdf_pnl_report_generated",
             path=output_path,
             year=summary.year,
             month=summary.month
         )
-    
+
     def generate_quarterly_report(
         self,
-        trades: List[PnLEntry],
+        trades: list[PnLEntry],
         year: int,
         quarter: int,
         output_format: str = "JSON"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate quarterly P&L report."""
         quarter_months = {
             1: [1, 2, 3],
@@ -474,24 +479,24 @@ class PnLReportGenerator:
             3: [7, 8, 9],
             4: [10, 11, 12]
         }
-        
+
         if quarter not in quarter_months:
             raise ValueError(f"Invalid quarter: {quarter}")
-        
+
         months = quarter_months[quarter]
         monthly_summaries = []
-        
+
         for month in months:
             summary = self.calculate_monthly_summary(trades, year, month)
             monthly_summaries.append(summary)
-        
+
         # Calculate quarterly totals
         total_trades = sum(s.total_trades for s in monthly_summaries)
         total_winning = sum(s.winning_trades for s in monthly_summaries)
         total_losing = sum(s.losing_trades for s in monthly_summaries)
         total_net_pnl = sum(s.net_pnl for s in monthly_summaries)
         total_fees = sum(s.total_fees for s in monthly_summaries)
-        
+
         quarterly_report = {
             "year": year,
             "quarter": quarter,
@@ -505,7 +510,7 @@ class PnLReportGenerator:
                 "average_monthly_pnl": str(total_net_pnl / Decimal("3"))
             }
         }
-        
+
         self.logger.info(
             "quarterly_report_generated",
             year=year,
@@ -513,29 +518,29 @@ class PnLReportGenerator:
             total_trades=total_trades,
             net_pnl=str(total_net_pnl)
         )
-        
+
         return quarterly_report
-    
+
     def generate_annual_report(
         self,
-        trades: List[PnLEntry],
+        trades: list[PnLEntry],
         year: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate annual P&L report."""
         monthly_summaries = []
-        
+
         for month in range(1, 13):
             summary = self.calculate_monthly_summary(trades, year, month)
             if summary.total_trades > 0:
                 monthly_summaries.append(summary)
-        
+
         # Calculate annual totals
         total_trades = sum(s.total_trades for s in monthly_summaries)
         total_winning = sum(s.winning_trades for s in monthly_summaries)
         total_losing = sum(s.losing_trades for s in monthly_summaries)
         total_net_pnl = sum(s.net_pnl for s in monthly_summaries)
         total_fees = sum(s.total_fees for s in monthly_summaries)
-        
+
         annual_report = {
             "year": year,
             "months_traded": len(monthly_summaries),
@@ -558,12 +563,12 @@ class PnLReportGenerator:
                 ).month if monthly_summaries else None
             }
         }
-        
+
         self.logger.info(
             "annual_report_generated",
             year=year,
             total_trades=total_trades,
             net_pnl=str(total_net_pnl)
         )
-        
+
         return annual_report

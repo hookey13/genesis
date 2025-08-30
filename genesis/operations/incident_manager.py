@@ -2,14 +2,12 @@
 Automated incident management system with alert processing and incident creation.
 """
 
-import asyncio
 import hashlib
-import json
-from datetime import datetime, timedelta
-from decimal import Decimal
-from enum import Enum
-from typing import Any, Dict, List, Optional, Set
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any
+
 import structlog
 
 from genesis.core.events import Event, EventType
@@ -64,8 +62,8 @@ class Alert:
     message: str
     source: str
     timestamp: datetime
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
+    metadata: dict[str, Any] = field(default_factory=dict)
+
     def fingerprint(self) -> str:
         """Generate unique fingerprint for deduplication."""
         data = f"{self.alert_type.value}:{self.source}:{self.message}"
@@ -82,16 +80,16 @@ class Incident:
     status: IncidentStatus
     created_at: datetime
     updated_at: datetime
-    resolved_at: Optional[datetime] = None
-    alerts: List[Alert] = field(default_factory=list)
-    responders: List[str] = field(default_factory=list)
-    timeline: List[Dict[str, Any]] = field(default_factory=list)
-    runbook_url: Optional[str] = None
-    mitigation_steps: List[str] = field(default_factory=list)
-    impact: Optional[str] = None
-    root_cause: Optional[str] = None
-    
-    def add_timeline_entry(self, action: str, actor: str, details: Optional[str] = None):
+    resolved_at: datetime | None = None
+    alerts: list[Alert] = field(default_factory=list)
+    responders: list[str] = field(default_factory=list)
+    timeline: list[dict[str, Any]] = field(default_factory=list)
+    runbook_url: str | None = None
+    mitigation_steps: list[str] = field(default_factory=list)
+    impact: str | None = None
+    root_cause: str | None = None
+
+    def add_timeline_entry(self, action: str, actor: str, details: str | None = None):
         """Add entry to incident timeline."""
         entry = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -101,8 +99,8 @@ class Incident:
         }
         self.timeline.append(entry)
         self.updated_at = datetime.utcnow()
-    
-    def duration(self) -> Optional[timedelta]:
+
+    def duration(self) -> timedelta | None:
         """Calculate incident duration."""
         if self.resolved_at:
             return self.resolved_at - self.created_at
@@ -111,7 +109,7 @@ class Incident:
 
 class IncidentManager:
     """Manages incident lifecycle from alert to resolution."""
-    
+
     # Alert to incident mapping rules
     ALERT_RULES = {
         AlertType.SYSTEM_DOWN: {
@@ -205,19 +203,19 @@ class IncidentManager:
             "auto_page": True
         }
     }
-    
+
     def __init__(self, pagerduty_client=None):
         """Initialize incident manager."""
-        self.incidents: Dict[str, Incident] = {}
-        self.active_incidents: Set[str] = set()
-        self.alert_dedup: Dict[str, datetime] = {}  # Fingerprint -> last seen
+        self.incidents: dict[str, Incident] = {}
+        self.active_incidents: set[str] = set()
+        self.alert_dedup: dict[str, datetime] = {}  # Fingerprint -> last seen
         self.pagerduty_client = pagerduty_client
         self.correlation_window = timedelta(minutes=5)
         self._incident_counter = 0
-        
+
         logger.info("Incident manager initialized")
-    
-    async def process_alert(self, alert: Alert) -> Optional[Incident]:
+
+    async def process_alert(self, alert: Alert) -> Incident | None:
         """Process incoming alert and create/update incident if needed."""
         try:
             # Check for duplicate alerts
@@ -225,16 +223,16 @@ class IncidentManager:
             if fingerprint in self.alert_dedup:
                 last_seen = self.alert_dedup[fingerprint]
                 if datetime.utcnow() - last_seen < timedelta(minutes=1):
-                    logger.debug("Suppressing duplicate alert", 
+                    logger.debug("Suppressing duplicate alert",
                                alert_id=alert.alert_id,
                                fingerprint=fingerprint)
                     return None
-            
+
             self.alert_dedup[fingerprint] = datetime.utcnow()
-            
+
             # Check if alert correlates with existing incident
             incident = self._correlate_alert(alert)
-            
+
             if incident:
                 # Add alert to existing incident
                 incident.alerts.append(alert)
@@ -243,7 +241,7 @@ class IncidentManager:
                     actor="system",
                     details=f"Alert {alert.alert_id} correlated to incident"
                 )
-                
+
                 # Potentially escalate severity
                 if alert.severity.value < incident.severity.value:
                     incident.severity = alert.severity
@@ -252,7 +250,7 @@ class IncidentManager:
                         actor="system",
                         details=f"Severity escalated to {alert.severity.value}"
                     )
-                
+
                 logger.info("Alert correlated to existing incident",
                           alert_id=alert.alert_id,
                           incident_id=incident.incident_id)
@@ -262,37 +260,37 @@ class IncidentManager:
                 logger.info("New incident created",
                           incident_id=incident.incident_id,
                           alert_id=alert.alert_id)
-            
+
             # Send to PagerDuty if needed
             if self._should_page(alert) and self.pagerduty_client:
                 await self._send_page(incident)
-            
+
             return incident
-            
+
         except Exception as e:
             logger.error("Failed to process alert",
                         alert_id=alert.alert_id,
                         error=str(e))
             raise
-    
-    def _correlate_alert(self, alert: Alert) -> Optional[Incident]:
+
+    def _correlate_alert(self, alert: Alert) -> Incident | None:
         """Check if alert correlates with existing incident."""
         for incident_id in self.active_incidents:
             incident = self.incidents[incident_id]
-            
+
             # Same alert type within correlation window
             for existing_alert in incident.alerts:
                 if (existing_alert.alert_type == alert.alert_type and
                     alert.timestamp - existing_alert.timestamp < self.correlation_window):
                     return incident
-            
+
             # Related alert types (e.g., database issues often cause order failures)
             if self._are_alerts_related(alert, incident.alerts):
                 return incident
-        
+
         return None
-    
-    def _are_alerts_related(self, new_alert: Alert, existing_alerts: List[Alert]) -> bool:
+
+    def _are_alerts_related(self, new_alert: Alert, existing_alerts: list[Alert]) -> bool:
         """Determine if alerts are related."""
         related_groups = [
             {AlertType.DATABASE, AlertType.ORDER_FAILURE, AlertType.DATA_LOSS},
@@ -301,7 +299,7 @@ class IncidentManager:
             {AlertType.RATE_LIMIT, AlertType.ORDER_FAILURE},
             {AlertType.TILT, AlertType.POSITION_VIOLATION}
         ]
-        
+
         for group in related_groups:
             if new_alert.alert_type in group:
                 for existing in existing_alerts:
@@ -309,16 +307,16 @@ class IncidentManager:
                         time_diff = abs(new_alert.timestamp - existing.timestamp)
                         if time_diff < self.correlation_window:
                             return True
-        
+
         return False
-    
+
     async def _create_incident(self, alert: Alert) -> Incident:
         """Create new incident from alert."""
         self._incident_counter += 1
         incident_id = f"INC-{datetime.utcnow().strftime('%Y%m%d')}-{self._incident_counter:04d}"
-        
+
         rule = self.ALERT_RULES.get(alert.alert_type, {})
-        
+
         incident = Incident(
             incident_id=incident_id,
             title=rule.get("title", f"Incident: {alert.alert_type.value}"),
@@ -331,22 +329,22 @@ class IncidentManager:
             runbook_url=rule.get("runbook"),
             mitigation_steps=self._get_mitigation_steps(alert.alert_type)
         )
-        
+
         incident.add_timeline_entry(
             action="incident_created",
             actor="system",
             details=f"Incident created from alert {alert.alert_id}"
         )
-        
+
         self.incidents[incident_id] = incident
         self.active_incidents.add(incident_id)
-        
+
         # Emit incident created event
         await self._emit_incident_event(incident, "created")
-        
+
         return incident
-    
-    def _get_mitigation_steps(self, alert_type: AlertType) -> List[str]:
+
+    def _get_mitigation_steps(self, alert_type: AlertType) -> list[str]:
         """Get mitigation steps for alert type."""
         steps_map = {
             AlertType.SYSTEM_DOWN: [
@@ -393,20 +391,20 @@ class IncidentManager:
                 "Wait for market normalization"
             ]
         }
-        
+
         return steps_map.get(alert_type, ["Review runbook for detailed steps"])
-    
+
     def _should_page(self, alert: Alert) -> bool:
         """Determine if alert should trigger paging."""
         rule = self.ALERT_RULES.get(alert.alert_type, {})
         return rule.get("auto_page", False)
-    
+
     async def _send_page(self, incident: Incident):
         """Send page via PagerDuty."""
         if not self.pagerduty_client:
             logger.warning("PagerDuty client not configured, skipping page")
             return
-        
+
         try:
             await self.pagerduty_client.trigger_incident(
                 incident_key=incident.incident_id,
@@ -427,24 +425,24 @@ class IncidentManager:
                     ]
                 }
             )
-            
+
             incident.add_timeline_entry(
                 action="pagerduty_triggered",
                 actor="system",
                 details="PagerDuty incident triggered"
             )
-            
+
         except Exception as e:
             logger.error("Failed to send PagerDuty page",
                         incident_id=incident.incident_id,
                         error=str(e))
-    
+
     async def acknowledge_incident(self, incident_id: str, responder: str) -> bool:
         """Acknowledge incident."""
         if incident_id not in self.incidents:
             logger.error("Incident not found", incident_id=incident_id)
             return False
-        
+
         incident = self.incidents[incident_id]
         incident.status = IncidentStatus.ACKNOWLEDGED
         incident.responders.append(responder)
@@ -453,50 +451,50 @@ class IncidentManager:
             actor=responder,
             details="Incident acknowledged"
         )
-        
+
         await self._emit_incident_event(incident, "acknowledged")
-        
+
         logger.info("Incident acknowledged",
                    incident_id=incident_id,
                    responder=responder)
         return True
-    
-    async def update_status(self, incident_id: str, status: IncidentStatus, 
-                           actor: str, notes: Optional[str] = None) -> bool:
+
+    async def update_status(self, incident_id: str, status: IncidentStatus,
+                           actor: str, notes: str | None = None) -> bool:
         """Update incident status."""
         if incident_id not in self.incidents:
             logger.error("Incident not found", incident_id=incident_id)
             return False
-        
+
         incident = self.incidents[incident_id]
         old_status = incident.status
         incident.status = status
-        
+
         if status == IncidentStatus.RESOLVED:
             incident.resolved_at = datetime.utcnow()
             self.active_incidents.discard(incident_id)
-        
+
         incident.add_timeline_entry(
-            action=f"status_changed",
+            action="status_changed",
             actor=actor,
             details=f"Status changed from {old_status.value} to {status.value}. {notes or ''}"
         )
-        
+
         await self._emit_incident_event(incident, "status_changed")
-        
+
         logger.info("Incident status updated",
                    incident_id=incident_id,
                    old_status=old_status.value,
                    new_status=status.value)
         return True
-    
-    async def resolve_incident(self, incident_id: str, resolver: str, 
-                              resolution: str, root_cause: Optional[str] = None) -> bool:
+
+    async def resolve_incident(self, incident_id: str, resolver: str,
+                              resolution: str, root_cause: str | None = None) -> bool:
         """Resolve incident."""
         if incident_id not in self.incidents:
             logger.error("Incident not found", incident_id=incident_id)
             return False
-        
+
         incident = self.incidents[incident_id]
         incident.status = IncidentStatus.RESOLVED
         incident.resolved_at = datetime.utcnow()
@@ -506,21 +504,21 @@ class IncidentManager:
             actor=resolver,
             details=f"Resolution: {resolution}"
         )
-        
+
         self.active_incidents.discard(incident_id)
-        
+
         # Resolve in PagerDuty if configured
         if self.pagerduty_client:
             await self.pagerduty_client.resolve_incident(incident_id)
-        
+
         await self._emit_incident_event(incident, "resolved")
-        
+
         logger.info("Incident resolved",
                    incident_id=incident_id,
                    resolver=resolver,
                    duration=str(incident.duration()))
         return True
-    
+
     async def _emit_incident_event(self, incident: Incident, action: str):
         """Emit incident event for audit trail."""
         event = Event(
@@ -536,21 +534,21 @@ class IncidentManager:
         )
         # Event would be published to event bus here
         logger.info(f"Incident event: {action}", incident_id=incident.incident_id)
-    
-    def get_incident(self, incident_id: str) -> Optional[Incident]:
+
+    def get_incident(self, incident_id: str) -> Incident | None:
         """Get incident by ID."""
         return self.incidents.get(incident_id)
-    
-    def get_active_incidents(self) -> List[Incident]:
+
+    def get_active_incidents(self) -> list[Incident]:
         """Get all active incidents."""
         return [self.incidents[id] for id in self.active_incidents]
-    
-    def get_incident_stats(self) -> Dict[str, Any]:
+
+    def get_incident_stats(self) -> dict[str, Any]:
         """Get incident statistics."""
         total = len(self.incidents)
         active = len(self.active_incidents)
         resolved = total - active
-        
+
         if resolved > 0:
             mttr_sum = timedelta()
             for incident in self.incidents.values():
@@ -559,12 +557,12 @@ class IncidentManager:
             mttr = mttr_sum / resolved
         else:
             mttr = timedelta()
-        
+
         severity_counts = {}
         for incident in self.incidents.values():
             sev = incident.severity.value
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
-        
+
         return {
             "total_incidents": total,
             "active_incidents": active,
@@ -573,20 +571,20 @@ class IncidentManager:
             "severity_breakdown": severity_counts,
             "active_incident_ids": list(self.active_incidents)
         }
-    
+
     async def cleanup_old_incidents(self, days: int = 30):
         """Clean up old resolved incidents."""
         cutoff = datetime.utcnow() - timedelta(days=days)
         to_remove = []
-        
+
         for incident_id, incident in self.incidents.items():
             if (incident.status == IncidentStatus.RESOLVED and
                 incident.resolved_at and
                 incident.resolved_at < cutoff):
                 to_remove.append(incident_id)
-        
+
         for incident_id in to_remove:
             del self.incidents[incident_id]
             logger.info("Cleaned up old incident", incident_id=incident_id)
-        
+
         return len(to_remove)

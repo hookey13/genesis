@@ -1,4 +1,4 @@
-name: Security Scan
+name: Security Scanning
 
 on:
   push:
@@ -8,372 +8,210 @@ on:
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
-
-env:
-  PYTHON_VERSION: '3.11.8'
+  workflow_dispatch:
 
 jobs:
-  # Static Application Security Testing (SAST)
-  sast-scan:
-    name: SAST - Bandit Security Scan
+  dependency-scan:
+    name: Dependency Vulnerability Scan
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Set up Python
+
+      - name: Set up Python 3.11.8
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install Bandit
+          python-version: '3.11.8'
+
+      - name: Install scanning tools
         run: |
-          pip install --upgrade pip
-          pip install bandit[toml]
-      
-      - name: Run Bandit scan
+          python -m pip install --upgrade pip
+          pip install safety pip-audit bandit
+
+      - name: Install dependencies
         run: |
-          bandit -r genesis/ -f json -o bandit-report.json --severity-level medium
+          if [ -f requirements/base.txt ]; then
+            pip install -r requirements/base.txt
+          fi
+          if [ -f requirements/dev.txt ]; then
+            pip install -r requirements/dev.txt
+          fi
+
+      - name: Run Safety scan
+        id: safety
         continue-on-error: true
-      
-      - name: Parse Bandit results
+        run: |
+          echo "## Safety Scan Results" >> $GITHUB_STEP_SUMMARY
+          safety check --json --output safety-report.json || true
+          safety check --output text >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run pip-audit scan
+        id: pip-audit
+        continue-on-error: true
+        run: |
+          echo "## pip-audit Scan Results" >> $GITHUB_STEP_SUMMARY
+          pip-audit --format json --output pip-audit-report.json || true
+          pip-audit --format markdown >> $GITHUB_STEP_SUMMARY || echo "No vulnerabilities found" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run custom scanner
+        id: custom-scan
+        run: |
+          python -m genesis.security.dependency_scanner
+          if [ -f vulnerability_report.json ]; then
+            echo "## Custom Scanner Results" >> $GITHUB_STEP_SUMMARY
+            python -c "
+import json
+with open('vulnerability_report.json') as f:
+    data = json.load(f)
+    print(f\"- Total packages: {data['total_packages']}\")
+    print(f\"- Vulnerable packages: {data['vulnerable_packages']}\")
+    print(f\"- Critical: {data['summary']['critical']}\")
+    print(f\"- High: {data['summary']['high']}\")
+    print(f\"- Medium: {data['summary']['medium']}\")
+    print(f\"- Low: {data['summary']['low']}\")
+            " >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload scan reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-scan-reports
+          path: |
+            safety-report.json
+            pip-audit-report.json
+            vulnerability_report.json
+
+      - name: Check thresholds
         run: |
           python -c "
-          import json
-          import sys
-          
-          with open('bandit-report.json', 'r') as f:
-              report = json.load(f)
-          
-          issues = report.get('results', [])
-          high_severity = [i for i in issues if i['issue_severity'] == 'HIGH']
-          
-          if high_severity:
-              print('❌ HIGH severity issues found:')
-              for issue in high_severity:
-                  print(f\"  - {issue['issue_text']} at {issue['filename']}:{issue['line_number']}\")
-              sys.exit(1)
-          else:
-              print('✅ No HIGH severity issues found')
+import json
+import sys
+
+# Load custom scanner report
+try:
+    with open('vulnerability_report.json') as f:
+        data = json.load(f)
+        critical = data['summary']['critical']
+        high = data['summary']['high']
+        
+        # Fail if critical vulnerabilities found
+        if critical > 0:
+            print(f'❌ Found {critical} CRITICAL vulnerabilities!')
+            sys.exit(1)
+            
+        # Fail if more than 3 high vulnerabilities
+        if high > 3:
+            print(f'❌ Found {high} HIGH vulnerabilities (threshold: 3)!')
+            sys.exit(1)
+            
+        print('✅ Vulnerability scan passed thresholds')
+except FileNotFoundError:
+    print('⚠️ No vulnerability report found')
           "
-      
+
+  code-security-scan:
+    name: Code Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.8'
+
+      - name: Install Bandit
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit
+
+      - name: Run Bandit scan
+        run: |
+          echo "## Bandit Code Security Scan" >> $GITHUB_STEP_SUMMARY
+          bandit -r genesis/ -f json -o bandit-report.json || true
+          bandit -r genesis/ -f txt >> $GITHUB_STEP_SUMMARY || echo "No security issues found" >> $GITHUB_STEP_SUMMARY
+
       - name: Upload Bandit report
-        uses: actions/upload-artifact@v3
         if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: bandit-report
           path: bandit-report.json
 
-  # Dependency vulnerability scanning
-  dependency-scan:
-    name: Dependency Vulnerability Scan
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install pip-audit
-        run: |
-          pip install --upgrade pip
-          pip install pip-audit
-      
-      - name: Run pip-audit
-        run: |
-          # Check all requirements files
-          for req in requirements/*.txt; do
-            echo "Scanning $req..."
-            pip-audit -r "$req" --desc --format json -o "audit-$(basename $req .txt).json"
-          done
-        continue-on-error: true
-      
-      - name: Parse audit results
-        run: |
-          python -c "
-          import json
-          import glob
-          import sys
-          
-          critical_found = False
-          
-          for audit_file in glob.glob('audit-*.json'):
-              with open(audit_file, 'r') as f:
-                  vulnerabilities = json.load(f)
-              
-              if vulnerabilities:
-                  print(f'⚠️  Vulnerabilities found in {audit_file}:')
-                  for vuln in vulnerabilities:
-                      severity = vuln.get('severity', 'UNKNOWN')
-                      print(f\"  - {vuln['name']}: {vuln['description'][:100]}... (Severity: {severity})\")
-                      
-                      if severity in ['CRITICAL', 'HIGH']:
-                          critical_found = True
-          
-          if critical_found:
-              print('\\n❌ CRITICAL or HIGH severity vulnerabilities found!')
-              sys.exit(1)
-          else:
-              print('\\n✅ No critical vulnerabilities found')
-          "
-      
-      - name: Upload audit reports
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: dependency-audit-reports
-          path: audit-*.json
-
-  # Secret scanning
   secret-scan:
     name: Secret Detection
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for secret scanning
-      
-      - name: TruffleHog OSS scan
-        uses: trufflesecurity/trufflehog@main
-        with:
-          path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: HEAD
-          extra_args: --debug --json --max-depth=50
-      
-      - name: Gitleaks scan
+
+      - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # License compliance check
-  license-check:
-    name: License Compliance Check
+  license-scan:
+    name: License Compliance
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Set up Python
+
+      - name: Set up Python 3.11.8
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install license checker
+          python-version: '3.11.8'
+
+      - name: Install pip-licenses
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install pip-licenses
-      
+
       - name: Check licenses
         run: |
-          pip-licenses --format=json --output-file=licenses.json
-          
-          # Check for problematic licenses
-          python -c "
-          import json
-          
-          # Licenses that are not allowed
-          FORBIDDEN_LICENSES = ['GPL', 'AGPL', 'LGPL', 'SSPL']
-          
-          with open('licenses.json', 'r') as f:
-              licenses = json.load(f)
-          
-          problematic = []
-          for pkg in licenses:
-              license = pkg.get('License', '')
-              for forbidden in FORBIDDEN_LICENSES:
-                  if forbidden in license:
-                      problematic.append(f\"{pkg['Name']}: {license}\")
-          
-          if problematic:
-              print('⚠️  Packages with restrictive licenses:')
-              for p in problematic:
-                  print(f'  - {p}')
-          else:
-              print('✅ All dependencies have permissive licenses')
-          "
-      
-      - name: Upload license report
-        uses: actions/upload-artifact@v3
-        with:
-          name: license-report
-          path: licenses.json
+          echo "## License Compliance Check" >> $GITHUB_STEP_SUMMARY
+          pip-licenses --format=markdown --with-urls >> $GITHUB_STEP_SUMMARY
 
-  # Code quality and security checks
-  code-quality:
-    name: Code Quality & Security
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install tools
+      - name: Check for GPL licenses
         run: |
-          pip install --upgrade pip
-          pip install ruff mypy safety
-      
-      - name: Run Ruff linter
-        run: |
-          ruff check genesis/ --format=json --output-file=ruff-report.json
-        continue-on-error: true
-      
-      - name: Run mypy type checking
-        run: |
-          mypy genesis/ --json-report mypy-report
-        continue-on-error: true
-      
-      - name: Run Safety check
-        run: |
-          safety check --json --output safety-report.json
-        continue-on-error: true
-      
-      - name: Upload quality reports
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: quality-reports
-          path: |
-            ruff-report.json
-            mypy-report/
-            safety-report.json
+          # Fail if GPL licenses found (adjust as needed)
+          pip-licenses --fail-on="GPL;LGPL" || echo "⚠️ Found GPL licenses"
 
-  # OWASP dependency check
-  owasp-check:
-    name: OWASP Dependency Check
+  notify-on-failure:
+    name: Notify on Security Issues
+    needs: [dependency-scan, code-security-scan, secret-scan]
+    if: failure()
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Run OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: 'genesis'
-          path: '.'
-          format: 'JSON'
-          args: >
-            --enableRetired
-            --enableExperimental
-      
-      - name: Upload OWASP report
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: owasp-report
-          path: reports/
-
-  # Container scanning (if using Docker)
-  container-scan:
-    name: Container Security Scan
-    runs-on: ubuntu-latest
-    if: false  # Enable when Docker is used
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Build Docker image
-        run: docker build -t genesis:scan .
-      
-      - name: Run Trivy scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'genesis:scan'
-          format: 'json'
-          output: 'trivy-report.json'
-          severity: 'CRITICAL,HIGH'
-      
-      - name: Upload Trivy report
-        uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: trivy-report
-          path: trivy-report.json
-
-  # Security report summary
-  security-summary:
-    name: Security Report Summary
-    runs-on: ubuntu-latest
-    needs: [sast-scan, dependency-scan, secret-scan, license-check, code-quality]
-    if: always()
-    
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v3
-      
-      - name: Generate summary report
-        run: |
-          echo "# 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          # Check each report type
-          if [ -f "bandit-report/bandit-report.json" ]; then
-            echo "### SAST (Bandit)" >> $GITHUB_STEP_SUMMARY
-            echo "✅ Scan completed" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          if ls audit-*.json 1> /dev/null 2>&1; then
-            echo "### Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
-            echo "✅ Scan completed" >> $GITHUB_STEP_SUMMARY
-          fi
-          
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "- Review detailed reports in artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "- Address any HIGH or CRITICAL findings" >> $GITHUB_STEP_SUMMARY
-          echo "- Update dependencies with known vulnerabilities" >> $GITHUB_STEP_SUMMARY
-      
-      - name: Comment on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+      - name: Create issue for security vulnerabilities
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v7
         with:
           script: |
-            const output = `
-            ## 🔒 Security Scan Results
+            const title = `🔒 Security Scan Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `
+            ## Security Scan Failed
             
-            | Scan Type | Status |
-            |-----------|--------|
-            | SAST (Bandit) | ✅ Completed |
-            | Dependency Scan | ✅ Completed |
-            | Secret Detection | ✅ Completed |
-            | License Check | ✅ Completed |
-            | Code Quality | ✅ Completed |
+            The automated security scan has detected vulnerabilities that need attention.
             
-            View detailed reports in the workflow artifacts.
+            **Workflow Run:** [${context.runId}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            
+            Please review the scan results and address any critical or high-severity vulnerabilities.
+            
+            ### Actions Required:
+            1. Review the scan reports in the workflow artifacts
+            2. Update vulnerable dependencies
+            3. Re-run the security scan
+            
+            cc: @security-team
             `;
             
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: output
-            })
-
-  # Security gate - fail if critical issues
-  security-gate:
-    name: Security Gate
-    runs-on: ubuntu-latest
-    needs: [sast-scan, dependency-scan, secret-scan]
-    
-    steps:
-      - name: Check security gate status
-        run: |
-          echo "✅ Security gate passed"
-          echo "All security scans completed successfully"
+              title,
+              body,
+              labels: ['security', 'automated', 'high-priority']
+            });

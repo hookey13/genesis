@@ -8,7 +8,6 @@ Tracks API weight consumption dynamically based on response headers.
 # Import the token bucket implementation
 from genesis.exchange.token_bucket_rate_limiter import (
     TokenBucketRateLimiter,
-    TokenBucket,
 )
 
 # For backward compatibility, expose the new implementation as RateLimiter

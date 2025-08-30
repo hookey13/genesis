@@ -1,10 +1,11 @@
 """Tax lot tracking system with FIFO/LIFO calculations."""
+from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Dict, Any, Optional, Literal, Tuple
-from dataclasses import dataclass, field
-import structlog
 from enum import Enum
+from typing import Any, Literal
+
+import structlog
 
 logger = structlog.get_logger(__name__)
 
@@ -21,7 +22,7 @@ class LotStatus(Enum):
 @dataclass
 class TaxLot:
     """Tax lot for tracking cost basis."""
-    
+
     lot_id: str
     symbol: str
     quantity: Decimal
@@ -33,58 +34,58 @@ class TaxLot:
     status: LotStatus = LotStatus.OPEN
     closed_quantity: Decimal = Decimal("0")
     realized_pnl: Decimal = Decimal("0")
-    
+
     @property
     def total_cost(self) -> Decimal:
         """Calculate total cost of the lot."""
         return self.quantity * self.cost_per_unit
-    
+
     @property
     def remaining_cost(self) -> Decimal:
         """Calculate remaining cost basis."""
         return self.remaining_quantity * self.cost_per_unit
-    
+
     def close_partial(self, quantity: Decimal, sale_price: Decimal) -> Decimal:
         """Close partial quantity from this lot."""
         if quantity > self.remaining_quantity:
             raise ValueError(
                 f"Cannot close {quantity} from lot with {self.remaining_quantity} remaining"
             )
-        
+
         # Calculate P&L for this portion
         cost_basis = quantity * self.cost_per_unit
         sale_proceeds = quantity * sale_price
         pnl = sale_proceeds - cost_basis
-        
+
         # Update lot
         self.remaining_quantity -= quantity
         self.closed_quantity += quantity
         self.realized_pnl += pnl
-        
+
         # Update status
         if self.remaining_quantity == Decimal("0"):
             self.status = LotStatus.CLOSED
         else:
             self.status = LotStatus.PARTIAL
-        
+
         return pnl
 
 
 @dataclass
 class LotAssignment:
     """Assignment of a sale to specific tax lots."""
-    
+
     sale_id: str
     symbol: str
     sale_quantity: Decimal
     sale_price: Decimal
     sale_date: datetime
-    lot_assignments: List[Tuple[str, Decimal, Decimal]] = field(default_factory=list)
+    lot_assignments: list[tuple[str, Decimal, Decimal]] = field(default_factory=list)
     total_cost_basis: Decimal = Decimal("0")
     total_proceeds: Decimal = Decimal("0")
     realized_pnl: Decimal = Decimal("0")
-    method_used: Optional[CostBasisMethod] = None
-    
+    method_used: CostBasisMethod | None = None
+
     def add_lot_assignment(
         self,
         lot_id: str,
@@ -95,7 +96,7 @@ class LotAssignment:
         self.lot_assignments.append((lot_id, quantity, cost_per_unit))
         cost_basis = quantity * cost_per_unit
         self.total_cost_basis += cost_basis
-        
+
     def calculate_pnl(self) -> None:
         """Calculate realized P&L."""
         self.total_proceeds = self.sale_quantity * self.sale_price
@@ -104,21 +105,21 @@ class LotAssignment:
 
 class TaxLotTracker:
     """Tax lot tracking system for cost basis calculation."""
-    
+
     def __init__(self):
         self.logger = structlog.get_logger(self.__class__.__name__)
-        self.lots: Dict[str, List[TaxLot]] = {}  # symbol -> list of lots
-        self.lot_by_id: Dict[str, TaxLot] = {}  # lot_id -> lot
-        self.assignments: List[LotAssignment] = []
-    
+        self.lots: dict[str, list[TaxLot]] = {}  # symbol -> list of lots
+        self.lot_by_id: dict[str, TaxLot] = {}  # lot_id -> lot
+        self.assignments: list[LotAssignment] = []
+
     def add_lot(self, lot: TaxLot) -> None:
         """Add a new tax lot."""
         if lot.symbol not in self.lots:
             self.lots[lot.symbol] = []
-        
+
         self.lots[lot.symbol].append(lot)
         self.lot_by_id[lot.lot_id] = lot
-        
+
         self.logger.info(
             "tax_lot_added",
             lot_id=lot.lot_id,
@@ -126,21 +127,21 @@ class TaxLotTracker:
             quantity=str(lot.quantity),
             cost_per_unit=str(lot.cost_per_unit)
         )
-    
+
     def get_open_lots(
         self,
         symbol: str,
         method: CostBasisMethod = "FIFO"
-    ) -> List[TaxLot]:
+    ) -> list[TaxLot]:
         """Get open lots for a symbol, sorted by method."""
         if symbol not in self.lots:
             return []
-        
+
         open_lots = [
             lot for lot in self.lots[symbol]
             if lot.status != LotStatus.CLOSED
         ]
-        
+
         if method == "FIFO":
             # First In First Out - oldest first
             return sorted(open_lots, key=lambda x: x.acquired_at)
@@ -152,7 +153,7 @@ class TaxLotTracker:
             return sorted(open_lots, key=lambda x: x.cost_per_unit, reverse=True)
         else:
             return open_lots
-    
+
     def process_sale(
         self,
         sale_id: str,
@@ -171,29 +172,29 @@ class TaxLotTracker:
             sale_date=sale_date,
             method_used=method
         )
-        
+
         remaining_quantity = quantity
         open_lots = self.get_open_lots(symbol, method)
-        
+
         for lot in open_lots:
             if remaining_quantity <= Decimal("0"):
                 break
-            
+
             # Determine how much to take from this lot
             take_quantity = min(remaining_quantity, lot.remaining_quantity)
-            
+
             # Close partial lot and get P&L
             lot_pnl = lot.close_partial(take_quantity, price)
-            
+
             # Record assignment
             assignment.add_lot_assignment(
                 lot.lot_id,
                 take_quantity,
                 lot.cost_per_unit
             )
-            
+
             remaining_quantity -= take_quantity
-            
+
             self.logger.info(
                 "lot_assigned",
                 sale_id=sale_id,
@@ -201,7 +202,7 @@ class TaxLotTracker:
                 quantity=str(take_quantity),
                 pnl=str(lot_pnl)
             )
-        
+
         if remaining_quantity > Decimal("0"):
             self.logger.warning(
                 "insufficient_lots",
@@ -209,11 +210,11 @@ class TaxLotTracker:
                 symbol=symbol,
                 unassigned_quantity=str(remaining_quantity)
             )
-        
+
         # Calculate total P&L
         assignment.calculate_pnl()
         self.assignments.append(assignment)
-        
+
         self.logger.info(
             "sale_processed",
             sale_id=sale_id,
@@ -222,10 +223,10 @@ class TaxLotTracker:
             realized_pnl=str(assignment.realized_pnl),
             method=method
         )
-        
+
         return assignment
-    
-    def get_position_summary(self, symbol: str) -> Dict[str, Any]:
+
+    def get_position_summary(self, symbol: str) -> dict[str, Any]:
         """Get summary of position including unrealized P&L."""
         if symbol not in self.lots:
             return {
@@ -236,16 +237,16 @@ class TaxLotTracker:
                 "realized_pnl": "0",
                 "open_lots": 0
             }
-        
+
         symbol_lots = self.lots[symbol]
         open_lots = [lot for lot in symbol_lots if lot.status != LotStatus.CLOSED]
-        
+
         total_quantity = sum(lot.remaining_quantity for lot in open_lots)
         total_cost = sum(lot.remaining_cost for lot in open_lots)
         average_cost = total_cost / total_quantity if total_quantity > 0 else Decimal("0")
-        
+
         realized_pnl = sum(lot.realized_pnl for lot in symbol_lots)
-        
+
         return {
             "symbol": symbol,
             "total_quantity": str(total_quantity),
@@ -254,7 +255,7 @@ class TaxLotTracker:
             "realized_pnl": str(realized_pnl),
             "open_lots": len(open_lots)
         }
-    
+
     def calculate_unrealized_pnl(
         self,
         symbol: str,
@@ -263,32 +264,32 @@ class TaxLotTracker:
         """Calculate unrealized P&L for a position."""
         if symbol not in self.lots:
             return Decimal("0")
-        
+
         open_lots = self.get_open_lots(symbol)
-        
+
         unrealized_pnl = Decimal("0")
         for lot in open_lots:
             market_value = lot.remaining_quantity * current_price
             cost_basis = lot.remaining_cost
             unrealized_pnl += market_value - cost_basis
-        
+
         return unrealized_pnl
-    
+
     def get_tax_report(
         self,
         start_date: datetime,
         end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate tax report for date range."""
         period_assignments = [
             a for a in self.assignments
             if start_date <= a.sale_date <= end_date
         ]
-        
+
         total_proceeds = sum(a.total_proceeds for a in period_assignments)
         total_cost_basis = sum(a.total_cost_basis for a in period_assignments)
         total_realized_pnl = sum(a.realized_pnl for a in period_assignments)
-        
+
         # Group by symbol
         by_symbol = {}
         for assignment in period_assignments:
@@ -299,12 +300,12 @@ class TaxLotTracker:
                     "realized_pnl": Decimal("0"),
                     "num_sales": 0
                 }
-            
+
             by_symbol[assignment.symbol]["proceeds"] += assignment.total_proceeds
             by_symbol[assignment.symbol]["cost_basis"] += assignment.total_cost_basis
             by_symbol[assignment.symbol]["realized_pnl"] += assignment.realized_pnl
             by_symbol[assignment.symbol]["num_sales"] += 1
-        
+
         # Convert Decimals to strings
         by_symbol_str = {
             symbol: {
@@ -315,7 +316,7 @@ class TaxLotTracker:
             }
             for symbol, data in by_symbol.items()
         }
-        
+
         return {
             "period_start": start_date.isoformat(),
             "period_end": end_date.isoformat(),
@@ -325,14 +326,14 @@ class TaxLotTracker:
             "num_sales": len(period_assignments),
             "by_symbol": by_symbol_str
         }
-    
-    def get_lot_details(self, lot_id: str) -> Optional[Dict[str, Any]]:
+
+    def get_lot_details(self, lot_id: str) -> dict[str, Any] | None:
         """Get detailed information about a specific lot."""
         if lot_id not in self.lot_by_id:
             return None
-        
+
         lot = self.lot_by_id[lot_id]
-        
+
         return {
             "lot_id": lot.lot_id,
             "symbol": lot.symbol,

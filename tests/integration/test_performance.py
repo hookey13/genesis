@@ -1,306 +1,253 @@
-"""Performance benchmark tests for critical paths."""
+"""Integration tests for performance validator."""
 
 import asyncio
-import json
-import statistics
 import time
-from collections.abc import Callable
-from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
-from typing import Any
+from unittest.mock import Mock, patch, AsyncMock
 
 import pytest
 
-
-class PerformanceBenchmark:
-    """Base class for performance benchmarks."""
-
-    def __init__(self, name: str, target_ms: float):
-        """Initialize benchmark."""
-        self.name = name
-        self.target_ms = target_ms
-        self.results: list[float] = []
-
-    def measure(self, func: Callable, *args, **kwargs) -> Any:
-        """Measure function execution time."""
-        start = time.perf_counter()
-        result = func(*args, **kwargs)
-        elapsed = (time.perf_counter() - start) * 1000  # Convert to ms
-        self.results.append(elapsed)
-        return result
-
-    async def measure_async(self, func: Callable, *args, **kwargs) -> Any:
-        """Measure async function execution time."""
-        start = time.perf_counter()
-        result = await func(*args, **kwargs)
-        elapsed = (time.perf_counter() - start) * 1000  # Convert to ms
-        self.results.append(elapsed)
-        return result
-
-    def get_stats(self) -> dict:
-        """Get performance statistics."""
-        if not self.results:
-            return {}
-
-        return {
-            "name": self.name,
-            "runs": len(self.results),
-            "min_ms": min(self.results),
-            "max_ms": max(self.results),
-            "mean_ms": statistics.mean(self.results),
-            "median_ms": statistics.median(self.results),
-            "stdev_ms": statistics.stdev(self.results) if len(self.results) > 1 else 0,
-            "p95_ms": (
-                statistics.quantiles(self.results, n=20)[18]
-                if len(self.results) > 1
-                else self.results[0]
-            ),
-            "target_ms": self.target_ms,
-            "passed": statistics.mean(self.results) <= self.target_ms,
-        }
+from genesis.validation.performance_validator import PerformanceValidator
 
 
-class TestCriticalPathPerformance:
-    """Test performance of critical trading paths."""
+@pytest.fixture
+def performance_validator():
+    """Create a performance validator instance."""
+    return PerformanceValidator()
 
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        """Set up test environment."""
-        self.project_root = Path(__file__).parent.parent.parent
-        self.benchmarks = []
 
-    def teardown_method(self):
-        """Report benchmark results."""
-        if self.benchmarks:
-            print("\n\n=== Performance Benchmark Results ===")
-            for benchmark in self.benchmarks:
-                stats = benchmark.get_stats()
-                if stats:
-                    status = "✅ PASS" if stats["passed"] else "❌ FAIL"
-                    print(f"\n{stats['name']}: {status}")
-                    print(f"  Target: {stats['target_ms']:.2f}ms")
-                    print(f"  Mean: {stats['mean_ms']:.2f}ms")
-                    print(f"  P95: {stats['p95_ms']:.2f}ms")
-                    print(
-                        f"  Min/Max: {stats['min_ms']:.2f}ms / {stats['max_ms']:.2f}ms"
-                    )
-
-    def test_configuration_loading_performance(self):
-        """Test configuration loading speed."""
-        from config.settings import Settings
-
-        benchmark = PerformanceBenchmark("Configuration Loading", target_ms=100)
-        self.benchmarks.append(benchmark)
-
-        for _ in range(10):
-            benchmark.measure(Settings)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"Configuration loading too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
-    def test_decimal_calculation_performance(self):
-        """Test Decimal arithmetic performance for money calculations."""
-        benchmark = PerformanceBenchmark("Decimal Calculations", target_ms=1)
-        self.benchmarks.append(benchmark)
-
-        def calculate_position_size():
-            balance = Decimal("10000.00")
-            risk_percent = Decimal("0.02")
-            entry_price = Decimal("45678.90")
-            stop_loss = Decimal("45000.00")
-
-            risk_amount = balance * risk_percent
-            price_diff = entry_price - stop_loss
-            position_size = risk_amount / price_diff
-            return position_size
-
-        for _ in range(100):
-            benchmark.measure(calculate_position_size)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"Decimal calculations too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
+class TestPerformanceValidatorIntegration:
+    """Integration tests for performance validation."""
+    
     @pytest.mark.asyncio
-    async def test_async_order_placement_performance(self):
-        """Test async order placement simulation."""
-        benchmark = PerformanceBenchmark("Async Order Placement", target_ms=50)
-        self.benchmarks.append(benchmark)
-
-        async def simulate_order_placement():
-            # Simulate API call delay
-            await asyncio.sleep(0.01)
-            return {"order_id": "12345", "status": "filled"}
-
-        for _ in range(20):
-            await benchmark.measure_async(simulate_order_placement)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"Order placement too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
-    def test_risk_calculation_performance(self):
-        """Test risk management calculation performance."""
-        benchmark = PerformanceBenchmark("Risk Calculations", target_ms=5)
-        self.benchmarks.append(benchmark)
-
-        def calculate_risk_metrics():
-            positions = [
-                {
-                    "symbol": "BTC/USDT",
-                    "size": Decimal("0.5"),
-                    "entry": Decimal("45000"),
-                },
-                {"symbol": "ETH/USDT", "size": Decimal("10"), "entry": Decimal("3000")},
-            ]
-
-            total_exposure = sum(p["size"] * p["entry"] for p in positions)
-            max_position = max(positions, key=lambda p: p["size"] * p["entry"])
-            risk_score = float(total_exposure) / 100000 * 100
-
-            return {
-                "total_exposure": total_exposure,
-                "max_position": max_position,
-                "risk_score": risk_score,
-            }
-
-        for _ in range(100):
-            benchmark.measure(calculate_risk_metrics)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"Risk calculations too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
-    def test_json_serialization_performance(self):
-        """Test JSON serialization for API responses."""
-        benchmark = PerformanceBenchmark("JSON Serialization", target_ms=2)
-        self.benchmarks.append(benchmark)
-
-        test_data = {
-            "timestamp": datetime.utcnow().isoformat(),
-            "positions": [
-                {"symbol": "BTC/USDT", "size": 0.5, "pnl": 1234.56},
-                {"symbol": "ETH/USDT", "size": 10, "pnl": -456.78},
-            ],
-            "balances": {"USDT": 10000, "BTC": 0.5, "ETH": 10},
-            "metrics": {
-                "total_trades": 150,
-                "win_rate": 0.65,
-                "sharpe_ratio": 1.8,
-                "max_drawdown": 0.15,
-            },
-        }
-
-        for _ in range(100):
-            benchmark.measure(json.dumps, test_data)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"JSON serialization too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
-    def test_logging_performance(self):
-        """Test structured logging performance."""
-        import structlog
-
-        benchmark = PerformanceBenchmark("Structured Logging", target_ms=1)
-        self.benchmarks.append(benchmark)
-
-        logger = structlog.get_logger()
-
-        def log_trade_event():
-            logger.info(
-                "trade_executed",
-                symbol="BTC/USDT",
-                side="buy",
-                size=0.5,
-                price=45678.90,
-                timestamp=datetime.utcnow().isoformat(),
-            )
-
-        for _ in range(100):
-            benchmark.measure(log_trade_event)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"Logging too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
+    async def test_full_performance_validation(self, performance_validator):
+        """Test complete performance validation workflow."""
+        result = await performance_validator.validate()
+        
+        # Check required fields
+        assert "passed" in result
+        assert "details" in result
+        assert "benchmarks" in result
+        assert "recommendations" in result
+        
+        # Check metrics are calculated
+        details = result["details"]
+        assert "p50_latency_ms" in details
+        assert "p95_latency_ms" in details
+        assert "p99_latency_ms" in details
+        assert "ws_processing_ms" in details
+        assert "db_query_ms" in details
+        assert "stress_test_passed" in details
+    
     @pytest.mark.asyncio
-    async def test_concurrent_operations_performance(self):
-        """Test performance of concurrent operations."""
-        benchmark = PerformanceBenchmark("Concurrent Operations", target_ms=100)
-        self.benchmarks.append(benchmark)
-
-        async def fetch_data(exchange: str):
-            await asyncio.sleep(0.01)  # Simulate API call
-            return {"exchange": exchange, "price": 45678.90}
-
-        async def run_concurrent():
-            tasks = [fetch_data(ex) for ex in ["binance", "coinbase", "kraken"]]
-            results = await asyncio.gather(*tasks)
-            return results
-
-        for _ in range(10):
-            await benchmark.measure_async(run_concurrent)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"Concurrent ops too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
-    def test_dataframe_operations_performance(self):
-        """Test pandas DataFrame operations performance."""
-        import numpy as np
-        import pandas as pd
-
-        benchmark = PerformanceBenchmark("DataFrame Operations", target_ms=10)
-        self.benchmarks.append(benchmark)
-
-        # Create test data
-        df = pd.DataFrame(
-            {
-                "timestamp": pd.date_range("2024-01-01", periods=1000, freq="1min"),
-                "open": np.random.uniform(45000, 46000, 1000),
-                "high": np.random.uniform(45500, 46500, 1000),
-                "low": np.random.uniform(44500, 45500, 1000),
-                "close": np.random.uniform(45000, 46000, 1000),
-                "volume": np.random.uniform(100, 1000, 1000),
+    async def test_order_latency_benchmarking(self, performance_validator):
+        """Test order execution latency benchmarking."""
+        result = await performance_validator._test_order_latency()
+        
+        assert result["samples"] == 100
+        assert result["p50"] > 0
+        assert result["p95"] > result["p50"]
+        assert result["p99"] > result["p95"]
+        assert result["min"] <= result["mean"] <= result["max"]
+    
+    @pytest.mark.asyncio
+    async def test_websocket_performance(self, performance_validator):
+        """Test WebSocket message processing performance."""
+        result = await performance_validator._test_websocket_performance()
+        
+        assert result["samples"] == 100
+        assert result["avg_processing_ms"] > 0
+        assert result["max_processing_ms"] >= result["avg_processing_ms"]
+        assert result["messages_per_second"] > 0
+    
+    @pytest.mark.asyncio
+    async def test_database_performance(self, performance_validator):
+        """Test database query performance."""
+        result = await performance_validator._test_database_performance()
+        
+        assert result["samples"] == 50
+        assert result["avg_query_ms"] > 0
+        assert result["max_query_ms"] >= result["avg_query_ms"]
+        assert result["queries_per_second"] > 0
+    
+    @pytest.mark.asyncio
+    async def test_stress_load_handling(self, performance_validator):
+        """Test system behavior under stress load."""
+        # Reduce stress multiplier for testing
+        performance_validator.stress_multiplier = 10
+        
+        result = await performance_validator._test_stress_load()
+        
+        assert "system_stable" in result
+        assert "messages_processed" in result
+        assert "errors" in result
+        assert "max_throughput" in result
+        assert "cpu_usage" in result
+        assert "memory_usage" in result
+        
+        # Check error rate is reasonable
+        if result["messages_processed"] > 0:
+            error_rate = result["errors"] / result["messages_processed"]
+            assert error_rate < 0.1  # Less than 10% errors
+    
+    @pytest.mark.asyncio
+    async def test_latency_thresholds(self, performance_validator):
+        """Test that latency thresholds are properly enforced."""
+        # Mock order latency to exceed thresholds
+        with patch.object(performance_validator, "_test_order_latency") as mock_latency:
+            mock_latency.return_value = {
+                "samples": 100,
+                "p50": 15,  # Exceeds 10ms target
+                "p95": 40,  # Exceeds 30ms target
+                "p99": 60,  # Exceeds 50ms target
+                "min": 5,
+                "max": 100,
+                "mean": 25
             }
+            
+            # Mock other tests to pass
+            with patch.object(performance_validator, "_test_websocket_performance") as mock_ws:
+                mock_ws.return_value = {
+                    "samples": 100,
+                    "avg_processing_ms": 3,
+                    "max_processing_ms": 5,
+                    "messages_per_second": 300
+                }
+                
+                with patch.object(performance_validator, "_test_database_performance") as mock_db:
+                    mock_db.return_value = {
+                        "samples": 50,
+                        "avg_query_ms": 5,
+                        "max_query_ms": 10,
+                        "queries_per_second": 200
+                    }
+                    
+                    with patch.object(performance_validator, "_test_stress_load") as mock_stress:
+                        mock_stress.return_value = {
+                            "system_stable": True,
+                            "messages_processed": 1000,
+                            "errors": 5,
+                            "max_throughput": 100,
+                            "cpu_usage": 50,
+                            "memory_usage": 512
+                        }
+                        
+                        result = await performance_validator.validate()
+                        
+                        assert result["passed"] is False
+                        assert "Optimize order execution" in str(result["recommendations"])
+    
+    @pytest.mark.asyncio
+    async def test_stress_worker_resilience(self, performance_validator):
+        """Test individual stress worker resilience."""
+        result = await performance_validator._stress_worker(1)
+        
+        assert result["messages"] > 0
+        assert result["max_latency"] >= 0
+    
+    @pytest.mark.asyncio
+    async def test_performance_with_executor_import(self, performance_validator):
+        """Test performance validation with executor module available."""
+        # Mock the executor import
+        with patch("genesis.validation.performance_validator.MarketOrderExecutor"):
+            result = await performance_validator._test_order_latency()
+            
+            assert result["samples"] == 100
+            assert "error" not in result
+    
+    @pytest.mark.asyncio
+    async def test_performance_with_database_import(self, performance_validator):
+        """Test performance validation with database module available."""
+        # Mock the repository import
+        with patch("genesis.validation.performance_validator.SQLiteRepository"):
+            result = await performance_validator._test_database_performance()
+            
+            assert result["samples"] == 50
+            assert "error" not in result
+    
+    @pytest.mark.asyncio
+    async def test_recommendations_generation(self, performance_validator):
+        """Test generation of performance recommendations."""
+        order_latency = {
+            "p50": 15,
+            "p95": 40,
+            "p99": 60
+        }
+        
+        ws_performance = {
+            "avg_processing_ms": 10
+        }
+        
+        db_performance = {
+            "avg_query_ms": 15
+        }
+        
+        stress_results = {
+            "system_stable": False,
+            "error_rate": 0.02,
+            "memory_growth_mb": 150,
+            "max_latency_ms": 1500,
+            "max_throughput": 500
+        }
+        
+        recommendations = performance_validator._generate_recommendations(
+            order_latency,
+            ws_performance,
+            db_performance,
+            stress_results
         )
+        
+        assert len(recommendations) > 0
+        assert any("Optimize order execution" in r for r in recommendations)
+        assert any("WebSocket processing" in r for r in recommendations)
+        assert any("database queries" in r for r in recommendations)
+        assert any("stability issues" in r for r in recommendations)
+    
+    @pytest.mark.asyncio
+    async def test_psutil_not_available(self, performance_validator):
+        """Test handling when psutil is not available."""
+        with patch("genesis.validation.performance_validator.psutil", side_effect=ImportError()):
+            result = await performance_validator._test_stress_load()
+            
+            assert result["system_stable"] is False
+            assert "error" in result
+    
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(15)
+    async def test_stress_test_timeout(self, performance_validator):
+        """Test stress test completes within timeout."""
+        # Reduce multiplier for faster test
+        performance_validator.stress_multiplier = 5
+        
+        start_time = time.time()
+        result = await performance_validator._test_stress_load()
+        duration = time.time() - start_time
+        
+        assert duration < 15  # Should complete within 15 seconds
+        assert "messages_processed" in result
 
-        def calculate_indicators():
-            df["sma_20"] = df["close"].rolling(window=20).mean()
-            df["rsi"] = 100 - (100 / (1 + df["close"].pct_change().rolling(14).mean()))
-            df["vwap"] = (df["close"] * df["volume"]).cumsum() / df["volume"].cumsum()
-            return df
 
+@pytest.mark.asyncio
+async def test_performance_validator_with_real_load():
+    """Test performance validator with simulated real load."""
+    validator = PerformanceValidator()
+    
+    # Simulate some load
+    async def generate_load():
+        tasks = []
         for _ in range(10):
-            benchmark.measure(calculate_indicators)
-
-        stats = benchmark.get_stats()
-        assert stats[
-            "passed"
-        ], f"DataFrame ops too slow: {stats['mean_ms']:.2f}ms > {stats['target_ms']}ms"
-
-    def test_performance_summary(self):
-        """Generate and validate overall performance summary."""
-        # This test runs last to ensure all benchmarks are complete
-        if not self.benchmarks:
-            pytest.skip("No benchmarks to summarize")
-
-        failed_benchmarks = []
-        for benchmark in self.benchmarks:
-            stats = benchmark.get_stats()
-            if stats and not stats["passed"]:
-                failed_benchmarks.append(stats["name"])
-
-        assert (
-            not failed_benchmarks
-        ), f"Performance benchmarks failed: {failed_benchmarks}"
+            tasks.append(asyncio.create_task(asyncio.sleep(0.001)))
+        await asyncio.gather(*tasks)
+    
+    # Run load generation in background
+    load_task = asyncio.create_task(generate_load())
+    
+    # Run validation
+    result = await validator.validate()
+    
+    # Wait for load to complete
+    await load_task
+    
+    assert "passed" in result
+    assert "details" in result
+    assert result["details"]["p99_latency_ms"] is not None

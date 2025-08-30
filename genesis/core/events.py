@@ -48,7 +48,7 @@ class EventType(str, Enum):
 
     # Tilt Events
     TILT_WARNING = "tilt_warning"
-    
+
     # Audit Events
     AUDIT_LOG_CREATED = "audit_log_created"
     AUDIT_VERIFICATION_PASSED = "audit_verification_passed"

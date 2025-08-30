@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     exchange_api_key: str | None = Field(default=None, description="Exchange API key (deprecated)")
     exchange_api_secret: str | None = Field(default=None, description="Exchange API secret (deprecated)")
     exchange_testnet: bool = Field(default=True, description="Use testnet instead of mainnet")
-    
+
     # Vault settings
     vault_url: str | None = Field(default=None, description="HashiCorp Vault URL")
     vault_token: str | None = Field(default=None, description="HashiCorp Vault token")
@@ -134,9 +134,9 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_prefix = "GENESIS_"
         case_sensitive = False
-    
+
     _vault_client: VaultClient | None = None
-    
+
     def get_vault_client(self) -> VaultClient:
         """Get or create Vault client instance.
         
@@ -150,7 +150,7 @@ class Settings(BaseSettings):
                 use_vault=self.use_vault
             )
         return self._vault_client
-    
+
     def get_exchange_credentials(self, read_only: bool = False) -> dict[str, str] | None:
         """Get exchange API credentials from Vault or environment.
         
@@ -161,10 +161,10 @@ class Settings(BaseSettings):
             Dictionary with 'api_key' and 'api_secret' or None
         """
         vault_client = self.get_vault_client()
-        
+
         # Try to get from Vault first
         credentials = vault_client.get_exchange_api_keys(read_only=read_only)
-        
+
         # Fall back to environment variables if not using Vault
         if not credentials and not self.use_vault:
             if read_only:
@@ -174,15 +174,15 @@ class Settings(BaseSettings):
             else:
                 api_key = self.exchange_api_key
                 api_secret = self.exchange_api_secret
-            
+
             if api_key and api_secret:
                 credentials = {
                     "api_key": api_key,
                     "api_secret": api_secret
                 }
-        
+
         return credentials
-    
+
     def get_database_encryption_key(self) -> str | None:
         """Get database encryption key from Vault or environment.
         

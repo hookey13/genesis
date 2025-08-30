@@ -5,9 +5,10 @@ and security levels.
 """
 
 import ipaddress
-from typing import Set, List, Optional, Dict, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -15,7 +16,7 @@ logger = structlog.get_logger(__name__)
 
 class NetworkZone(Enum):
     """Network security zones."""
-    
+
     PUBLIC = "public"      # Public API endpoints
     PRIVATE = "private"    # Internal services (database, cache)
     RESTRICTED = "restricted"  # Secrets and sensitive operations
@@ -25,12 +26,12 @@ class NetworkZone(Enum):
 @dataclass
 class IPRule:
     """IP access rule."""
-    
+
     ip_address: str  # Can be single IP or CIDR
     zone: NetworkZone
     description: str
     enabled: bool = True
-    
+
     def matches(self, ip: str) -> bool:
         """Check if an IP matches this rule.
         
@@ -42,7 +43,7 @@ class IPRule:
         """
         if not self.enabled:
             return False
-        
+
         try:
             # Parse the rule IP (could be single IP or network)
             if '/' in self.ip_address:
@@ -54,16 +55,16 @@ class IPRule:
                 # Single IP
                 return ipaddress.ip_address(ip) == ipaddress.ip_address(self.ip_address)
         except (ipaddress.AddressValueError, ValueError) as e:
-            logger.error("Invalid IP address", 
-                        rule_ip=self.ip_address, 
-                        check_ip=ip, 
+            logger.error("Invalid IP address",
+                        rule_ip=self.ip_address,
+                        check_ip=ip,
                         error=str(e))
             return False
 
 
 class IPWhitelistManager:
     """Manages IP whitelist for network access control."""
-    
+
     # Default rules for different zones
     DEFAULT_RULES = {
         NetworkZone.PUBLIC: [
@@ -86,25 +87,25 @@ class IPWhitelistManager:
             IPRule("10.0.1.0/24", NetworkZone.MANAGEMENT, "Management subnet"),
         ]
     }
-    
-    def __init__(self, custom_rules: Optional[List[IPRule]] = None):
+
+    def __init__(self, custom_rules: list[IPRule] | None = None):
         """Initialize IP whitelist manager.
         
         Args:
             custom_rules: Custom IP rules to add
         """
-        self._rules: Dict[NetworkZone, List[IPRule]] = {
+        self._rules: dict[NetworkZone, list[IPRule]] = {
             zone: rules.copy() for zone, rules in self.DEFAULT_RULES.items()
         }
-        
+
         # Add custom rules
         if custom_rules:
             for rule in custom_rules:
                 self.add_rule(rule)
-        
+
         # Cache for performance
-        self._cache: Dict[str, Dict[NetworkZone, bool]] = {}
-    
+        self._cache: dict[str, dict[NetworkZone, bool]] = {}
+
     def add_rule(self, rule: IPRule):
         """Add an IP rule.
         
@@ -113,15 +114,15 @@ class IPWhitelistManager:
         """
         if rule.zone not in self._rules:
             self._rules[rule.zone] = []
-        
+
         self._rules[rule.zone].append(rule)
         self._clear_cache()
-        
-        logger.info("Added IP rule", 
-                   ip=rule.ip_address, 
+
+        logger.info("Added IP rule",
+                   ip=rule.ip_address,
                    zone=rule.zone.value,
                    description=rule.description)
-    
+
     def remove_rule(self, ip_address: str, zone: NetworkZone):
         """Remove an IP rule.
         
@@ -131,15 +132,15 @@ class IPWhitelistManager:
         """
         if zone in self._rules:
             self._rules[zone] = [
-                r for r in self._rules[zone] 
+                r for r in self._rules[zone]
                 if r.ip_address != ip_address
             ]
             self._clear_cache()
-            
-            logger.info("Removed IP rule", 
-                       ip=ip_address, 
+
+            logger.info("Removed IP rule",
+                       ip=ip_address,
                        zone=zone.value)
-    
+
     def is_allowed(self, ip: str, zone: NetworkZone) -> bool:
         """Check if an IP is allowed in a zone.
         
@@ -154,7 +155,7 @@ class IPWhitelistManager:
         cache_key = f"{ip}:{zone.value}"
         if ip in self._cache and zone in self._cache[ip]:
             return self._cache[ip][zone]
-        
+
         # Check rules for the zone
         allowed = False
         if zone in self._rules:
@@ -162,20 +163,20 @@ class IPWhitelistManager:
                 if rule.matches(ip):
                     allowed = True
                     break
-        
+
         # Cache result
         if ip not in self._cache:
             self._cache[ip] = {}
         self._cache[ip][zone] = allowed
-        
+
         if not allowed:
-            logger.debug("IP access denied", 
-                        ip=ip, 
+            logger.debug("IP access denied",
+                        ip=ip,
                         zone=zone.value)
-        
+
         return allowed
-    
-    def check_access(self, ip: str, required_zones: List[NetworkZone]) -> bool:
+
+    def check_access(self, ip: str, required_zones: list[NetworkZone]) -> bool:
         """Check if an IP has access to all required zones.
         
         Args:
@@ -189,8 +190,8 @@ class IPWhitelistManager:
             if not self.is_allowed(ip, zone):
                 return False
         return True
-    
-    def get_allowed_zones(self, ip: str) -> Set[NetworkZone]:
+
+    def get_allowed_zones(self, ip: str) -> set[NetworkZone]:
         """Get all zones an IP has access to.
         
         Args:
@@ -204,7 +205,7 @@ class IPWhitelistManager:
             if self.is_allowed(ip, zone):
                 allowed_zones.add(zone)
         return allowed_zones
-    
+
     def enable_rule(self, ip_address: str, zone: NetworkZone):
         """Enable a disabled rule.
         
@@ -217,11 +218,11 @@ class IPWhitelistManager:
                 if rule.ip_address == ip_address:
                     rule.enabled = True
                     self._clear_cache()
-                    logger.info("Enabled IP rule", 
-                               ip=ip_address, 
+                    logger.info("Enabled IP rule",
+                               ip=ip_address,
                                zone=zone.value)
                     break
-    
+
     def disable_rule(self, ip_address: str, zone: NetworkZone):
         """Disable a rule without removing it.
         
@@ -234,12 +235,12 @@ class IPWhitelistManager:
                 if rule.ip_address == ip_address:
                     rule.enabled = False
                     self._clear_cache()
-                    logger.info("Disabled IP rule", 
-                               ip=ip_address, 
+                    logger.info("Disabled IP rule",
+                               ip=ip_address,
                                zone=zone.value)
                     break
-    
-    def list_rules(self, zone: Optional[NetworkZone] = None) -> List[IPRule]:
+
+    def list_rules(self, zone: NetworkZone | None = None) -> list[IPRule]:
         """List IP rules.
         
         Args:
@@ -250,16 +251,16 @@ class IPWhitelistManager:
         """
         if zone:
             return self._rules.get(zone, []).copy()
-        
+
         all_rules = []
         for zone_rules in self._rules.values():
             all_rules.extend(zone_rules)
         return all_rules
-    
+
     def _clear_cache(self):
         """Clear the IP cache."""
         self._cache.clear()
-    
+
     def validate_ip(self, ip: str) -> bool:
         """Validate if a string is a valid IP address.
         
@@ -274,8 +275,8 @@ class IPWhitelistManager:
             return True
         except (ipaddress.AddressValueError, ValueError):
             return False
-    
-    def export_rules(self) -> Dict[str, List[Dict[str, Any]]]:
+
+    def export_rules(self) -> dict[str, list[dict[str, Any]]]:
         """Export rules as dictionary.
         
         Returns:
@@ -292,8 +293,8 @@ class IPWhitelistManager:
                 for rule in rules
             ]
         return export
-    
-    def import_rules(self, rules_dict: Dict[str, List[Dict[str, Any]]]):
+
+    def import_rules(self, rules_dict: dict[str, list[dict[str, Any]]]):
         """Import rules from dictionary.
         
         Args:
@@ -311,22 +312,22 @@ class IPWhitelistManager:
                     )
                     self.add_rule(rule)
             except (ValueError, KeyError) as e:
-                logger.error("Failed to import rule", 
-                            zone=zone_str, 
+                logger.error("Failed to import rule",
+                            zone=zone_str,
                             error=str(e))
 
 
 class NetworkSegmentation:
     """Implements network segmentation policies."""
-    
-    def __init__(self, whitelist_manager: Optional[IPWhitelistManager] = None):
+
+    def __init__(self, whitelist_manager: IPWhitelistManager | None = None):
         """Initialize network segmentation.
         
         Args:
             whitelist_manager: IP whitelist manager
         """
         self.whitelist_manager = whitelist_manager or IPWhitelistManager()
-        
+
         # Define service to zone mappings
         self.service_zones = {
             "api": [NetworkZone.PUBLIC],
@@ -336,7 +337,7 @@ class NetworkSegmentation:
             "monitoring": [NetworkZone.MANAGEMENT],
             "admin": [NetworkZone.MANAGEMENT, NetworkZone.RESTRICTED]
         }
-    
+
     def can_access_service(self, ip: str, service: str) -> bool:
         """Check if an IP can access a service.
         
@@ -350,21 +351,21 @@ class NetworkSegmentation:
         if service not in self.service_zones:
             logger.warning("Unknown service", service=service)
             return False
-        
+
         required_zones = self.service_zones[service]
-        
+
         # Check if IP has access to any of the required zones
         for zone in required_zones:
             if self.whitelist_manager.is_allowed(ip, zone):
                 return True
-        
-        logger.warning("Service access denied", 
-                      ip=ip, 
+
+        logger.warning("Service access denied",
+                      ip=ip,
                       service=service,
                       required_zones=[z.value for z in required_zones])
         return False
-    
-    def get_accessible_services(self, ip: str) -> List[str]:
+
+    def get_accessible_services(self, ip: str) -> list[str]:
         """Get list of services accessible from an IP.
         
         Args:
@@ -375,14 +376,14 @@ class NetworkSegmentation:
         """
         allowed_zones = self.whitelist_manager.get_allowed_zones(ip)
         accessible_services = []
-        
+
         for service, required_zones in self.service_zones.items():
             # Check if IP has access to any required zone
             if any(zone in allowed_zones for zone in required_zones):
                 accessible_services.append(service)
-        
+
         return accessible_services
-    
+
     def enforce_ssh_tunnel(self, ip: str) -> bool:
         """Check if SSH tunnel is required for an IP.
         
@@ -397,5 +398,5 @@ class NetworkSegmentation:
             # External IP - requires SSH tunnel for any restricted access
             if self.whitelist_manager.is_allowed(ip, NetworkZone.RESTRICTED):
                 return True
-        
+
         return False

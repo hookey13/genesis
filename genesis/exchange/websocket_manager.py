@@ -130,7 +130,7 @@ class WebSocketConnection:
 
             self.state = ConnectionState.CONNECTED
             self.current_reconnect_delay = self.reconnect_delay  # Reset delay
-            self.reconnect_attempt = 0  # Reset exponential backoff counter  
+            self.reconnect_attempt = 0  # Reset exponential backoff counter
             self.last_heartbeat = time.time()
 
             # Start tasks
@@ -370,7 +370,7 @@ class WebSocketConnection:
                 logger.info(f"Gap detected in trade stream for {symbol}, fetching recent trades")
                 # Note: Would need to implement get_recent_trades in gateway
                 # For now, log the gap for monitoring
-                
+
             elif "@depth" in stream and self.gateway:
                 # Fetch order book snapshot to resync
                 order_book = await self.gateway.get_order_book(symbol, limit=20)
@@ -379,10 +379,10 @@ class WebSocketConnection:
                     bids=len(order_book.bids),
                     asks=len(order_book.asks),
                 )
-                
+
                 # Publish snapshot event to resync local order book state
                 if self.event_bus:
-                    from genesis.core.events import Event, EventType, EventPriority
+                    from genesis.core.events import Event, EventPriority, EventType
                     event = Event(
                         event_type=EventType.ORDER_BOOK_SNAPSHOT,
                         aggregate_id=symbol,
@@ -397,7 +397,7 @@ class WebSocketConnection:
                         },
                     )
                     await self.event_bus.publish(event, priority=EventPriority.HIGH)
-                    
+
             elif "@kline" in stream and self.gateway:
                 # Fetch recent klines to fill gap
                 interval = stream.split("_")[1] if "_" in stream else "1m"
@@ -406,7 +406,7 @@ class WebSocketConnection:
                     f"Fetched {len(klines)} klines for {symbol} to fill gap",
                     interval=interval,
                 )
-                
+
             elif "@ticker" in stream and self.gateway:
                 # Fetch current ticker to get latest state
                 ticker = await self.gateway.get_ticker(symbol)

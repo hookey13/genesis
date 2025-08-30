@@ -6,12 +6,11 @@ for local development.
 """
 
 import os
-import json
-from typing import Optional, Dict, Any, Union
-from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
 import structlog
-from decimal import Decimal
 
 logger = structlog.get_logger(__name__)
 
@@ -19,11 +18,11 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class SecretCache:
     """Cache entry for a secret with TTL management."""
-    
+
     value: Any
     fetched_at: datetime
     ttl_seconds: int
-    
+
     def is_expired(self) -> bool:
         """Check if the cached secret has expired."""
         elapsed = datetime.now() - self.fetched_at
@@ -36,19 +35,19 @@ class VaultClient:
     Provides secure secret retrieval with caching, TTL management, and
     fallback to environment variables for local development.
     """
-    
+
     DEFAULT_TTL = 3600  # 1 hour default TTL for cached secrets
-    
+
     # Secret paths in Vault
     EXCHANGE_API_KEYS_PATH = "/genesis/exchange/api-keys"
     DATABASE_ENCRYPTION_KEY_PATH = "/genesis/database/encryption-key"
     TLS_CERTIFICATES_PATH = "/genesis/tls/certificates"
     BACKUP_ENCRYPTION_KEY_PATH = "/genesis/backup/encryption-key"
-    
+
     def __init__(
         self,
-        vault_url: Optional[str] = None,
-        vault_token: Optional[str] = None,
+        vault_url: str | None = None,
+        vault_token: str | None = None,
         use_vault: bool = True,
         cache_ttl: int = DEFAULT_TTL
     ):
@@ -64,8 +63,8 @@ class VaultClient:
         self.vault_token = vault_token or os.environ.get("VAULT_TOKEN")
         self.use_vault = use_vault and bool(self.vault_url and self.vault_token)
         self.cache_ttl = cache_ttl
-        self._cache: Dict[str, SecretCache] = {}
-        
+        self._cache: dict[str, SecretCache] = {}
+
         if self.use_vault:
             try:
                 import hvac
@@ -87,14 +86,14 @@ class VaultClient:
         else:
             logger.info("Using environment variables for secrets (development mode)")
             self.client = None
-    
+
     def get_secret(
         self,
         path: str,
-        key: Optional[str] = None,
-        ttl: Optional[int] = None,
+        key: str | None = None,
+        ttl: int | None = None,
         force_refresh: bool = False
-    ) -> Optional[Union[str, Dict[str, Any]]]:
+    ) -> str | dict[str, Any] | None:
         """Retrieve a secret from Vault or environment.
         
         Args:
@@ -107,20 +106,20 @@ class VaultClient:
             The secret value or None if not found
         """
         cache_key = f"{path}:{key}" if key else path
-        
+
         # Check cache unless force refresh
         if not force_refresh and cache_key in self._cache:
             cache_entry = self._cache[cache_key]
             if not cache_entry.is_expired():
                 logger.debug("Returning cached secret", path=path, key=key)
                 return cache_entry.value
-        
+
         # Fetch from Vault or environment
         if self.use_vault:
             secret_value = self._fetch_from_vault(path, key)
         else:
             secret_value = self._fetch_from_environment(path, key)
-        
+
         # Cache the secret if found
         if secret_value is not None:
             ttl_seconds = ttl or self.cache_ttl
@@ -130,10 +129,10 @@ class VaultClient:
                 ttl_seconds=ttl_seconds
             )
             logger.debug("Cached secret", path=path, key=key, ttl=ttl_seconds)
-        
+
         return secret_value
-    
-    def _fetch_from_vault(self, path: str, key: Optional[str] = None) -> Optional[Any]:
+
+    def _fetch_from_vault(self, path: str, key: str | None = None) -> Any | None:
         """Fetch a secret from HashiCorp Vault.
         
         Args:
@@ -145,32 +144,32 @@ class VaultClient:
         """
         if not self.client:
             return None
-        
+
         try:
             # Remove leading slash if present for hvac compatibility
             vault_path = path.lstrip('/')
-            
+
             # Read secret from Vault (KV v2 secrets engine)
             response = self.client.secrets.kv.v2.read_secret_version(
                 path=vault_path,
                 mount_point='secret'
             )
-            
+
             if response and 'data' in response and 'data' in response['data']:
                 secret_data = response['data']['data']
-                
+
                 if key:
                     return secret_data.get(key)
                 return secret_data
-            
+
             logger.warning("Secret not found in Vault", path=path, key=key)
             return None
-            
+
         except Exception as e:
             logger.error("Failed to fetch secret from Vault", path=path, key=key, error=str(e))
             return None
-    
-    def _fetch_from_environment(self, path: str, key: Optional[str] = None) -> Optional[str]:
+
+    def _fetch_from_environment(self, path: str, key: str | None = None) -> str | None:
         """Fetch a secret from environment variables (fallback for development).
         
         Args:
@@ -200,7 +199,7 @@ class VaultClient:
                 "key": "BACKUP_ENCRYPTION_KEY"
             }
         }
-        
+
         if path in env_mapping:
             if key and key in env_mapping[path]:
                 env_var = env_mapping[path][key]
@@ -216,11 +215,11 @@ class VaultClient:
                     if value:
                         result[k] = value
                 return result if result else None
-        
+
         logger.warning("Secret not found in environment", path=path, key=key)
         return None
-    
-    def get_exchange_api_keys(self, read_only: bool = False) -> Optional[Dict[str, str]]:
+
+    def get_exchange_api_keys(self, read_only: bool = False) -> dict[str, str] | None:
         """Get exchange API keys from Vault.
         
         Args:
@@ -232,7 +231,7 @@ class VaultClient:
         keys = self.get_secret(self.EXCHANGE_API_KEYS_PATH)
         if not keys:
             return None
-        
+
         if read_only:
             return {
                 "api_key": keys.get("api_key_read"),
@@ -243,36 +242,36 @@ class VaultClient:
                 "api_key": keys.get("api_key"),
                 "api_secret": keys.get("api_secret")
             }
-    
-    def get_database_encryption_key(self) -> Optional[str]:
+
+    def get_database_encryption_key(self) -> str | None:
         """Get database encryption key from Vault.
         
         Returns:
             The encryption key or None
         """
         return self.get_secret(self.DATABASE_ENCRYPTION_KEY_PATH, key="key")
-    
-    def get_backup_encryption_key(self) -> Optional[str]:
+
+    def get_backup_encryption_key(self) -> str | None:
         """Get backup encryption key from Vault.
         
         Returns:
             The encryption key or None
         """
         return self.get_secret(self.BACKUP_ENCRYPTION_KEY_PATH, key="key")
-    
-    def get_tls_certificates(self) -> Optional[Dict[str, str]]:
+
+    def get_tls_certificates(self) -> dict[str, str] | None:
         """Get TLS certificates from Vault.
         
         Returns:
             Dictionary with 'cert', 'key', and 'ca' paths or None
         """
         return self.get_secret(self.TLS_CERTIFICATES_PATH)
-    
+
     def store_secret(
         self,
         path: str,
-        data: Dict[str, Any],
-        cas: Optional[int] = None
+        data: dict[str, Any],
+        cas: int | None = None
     ) -> bool:
         """Store a secret in Vault (admin operation).
         
@@ -287,10 +286,10 @@ class VaultClient:
         if not self.use_vault or not self.client:
             logger.error("Cannot store secrets without Vault connection")
             return False
-        
+
         try:
             vault_path = path.lstrip('/')
-            
+
             # Write secret to Vault
             self.client.secrets.kv.v2.create_or_update_secret(
                 path=vault_path,
@@ -298,19 +297,19 @@ class VaultClient:
                 cas=cas,
                 mount_point='secret'
             )
-            
+
             # Invalidate cache for this path
             cache_keys_to_remove = [k for k in self._cache if k.startswith(path)]
             for k in cache_keys_to_remove:
                 del self._cache[k]
-            
+
             logger.info("Successfully stored secret", path=path)
             return True
-            
+
         except Exception as e:
             logger.error("Failed to store secret", path=path, error=str(e))
             return False
-    
+
     def rotate_secret(
         self,
         path: str,
@@ -334,14 +333,14 @@ class VaultClient:
         elif not isinstance(current_data, dict):
             logger.error("Cannot rotate non-dict secret", path=path)
             return False
-        
+
         # Update the specific key
         current_data[key] = new_value
-        
+
         # Store the updated secret
         return self.store_secret(path, current_data)
-    
-    def clear_cache(self, path: Optional[str] = None):
+
+    def clear_cache(self, path: str | None = None):
         """Clear cached secrets.
         
         Args:
@@ -355,7 +354,7 @@ class VaultClient:
         else:
             self._cache.clear()
             logger.debug("Cleared entire secret cache")
-    
+
     def is_connected(self) -> bool:
         """Check if connected to Vault.
         
@@ -363,8 +362,8 @@ class VaultClient:
             True if connected to Vault, False if using environment variables
         """
         return self.use_vault and self.client is not None
-    
-    def health_check(self) -> Dict[str, Any]:
+
+    def health_check(self) -> dict[str, Any]:
         """Perform a health check on the Vault connection.
         
         Returns:
@@ -376,18 +375,18 @@ class VaultClient:
                 "mode": "environment_variables",
                 "cache_size": len(self._cache)
             }
-        
+
         if not self.client:
             return {
                 "status": "error",
                 "mode": "vault",
                 "error": "No client connection"
             }
-        
+
         try:
             is_authenticated = self.client.is_authenticated()
             sys_health = self.client.sys.read_health_status()
-            
+
             return {
                 "status": "healthy" if is_authenticated else "unhealthy",
                 "mode": "vault",

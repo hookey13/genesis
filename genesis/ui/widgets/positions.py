@@ -19,7 +19,7 @@ class PositionWidget(Static):
     current_price = reactive(Decimal("0.00"))
     unrealized_pnl = reactive(Decimal("0.00"))
     stop_loss: Decimal | None = reactive(None)
-    
+
     # Paper trading mode
     paper_trading_mode = reactive(False)
     paper_session_id = reactive("")

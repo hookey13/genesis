@@ -4,25 +4,25 @@ Implements permission checking and API key validation using the
 principle of least privilege.
 """
 
-from typing import Optional, Dict, Any, Callable
-from functools import wraps
 import hashlib
 import hmac
 import time
-import structlog
-from fastapi import Request, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Any
 
+import structlog
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from genesis.config.settings import settings
 from genesis.security.permissions import (
-    PermissionChecker,
-    Role,
-    Resource,
     Action,
+    APIKeyPermissionManager,
+    PermissionChecker,
+    Resource,
+    Role,
     User,
-    APIKeyPermissionManager
 )
 from genesis.security.vault_client import VaultClient
-from genesis.config.settings import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -42,12 +42,12 @@ class AuthorizationError(Exception):
 
 class APIAuthenticator:
     """Handles API authentication and authorization."""
-    
+
     def __init__(
         self,
-        vault_client: Optional[VaultClient] = None,
-        permission_checker: Optional[PermissionChecker] = None,
-        user_repository: Optional[Any] = None
+        vault_client: VaultClient | None = None,
+        permission_checker: PermissionChecker | None = None,
+        user_repository: Any | None = None
     ):
         """Initialize API authenticator.
         
@@ -59,9 +59,9 @@ class APIAuthenticator:
         self.vault_client = vault_client or settings.get_vault_client()
         self.permission_checker = permission_checker or PermissionChecker(user_repository)
         self.user_repository = user_repository
-        self._api_key_cache: Dict[str, Dict[str, Any]] = {}
-    
-    def validate_api_key(self, api_key: str, api_secret: str) -> Optional[Dict[str, Any]]:
+        self._api_key_cache: dict[str, dict[str, Any]] = {}
+
+    def validate_api_key(self, api_key: str, api_secret: str) -> dict[str, Any] | None:
         """Validate API key and secret.
         
         Args:
@@ -77,11 +77,11 @@ class APIAuthenticator:
             if cached["api_secret"] == api_secret:
                 logger.debug("API key validated from cache", api_key=api_key[:8] + "...")
                 return cached
-        
+
         # Get keys from Vault
         trading_keys = self.vault_client.get_exchange_api_keys(read_only=False)
         read_only_keys = self.vault_client.get_exchange_api_keys(read_only=True)
-        
+
         # Check if it's a trading key
         if trading_keys and api_key == trading_keys["api_key"]:
             if api_secret == trading_keys["api_secret"]:
@@ -94,7 +94,7 @@ class APIAuthenticator:
                 self._api_key_cache[api_key] = metadata
                 logger.info("Trading API key validated", api_key=api_key[:8] + "...")
                 return metadata
-        
+
         # Check if it's a read-only key
         if read_only_keys and api_key == read_only_keys["api_key"]:
             if api_secret == read_only_keys["api_secret"]:
@@ -107,10 +107,10 @@ class APIAuthenticator:
                 self._api_key_cache[api_key] = metadata
                 logger.info("Read-only API key validated", api_key=api_key[:8] + "...")
                 return metadata
-        
+
         logger.warning("Invalid API key", api_key=api_key[:8] + "...")
         return None
-    
+
     def validate_hmac_signature(
         self,
         api_secret: str,
@@ -138,33 +138,33 @@ class APIAuthenticator:
             request_time = int(timestamp)
             current_time = int(time.time())
             if abs(current_time - request_time) > 300:  # 5 minutes
-                logger.warning("Request timestamp too old", 
+                logger.warning("Request timestamp too old",
                              timestamp=timestamp,
                              current_time=current_time)
                 return False
         except ValueError:
             logger.error("Invalid timestamp", timestamp=timestamp)
             return False
-        
+
         # Create message to sign
         message = f"{timestamp}{method}{path}{body}"
-        
+
         # Calculate expected signature
         expected_signature = hmac.new(
             api_secret.encode(),
             message.encode(),
             hashlib.sha256
         ).hexdigest()
-        
+
         # Compare signatures
         is_valid = hmac.compare_digest(expected_signature, signature)
-        
+
         if not is_valid:
             logger.warning("Invalid HMAC signature")
-        
+
         return is_valid
-    
-    async def authenticate_request(self, request: Request) -> Dict[str, Any]:
+
+    async def authenticate_request(self, request: Request) -> dict[str, Any]:
         """Authenticate an API request.
         
         Args:
@@ -180,19 +180,19 @@ class APIAuthenticator:
         api_key = request.headers.get("X-API-Key")
         signature = request.headers.get("X-Signature")
         timestamp = request.headers.get("X-Timestamp")
-        
+
         if not all([api_key, signature, timestamp]):
             raise AuthenticationError("Missing authentication headers")
-        
+
         # Get API key metadata
         key_metadata = self.validate_api_key(api_key, "")  # Need to get secret first
         if not key_metadata:
             raise AuthenticationError("Invalid API key")
-        
+
         # Get request body
         body = await request.body()
         body_str = body.decode() if body else ""
-        
+
         # Validate HMAC signature
         is_valid = self.validate_hmac_signature(
             api_secret=key_metadata["api_secret"],
@@ -202,20 +202,20 @@ class APIAuthenticator:
             body=body_str,
             signature=signature
         )
-        
+
         if not is_valid:
             raise AuthenticationError("Invalid signature")
-        
+
         # Get user associated with API key
         user = await self._get_user_for_api_key(api_key)
-        
+
         return {
             "user": user,
             "api_key": api_key,
             "key_type": key_metadata["key_type"],
             "key_permissions": key_metadata["permissions"]
         }
-    
+
     async def _get_user_for_api_key(self, api_key: str) -> User:
         """Get user associated with an API key.
         
@@ -227,7 +227,7 @@ class APIAuthenticator:
         """
         # In production, look up user from database
         # For now, return a default user based on key type
-        
+
         # Check if it's a trading or read-only key
         key_metadata = self._api_key_cache.get(api_key)
         if key_metadata:
@@ -235,13 +235,13 @@ class APIAuthenticator:
                 return User(user_id="trader", role=Role.TRADER)
             else:
                 return User(user_id="reader", role=Role.READ_ONLY)
-        
+
         # Default to read-only
         return User(user_id="unknown", role=Role.READ_ONLY)
-    
+
     async def authorize_request(
         self,
-        auth_context: Dict[str, Any],
+        auth_context: dict[str, Any],
         resource: Resource,
         action: Action
     ) -> bool:
@@ -260,7 +260,7 @@ class APIAuthenticator:
         """
         user = auth_context["user"]
         api_key = auth_context["api_key"]
-        
+
         # Check permission
         has_permission = await self.permission_checker.check_permission(
             user_id=user.user_id,
@@ -268,15 +268,15 @@ class APIAuthenticator:
             action=action,
             api_key=api_key
         )
-        
+
         if not has_permission:
             raise AuthorizationError(
                 f"Permission denied: {resource.value}:{action.value}"
             )
-        
+
         return True
-    
-    def clear_cache(self, api_key: Optional[str] = None):
+
+    def clear_cache(self, api_key: str | None = None):
         """Clear API key cache.
         
         Args:
@@ -289,7 +289,7 @@ class APIAuthenticator:
 
 
 # Global authenticator instance
-_authenticator: Optional[APIAuthenticator] = None
+_authenticator: APIAuthenticator | None = None
 
 
 def get_authenticator() -> APIAuthenticator:
@@ -307,7 +307,7 @@ def get_authenticator() -> APIAuthenticator:
 async def authenticate(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     request: Request = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """FastAPI dependency for authentication.
     
     Args:
@@ -321,7 +321,7 @@ async def authenticate(
         HTTPException: If authentication fails
     """
     authenticator = get_authenticator()
-    
+
     try:
         auth_context = await authenticator.authenticate_request(request)
         return auth_context
@@ -341,7 +341,7 @@ def require_permission(resource: Resource, action: Action):
         FastAPI dependency
     """
     async def permission_dependency(
-        auth_context: Dict[str, Any] = Depends(authenticate)
+        auth_context: dict[str, Any] = Depends(authenticate)
     ):
         """Check permission for the authenticated user.
         
@@ -352,17 +352,17 @@ def require_permission(resource: Resource, action: Action):
             HTTPException: If authorization fails
         """
         authenticator = get_authenticator()
-        
+
         try:
             await authenticator.authorize_request(auth_context, resource, action)
         except AuthorizationError as e:
-            logger.warning("Authorization failed", 
+            logger.warning("Authorization failed",
                          user_id=auth_context["user"].user_id,
                          resource=resource.value,
                          action=action.value,
                          error=str(e))
             raise HTTPException(status_code=403, detail=str(e))
-    
+
     return Depends(permission_dependency)
 
 

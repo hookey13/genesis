@@ -4,7 +4,7 @@ import json
 import sqlite3
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
@@ -13,7 +13,7 @@ logger = structlog.get_logger(__name__)
 
 class EventReplayer:
     """Replays events to reconstruct application state."""
-    
+
     # Event handlers mapping
     EVENT_HANDLERS = {
         "POSITION_OPENED": "_handle_position_opened",
@@ -27,13 +27,13 @@ class EventReplayer:
         "RISK_LIMIT_SET": "_handle_risk_limit_set",
         "CHECKPOINT": "_handle_checkpoint"
     }
-    
+
     def replay_event(
         self,
         conn: sqlite3.Connection,
         event_type: str,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Replay a single event.
         
@@ -44,23 +44,23 @@ class EventReplayer:
             event_data: Event data dictionary
         """
         handler_name = self.EVENT_HANDLERS.get(event_type)
-        
+
         if not handler_name:
             logger.warning(f"No handler for event type: {event_type}")
             return
-        
+
         handler = getattr(self, handler_name, None)
         if handler:
             handler(conn, aggregate_id, event_data)
         else:
             logger.error(f"Handler method not found: {handler_name}")
-    
+
     def replay_events(
         self,
         conn: sqlite3.Connection,
-        events: List[sqlite3.Row],
-        target_state: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        events: list[sqlite3.Row],
+        target_state: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Replay multiple events sequentially.
         
         Args:
@@ -79,7 +79,7 @@ class EventReplayer:
             "risk_limits": {},
             "checkpoints": []
         }
-        
+
         for event in events:
             event_data = json.loads(event["event_data"])
             self.replay_event(
@@ -88,7 +88,7 @@ class EventReplayer:
                 event["aggregate_id"],
                 event_data
             )
-            
+
             # Update state tracking
             if event["event_type"].startswith("POSITION_"):
                 self._update_position_state(state, event["aggregate_id"], event_data)
@@ -98,20 +98,20 @@ class EventReplayer:
                 state["balances"][event_data.get("asset", "USDT")] = event_data.get("balance")
             elif event["event_type"] == "TIER_CHANGED":
                 state["tier"] = event_data.get("new_tier")
-        
+
         # Validate against target state if provided
         if target_state:
             validation_errors = self._validate_state(state, target_state)
             if validation_errors:
                 logger.warning("State validation errors", errors=validation_errors)
-        
+
         return state
-    
+
     def _handle_position_opened(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle position opened event."""
         conn.execute("""
@@ -128,34 +128,34 @@ class EventReplayer:
             event_data.get("opened_at", datetime.utcnow().isoformat()),
             event_data.get("strategy_id")
         ))
-    
+
     def _handle_position_updated(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle position updated event."""
         updates = []
         params = []
-        
+
         for field in ["quantity", "unrealized_pnl", "realized_pnl", "current_price"]:
             if field in event_data:
                 updates.append(f"{field} = ?")
                 params.append(event_data[field])
-        
+
         if updates:
             params.append(aggregate_id)
             conn.execute(
                 f"UPDATE positions SET {', '.join(updates)} WHERE position_id = ?",
                 params
             )
-    
+
     def _handle_position_closed(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle position closed event."""
         conn.execute("""
@@ -171,12 +171,12 @@ class EventReplayer:
             event_data.get("closed_at", datetime.utcnow().isoformat()),
             aggregate_id
         ))
-    
+
     def _handle_order_placed(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle order placed event."""
         conn.execute("""
@@ -194,12 +194,12 @@ class EventReplayer:
             event_data.get("price"),
             event_data.get("created_at", datetime.utcnow().isoformat())
         ))
-    
+
     def _handle_order_filled(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle order filled event."""
         conn.execute("""
@@ -216,12 +216,12 @@ class EventReplayer:
             event_data.get("filled_at", datetime.utcnow().isoformat()),
             aggregate_id
         ))
-    
+
     def _handle_order_cancelled(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle order cancelled event."""
         conn.execute("""
@@ -233,12 +233,12 @@ class EventReplayer:
             event_data.get("cancelled_at", datetime.utcnow().isoformat()),
             aggregate_id
         ))
-    
+
     def _handle_balance_updated(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle balance updated event."""
         conn.execute("""
@@ -253,12 +253,12 @@ class EventReplayer:
             event_data.get("total_balance"),
             event_data.get("updated_at", datetime.utcnow().isoformat())
         ))
-    
+
     def _handle_tier_changed(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle tier changed event."""
         conn.execute("""
@@ -271,7 +271,7 @@ class EventReplayer:
             event_data.get("reason"),
             event_data.get("changed_at", datetime.utcnow().isoformat())
         ))
-        
+
         # Update current tier
         conn.execute("""
             INSERT OR REPLACE INTO system_state (
@@ -281,12 +281,12 @@ class EventReplayer:
             event_data.get("new_tier"),
             datetime.utcnow().isoformat()
         ))
-    
+
     def _handle_risk_limit_set(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle risk limit set event."""
         conn.execute("""
@@ -299,12 +299,12 @@ class EventReplayer:
             event_data.get("tier"),
             event_data.get("updated_at", datetime.utcnow().isoformat())
         ))
-    
+
     def _handle_checkpoint(
         self,
         conn: sqlite3.Connection,
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Handle checkpoint event."""
         # Checkpoint events mark consistent state points
@@ -317,36 +317,36 @@ class EventReplayer:
             event_data.get("state_hash"),
             event_data.get("created_at", datetime.utcnow().isoformat())
         ))
-    
+
     def _update_position_state(
         self,
-        state: Dict[str, Any],
+        state: dict[str, Any],
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Update position state tracking."""
         if aggregate_id not in state["positions"]:
             state["positions"][aggregate_id] = {}
-        
+
         state["positions"][aggregate_id].update(event_data)
-    
+
     def _update_order_state(
         self,
-        state: Dict[str, Any],
+        state: dict[str, Any],
         aggregate_id: str,
-        event_data: Dict[str, Any]
+        event_data: dict[str, Any]
     ) -> None:
         """Update order state tracking."""
         if aggregate_id not in state["orders"]:
             state["orders"][aggregate_id] = {}
-        
+
         state["orders"][aggregate_id].update(event_data)
-    
+
     def _validate_state(
         self,
-        reconstructed_state: Dict[str, Any],
-        target_state: Dict[str, Any]
-    ) -> List[str]:
+        reconstructed_state: dict[str, Any],
+        target_state: dict[str, Any]
+    ) -> list[str]:
         """Validate reconstructed state against target.
         
         Args:
@@ -357,7 +357,7 @@ class EventReplayer:
             List of validation errors
         """
         errors = []
-        
+
         # Validate positions
         for pos_id, target_pos in target_state.get("positions", {}).items():
             if pos_id not in reconstructed_state["positions"]:
@@ -370,7 +370,7 @@ class EventReplayer:
                             f"Position {pos_id} field {field} mismatch: "
                             f"expected {target_pos[field]}, got {recon_pos.get(field)}"
                         )
-        
+
         # Validate balances
         for asset, target_balance in target_state.get("balances", {}).items():
             if asset not in reconstructed_state["balances"]:
@@ -380,5 +380,5 @@ class EventReplayer:
                     f"Balance mismatch for {asset}: "
                     f"expected {target_balance}, got {reconstructed_state['balances'][asset]}"
                 )
-        
+
         return errors

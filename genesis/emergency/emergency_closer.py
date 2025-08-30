@@ -3,11 +3,10 @@
 import asyncio
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
-from genesis.core.exceptions import ExchangeError
 from genesis.emergency.position_unwinder import PositionUnwinder
 
 logger = structlog.get_logger(__name__)
@@ -15,13 +14,13 @@ logger = structlog.get_logger(__name__)
 
 class EmergencyCloser:
     """Manages emergency closure of all positions."""
-    
+
     def __init__(
         self,
         exchange_gateway,
         position_unwinder: PositionUnwinder,
         max_slippage_percent: Decimal = Decimal("2.0"),
-        notification_channels: Optional[List[str]] = None
+        notification_channels: list[str] | None = None
     ):
         """Initialize emergency closer.
         
@@ -35,19 +34,19 @@ class EmergencyCloser:
         self.position_unwinder = position_unwinder
         self.max_slippage_percent = max_slippage_percent
         self.notification_channels = notification_channels or []
-        
+
         # Track closure state
         self.closure_in_progress = False
-        self.closure_results: List[Dict[str, Any]] = []
-        self.closure_start_time: Optional[datetime] = None
-        self.closure_end_time: Optional[datetime] = None
-    
+        self.closure_results: list[dict[str, Any]] = []
+        self.closure_start_time: datetime | None = None
+        self.closure_end_time: datetime | None = None
+
     async def emergency_close_all(
         self,
         reason: str,
         dry_run: bool = False,
         force: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute emergency closure of all positions.
         
         Args:
@@ -61,27 +60,27 @@ class EmergencyCloser:
         if self.closure_in_progress:
             logger.warning("Emergency closure already in progress")
             return {"error": "Closure already in progress"}
-        
+
         self.closure_in_progress = True
         self.closure_start_time = datetime.utcnow()
-        
+
         logger.critical(
             "EMERGENCY CLOSURE INITIATED",
             reason=reason,
             dry_run=dry_run,
             force=force
         )
-        
+
         try:
             # Send notifications
             await self._send_notifications(
                 "EMERGENCY CLOSURE INITIATED",
                 f"Reason: {reason}\nDry Run: {dry_run}"
             )
-            
+
             # Get all open positions
             positions = await self._get_open_positions()
-            
+
             if not positions:
                 logger.info("No open positions to close")
                 return {
@@ -89,35 +88,35 @@ class EmergencyCloser:
                     "positions_closed": 0,
                     "reason": reason
                 }
-            
+
             # Prioritize positions for closure
             prioritized = self.position_unwinder.prioritize_positions(positions)
-            
+
             logger.info(
                 "Positions prioritized for closure",
                 count=len(prioritized),
                 total_exposure=sum(p["exposure"] for p in prioritized)
             )
-            
+
             # Execute closures
             results = []
             for position in prioritized:
                 result = await self._close_position(position, dry_run, force)
                 results.append(result)
                 self.closure_results.append(result)
-                
+
                 # Brief delay between closures to avoid overwhelming exchange
                 if not dry_run:
                     await asyncio.sleep(0.1)
-            
+
             # Calculate summary
             self.closure_end_time = datetime.utcnow()
             duration = (self.closure_end_time - self.closure_start_time).total_seconds()
-            
+
             successful = [r for r in results if r["success"]]
             failed = [r for r in results if not r["success"]]
             total_pnl = sum(r.get("realized_pnl", 0) for r in successful)
-            
+
             summary = {
                 "success": len(failed) == 0,
                 "reason": reason,
@@ -129,7 +128,7 @@ class EmergencyCloser:
                 "total_realized_pnl": total_pnl,
                 "details": results
             }
-            
+
             # Send completion notification
             await self._send_notifications(
                 "EMERGENCY CLOSURE COMPLETED",
@@ -137,31 +136,31 @@ class EmergencyCloser:
                 f"PnL: {total_pnl}\n"
                 f"Duration: {duration:.1f}s"
             )
-            
+
             # Create audit trail
             await self._create_audit_trail(summary)
-            
+
             logger.info(
                 "Emergency closure completed",
                 closed=len(successful),
                 failed=len(failed),
                 duration=duration
             )
-            
+
             return summary
-            
+
         except Exception as e:
             logger.error("Emergency closure failed", error=str(e))
             await self._send_notifications(
                 "EMERGENCY CLOSURE FAILED",
-                f"Error: {str(e)}"
+                f"Error: {e!s}"
             )
             raise
-            
+
         finally:
             self.closure_in_progress = False
-    
-    async def _get_open_positions(self) -> List[Dict[str, Any]]:
+
+    async def _get_open_positions(self) -> list[dict[str, Any]]:
         """Get all open positions from exchange.
         
         Returns:
@@ -169,7 +168,7 @@ class EmergencyCloser:
         """
         try:
             positions = await self.exchange_gateway.get_positions()
-            
+
             # Filter for open positions with non-zero quantity
             open_positions = []
             for position in positions:
@@ -184,19 +183,19 @@ class EmergencyCloser:
                         "unrealized_pnl": Decimal(str(position.get("unrealizedPnl", 0))),
                         "exposure": quantity * Decimal(str(position.get("markPrice", 0)))
                     })
-            
+
             return open_positions
-            
+
         except Exception as e:
             logger.error("Failed to get positions", error=str(e))
             raise
-    
+
     async def _close_position(
         self,
-        position: Dict[str, Any],
+        position: dict[str, Any],
         dry_run: bool,
         force: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Close a single position.
         
         Args:
@@ -211,14 +210,14 @@ class EmergencyCloser:
             symbol = position["symbol"]
             side = "sell" if position["side"] in ["buy", "long"] else "buy"
             quantity = position["quantity"]
-            
+
             logger.info(
                 f"Closing position: {symbol}",
                 side=side,
                 quantity=quantity,
                 unrealized_pnl=position["unrealized_pnl"]
             )
-            
+
             if dry_run:
                 # Simulate closure
                 return {
@@ -230,7 +229,7 @@ class EmergencyCloser:
                     "realized_pnl": position["unrealized_pnl"],
                     "dry_run": True
                 }
-            
+
             # Calculate acceptable price range
             if side == "sell":
                 # Selling - accept lower price
@@ -242,7 +241,7 @@ class EmergencyCloser:
                 limit_price = position["current_price"] * (
                     Decimal("1") + self.max_slippage_percent / Decimal("100")
                 )
-            
+
             # Place market order
             order = await self.exchange_gateway.place_order(
                 symbol=symbol,
@@ -251,17 +250,17 @@ class EmergencyCloser:
                 quantity=float(quantity),
                 client_order_id=f"emergency_{symbol}_{datetime.utcnow().timestamp()}"
             )
-            
+
             # Wait for fill
             filled_order = await self._wait_for_fill(order["orderId"], timeout=30)
-            
+
             if filled_order:
                 executed_price = Decimal(str(filled_order.get("avgPrice", 0)))
                 realized_pnl = self._calculate_realized_pnl(
                     position,
                     executed_price
                 )
-                
+
                 return {
                     "success": True,
                     "symbol": symbol,
@@ -280,7 +279,7 @@ class EmergencyCloser:
                     "error": "Order not filled within timeout",
                     "order_id": order["orderId"]
                 }
-                
+
         except Exception as e:
             logger.error(f"Failed to close position {position['symbol']}", error=str(e))
             return {
@@ -288,12 +287,12 @@ class EmergencyCloser:
                 "symbol": position["symbol"],
                 "error": str(e)
             }
-    
+
     async def _wait_for_fill(
         self,
         order_id: str,
         timeout: int = 30
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Wait for order to be filled.
         
         Args:
@@ -304,29 +303,29 @@ class EmergencyCloser:
             Filled order or None if timeout
         """
         start_time = datetime.utcnow()
-        
+
         while (datetime.utcnow() - start_time).total_seconds() < timeout:
             try:
                 order = await self.exchange_gateway.get_order(order_id)
-                
+
                 if order["status"] in ["FILLED", "PARTIALLY_FILLED"]:
                     return order
                 elif order["status"] in ["CANCELED", "REJECTED", "EXPIRED"]:
                     logger.warning(f"Order {order_id} terminated with status {order['status']}")
                     return None
-                
+
                 await asyncio.sleep(1)
-                
+
             except Exception as e:
-                logger.error(f"Error checking order status", error=str(e))
+                logger.error("Error checking order status", error=str(e))
                 await asyncio.sleep(1)
-        
+
         logger.warning(f"Order {order_id} not filled within {timeout} seconds")
         return None
-    
+
     def _calculate_realized_pnl(
         self,
-        position: Dict[str, Any],
+        position: dict[str, Any],
         exit_price: Decimal
     ) -> Decimal:
         """Calculate realized PnL for closed position.
@@ -340,14 +339,14 @@ class EmergencyCloser:
         """
         entry_price = position["entry_price"]
         quantity = position["quantity"]
-        
+
         if position["side"] in ["buy", "long"]:
             pnl = (exit_price - entry_price) * quantity
         else:
             pnl = (entry_price - exit_price) * quantity
-        
+
         return pnl
-    
+
     async def _send_notifications(self, subject: str, message: str) -> None:
         """Send notifications to configured channels.
         
@@ -368,11 +367,11 @@ class EmergencyCloser:
                     logger.info(f"PagerDuty alert: {subject}")
                 else:
                     logger.warning(f"Unknown notification channel: {channel}")
-                    
+
             except Exception as e:
                 logger.error(f"Failed to send {channel} notification", error=str(e))
-    
-    async def _create_audit_trail(self, summary: Dict[str, Any]) -> None:
+
+    async def _create_audit_trail(self, summary: dict[str, Any]) -> None:
         """Create audit trail for emergency closure.
         
         Args:
@@ -389,14 +388,14 @@ class EmergencyCloser:
             "total_pnl": str(summary["total_realized_pnl"]),
             "details": summary["details"]
         }
-        
+
         # Log to audit system
         logger.info("Audit trail created", audit=audit_entry)
-        
+
         # Store in database
         # await self.db.store_audit_trail(audit_entry)
-    
-    def get_closure_status(self) -> Dict[str, Any]:
+
+    def get_closure_status(self) -> dict[str, Any]:
         """Get current closure status.
         
         Returns:

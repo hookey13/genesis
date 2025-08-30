@@ -2,14 +2,12 @@
 ChatOps command system for operational tasks via Slack/Discord.
 """
 
-import asyncio
-import json
-import re
-from datetime import datetime, timedelta
-from decimal import Decimal
-from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
 import aiohttp
 import structlog
 
@@ -42,7 +40,7 @@ class CommandContext:
     timestamp: datetime
     raw_message: str
     webhook_type: WebhookType
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -50,38 +48,38 @@ class CommandResult:
     """Result of command execution."""
     success: bool
     message: str
-    data: Optional[Dict[str, Any]] = None
-    attachments: Optional[List[Dict[str, Any]]] = None
+    data: dict[str, Any] | None = None
+    attachments: list[dict[str, Any]] | None = None
     ephemeral: bool = False  # Only visible to command issuer
 
 
 class Command:
     """Base class for ChatOps commands."""
-    
-    def __init__(self, name: str, description: str, 
+
+    def __init__(self, name: str, description: str,
                  permission: CommandPermission,
-                 usage: str, aliases: Optional[List[str]] = None):
+                 usage: str, aliases: list[str] | None = None):
         """Initialize command."""
         self.name = name
         self.description = description
         self.permission = permission
         self.usage = usage
         self.aliases = aliases or []
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Execute the command."""
         raise NotImplementedError
-    
-    def validate_args(self, args: List[str]) -> Tuple[bool, str]:
+
+    def validate_args(self, args: list[str]) -> tuple[bool, str]:
         """Validate command arguments."""
         return True, ""
 
 
 class ChatOpsManager:
     """Manages ChatOps commands and integrations."""
-    
+
     def __init__(self, webhook_url: str, webhook_type: WebhookType,
-                 authorization_handler: Optional[Callable] = None):
+                 authorization_handler: Callable | None = None):
         """
         Initialize ChatOps manager.
         
@@ -93,59 +91,59 @@ class ChatOpsManager:
         self.webhook_url = webhook_url
         self.webhook_type = webhook_type
         self.authorization_handler = authorization_handler
-        
-        self.commands: Dict[str, Command] = {}
-        self.aliases: Dict[str, str] = {}
-        self.session: Optional[aiohttp.ClientSession] = None
-        
+
+        self.commands: dict[str, Command] = {}
+        self.aliases: dict[str, str] = {}
+        self.session: aiohttp.ClientSession | None = None
+
         # Register built-in commands
         self._register_builtin_commands()
-        
+
         logger.info("ChatOps manager initialized",
                    webhook_type=webhook_type.value)
-    
+
     def _register_builtin_commands(self):
         """Register built-in operational commands."""
         # Help command
         self.register_command(HelpCommand(self))
-        
+
         # Health and status commands
         self.register_command(HealthCheckCommand())
         self.register_command(SystemStatusCommand())
         self.register_command(PositionStatusCommand())
-        
+
         # Operational commands
         self.register_command(RestartServiceCommand())
         self.register_command(ClearCacheCommand())
         self.register_command(RunBackupCommand())
-        
+
         # Trading commands
         self.register_command(ShowPositionsCommand())
         self.register_command(ShowOrdersCommand())
         self.register_command(CancelOrderCommand())
-        
+
         # Emergency commands
         self.register_command(EmergencyStopCommand())
         self.register_command(CloseAllPositionsCommand())
         self.register_command(EnableSafeModeCommand())
-        
+
         # Monitoring commands
         self.register_command(ShowMetricsCommand())
         self.register_command(ShowAlertsCommand())
         self.register_command(AcknowledgeAlertCommand())
-    
+
     def register_command(self, command: Command):
         """Register a command."""
         self.commands[command.name] = command
-        
+
         # Register aliases
         for alias in command.aliases:
             self.aliases[alias] = command.name
-        
+
         logger.debug("Command registered",
                     command=command.name,
                     permission=command.permission.value)
-    
+
     async def process_message(self, message: str, context: CommandContext) -> CommandResult:
         """Process incoming chat message."""
         try:
@@ -153,23 +151,23 @@ class ChatOpsManager:
             parts = message.strip().split()
             if not parts:
                 return CommandResult(False, "Empty command")
-            
+
             cmd_name = parts[0].lower()
             args = parts[1:] if len(parts) > 1 else []
-            
+
             # Resolve aliases
             if cmd_name in self.aliases:
                 cmd_name = self.aliases[cmd_name]
-            
+
             # Find command
             if cmd_name not in self.commands:
                 return CommandResult(
                     False,
                     f"Unknown command: {cmd_name}. Type 'help' for available commands."
                 )
-            
+
             command = self.commands[cmd_name]
-            
+
             # Check authorization
             if not await self._check_authorization(command, context):
                 await self._audit_unauthorized(command, context)
@@ -177,7 +175,7 @@ class ChatOpsManager:
                     False,
                     f"Unauthorized: You don't have permission to run '{cmd_name}'"
                 )
-            
+
             # Validate arguments
             valid, error = command.validate_args(args)
             if not valid:
@@ -185,28 +183,28 @@ class ChatOpsManager:
                     False,
                     f"Invalid arguments: {error}\nUsage: {command.usage}"
                 )
-            
+
             # Audit command execution
             await self._audit_command(command, args, context)
-            
+
             # Execute command
             result = await command.execute(args, context)
-            
+
             # Send response
             await self.send_response(result, context)
-            
+
             return result
-            
+
         except Exception as e:
             logger.error("Failed to process ChatOps message",
                         message=message,
                         error=str(e))
             return CommandResult(
                 False,
-                f"Command failed: {str(e)}"
+                f"Command failed: {e!s}"
             )
-    
-    async def _check_authorization(self, command: Command, 
+
+    async def _check_authorization(self, command: Command,
                                   context: CommandContext) -> bool:
         """Check if user is authorized for command."""
         if not self.authorization_handler:
@@ -215,14 +213,14 @@ class ChatOpsManager:
                 # Emergency commands need explicit approval
                 return context.user in ["admin", "emergency_operator"]
             return True
-        
+
         return await self.authorization_handler(
             user=context.user,
             command=command.name,
             permission=command.permission
         )
-    
-    async def _audit_command(self, command: Command, args: List[str],
+
+    async def _audit_command(self, command: Command, args: list[str],
                             context: CommandContext):
         """Audit command execution."""
         event = Event(
@@ -240,7 +238,7 @@ class ChatOpsManager:
         logger.info("ChatOps command executed",
                    command=command.name,
                    user=context.user)
-    
+
     async def _audit_unauthorized(self, command: Command, context: CommandContext):
         """Audit unauthorized command attempt."""
         event = Event(
@@ -257,13 +255,13 @@ class ChatOpsManager:
         logger.warning("Unauthorized ChatOps command attempt",
                       command=command.name,
                       user=context.user)
-    
+
     async def send_response(self, result: CommandResult, context: CommandContext):
         """Send response back to chat."""
         try:
             if not self.session:
                 self.session = aiohttp.ClientSession()
-            
+
             # Format message based on webhook type
             if self.webhook_type == WebhookType.SLACK:
                 payload = self._format_slack_message(result, context)
@@ -271,7 +269,7 @@ class ChatOpsManager:
                 payload = self._format_discord_message(result, context)
             else:
                 payload = self._format_generic_message(result, context)
-            
+
             async with self.session.post(
                 self.webhook_url,
                 json=payload
@@ -279,22 +277,22 @@ class ChatOpsManager:
                 if response.status not in [200, 204]:
                     logger.error("Failed to send ChatOps response",
                                 status=response.status)
-                    
+
         except Exception as e:
             logger.error("Failed to send ChatOps response",
                         error=str(e))
-    
-    def _format_slack_message(self, result: CommandResult, 
-                             context: CommandContext) -> Dict[str, Any]:
+
+    def _format_slack_message(self, result: CommandResult,
+                             context: CommandContext) -> dict[str, Any]:
         """Format message for Slack."""
         color = "good" if result.success else "danger"
-        
+
         payload = {
             "text": result.message,
             "response_type": "ephemeral" if result.ephemeral else "in_channel",
             "attachments": []
         }
-        
+
         if result.data:
             payload["attachments"].append({
                 "color": color,
@@ -303,22 +301,22 @@ class ChatOpsManager:
                     for k, v in result.data.items()
                 ]
             })
-        
+
         if result.attachments:
             payload["attachments"].extend(result.attachments)
-        
+
         return payload
-    
+
     def _format_discord_message(self, result: CommandResult,
-                               context: CommandContext) -> Dict[str, Any]:
+                               context: CommandContext) -> dict[str, Any]:
         """Format message for Discord."""
         color = 0x00FF00 if result.success else 0xFF0000
-        
+
         payload = {
             "content": result.message,
             "embeds": []
         }
-        
+
         if result.data:
             embed = {
                 "color": color,
@@ -328,11 +326,11 @@ class ChatOpsManager:
                 ]
             }
             payload["embeds"].append(embed)
-        
+
         return payload
-    
+
     def _format_generic_message(self, result: CommandResult,
-                               context: CommandContext) -> Dict[str, Any]:
+                               context: CommandContext) -> dict[str, Any]:
         """Format generic webhook message."""
         return {
             "text": result.message,
@@ -347,7 +345,7 @@ class ChatOpsManager:
 
 class HelpCommand(Command):
     """Show available commands."""
-    
+
     def __init__(self, manager):
         super().__init__(
             name="help",
@@ -357,15 +355,15 @@ class HelpCommand(Command):
             aliases=["?", "commands"]
         )
         self.manager = manager
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Show help information."""
         if args:
             # Show help for specific command
             cmd_name = args[0].lower()
             if cmd_name in self.manager.aliases:
                 cmd_name = self.manager.aliases[cmd_name]
-            
+
             if cmd_name in self.manager.commands:
                 cmd = self.manager.commands[cmd_name]
                 return CommandResult(
@@ -377,7 +375,7 @@ class HelpCommand(Command):
                 )
             else:
                 return CommandResult(False, f"Unknown command: {cmd_name}")
-        
+
         # Show all commands grouped by permission
         groups = {}
         for cmd in self.manager.commands.values():
@@ -385,21 +383,21 @@ class HelpCommand(Command):
             if perm not in groups:
                 groups[perm] = []
             groups[perm].append(f"`{cmd.name}` - {cmd.description}")
-        
+
         message = "**Available Commands:**\n\n"
         for perm in ["read", "write", "admin", "emergency"]:
             if perm in groups:
                 message += f"**{perm.upper()} Permission:**\n"
                 message += "\n".join(groups[perm]) + "\n\n"
-        
+
         message += "Type `help <command>` for detailed usage"
-        
+
         return CommandResult(True, message)
 
 
 class HealthCheckCommand(Command):
     """Check system health."""
-    
+
     def __init__(self):
         super().__init__(
             name="health",
@@ -408,8 +406,8 @@ class HealthCheckCommand(Command):
             usage="health",
             aliases=["status", "ping"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Check system health."""
         # Would connect to actual health monitor
         health_data = {
@@ -421,7 +419,7 @@ class HealthCheckCommand(Command):
             "Database": "✅ Connected",
             "Exchange": "✅ Connected"
         }
-        
+
         return CommandResult(
             True,
             "System Health Check",
@@ -431,7 +429,7 @@ class HealthCheckCommand(Command):
 
 class SystemStatusCommand(Command):
     """Show detailed system status."""
-    
+
     def __init__(self):
         super().__init__(
             name="sysstatus",
@@ -440,8 +438,8 @@ class SystemStatusCommand(Command):
             usage="sysstatus",
             aliases=["sys"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Show system status."""
         status_data = {
             "Trading": "Active",
@@ -454,7 +452,7 @@ class SystemStatusCommand(Command):
             "WebSocket": "Connected",
             "Last Trade": "2 minutes ago"
         }
-        
+
         return CommandResult(
             True,
             "System Status",
@@ -464,7 +462,7 @@ class SystemStatusCommand(Command):
 
 class PositionStatusCommand(Command):
     """Show position summary."""
-    
+
     def __init__(self):
         super().__init__(
             name="positions",
@@ -473,8 +471,8 @@ class PositionStatusCommand(Command):
             usage="positions",
             aliases=["pos"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Show positions."""
         # Would fetch actual positions
         positions = [
@@ -482,17 +480,17 @@ class PositionStatusCommand(Command):
             {"Symbol": "ETH/USDT", "Size": "10", "Entry": "$2,234", "P&L": "-$45"},
             {"Symbol": "SOL/USDT", "Size": "100", "Entry": "$98.50", "P&L": "+$123"}
         ]
-        
+
         message = "**Open Positions:**\n"
         for pos in positions:
             message += f"• {pos['Symbol']}: {pos['Size']} @ {pos['Entry']} (P&L: {pos['P&L']})\n"
-        
+
         return CommandResult(True, message)
 
 
 class RestartServiceCommand(Command):
     """Restart a service."""
-    
+
     def __init__(self):
         super().__init__(
             name="restart",
@@ -501,21 +499,21 @@ class RestartServiceCommand(Command):
             usage="restart <service>",
             aliases=[]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Restart service."""
         if not args:
             return CommandResult(False, "Please specify a service to restart")
-        
+
         service = args[0]
         valid_services = ["trading", "market_data", "executor", "strategies"]
-        
+
         if service not in valid_services:
             return CommandResult(
                 False,
                 f"Invalid service. Valid services: {', '.join(valid_services)}"
             )
-        
+
         # Would actually restart service
         return CommandResult(
             True,
@@ -525,7 +523,7 @@ class RestartServiceCommand(Command):
 
 class ShowPositionsCommand(Command):
     """Show detailed positions."""
-    
+
     def __init__(self):
         super().__init__(
             name="showpos",
@@ -534,8 +532,8 @@ class ShowPositionsCommand(Command):
             usage="showpos [symbol]",
             aliases=["sp"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Show positions."""
         # Would fetch real positions
         return CommandResult(
@@ -552,7 +550,7 @@ class ShowPositionsCommand(Command):
 
 class ShowOrdersCommand(Command):
     """Show pending orders."""
-    
+
     def __init__(self):
         super().__init__(
             name="orders",
@@ -561,8 +559,8 @@ class ShowOrdersCommand(Command):
             usage="orders",
             aliases=["ord"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Show orders."""
         return CommandResult(
             True,
@@ -574,7 +572,7 @@ class ShowOrdersCommand(Command):
 
 class CancelOrderCommand(Command):
     """Cancel an order."""
-    
+
     def __init__(self):
         super().__init__(
             name="cancel",
@@ -583,12 +581,12 @@ class CancelOrderCommand(Command):
             usage="cancel <order_id>",
             aliases=[]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Cancel order."""
         if not args:
             return CommandResult(False, "Please specify order ID")
-        
+
         order_id = args[0]
         # Would actually cancel order
         return CommandResult(
@@ -599,7 +597,7 @@ class CancelOrderCommand(Command):
 
 class EmergencyStopCommand(Command):
     """Emergency stop trading."""
-    
+
     def __init__(self):
         super().__init__(
             name="emergency",
@@ -608,8 +606,8 @@ class EmergencyStopCommand(Command):
             usage="emergency",
             aliases=["estop", "kill"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Emergency stop."""
         # Would trigger emergency stop
         return CommandResult(
@@ -624,7 +622,7 @@ class EmergencyStopCommand(Command):
 
 class CloseAllPositionsCommand(Command):
     """Close all positions."""
-    
+
     def __init__(self):
         super().__init__(
             name="closeall",
@@ -633,8 +631,8 @@ class CloseAllPositionsCommand(Command):
             usage="closeall [confirm]",
             aliases=[]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Close all positions."""
         if not args or args[0] != "confirm":
             return CommandResult(
@@ -642,7 +640,7 @@ class CloseAllPositionsCommand(Command):
                 "⚠️ This will close ALL positions at market price!\n"
                 "Type `closeall confirm` to proceed"
             )
-        
+
         # Would close all positions
         return CommandResult(
             True,
@@ -655,7 +653,7 @@ class CloseAllPositionsCommand(Command):
 
 class EnableSafeModeCommand(Command):
     """Enable safe mode."""
-    
+
     def __init__(self):
         super().__init__(
             name="safemode",
@@ -664,15 +662,15 @@ class EnableSafeModeCommand(Command):
             usage="safemode <on|off>",
             aliases=["safe"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Toggle safe mode."""
         if not args or args[0] not in ["on", "off"]:
             return CommandResult(False, "Usage: safemode <on|off>")
-        
+
         enabled = args[0] == "on"
         status = "enabled" if enabled else "disabled"
-        
+
         return CommandResult(
             True,
             f"Safe mode {status}\n"
@@ -684,7 +682,7 @@ class EnableSafeModeCommand(Command):
 
 class ClearCacheCommand(Command):
     """Clear system caches."""
-    
+
     def __init__(self):
         super().__init__(
             name="clearcache",
@@ -693,8 +691,8 @@ class ClearCacheCommand(Command):
             usage="clearcache [type]",
             aliases=["cc"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Clear cache."""
         cache_type = args[0] if args else "all"
         # Would clear actual caches
@@ -706,7 +704,7 @@ class ClearCacheCommand(Command):
 
 class RunBackupCommand(Command):
     """Run manual backup."""
-    
+
     def __init__(self):
         super().__init__(
             name="backup",
@@ -715,8 +713,8 @@ class RunBackupCommand(Command):
             usage="backup",
             aliases=[]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Run backup."""
         # Would trigger backup
         return CommandResult(
@@ -731,7 +729,7 @@ class RunBackupCommand(Command):
 
 class ShowMetricsCommand(Command):
     """Show system metrics."""
-    
+
     def __init__(self):
         super().__init__(
             name="metrics",
@@ -740,11 +738,11 @@ class ShowMetricsCommand(Command):
             usage="metrics [period]",
             aliases=["stats"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Show metrics."""
         period = args[0] if args else "1h"
-        
+
         return CommandResult(
             True,
             f"Metrics ({period}):",
@@ -761,7 +759,7 @@ class ShowMetricsCommand(Command):
 
 class ShowAlertsCommand(Command):
     """Show active alerts."""
-    
+
     def __init__(self):
         super().__init__(
             name="alerts",
@@ -770,8 +768,8 @@ class ShowAlertsCommand(Command):
             usage="alerts",
             aliases=[]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Show alerts."""
         return CommandResult(
             True,
@@ -784,7 +782,7 @@ class ShowAlertsCommand(Command):
 
 class AcknowledgeAlertCommand(Command):
     """Acknowledge an alert."""
-    
+
     def __init__(self):
         super().__init__(
             name="ack",
@@ -793,12 +791,12 @@ class AcknowledgeAlertCommand(Command):
             usage="ack <alert_id>",
             aliases=["acknowledge"]
         )
-    
-    async def execute(self, args: List[str], context: CommandContext) -> CommandResult:
+
+    async def execute(self, args: list[str], context: CommandContext) -> CommandResult:
         """Acknowledge alert."""
         if not args:
             return CommandResult(False, "Please specify alert ID")
-        
+
         alert_id = args[0]
         return CommandResult(
             True,

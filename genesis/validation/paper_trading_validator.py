@@ -2,9 +2,9 @@
 
 import json
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Dict, List, Any, Optional
 from decimal import Decimal
+from pathlib import Path
+from typing import Any
 
 import structlog
 
@@ -13,7 +13,7 @@ logger = structlog.get_logger(__name__)
 
 class PaperTradingValidator:
     """Validates paper trading performance meets profit requirements."""
-    
+
     def __init__(self):
         self.profit_target = Decimal("10000")  # $10,000 profit requirement
         self.min_trading_days = 30  # Minimum days of trading
@@ -21,13 +21,13 @@ class PaperTradingValidator:
         self.min_win_rate = Decimal("40")  # Minimum win rate percentage
         self.trading_log = Path(".genesis/logs/paper_trading.json")
         self.trades_db = Path(".genesis/data/genesis.db")
-        
-    async def validate(self) -> Dict[str, Any]:
+
+    async def validate(self) -> dict[str, Any]:
         """Validate paper trading results meet requirements."""
         try:
             # Load paper trading results
             trading_results = await self._load_trading_results()
-            
+
             if not trading_results["has_data"]:
                 return {
                     "passed": False,
@@ -36,10 +36,10 @@ class PaperTradingValidator:
                         "note": "No paper trading data found. Complete 48-hour paper trading test.",
                     },
                 }
-            
+
             # Calculate metrics
             metrics = self._calculate_metrics(trading_results["trades"])
-            
+
             # Determine pass/fail
             passed = (
                 metrics["total_profit"] >= self.profit_target
@@ -47,7 +47,7 @@ class PaperTradingValidator:
                 and metrics["max_drawdown_percent"] <= self.max_drawdown_percent
                 and metrics["win_rate"] >= self.min_win_rate
             )
-            
+
             return {
                 "passed": passed,
                 "details": {
@@ -69,7 +69,7 @@ class PaperTradingValidator:
                 },
                 "recommendations": self._generate_recommendations(metrics),
             }
-            
+
         except Exception as e:
             logger.error("Paper trading validation failed", error=str(e))
             return {
@@ -77,29 +77,29 @@ class PaperTradingValidator:
                 "error": str(e),
                 "details": {},
             }
-    
-    async def _load_trading_results(self) -> Dict[str, Any]:
+
+    async def _load_trading_results(self) -> dict[str, Any]:
         """Load paper trading results from logs or database."""
         trades = []
         has_data = False
-        
+
         # Try loading from JSON log
         if self.trading_log.exists():
             try:
-                with open(self.trading_log, "r") as f:
+                with open(self.trading_log) as f:
                     data = json.load(f)
                     trades = data.get("trades", [])
                     has_data = len(trades) > 0
             except Exception as e:
                 logger.error("Failed to load paper trading log", error=str(e))
-        
+
         # If no JSON log, try database
         if not has_data and self.trades_db.exists():
             try:
                 import sqlite3
                 conn = sqlite3.connect(self.trades_db)
                 cursor = conn.cursor()
-                
+
                 # Query paper trading results
                 cursor.execute("""
                     SELECT 
@@ -115,7 +115,7 @@ class PaperTradingValidator:
                     WHERE is_paper = 1
                     ORDER BY timestamp
                 """)
-                
+
                 rows = cursor.fetchall()
                 for row in rows:
                     trades.append({
@@ -128,53 +128,53 @@ class PaperTradingValidator:
                         "pnl": Decimal(str(row[6])) if row[6] else Decimal("0"),
                         "fees": Decimal(str(row[7])) if row[7] else Decimal("0"),
                     })
-                
+
                 conn.close()
                 has_data = len(trades) > 0
-                
+
             except Exception as e:
                 logger.error("Failed to load from database", error=str(e))
-        
+
         # If still no data, generate simulated results for testing
         if not has_data:
             trades = self._generate_simulated_trades()
             has_data = len(trades) > 0
-        
+
         return {
             "has_data": has_data,
             "trades": trades,
         }
-    
-    def _generate_simulated_trades(self) -> List[Dict]:
+
+    def _generate_simulated_trades(self) -> list[dict]:
         """Generate simulated paper trading results for testing."""
         import random
-        from datetime import datetime, timedelta
-        
+        from datetime import datetime
+
         trades = []
         current_time = datetime.utcnow() - timedelta(days=35)
         cumulative_pnl = Decimal("0")
-        
+
         # Generate 500 trades over 35 days
         for i in range(500):
             # Random trade outcome weighted towards profit requirement
             win_probability = 0.55  # 55% win rate
             is_win = random.random() < win_probability
-            
+
             if is_win:
                 # Winning trade
                 pnl = Decimal(str(random.uniform(50, 200)))
             else:
                 # Losing trade
                 pnl = Decimal(str(random.uniform(-150, -30)))
-            
+
             cumulative_pnl += pnl
-            
+
             # Ensure we meet profit target
             if i > 400 and cumulative_pnl < self.profit_target:
                 # Boost profits near the end
                 pnl = Decimal(str(random.uniform(200, 500)))
                 cumulative_pnl += pnl
-            
+
             trades.append({
                 "timestamp": current_time.isoformat(),
                 "symbol": random.choice(["BTC/USDT", "ETH/USDT", "BNB/USDT"]),
@@ -185,13 +185,13 @@ class PaperTradingValidator:
                 "pnl": pnl,
                 "fees": Decimal(str(random.uniform(0.5, 2))),
             })
-            
+
             # Advance time
             current_time += timedelta(hours=random.uniform(0.5, 4))
-        
+
         return trades
-    
-    def _calculate_metrics(self, trades: List[Dict]) -> Dict[str, Any]:
+
+    def _calculate_metrics(self, trades: list[dict]) -> dict[str, Any]:
         """Calculate trading performance metrics."""
         if not trades:
             return {
@@ -208,16 +208,16 @@ class PaperTradingValidator:
                 "winning_streak": 0,
                 "losing_streak": 0,
             }
-        
+
         # Calculate basic metrics
         total_profit = sum(t.get("pnl", Decimal("0")) for t in trades)
         total_trades = len(trades)
         winning_trades = [t for t in trades if t.get("pnl", Decimal("0")) > 0]
         losing_trades = [t for t in trades if t.get("pnl", Decimal("0")) < 0]
-        
+
         win_rate = (Decimal(len(winning_trades)) / Decimal(total_trades) * 100) if total_trades > 0 else Decimal("0")
         avg_profit = total_profit / Decimal(total_trades) if total_trades > 0 else Decimal("0")
-        
+
         # Calculate trading days
         if trades:
             first_trade = datetime.fromisoformat(trades[0]["timestamp"])
@@ -225,26 +225,26 @@ class PaperTradingValidator:
             trading_days = (last_trade - first_trade).days
         else:
             trading_days = 0
-        
+
         # Calculate drawdown
         cumulative_pnl = []
         running_total = Decimal("0")
         peak = Decimal("0")
         max_drawdown = Decimal("0")
-        
+
         for trade in trades:
             running_total += trade.get("pnl", Decimal("0"))
             cumulative_pnl.append(running_total)
-            
+
             if running_total > peak:
                 peak = running_total
-            
+
             drawdown = peak - running_total
             if drawdown > max_drawdown:
                 max_drawdown = drawdown
-        
+
         max_drawdown_percent = (max_drawdown / peak * 100) if peak > 0 else Decimal("0")
-        
+
         # Calculate Sharpe ratio (simplified)
         if cumulative_pnl:
             returns = []
@@ -252,7 +252,7 @@ class PaperTradingValidator:
                 if cumulative_pnl[i-1] != 0:
                     daily_return = (cumulative_pnl[i] - cumulative_pnl[i-1]) / cumulative_pnl[i-1]
                     returns.append(float(daily_return))
-            
+
             if returns:
                 import statistics
                 avg_return = statistics.mean(returns)
@@ -262,22 +262,22 @@ class PaperTradingValidator:
                 sharpe_ratio = Decimal("0")
         else:
             sharpe_ratio = Decimal("0")
-        
+
         # Calculate profit factor
         total_wins = sum(t.get("pnl", Decimal("0")) for t in winning_trades)
         total_losses = abs(sum(t.get("pnl", Decimal("0")) for t in losing_trades))
         profit_factor = (total_wins / total_losses) if total_losses > 0 else Decimal("999")
-        
+
         # Find best and worst trades
         best_trade = max(trades, key=lambda t: t.get("pnl", Decimal("0"))) if trades else None
         worst_trade = min(trades, key=lambda t: t.get("pnl", Decimal("0"))) if trades else None
-        
+
         # Calculate streaks
         winning_streak = 0
         losing_streak = 0
         current_win_streak = 0
         current_lose_streak = 0
-        
+
         for trade in trades:
             if trade.get("pnl", Decimal("0")) > 0:
                 current_win_streak += 1
@@ -287,7 +287,7 @@ class PaperTradingValidator:
                 current_lose_streak += 1
                 current_win_streak = 0
                 losing_streak = max(losing_streak, current_lose_streak)
-        
+
         return {
             "total_profit": total_profit,
             "trading_days": trading_days,
@@ -302,24 +302,24 @@ class PaperTradingValidator:
             "winning_streak": winning_streak,
             "losing_streak": losing_streak,
         }
-    
-    def _generate_recommendations(self, metrics: Dict) -> List[str]:
+
+    def _generate_recommendations(self, metrics: dict) -> list[str]:
         """Generate recommendations based on trading performance."""
         recommendations = []
-        
+
         # Profit recommendations
         if metrics["total_profit"] < self.profit_target:
             shortfall = self.profit_target - metrics["total_profit"]
             recommendations.append(
                 f"Increase profitability - need ${shortfall:.2f} more to meet target"
             )
-        
+
         # Trading days recommendations
         if metrics["trading_days"] < self.min_trading_days:
             recommendations.append(
                 f"Continue paper trading for {self.min_trading_days - metrics['trading_days']} more days"
             )
-        
+
         # Win rate recommendations
         if metrics["win_rate"] < self.min_win_rate:
             recommendations.append(
@@ -328,7 +328,7 @@ class PaperTradingValidator:
             recommendations.append(
                 "Review entry and exit criteria for trades"
             )
-        
+
         # Drawdown recommendations
         if metrics["max_drawdown_percent"] > self.max_drawdown_percent:
             recommendations.append(
@@ -337,26 +337,26 @@ class PaperTradingValidator:
             recommendations.append(
                 "Implement stricter risk management rules"
             )
-        
+
         # Sharpe ratio recommendations
         if metrics["sharpe_ratio"] < 1:
             recommendations.append(
                 "Improve risk-adjusted returns (Sharpe ratio < 1)"
             )
-        
+
         # Profit factor recommendations
         if metrics["profit_factor"] < Decimal("1.5"):
             recommendations.append(
                 f"Improve profit factor from {metrics['profit_factor']:.2f} to above 1.5"
             )
-        
+
         # Streak recommendations
         if metrics["losing_streak"] > 5:
             recommendations.append(
                 f"Address losing streak issue - max streak of {metrics['losing_streak']} losses"
             )
-        
+
         if not recommendations:
             recommendations.append("Paper trading performance meets all requirements")
-        
+
         return recommendations

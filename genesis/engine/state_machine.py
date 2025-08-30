@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 
@@ -122,7 +122,7 @@ class TierStateMachine:
     """Manages tier transitions and progression."""
 
     def __init__(
-        self, session: Optional[Session] = None, event_bus: Optional[EventBus] = None
+        self, session: Session | None = None, event_bus: EventBus | None = None
     ):
         """Initialize tier state machine.
 

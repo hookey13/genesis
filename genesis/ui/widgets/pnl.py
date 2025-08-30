@@ -13,7 +13,7 @@ class PnLWidget(Static):
     current_pnl = reactive(Decimal("0.00"))
     daily_pnl = reactive(Decimal("0.00"))
     daily_pnl_pct = reactive(Decimal("0.00"))
-    
+
     # Additional metrics for paper trading
     realized_pnl = reactive(Decimal("0.00"))
     unrealized_pnl = reactive(Decimal("0.00"))
@@ -66,7 +66,7 @@ class PnLWidget(Static):
             f"[bold]Daily P&L:[/bold] [{daily_color}]{daily_str} ({daily_pct_str})[/{daily_color}]",
             "",
         ]
-        
+
         # Add trading metrics if available
         if self.total_trades > 0:
             win_rate_color = "green" if self.win_rate >= 50 else "grey50"
@@ -75,7 +75,7 @@ class PnLWidget(Static):
                 f"[dim]Total Trades: {self.total_trades}[/dim]",
                 "",
             ])
-        
+
         lines.append(f"[dim]Account Balance: ${self.account_balance:,.2f}[/dim]")
 
         return "\n".join(lines)

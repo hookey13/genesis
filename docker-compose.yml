@@ -1,0 +1,196 @@
+version: '3.8'
+
+services:
+  genesis:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        TIER: ${TIER:-sniper}
+    image: genesis:latest
+    container_name: genesis-trading
+    restart: unless-stopped
+    environment:
+      - GENESIS_ENV=production
+      - TIER=${TIER:-sniper}
+      - BINANCE_API_KEY=${BINANCE_API_KEY}
+      - BINANCE_API_SECRET=${BINANCE_API_SECRET}
+      - BINANCE_TESTNET=${BINANCE_TESTNET:-true}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/.genesis/data/genesis.db}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - TILT_ENABLED=${TILT_ENABLED:-true}
+      - MAX_POSITION_SIZE_USDT=${MAX_POSITION_SIZE_USDT:-100.0}
+      - MAX_DAILY_LOSS_USDT=${MAX_DAILY_LOSS_USDT:-50.0}
+    volumes:
+      - genesis-data:/app/.genesis/data
+      - genesis-logs:/app/.genesis/logs
+      - genesis-state:/app/.genesis/state
+      - ./config:/app/config:ro
+    ports:
+      - "9090:9090"  # Prometheus metrics
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import genesis; print('healthy')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+
+  genesis-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        TIER: ${TIER:-sniper}
+    image: genesis:dev
+    container_name: genesis-trading-dev
+    environment:
+      - GENESIS_ENV=development
+      - TIER=${TIER:-sniper}
+      - BINANCE_API_KEY=${BINANCE_API_KEY}
+      - BINANCE_API_SECRET=${BINANCE_API_SECRET}
+      - BINANCE_TESTNET=true
+      - DATABASE_URL=sqlite:////app/.genesis/data/genesis_dev.db
+      - LOG_LEVEL=DEBUG
+      - DEV_MODE=true
+    volumes:
+      - ./genesis:/app/genesis:ro
+      - ./tests:/app/tests:ro
+      - ./config:/app/config:ro
+      - ./scripts:/app/scripts:ro
+      - genesis-dev-data:/app/.genesis/data
+      - genesis-dev-logs:/app/.genesis/logs
+    ports:
+      - "9091:9090"  # Prometheus metrics (dev)
+      - "8888:8888"  # Jupyter notebook (if needed)
+    networks:
+      - genesis-network
+    profiles:
+      - dev
+    command: ["python", "-m", "genesis", "--dev-mode", "--reload"]
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: genesis-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=genesis
+      - POSTGRES_USER=genesis
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-genesis_secure_password}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - genesis-network
+    profiles:
+      - postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genesis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: genesis-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - genesis-network
+    profiles:
+      - redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: genesis-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9092:9090"
+    networks:
+      - genesis-network
+    profiles:
+      - monitoring
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: genesis-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=redis-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - genesis-network
+    profiles:
+      - monitoring
+    depends_on:
+      - prometheus
+
+networks:
+  genesis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  genesis-data:
+    driver: local
+  genesis-logs:
+    driver: local
+  genesis-state:
+    driver: local
+  genesis-dev-data:
+    driver: local
+  genesis-dev-logs:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

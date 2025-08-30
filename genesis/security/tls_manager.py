@@ -6,26 +6,26 @@ for TLS 1.3 encrypted communication between internal services.
 
 import os
 import ssl
-import socket
-from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Optional, Tuple, Dict, Any
+from pathlib import Path
+from typing import Any
+
 import structlog
 from cryptography import x509
-from cryptography.x509.oid import NameOID, ExtensionOID
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.backends import default_backend
+from cryptography.x509.oid import NameOID
 
-from genesis.security.vault_client import VaultClient
 from genesis.config.settings import settings
+from genesis.security.vault_client import VaultClient
 
 logger = structlog.get_logger(__name__)
 
 
 class TLSManager:
     """Manages TLS certificates for internal communication."""
-    
+
     # TLS configuration
     TLS_VERSION = ssl.TLSVersion.TLSv1_3
     CIPHER_SUITES = [
@@ -33,10 +33,10 @@ class TLSManager:
         'TLS_CHACHA20_POLY1305_SHA256',
         'TLS_AES_128_GCM_SHA256'
     ]
-    
+
     def __init__(
         self,
-        vault_client: Optional[VaultClient] = None,
+        vault_client: VaultClient | None = None,
         cert_dir: str = ".genesis/certs",
         validity_days: int = 90,
         auto_renewal_days: int = 30
@@ -54,7 +54,7 @@ class TLSManager:
         self.cert_dir.mkdir(parents=True, exist_ok=True)
         self.validity_days = validity_days
         self.auto_renewal_days = auto_renewal_days
-        
+
         # Certificate paths
         self.ca_cert_path = self.cert_dir / "ca.crt"
         self.ca_key_path = self.cert_dir / "ca.key"
@@ -62,8 +62,8 @@ class TLSManager:
         self.server_key_path = self.cert_dir / "server.key"
         self.client_cert_path = self.cert_dir / "client.crt"
         self.client_key_path = self.cert_dir / "client.key"
-    
-    def generate_ca_certificate(self) -> Tuple[x509.Certificate, rsa.RSAPrivateKey]:
+
+    def generate_ca_certificate(self) -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
         """Generate a Certificate Authority certificate.
         
         Returns:
@@ -75,7 +75,7 @@ class TLSManager:
             key_size=4096,
             backend=default_backend()
         )
-        
+
         # Certificate details
         subject = issuer = x509.Name([
             x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
@@ -84,7 +84,7 @@ class TLSManager:
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Project GENESIS"),
             x509.NameAttribute(NameOID.COMMON_NAME, "GENESIS Internal CA"),
         ])
-        
+
         # Generate certificate
         cert = x509.CertificateBuilder().subject_name(
             subject
@@ -115,25 +115,25 @@ class TLSManager:
             ),
             critical=True
         ).sign(private_key, hashes.SHA256(), backend=default_backend())
-        
+
         # Save CA certificate and key
         self._save_certificate(cert, self.ca_cert_path)
         self._save_private_key(private_key, self.ca_key_path)
-        
+
         # Store in Vault
         self._store_in_vault("ca", cert, private_key)
-        
+
         logger.info("Generated CA certificate",
                    subject=subject.rfc4514_string(),
                    valid_until=cert.not_valid_after)
-        
+
         return cert, private_key
-    
+
     def generate_server_certificate(
         self,
         hostname: str = "localhost",
-        ip_addresses: Optional[list] = None
-    ) -> Tuple[x509.Certificate, rsa.RSAPrivateKey]:
+        ip_addresses: list | None = None
+    ) -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
         """Generate a server certificate signed by CA.
         
         Args:
@@ -145,14 +145,14 @@ class TLSManager:
         """
         # Load CA certificate and key
         ca_cert, ca_key = self._load_ca()
-        
+
         # Generate private key
         private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
             backend=default_backend()
         )
-        
+
         # Certificate details
         subject = x509.Name([
             x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
@@ -161,7 +161,7 @@ class TLSManager:
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Project GENESIS"),
             x509.NameAttribute(NameOID.COMMON_NAME, hostname),
         ])
-        
+
         # Build certificate
         builder = x509.CertificateBuilder().subject_name(
             subject
@@ -176,18 +176,18 @@ class TLSManager:
         ).not_valid_after(
             datetime.utcnow() + timedelta(days=self.validity_days)
         )
-        
+
         # Add SAN extension
         san_list = [x509.DNSName(hostname)]
         if ip_addresses:
             for ip in ip_addresses:
                 san_list.append(x509.IPAddress(ipaddress.ip_address(ip)))
-        
+
         builder = builder.add_extension(
             x509.SubjectAlternativeName(san_list),
             critical=False
         )
-        
+
         # Add key usage extensions
         builder = builder.add_extension(
             x509.KeyUsage(
@@ -208,27 +208,27 @@ class TLSManager:
             ]),
             critical=True
         )
-        
+
         # Sign with CA key
         cert = builder.sign(ca_key, hashes.SHA256(), backend=default_backend())
-        
+
         # Save server certificate and key
         self._save_certificate(cert, self.server_cert_path)
         self._save_private_key(private_key, self.server_key_path)
-        
+
         # Store in Vault
         self._store_in_vault("server", cert, private_key)
-        
+
         logger.info("Generated server certificate",
                    hostname=hostname,
                    valid_until=cert.not_valid_after)
-        
+
         return cert, private_key
-    
+
     def generate_client_certificate(
         self,
         client_name: str = "genesis-client"
-    ) -> Tuple[x509.Certificate, rsa.RSAPrivateKey]:
+    ) -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
         """Generate a client certificate for mutual TLS.
         
         Args:
@@ -239,14 +239,14 @@ class TLSManager:
         """
         # Load CA certificate and key
         ca_cert, ca_key = self._load_ca()
-        
+
         # Generate private key
         private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
             backend=default_backend()
         )
-        
+
         # Certificate details
         subject = x509.Name([
             x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
@@ -255,7 +255,7 @@ class TLSManager:
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Project GENESIS"),
             x509.NameAttribute(NameOID.COMMON_NAME, client_name),
         ])
-        
+
         # Build certificate
         cert = x509.CertificateBuilder().subject_name(
             subject
@@ -288,20 +288,20 @@ class TLSManager:
             ]),
             critical=True
         ).sign(ca_key, hashes.SHA256(), backend=default_backend())
-        
+
         # Save client certificate and key
         self._save_certificate(cert, self.client_cert_path)
         self._save_private_key(private_key, self.client_key_path)
-        
+
         # Store in Vault
         self._store_in_vault("client", cert, private_key)
-        
+
         logger.info("Generated client certificate",
                    client_name=client_name,
                    valid_until=cert.not_valid_after)
-        
+
         return cert, private_key
-    
+
     def create_ssl_context(
         self,
         purpose: ssl.Purpose = ssl.Purpose.CLIENT_AUTH,
@@ -322,17 +322,17 @@ class TLSManager:
         context = ssl.create_default_context(purpose)
         context.minimum_version = ssl.TLSVersion.TLSv1_3
         context.maximum_version = ssl.TLSVersion.TLSv1_3
-        
+
         # Set cipher suites (TLS 1.3 uses different configuration)
         # context.set_ciphers(':'.join(self.CIPHER_SUITES))
-        
+
         # Load CA certificate
         context.load_verify_locations(str(self.ca_cert_path))
-        
+
         # Configure verification
         context.verify_mode = verify_mode
         context.check_hostname = check_hostname
-        
+
         # Load appropriate certificate
         if purpose == ssl.Purpose.CLIENT_AUTH:
             # Server context
@@ -347,14 +347,14 @@ class TLSManager:
                     str(self.client_cert_path),
                     str(self.client_key_path)
                 )
-        
+
         logger.info("Created SSL context",
                    purpose=purpose.name,
                    verify_mode=verify_mode.name)
-        
+
         return context
-    
-    def verify_certificate(self, cert_path: Path) -> Dict[str, Any]:
+
+    def verify_certificate(self, cert_path: Path) -> dict[str, Any]:
         """Verify a certificate.
         
         Args:
@@ -367,22 +367,22 @@ class TLSManager:
             # Load certificate
             with open(cert_path, 'rb') as f:
                 cert_data = f.read()
-            
+
             cert = x509.load_pem_x509_certificate(cert_data, default_backend())
-            
+
             # Check expiration
             now = datetime.utcnow()
             is_expired = now > cert.not_valid_after
             is_not_yet_valid = now < cert.not_valid_before
             days_until_expiry = (cert.not_valid_after - now).days
-            
+
             # Get subject and issuer
             subject = cert.subject.rfc4514_string()
             issuer = cert.issuer.rfc4514_string()
-            
+
             # Check if self-signed
             is_self_signed = subject == issuer
-            
+
             return {
                 "valid": not is_expired and not is_not_yet_valid,
                 "expired": is_expired,
@@ -396,7 +396,7 @@ class TLSManager:
                 "is_self_signed": is_self_signed,
                 "needs_renewal": days_until_expiry <= self.auto_renewal_days
             }
-            
+
         except Exception as e:
             logger.error("Failed to verify certificate",
                         path=str(cert_path),
@@ -405,7 +405,7 @@ class TLSManager:
                 "valid": False,
                 "error": str(e)
             }
-    
+
     def rotate_certificates(self) -> bool:
         """Rotate all certificates that are near expiry.
         
@@ -413,7 +413,7 @@ class TLSManager:
             True if any certificates were rotated
         """
         rotated = False
-        
+
         # Check server certificate
         if self.server_cert_path.exists():
             info = self.verify_certificate(self.server_cert_path)
@@ -422,7 +422,7 @@ class TLSManager:
                            days_until_expiry=info.get("days_until_expiry"))
                 self.generate_server_certificate()
                 rotated = True
-        
+
         # Check client certificate
         if self.client_cert_path.exists():
             info = self.verify_certificate(self.client_cert_path)
@@ -431,10 +431,10 @@ class TLSManager:
                            days_until_expiry=info.get("days_until_expiry"))
                 self.generate_client_certificate()
                 rotated = True
-        
+
         return rotated
-    
-    def _load_ca(self) -> Tuple[x509.Certificate, rsa.RSAPrivateKey]:
+
+    def _load_ca(self) -> tuple[x509.Certificate, rsa.RSAPrivateKey]:
         """Load CA certificate and key.
         
         Returns:
@@ -442,7 +442,7 @@ class TLSManager:
         """
         # Try to load from Vault first
         cert_data = self.vault_client.get_tls_certificates()
-        
+
         if cert_data and "ca_cert" in cert_data and "ca_key" in cert_data:
             cert = x509.load_pem_x509_certificate(
                 cert_data["ca_cert"].encode(),
@@ -454,24 +454,24 @@ class TLSManager:
                 backend=default_backend()
             )
             return cert, key
-        
+
         # Load from files
         if not self.ca_cert_path.exists() or not self.ca_key_path.exists():
             # Generate new CA
             return self.generate_ca_certificate()
-        
+
         with open(self.ca_cert_path, 'rb') as f:
             cert = x509.load_pem_x509_certificate(f.read(), default_backend())
-        
+
         with open(self.ca_key_path, 'rb') as f:
             key = serialization.load_pem_private_key(
                 f.read(),
                 password=None,
                 backend=default_backend()
             )
-        
+
         return cert, key
-    
+
     def _save_certificate(self, cert: x509.Certificate, path: Path):
         """Save certificate to file.
         
@@ -481,10 +481,10 @@ class TLSManager:
         """
         with open(path, 'wb') as f:
             f.write(cert.public_bytes(serialization.Encoding.PEM))
-        
+
         # Set restrictive permissions
         os.chmod(path, 0o644)
-    
+
     def _save_private_key(self, key: rsa.RSAPrivateKey, path: Path):
         """Save private key to file.
         
@@ -498,10 +498,10 @@ class TLSManager:
                 format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption()
             ))
-        
+
         # Set restrictive permissions
         os.chmod(path, 0o600)
-    
+
     def _store_in_vault(
         self,
         cert_type: str,
@@ -521,19 +521,19 @@ class TLSManager:
             format=serialization.PrivateFormat.TraditionalOpenSSL,
             encryption_algorithm=serialization.NoEncryption()
         ).decode()
-        
+
         data = {
             f"{cert_type}_cert": cert_pem,
             f"{cert_type}_key": key_pem,
             "created_at": datetime.utcnow().isoformat(),
             "valid_until": cert.not_valid_after.isoformat()
         }
-        
+
         success = self.vault_client.store_secret(
             VaultClient.TLS_CERTIFICATES_PATH,
             data
         )
-        
+
         if success:
             logger.info("Stored certificate in Vault", cert_type=cert_type)
         else:

@@ -1,0 +1,120 @@
+# Dependabot configuration for automated dependency updates
+# https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # Python dependencies (pip)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    target-branch: "develop"
+    labels:
+      - "dependencies"
+      - "automated"
+      - "python"
+    reviewers:
+      - "hookey13"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    pull-request-branch-name:
+      separator: "-"
+    allow:
+      # Only allow updates to direct dependencies
+      - dependency-type: "direct"
+    ignore:
+      # Don't update Python itself
+      - dependency-name: "python"
+      # Pin critical trading libraries to avoid breaking changes
+      - dependency-name: "ccxt"
+        versions: [">4.4.0"]
+      # Keep specific versions for stability
+      - dependency-name: "structlog"
+        versions: [">24.1.0"]
+    groups:
+      # Group dev dependencies together
+      dev-dependencies:
+        patterns:
+          - "pytest*"
+          - "black"
+          - "ruff"
+          - "mypy"
+          - "pre-commit"
+        update-types:
+          - "minor"
+          - "patch"
+      # Group typing dependencies
+      typing:
+        patterns:
+          - "types-*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "03:00"
+    open-pull-requests-limit: 3
+    target-branch: "develop"
+    labels:
+      - "dependencies"
+      - "automated"
+      - "ci/cd"
+    reviewers:
+      - "hookey13"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 2
+    target-branch: "develop"
+    labels:
+      - "dependencies"
+      - "automated"
+      - "docker"
+    reviewers:
+      - "hookey13"
+    commit-message:
+      prefix: "build"
+      include: "scope"
+
+  # Poetry dependencies (if using Poetry)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    target-branch: "develop"
+    labels:
+      - "dependencies"
+      - "automated"
+      - "poetry"
+    reviewers:
+      - "hookey13"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # Use Poetry lock file if it exists
+    insecure-external-code-execution: "deny"
+    registries: "*"
+    versioning-strategy: "increase"
+
+# Security updates get priority
+security-updates:
+  open-pull-requests-limit: 10

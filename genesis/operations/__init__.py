@@ -5,15 +5,15 @@ Automated maintenance and operational components for the Genesis trading system.
 Provides self-healing, optimization, and maintenance capabilities.
 """
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
-__all__: List[str] = [
-    "LogArchiver",
-    "DBOptimizer", 
+__all__: list[str] = [
     "CertManager",
-    "PerformanceBaseline",
     "CorrelationUpdater",
-    "StrategyOptimizer",
+    "DBOptimizer",
     "DependencyUpdater",
     "HealthMonitor",
+    "LogArchiver",
+    "PerformanceBaseline",
+    "StrategyOptimizer",
 ]
