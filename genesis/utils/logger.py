@@ -38,6 +38,7 @@ class LoggerType(str, Enum):
     AUDIT = "audit"
     TILT = "tilt"
     SYSTEM = "system"
+    COMPLIANCE = "compliance"
 
 
 # Sensitive field names to redact in logs
@@ -167,6 +168,7 @@ def setup_logging(
         "audit": log_dir / "audit.log",
         "tilt": log_dir / "tilt.log",
         "system": log_dir / "system.log",
+        "compliance": log_dir / "compliance.log",
     }
 
     for log_type, log_file in log_files.items():

@@ -281,6 +281,9 @@ class Order(BaseModel):
     maker_fee_paid: Decimal | None = None
     taker_fee_paid: Decimal | None = None
     execution_score: float | None = None
+    # Tax lot tracking
+    lot_assignments: list[dict] | None = None  # List of {lot_id, quantity, cost_basis}
+    tax_lot_id: str | None = None  # For buy orders that create new lots
 
     @field_validator(
         "price",

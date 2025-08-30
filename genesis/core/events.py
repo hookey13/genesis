@@ -48,6 +48,15 @@ class EventType(str, Enum):
 
     # Tilt Events
     TILT_WARNING = "tilt_warning"
+    
+    # Audit Events
+    AUDIT_LOG_CREATED = "audit_log_created"
+    AUDIT_VERIFICATION_PASSED = "audit_verification_passed"
+    AUDIT_VERIFICATION_FAILED = "audit_verification_failed"
+    COMPLIANCE_EVENT = "compliance_event"
+    DATA_RETENTION_EXECUTED = "data_retention_executed"
+    DATA_EXPORT_REQUESTED = "data_export_requested"
+    DATA_DELETION_REQUESTED = "data_deletion_requested"
     TILT_DETECTED = "tilt_detected"
     TILT_RECOVERY = "tilt_recovery"
     TILT_LEVEL1_DETECTED = "tilt_level1_detected"  # Yellow border warning
