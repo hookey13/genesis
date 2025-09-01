@@ -27,3 +27,9 @@ ipdb==0.13.13
 # Documentation
 sphinx==7.2.6
 sphinx-rtd-theme==2.0.0
+
+# Code quality analysis
+radon==6.0.1  # Code complexity analysis
+pylint==3.0.3  # Code analysis and duplication detection
+memory-profiler==0.61.0  # Memory profiling
+locust==2.20.0  # Load testing for performance validation

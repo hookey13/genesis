@@ -36,12 +36,13 @@ services:
       - genesis-network
     ports:
       - "8000:8000"  # API port
+      - "9090:9090"  # Prometheus metrics port
     restart: unless-stopped
     stdin_open: true
     tty: true
     command: python -m genesis
     healthcheck:
-      test: ["CMD", "python", "-m", "genesis.api.health", "basic"]
+      test: ["CMD", "python", "-m", "genesis.cli", "doctor"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -59,6 +60,31 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Supervisor for process management
+  supervisor:
+    image: genesis-trading:dev
+    container_name: genesis-supervisor
+    depends_on:
+      - genesis
+    environment:
+      - DEPLOYMENT_ENV=development
+      - SUPERVISOR_MODE=true
+    env_file:
+      - ../.env
+    volumes:
+      - ../docker/supervisord.conf:/etc/supervisor/conf.d/genesis.conf:ro
+      - genesis-logs:/app/.genesis/logs
+      - genesis-state:/app/.genesis/state
+    networks:
+      - genesis-network
+    restart: unless-stopped
+    command: ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/genesis.conf"]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
 
   # Optional: Redis for future Hunter+ tier
   # Uncomment when needed

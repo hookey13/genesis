@@ -1,13 +1,19 @@
-"""P&L display widget for Genesis trading terminal."""
+"""P&L display widget for Genesis trading terminal with historical charts."""
 
+from collections import deque
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from rich.console import RenderableType
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
 from textual.reactive import reactive
 from textual.widgets import Static
 
 
 class PnLWidget(Static):
-    """Widget for displaying P&L information with color coding."""
+    """Widget for displaying P&L information with color coding and historical charts."""
 
     # Reactive values that trigger updates
     current_pnl = reactive(Decimal("0.00"))
@@ -20,6 +26,11 @@ class PnLWidget(Static):
     win_rate = reactive(Decimal("0.00"))
     total_trades = reactive(0)
     paper_trading_mode = reactive(False)
+    
+    # Historical data for charts
+    pnl_history = reactive(list)
+    max_drawdown = reactive(Decimal("0.00"))
+    sharpe_ratio = reactive(Decimal("0.00"))
 
     DEFAULT_CSS = """
     PnLWidget {
@@ -32,6 +43,10 @@ class PnLWidget(Static):
         """Initialize the P&L widget."""
         super().__init__("Loading P&L...", **kwargs)
         self.account_balance = Decimal("0.00")
+        # Initialize historical data storage (last 24 hours of 5-min intervals)
+        self.pnl_data_points = deque(maxlen=288)  # 24h * 12 intervals per hour
+        self.hourly_pnl = deque(maxlen=24)  # Last 24 hours
+        self.daily_pnl_history = deque(maxlen=30)  # Last 30 days
 
     def render(self) -> str:
         """Render the P&L display."""
@@ -77,6 +92,19 @@ class PnLWidget(Static):
             ])
 
         lines.append(f"[dim]Account Balance: ${self.account_balance:,.2f}[/dim]")
+        
+        # Add historical chart if data available
+        if self.pnl_data_points:
+            lines.extend(["", self._render_pnl_chart()])
+            
+        # Add max drawdown and sharpe ratio
+        if self.max_drawdown != 0 or self.sharpe_ratio != 0:
+            lines.extend([
+                "",
+                f"[bold]Risk Metrics:[/bold]",
+                f"Max Drawdown: {self.max_drawdown:.2f}%",
+                f"Sharpe Ratio: {self.sharpe_ratio:.2f}",
+            ])
 
         return "\n".join(lines)
 
@@ -98,6 +126,104 @@ class PnLWidget(Static):
         """React to daily P&L percentage changes."""
         self.update(self.render())
 
+    def _render_pnl_chart(self) -> str:
+        """Render a simple ASCII chart of P&L history."""
+        if not self.pnl_data_points:
+            return "[dim]No historical data available[/dim]"
+            
+        # Create a simple sparkline chart
+        values = list(self.pnl_data_points)
+        if not values:
+            return ""
+            
+        # Find min and max for scaling
+        min_val = min(values)
+        max_val = max(values)
+        
+        if min_val == max_val:
+            # All values are the same
+            return f"[dim]P&L Chart: ─{'─' * 20}─ ${min_val:,.2f}[/dim]"
+            
+        # Create sparkline using block characters
+        blocks = "▁▂▃▄▅▆▇█"
+        chart_width = min(40, len(values))
+        
+        # Sample values if too many
+        if len(values) > chart_width:
+            step = len(values) // chart_width
+            sampled_values = values[::step][:chart_width]
+        else:
+            sampled_values = values
+            
+        # Scale values to 0-7 range for block characters
+        scaled = []
+        range_val = max_val - min_val
+        for val in sampled_values:
+            if range_val > 0:
+                normalized = (val - min_val) / range_val
+                index = min(7, int(normalized * 8))
+                scaled.append(blocks[index])
+            else:
+                scaled.append(blocks[0])
+                
+        chart = "".join(scaled)
+        
+        # Color based on trend
+        if values[-1] > values[0]:
+            color = "green"
+        else:
+            color = "grey50"
+            
+        return f"[{color}]P&L Trend: {chart}[/{color}] [dim](24h)[/dim]"
+    
+    def add_pnl_data_point(self, value: Decimal, timestamp=None) -> None:  # Optional[datetime]
+        """Add a P&L data point to history.
+        
+        Args:
+            value: P&L value to add
+            timestamp: Optional timestamp (defaults to now)
+        """
+        if timestamp is None:
+            timestamp = datetime.now(UTC)
+            
+        self.pnl_data_points.append(value)
+        
+        # Update hourly aggregation
+        current_hour = timestamp.replace(minute=0, second=0, microsecond=0)
+        if not self.hourly_pnl or self.hourly_pnl[-1][0] != current_hour:
+            self.hourly_pnl.append((current_hour, value))
+        else:
+            # Update the last hour's value
+            self.hourly_pnl[-1] = (current_hour, value)
+    
+    def calculate_risk_metrics(self) -> None:
+        """Calculate max drawdown and Sharpe ratio from historical data."""
+        if not self.pnl_data_points or len(self.pnl_data_points) < 2:
+            return
+            
+        values = list(self.pnl_data_points)
+        
+        # Calculate max drawdown
+        peak = values[0]
+        max_dd = Decimal("0")
+        for value in values:
+            if value > peak:
+                peak = value
+            drawdown = (peak - value) / peak * 100 if peak != 0 else Decimal("0")
+            max_dd = max(max_dd, drawdown)
+        self.max_drawdown = max_dd
+        
+        # Calculate simple Sharpe ratio (assuming risk-free rate = 0)
+        if len(values) > 1:
+            returns = [(values[i] - values[i-1]) / values[i-1] if values[i-1] != 0 else Decimal("0") 
+                      for i in range(1, len(values))]
+            if returns:
+                avg_return = sum(returns) / len(returns)
+                if len(returns) > 1:
+                    variance = sum((r - avg_return) ** 2 for r in returns) / (len(returns) - 1)
+                    std_dev = variance ** Decimal("0.5")
+                    self.sharpe_ratio = (avg_return / std_dev * Decimal("15.87")) if std_dev != 0 else Decimal("0")  # Annualized (√252)
+
     def set_mock_data(self, current: Decimal, daily: Decimal, balance: Decimal) -> None:
         """Set mock data for testing."""
         self.current_pnl = current
@@ -109,3 +235,7 @@ class PnLWidget(Static):
             self.daily_pnl_pct = (daily / balance) * 100
         else:
             self.daily_pnl_pct = Decimal("0.00")
+            
+        # Add to history
+        self.add_pnl_data_point(current)
+        self.calculate_risk_metrics()

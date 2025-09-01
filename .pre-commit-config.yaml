@@ -57,12 +57,26 @@ repos:
         args: [-r, genesis/, -ll]
         exclude: ^tests/
 
-  # Check for secrets
+  # Check for secrets - Enhanced configuration
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.4.0
     hooks:
       - id: detect-secrets
-        args: [--baseline, .secrets.baseline]
+        args: ['--baseline', '.secrets.baseline', '--exclude-files', '.*\.lock$|.*\.pyc$|tests/.*']
+        exclude: |
+          (?x)^(
+            .*\.lock$|
+            .*\.min\.js$|
+            .*\.pyc$|
+            \.secrets\.baseline$
+          )$
+  
+  # Gitleaks - Additional secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.1
+    hooks:
+      - id: gitleaks
+        args: ['detect', '--verbose', '--redact']
 
   # YAML validation
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -102,6 +116,21 @@ repos:
   # Custom Genesis checks
   - repo: local
     hooks:
+      - id: genesis-secret-scanner
+        name: Genesis-specific secret scanning
+        entry: python scripts/check_genesis_secrets.py
+        language: system
+        pass_filenames: true
+        types: [text]
+        exclude: |
+          (?x)^(
+            \.pre-commit-config\.yaml$|
+            \.gitleaks\.toml$|
+            \.secrets\.baseline$|
+            tests/.*|
+            docs/.*
+          )$
+      
       - id: check-tier-requirements
         name: Check tier requirements consistency
         entry: python scripts/validate_tiers.py
@@ -128,6 +157,62 @@ repos:
         language: pygrep
         types: [python]
         exclude: ^tests/
+      
+      - id: genesis-api-keys
+        name: Check for Genesis API key patterns
+        entry: "(?i)(api[_-]?key|api[_-]?secret|private[_-]?key|secret[_-]?key|access[_-]?token)"
+        language: pygrep
+        types: [python, yaml, json]
+        exclude: |
+          (?x)^(
+            tests/.*|
+            \.pre-commit-config\.yaml$|
+            genesis/security/.*|
+            docs/.*
+          )$
+      
+      - id: binance-credentials
+        name: Check for Binance-specific credentials
+        entry: "(?i)(binance).*(key|secret|token)"
+        language: pygrep
+        types: [python, yaml, json, text]
+        exclude: |
+          (?x)^(
+            docs/.*|
+            tests/.*|
+            genesis/security/.*|
+            \.pre-commit-config\.yaml$|
+            \.env\.example$
+          )$
+      
+      - id: vault-tokens
+        name: Check for Vault tokens
+        entry: "(?i)(vault[_-]?token|VAULT_TOKEN)"
+        language: pygrep
+        types: [python, yaml, json, text]
+        exclude: |
+          (?x)^(
+            docs/.*|
+            tests/.*|
+            genesis/security/.*|
+            \.pre-commit-config\.yaml$|
+            \.env\.example$
+          )$
+      
+      - id: encryption-keys
+        name: Check for encryption keys
+        entry: "(?i)(encryption[_-]?key|DATABASE_ENCRYPTION_KEY|BACKUP_ENCRYPTION_KEY)"
+        language: pygrep
+        types: [python, yaml, json, text]
+        exclude: |
+          (?x)^(
+            docs/.*|
+            tests/.*|
+            genesis/security/.*|
+            genesis/data/encrypted_database\.py$|
+            \.pre-commit-config\.yaml$|
+            \.env\.example$
+          )$
 
 ci:
   autofix_prs: true

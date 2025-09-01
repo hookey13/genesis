@@ -1,17 +1,35 @@
 """
 Integration tests for Binance API integration.
+
+Tests real API interactions with proper mocking and VCR recording
+for reproducible tests without hitting live endpoints repeatedly.
 """
 
 import asyncio
+from datetime import datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
+from genesis.core.exceptions import (
+    ExchangeConnectionError,
+    OrderExecutionError,
+    RateLimitExceeded,
+)
+from genesis.core.models import OrderSide, OrderStatus, OrderType
 from genesis.exchange.circuit_breaker import CircuitBreakerManager
 from genesis.exchange.gateway import BinanceGateway
 from genesis.exchange.health_monitor import HealthMonitor, HealthStatus
-from genesis.exchange.models import OrderRequest
+from genesis.exchange.models import (
+    MarketDepth,
+    MarketTicker,
+    OrderBookEntry,
+    OrderRequest,
+    OrderResponse,
+    TradeExecution,
+)
 from genesis.exchange.time_sync import TimeSync
 from genesis.exchange.websocket_manager import WebSocketManager
 

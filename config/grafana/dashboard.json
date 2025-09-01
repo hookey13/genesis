@@ -1,0 +1,87 @@
+{
+  "dashboard": {
+    "title": "GENESIS Trading Performance",
+    "panels": [
+      {
+        "id": 1,
+        "title": "P&L Tracking",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "genesis_daily_pnl_usdt"
+          },
+          {
+            "expr": "genesis_position_pnl_usdt"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Latency Percentiles",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, genesis_order_execution_latency_seconds_bucket)"
+          },
+          {
+            "expr": "histogram_quantile(0.95, genesis_order_execution_latency_seconds_bucket)"
+          },
+          {
+            "expr": "histogram_quantile(0.99, genesis_order_execution_latency_seconds_bucket)"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(genesis_order_execution_errors_total[5m])"
+          },
+          {
+            "expr": "rate(genesis_api_call_errors_total[5m])"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "API Rate Limits",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "genesis_rate_limit_usage_ratio"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "System Resources",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "genesis_memory_usage_bytes"
+          },
+          {
+            "expr": "genesis_cpu_usage_percent"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "WebSocket Latency",
+        "type": "heatmap",
+        "targets": [
+          {
+            "expr": "genesis_ws_message_latency_ms_bucket"
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "refresh": "10s"
+  }
+}

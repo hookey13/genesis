@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings
 
 from genesis.core.models import TradingTier
 from genesis.security.vault_client import VaultClient
+from genesis.security.secrets_manager import SecretsManager, SecretBackend
 
 
 class TierLimits(BaseModel):
@@ -121,6 +122,16 @@ class Settings(BaseSettings):
     vault_url: str | None = Field(default=None, description="HashiCorp Vault URL")
     vault_token: str | None = Field(default=None, description="HashiCorp Vault token")
     use_vault: bool = Field(default=True, description="Use Vault for secrets (False for dev)")
+    
+    # Secrets management settings
+    secrets_backend: str = Field(default="vault", description="Secrets backend: vault, aws, local")
+    enable_key_rotation: bool = Field(default=True, description="Enable automatic API key rotation")
+    rotation_interval_days: int = Field(default=30, description="API key rotation interval in days")
+    
+    # HSM settings
+    enable_hsm: bool = Field(default=False, description="Enable Hardware Security Module")
+    hsm_type: str = Field(default="simulator", description="HSM type: simulator, softhsm, yubihsm")
+    hsm_library_path: str | None = Field(default=None, description="Path to HSM PKCS#11 library")
 
     # Logging settings
     log_level: str = Field(default="INFO", description="Logging level")
@@ -136,20 +147,56 @@ class Settings(BaseSettings):
         case_sensitive = False
 
     _vault_client: VaultClient | None = None
+    _secrets_manager: SecretsManager | None = None
 
     def get_vault_client(self) -> VaultClient:
-        """Get or create Vault client instance.
+        """Get or create enhanced Vault client instance with SecretsManager.
         
         Returns:
             VaultClient instance
         """
         if self._vault_client is None:
+            # Determine backend type
+            backend_map = {
+                "vault": SecretBackend.VAULT,
+                "aws": SecretBackend.AWS,
+                "local": SecretBackend.LOCAL
+            }
+            backend_type = backend_map.get(self.secrets_backend.lower())
+            
             self._vault_client = VaultClient(
                 vault_url=self.vault_url,
                 vault_token=self.vault_token,
-                use_vault=self.use_vault
+                use_vault=self.use_vault,
+                backend_type=backend_type,
+                enable_rotation=self.enable_key_rotation
             )
         return self._vault_client
+    
+    def get_secrets_manager(self) -> SecretsManager:
+        """Get or create SecretsManager instance.
+        
+        Returns:
+            SecretsManager instance
+        """
+        if self._secrets_manager is None:
+            backend_map = {
+                "vault": SecretBackend.VAULT,
+                "aws": SecretBackend.AWS,
+                "local": SecretBackend.LOCAL
+            }
+            backend = backend_map.get(self.secrets_backend.lower(), SecretBackend.LOCAL)
+            
+            config = {
+                "vault_url": self.vault_url,
+                "vault_token": self.vault_token
+            }
+            
+            self._secrets_manager = SecretsManager(
+                backend=backend,
+                config=config
+            )
+        return self._secrets_manager
 
     def get_exchange_credentials(self, read_only: bool = False) -> dict[str, str] | None:
         """Get exchange API credentials from Vault or environment.

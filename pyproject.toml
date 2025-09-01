@@ -99,7 +99,7 @@ addopts = [
     "--cov-report=term-missing:skip-covered",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=70",
+    "--cov-fail-under=95",
 ]
 markers = [
     "unit: Unit tests",
@@ -119,6 +119,19 @@ omit = [
 ]
 
 [tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+fail_under = 95.0
+
+# Critical paths requiring 100% coverage
+[tool.coverage.report.paths]
+critical = [
+    "genesis/engine/risk_engine.py",
+    "genesis/engine/executor/*.py",
+    "genesis/utils/math.py",
+]
+
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

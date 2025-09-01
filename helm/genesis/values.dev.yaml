@@ -1,0 +1,53 @@
+# Development environment values for Genesis Trading System
+# Override default values for development
+
+replicaCount: 1
+
+image:
+  pullPolicy: Always
+  tag: "dev"
+
+config:
+  deploymentEnv: "development"
+  binanceTestnet: "true"
+  logLevel: "DEBUG"
+  enablePaperTrading: "true"
+
+resources:
+  limits:
+    cpu: 200m
+    memory: 512Mi
+  requests:
+    cpu: 50m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+
+persistence:
+  enabled: true
+  storageClass: "standard"
+  data:
+    size: 1Gi
+  logs:
+    size: 1Gi
+  state:
+    size: 100Mi
+  backups:
+    size: 2Gi
+
+networkPolicy:
+  enabled: false
+
+monitoring:
+  enabled: true
+
+# Use local Redis for development
+redis:
+  enabled: true
+  auth:
+    enabled: false
+
+# Use local PostgreSQL for development
+postgresql:
+  enabled: false  # Start with SQLite

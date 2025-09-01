@@ -2,15 +2,19 @@
 
 This module provides integration with HashiCorp Vault for production secrets
 management with caching, TTL management, and fallback to environment variables
-for local development.
+for local development. Enhanced to use the new SecretsManager infrastructure.
 """
 
 import os
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from datetime import datetime, timedelta
+from typing import Any, Optional, Dict, List
+import asyncio
 
 import structlog
+
+from genesis.security.secrets_manager import SecretsManager, SecretBackend
+from genesis.security.api_key_rotation import APIKeyRotationManager, APIKeySet
 
 logger = structlog.get_logger(__name__)
 
@@ -30,10 +34,10 @@ class SecretCache:
 
 
 class VaultClient:
-    """Client for interacting with HashiCorp Vault or AWS Secrets Manager.
+    """Enhanced Vault client using the new SecretsManager infrastructure.
     
-    Provides secure secret retrieval with caching, TTL management, and
-    fallback to environment variables for local development.
+    Provides secure secret retrieval with multi-backend support, runtime injection,
+    and seamless integration with API key rotation system.
     """
 
     DEFAULT_TTL = 3600  # 1 hour default TTL for cached secrets
@@ -49,43 +53,137 @@ class VaultClient:
         vault_url: str | None = None,
         vault_token: str | None = None,
         use_vault: bool = True,
-        cache_ttl: int = DEFAULT_TTL
+        cache_ttl: int = DEFAULT_TTL,
+        backend_type: Optional[SecretBackend] = None,
+        enable_rotation: bool = True
     ):
-        """Initialize the Vault client.
+        """Initialize the enhanced Vault client with SecretsManager.
         
         Args:
             vault_url: URL of the Vault server (e.g., https://vault.example.com:8200)
             vault_token: Authentication token for Vault
             use_vault: Whether to use Vault (False for local development)
             cache_ttl: Default TTL for cached secrets in seconds
+            backend_type: Override backend type (Vault, AWS, Local)
+            enable_rotation: Enable API key rotation manager
         """
-        self.vault_url = vault_url or os.environ.get("VAULT_URL")
-        self.vault_token = vault_token or os.environ.get("VAULT_TOKEN")
+        self.vault_url = vault_url or os.environ.get("GENESIS_VAULT_URL")
+        self.vault_token = vault_token or os.environ.get("GENESIS_VAULT_TOKEN")
         self.use_vault = use_vault and bool(self.vault_url and self.vault_token)
         self.cache_ttl = cache_ttl
         self._cache: dict[str, SecretCache] = {}
-
-        if self.use_vault:
-            try:
-                import hvac
-                self.client = hvac.Client(url=self.vault_url, token=self.vault_token)
-                if not self.client.is_authenticated():
-                    logger.error("Failed to authenticate with Vault")
-                    self.use_vault = False
-                    self.client = None
-                else:
-                    logger.info("Successfully connected to Vault", vault_url=self.vault_url)
-            except ImportError:
-                logger.warning("hvac library not installed, falling back to environment variables")
-                self.use_vault = False
-                self.client = None
-            except Exception as e:
-                logger.error("Failed to connect to Vault", error=str(e))
-                self.use_vault = False
-                self.client = None
+        
+        # Determine backend type
+        if backend_type:
+            self.backend_type = backend_type
+        elif self.use_vault:
+            self.backend_type = SecretBackend.VAULT
+        elif os.environ.get("AWS_REGION"):
+            self.backend_type = SecretBackend.AWS
         else:
-            logger.info("Using environment variables for secrets (development mode)")
-            self.client = None
+            self.backend_type = SecretBackend.LOCAL
+        
+        # Initialize SecretsManager with appropriate backend
+        self._init_secrets_manager()
+        
+        # Initialize API key rotation manager if enabled
+        self.rotation_manager = None
+        if enable_rotation:
+            self._init_rotation_manager()
+        
+        # Runtime secret injection storage
+        self._runtime_secrets: Dict[str, Any] = {}
+        
+        logger.info(
+            "Enhanced Vault client initialized",
+            backend=self.backend_type.value,
+            rotation_enabled=enable_rotation
+        )
+    
+    def _init_secrets_manager(self):
+        """Initialize the SecretsManager with appropriate backend."""
+        config = {}
+        
+        if self.backend_type == SecretBackend.VAULT:
+            config = {
+                "vault_url": self.vault_url,
+                "vault_token": self.vault_token,
+                "mount_point": "secret"
+            }
+        elif self.backend_type == SecretBackend.AWS:
+            config = {
+                "aws_region": os.environ.get("AWS_REGION", "us-east-1")
+            }
+        
+        self.secrets_manager = SecretsManager(
+            backend=self.backend_type,
+            config=config
+        )
+    
+    def _init_rotation_manager(self):
+        """Initialize the API key rotation manager."""
+        try:
+            self.rotation_manager = APIKeyRotationManager(
+                secrets_manager=self.secrets_manager,
+                exchange_api=None,  # Will be set by application
+                verification_callback=None  # Will be set by application
+            )
+            
+            # Initialize with existing keys
+            asyncio.create_task(self.rotation_manager.initialize())
+            
+        except Exception as e:
+            logger.error("Failed to initialize rotation manager", error=str(e))
+            self.rotation_manager = None
+    
+    def inject_runtime_secret(self, path: str, value: Any):
+        """
+        Inject a secret at runtime without code changes.
+        
+        Args:
+            path: Secret path
+            value: Secret value to inject
+        """
+        self._runtime_secrets[path] = value
+        logger.info("Runtime secret injected", path=path)
+
+    async def get_secret_async(
+        self,
+        path: str,
+        key: str | None = None,
+        ttl: int | None = None,
+        force_refresh: bool = False
+    ) -> str | dict[str, Any] | None:
+        """
+        Async version using SecretsManager for enhanced functionality.
+        
+        Args:
+            path: Path to the secret
+            key: Specific key within the secret
+            ttl: Custom TTL for caching
+            force_refresh: Force refresh from backend
+        
+        Returns:
+            Secret value or None
+        """
+        # Check runtime injected secrets first
+        if path in self._runtime_secrets:
+            runtime_value = self._runtime_secrets[path]
+            if key and isinstance(runtime_value, dict):
+                return runtime_value.get(key)
+            return runtime_value
+        
+        # Use SecretsManager for retrieval
+        secret = await self.secrets_manager.get_secret(
+            path,
+            use_cache=not force_refresh,
+            fallback_to_env=True
+        )
+        
+        if secret and key:
+            return secret.get(key)
+        
+        return secret
 
     def get_secret(
         self,
@@ -94,7 +192,9 @@ class VaultClient:
         ttl: int | None = None,
         force_refresh: bool = False
     ) -> str | dict[str, Any] | None:
-        """Retrieve a secret from Vault or environment.
+        """Enhanced secret retrieval with multi-backend support.
+        
+        Synchronous wrapper around async functionality for backward compatibility.
         
         Args:
             path: Path to the secret in Vault
@@ -105,32 +205,76 @@ class VaultClient:
         Returns:
             The secret value or None if not found
         """
-        cache_key = f"{path}:{key}" if key else path
-
-        # Check cache unless force refresh
-        if not force_refresh and cache_key in self._cache:
-            cache_entry = self._cache[cache_key]
-            if not cache_entry.is_expired():
-                logger.debug("Returning cached secret", path=path, key=key)
-                return cache_entry.value
-
-        # Fetch from Vault or environment
-        if self.use_vault:
-            secret_value = self._fetch_from_vault(path, key)
-        else:
-            secret_value = self._fetch_from_environment(path, key)
-
-        # Cache the secret if found
-        if secret_value is not None:
-            ttl_seconds = ttl or self.cache_ttl
-            self._cache[cache_key] = SecretCache(
-                value=secret_value,
-                fetched_at=datetime.now(),
-                ttl_seconds=ttl_seconds
+        # Check runtime injected secrets first
+        if path in self._runtime_secrets:
+            runtime_value = self._runtime_secrets[path]
+            if key and isinstance(runtime_value, dict):
+                return runtime_value.get(key)
+            return runtime_value
+        
+        # Try to get existing event loop
+        try:
+            loop = asyncio.get_running_loop()
+            # We're in an async context, create task
+            future = asyncio.create_task(
+                self.get_secret_async(path, key, ttl, force_refresh)
             )
-            logger.debug("Cached secret", path=path, key=key, ttl=ttl_seconds)
+            # Can't await in sync function, fallback to old method
+            cache_key = f"{path}:{key}" if key else path
 
-        return secret_value
+            # Check cache unless force refresh
+            if not force_refresh and cache_key in self._cache:
+                cache_entry = self._cache[cache_key]
+                if not cache_entry.is_expired():
+                    logger.debug("Returning cached secret", path=path, key=key)
+                    return cache_entry.value
+
+            # Fetch from Vault or environment
+            if self.use_vault:
+                secret_value = self._fetch_from_vault(path, key)
+            else:
+                secret_value = self._fetch_from_environment(path, key)
+
+            # Cache the secret if found
+            if secret_value is not None:
+                ttl_seconds = ttl or self.cache_ttl
+                self._cache[cache_key] = SecretCache(
+                    value=secret_value,
+                    fetched_at=datetime.now(),
+                    ttl_seconds=ttl_seconds
+                )
+                logger.debug("Cached secret", path=path, key=key, ttl=ttl_seconds)
+
+            return secret_value
+            
+        except RuntimeError:
+            # No event loop, use sync version
+            cache_key = f"{path}:{key}" if key else path
+
+            # Check cache unless force refresh
+            if not force_refresh and cache_key in self._cache:
+                cache_entry = self._cache[cache_key]
+                if not cache_entry.is_expired():
+                    logger.debug("Returning cached secret", path=path, key=key)
+                    return cache_entry.value
+
+            # Fetch from Vault or environment
+            if self.use_vault:
+                secret_value = self._fetch_from_vault(path, key)
+            else:
+                secret_value = self._fetch_from_environment(path, key)
+
+            # Cache the secret if found
+            if secret_value is not None:
+                ttl_seconds = ttl or self.cache_ttl
+                self._cache[cache_key] = SecretCache(
+                    value=secret_value,
+                    fetched_at=datetime.now(),
+                    ttl_seconds=ttl_seconds
+                )
+                logger.debug("Cached secret", path=path, key=key, ttl=ttl_seconds)
+
+            return secret_value
 
     def _fetch_from_vault(self, path: str, key: str | None = None) -> Any | None:
         """Fetch a secret from HashiCorp Vault.
@@ -363,42 +507,101 @@ class VaultClient:
         """
         return self.use_vault and self.client is not None
 
+    async def rotate_api_keys(
+        self,
+        grace_period: timedelta = timedelta(minutes=5)
+    ) -> Dict[str, Any]:
+        """
+        Rotate API keys using the rotation manager.
+        
+        Args:
+            grace_period: Time to maintain both old and new keys
+        
+        Returns:
+            Rotation result
+        """
+        if not self.rotation_manager:
+            return {
+                "status": "error",
+                "error": "Rotation manager not initialized"
+            }
+        
+        return await self.rotation_manager.rotate_keys(
+            key_path=self.EXCHANGE_API_KEYS_PATH,
+            grace_period=grace_period
+        )
+    
+    async def configure_automatic_rotation(
+        self,
+        interval: timedelta = timedelta(days=30),
+        grace_period: timedelta = timedelta(minutes=5)
+    ):
+        """
+        Configure automatic API key rotation.
+        
+        Args:
+            interval: Rotation interval
+            grace_period: Grace period for each rotation
+        """
+        if not self.rotation_manager:
+            raise ValueError("Rotation manager not initialized")
+        
+        await self.rotation_manager.configure_automatic_rotation(
+            key_path=self.EXCHANGE_API_KEYS_PATH,
+            interval=interval,
+            grace_period=grace_period
+        )
+        
+        logger.info(
+            "Configured automatic key rotation",
+            interval=str(interval),
+            grace_period=str(grace_period)
+        )
+    
+    async def get_rotation_status(self) -> Dict[str, Any]:
+        """Get current rotation status."""
+        if not self.rotation_manager:
+            return {"status": "disabled"}
+        
+        return self.rotation_manager.get_status()
+    
     def health_check(self) -> dict[str, Any]:
-        """Perform a health check on the Vault connection.
+        """Enhanced health check including SecretsManager status.
         
         Returns:
             Health check results
         """
-        if not self.use_vault:
-            return {
-                "status": "fallback",
-                "mode": "environment_variables",
-                "cache_size": len(self._cache)
-            }
-
-        if not self.client:
-            return {
-                "status": "error",
-                "mode": "vault",
-                "error": "No client connection"
-            }
-
-        try:
-            is_authenticated = self.client.is_authenticated()
-            sys_health = self.client.sys.read_health_status()
-
-            return {
-                "status": "healthy" if is_authenticated else "unhealthy",
-                "mode": "vault",
-                "authenticated": is_authenticated,
-                "vault_status": sys_health,
-                "cache_size": len(self._cache),
-                "vault_url": self.vault_url
-            }
-        except Exception as e:
-            return {
-                "status": "error",
-                "mode": "vault",
-                "error": str(e),
-                "cache_size": len(self._cache)
-            }
+        health = {
+            "backend": self.backend_type.value,
+            "cache_size": len(self._cache),
+            "runtime_secrets_count": len(self._runtime_secrets),
+            "rotation_enabled": bool(self.rotation_manager)
+        }
+        
+        # Add SecretsManager health
+        if hasattr(self, 'secrets_manager'):
+            try:
+                loop = asyncio.new_event_loop()
+                sm_health = loop.run_until_complete(
+                    self.secrets_manager.health_check()
+                )
+                health["secrets_manager"] = sm_health
+            except Exception as e:
+                health["secrets_manager_error"] = str(e)
+        
+        # Add rotation manager status
+        if self.rotation_manager:
+            health["rotation_status"] = self.rotation_manager.get_status()
+        
+        # Legacy Vault health check
+        if self.use_vault and hasattr(self, 'client') and self.client:
+            try:
+                import hvac
+                if isinstance(self.client, hvac.Client):
+                    is_authenticated = self.client.is_authenticated()
+                    health["vault_authenticated"] = is_authenticated
+                    health["vault_url"] = self.vault_url
+            except Exception as e:
+                health["vault_error"] = str(e)
+        
+        return health

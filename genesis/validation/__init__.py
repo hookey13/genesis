@@ -10,6 +10,11 @@ import structlog
 from genesis.validation.compliance_validator import ComplianceValidator
 from genesis.validation.dr_validator import DisasterRecoveryValidator
 from genesis.validation.operational_validator import OperationalValidator
+from genesis.validation.orchestrator import ValidationCheck, ValidationResult
+from genesis.validation.orchestrator import (
+    ValidationOrchestrator as EnhancedOrchestrator,
+)
+from genesis.validation.orchestrator import ValidationReport as EnhancedReport
 from genesis.validation.paper_trading_validator import PaperTradingValidator
 from genesis.validation.performance_validator import PerformanceValidator
 from genesis.validation.security_scanner import SecurityScanner
@@ -315,12 +320,16 @@ class ValidationOrchestrator:
 __all__ = [
     "ComplianceValidator",
     "DisasterRecoveryValidator",
+    "EnhancedOrchestrator",
+    "EnhancedReport",
     "OperationalValidator",
     "PaperTradingValidator",
     "PerformanceValidator",
     "SecurityScanner",
     "StabilityTester",
     "TestValidator",
+    "ValidationCheck",
     "ValidationOrchestrator",
-    "ValidationReport"
+    "ValidationReport",
+    "ValidationResult"
 ]

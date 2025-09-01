@@ -1,0 +1,51 @@
+apiVersion: v2
+name: genesis
+description: Genesis Trading System - Tier-based algorithmic trading platform
+type: application
+
+# Chart version - increment for each release
+version: 1.0.0
+
+# Application version - matches the Docker image tag
+appVersion: "1.0.0"
+
+keywords:
+  - trading
+  - cryptocurrency
+  - binance
+  - algorithmic-trading
+  - fintech
+
+home: https://github.com/genesis/trading
+sources:
+  - https://github.com/genesis/trading
+
+maintainers:
+  - name: Genesis Team
+    email: team@genesis.trading
+
+icon: https://genesis.trading/logo.png
+
+dependencies: []
+
+annotations:
+  # Artifact Hub annotations
+  artifacthub.io/license: MIT
+  artifacthub.io/signKey: |
+    fingerprint: 0123456789ABCDEF
+    url: https://genesis.trading/pgp-key.asc
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+    - url: https://artifacthub.io/packages/helm/grafana/grafana
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial Helm chart release
+    - kind: added
+      description: Support for Kubernetes 1.24+
+    - kind: added
+      description: Horizontal Pod Autoscaling configuration
+    - kind: added
+      description: Network policies for security isolation
+    - kind: added
+      description: Service mesh annotations for Istio/Linkerd

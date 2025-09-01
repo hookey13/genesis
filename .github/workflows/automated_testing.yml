@@ -1,0 +1,501 @@
+name: Automated Testing & Quality Gates
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Nightly regression tests at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - unit
+          - integration
+          - regression
+          - performance
+          - security
+          - chaos
+
+env:
+  PYTHON_VERSION: '3.11.8'
+  COVERAGE_THRESHOLD: 95
+  P99_LATENCY_REQUIREMENT_MS: 50
+
+jobs:
+  unit-tests:
+    name: Unit Tests & Coverage
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'schedule' || github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'unit' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          
+      - name: Run unit tests with coverage
+        run: |
+          python -m pytest tests/unit/ \
+            --cov=genesis \
+            --cov-branch \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} \
+            --junitxml=test-results/unit-tests.xml \
+            -v
+            
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: unit-test-results
+          path: test-results/
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'schedule' || github.event.inputs.test_type == 'all' || github.event.inputs.test_type == 'integration' }}
+    
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: genesis_test
+          POSTGRES_DB: genesis_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          pip install vcrpy pytest-vcr
+          
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:genesis_test@localhost:5432/genesis_test
+          REDIS_URL: redis://localhost:6379
+          BINANCE_API_KEY: test_key
+          BINANCE_API_SECRET: test_secret
+        run: |
+          python -m pytest tests/integration/ \
+            --junitxml=test-results/integration-tests.xml \
+            --vcr-record=none \
+            -v
+            
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results
+          path: test-results/
+
+  property-tests:
+    name: Property-Based Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'schedule' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          pip install hypothesis
+          
+      - name: Run property-based tests
+        run: |
+          python -m pytest tests/unit/test_position_properties.py \
+            --hypothesis-show-statistics \
+            --junitxml=test-results/property-tests.xml \
+            -v
+            
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: property-test-results
+          path: test-results/
+
+  mutation-tests:
+    name: Mutation Testing
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          pip install mutmut
+          
+      - name: Run mutation tests on critical modules
+        run: |
+          mutmut run \
+            --paths-to-mutate=genesis/engine/risk_engine.py,genesis/engine/executor/ \
+            --runner="python -m pytest tests/unit/test_risk_engine.py tests/unit/test_executor.py -x" \
+            --no-progress
+            
+      - name: Generate mutation report
+        if: always()
+        run: |
+          mutmut results
+          mutmut html
+          
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: mutation-report
+          path: html/
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_type == 'performance' || (github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          pip install locust
+          
+      - name: Start application server
+        run: |
+          python -m genesis.api.server &
+          sleep 10  # Wait for server to start
+          
+      - name: Run performance tests
+        run: |
+          locust \
+            -f tests/performance/locustfile.py \
+            --headless \
+            --users 100 \
+            --spawn-rate 10 \
+            --run-time 5m \
+            --host http://localhost:8000 \
+            --html performance-report.html \
+            --csv performance-results
+            
+      - name: Check P99 latency requirement
+        run: |
+          python -c "
+          import csv
+          with open('performance-results_stats.csv') as f:
+              reader = csv.DictReader(f)
+              for row in reader:
+                  if row['Name'] == 'Aggregated':
+                      p99 = float(row['99%'])
+                      if p99 > ${{ env.P99_LATENCY_REQUIREMENT_MS }}:
+                          print(f'❌ P99 latency {p99}ms exceeds requirement')
+                          exit(1)
+                      else:
+                          print(f'✅ P99 latency {p99}ms meets requirement')
+          "
+          
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-results
+          path: |
+            performance-report.html
+            performance-results*.csv
+
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_type == 'security' || github.event_name == 'pull_request' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install security tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit safety pip-audit
+          
+      - name: Run Bandit security scan
+        run: |
+          bandit -r genesis/ -f json -o bandit-report.json || true
+          bandit -r genesis/ -f txt
+          
+      - name: Check for known vulnerabilities
+        run: |
+          pip-audit --desc
+          safety check --json > safety-report.json || true
+          safety check
+          
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+
+  chaos-tests:
+    name: Chaos Engineering Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.test_type == 'chaos' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          
+      - name: Run chaos tests
+        run: |
+          python -m pytest tests/chaos/ \
+            --junitxml=test-results/chaos-tests.xml \
+            --tb=short \
+            -v
+            
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: chaos-test-results
+          path: test-results/
+
+  regression-tests:
+    name: Regression Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.test_type == 'regression' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          
+      - name: Download baseline metrics
+        uses: actions/download-artifact@v3
+        with:
+          name: regression-baseline
+          path: tests/regression/
+        continue-on-error: true
+        
+      - name: Run regression tests
+        run: |
+          python -m pytest tests/regression/ \
+            -m regression \
+            --junitxml=test-results/regression-tests.xml \
+            --tb=short \
+            -v
+            
+      - name: Generate regression report
+        if: always()
+        run: |
+          python tests/regression/test_regression_suite.py
+          
+      - name: Upload regression baseline
+        uses: actions/upload-artifact@v3
+        with:
+          name: regression-baseline
+          path: tests/regression/baseline_metrics.json
+          
+      - name: Upload regression report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: regression-report
+          path: tests/regression/reports/
+
+  contract-tests:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          pip install pydantic
+          
+      - name: Run contract tests
+        run: |
+          python -m pytest tests/contract/ \
+            --junitxml=test-results/contract-tests.xml \
+            -v
+            
+      - name: Generate contract documentation
+        run: |
+          python tests/contract/test_api_contracts.py
+          
+      - name: Upload contract documentation
+        uses: actions/upload-artifact@v3
+        with:
+          name: contract-documentation
+          path: tests/contract/api_contracts.json
+
+  quality-gate:
+    name: Quality Gate Check
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, property-tests, security-tests]
+    if: always()
+    
+    steps:
+      - name: Check quality gates
+        run: |
+          echo "Checking quality gates..."
+          
+          # Check if required jobs passed
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then
+            echo "❌ Unit tests failed"
+            exit 1
+          fi
+          
+          if [[ "${{ needs.integration-tests.result }}" != "success" ]]; then
+            echo "❌ Integration tests failed"
+            exit 1
+          fi
+          
+          if [[ "${{ needs.security-tests.result }}" != "success" ]]; then
+            echo "⚠️  Security tests have warnings"
+          fi
+          
+          echo "✅ All quality gates passed"
+          
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const comment = `## 🎯 Test Results
+            
+            | Test Suite | Status |
+            |------------|--------|
+            | Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅' || '❌' }} |
+            | Integration Tests | ${{ needs.integration-tests.result == 'success' && '✅' || '❌' }} |
+            | Property Tests | ${{ needs.property-tests.result == 'success' && '✅' || '❌' }} |
+            | Security Tests | ${{ needs.security-tests.result == 'success' && '✅' || '⚠️' }} |
+            
+            Coverage Threshold: **${process.env.COVERAGE_THRESHOLD}%**
+            P99 Latency Requirement: **<${process.env.P99_LATENCY_REQUIREMENT_MS}ms**
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

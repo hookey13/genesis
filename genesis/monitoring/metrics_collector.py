@@ -57,6 +57,26 @@ class TradingMetrics:
 
     tilt_score: float = 0.0
     tilt_indicators: dict[str, float] = field(default_factory=dict)
+    
+    # System health metrics
+    cpu_usage: float = 0.0  # Percentage
+    memory_usage: float = 0.0  # Bytes
+    memory_percent: float = 0.0  # Percentage
+    disk_usage_percent: float = 0.0  # Percentage
+    disk_io_read_bytes: float = 0.0  # Bytes per second
+    disk_io_write_bytes: float = 0.0  # Bytes per second
+    network_bytes_sent: float = 0.0  # Bytes per second
+    network_bytes_recv: float = 0.0  # Bytes per second
+    network_packets_sent: float = 0.0  # Packets per second
+    network_packets_recv: float = 0.0  # Packets per second
+    connection_count: int = 0  # Number of network connections
+    thread_count: int = 0  # Number of threads
+    open_files: int = 0  # Number of open file descriptors
+    system_uptime: float = 0.0  # Seconds
+    process_uptime: float = 0.0  # Seconds
+    
+    # Health score (0-100)
+    health_score: float = 100.0
 
     last_update: datetime = field(default_factory=datetime.now)
 
@@ -109,20 +129,81 @@ class MetricsCollector:
                 await asyncio.sleep(self._collection_interval)
 
     async def _collect_system_metrics(self) -> None:
-        """Collect system-level metrics with bounds checking."""
+        """Collect comprehensive system-level metrics with bounds checking."""
         try:
-            # CPU and memory usage with bounds
+            # Process-level metrics
             process = psutil.Process()
-            cpu_percent = process.cpu_percent(interval=1)
+            
+            # CPU usage
+            cpu_percent = process.cpu_percent(interval=0.1)
             self.metrics.cpu_usage = max(0, min(100, cpu_percent))  # Bound to 0-100%
-
-            memory_info = process.memory_info().rss
-            # Bound memory to reasonable limits (0 to 100GB)
-            self.metrics.memory_usage = max(0, min(100 * 1024**3, memory_info))
-
-            # Network connections with limit
-            connections = process.connections()
-            self.metrics.connection_count = min(len(connections), 10000)  # Cap at 10k
+            
+            # Memory metrics
+            memory_info = process.memory_info()
+            self.metrics.memory_usage = max(0, min(100 * 1024**3, memory_info.rss))  # Cap at 100GB
+            
+            # Calculate memory percentage
+            total_memory = psutil.virtual_memory().total
+            self.metrics.memory_percent = (memory_info.rss / total_memory * 100) if total_memory > 0 else 0
+            
+            # Thread and file descriptor count
+            self.metrics.thread_count = process.num_threads()
+            try:
+                self.metrics.open_files = len(process.open_files())
+            except (psutil.AccessDenied, AttributeError):
+                self.metrics.open_files = 0
+            
+            # Network connections
+            try:
+                connections = process.connections()
+                self.metrics.connection_count = min(len(connections), 10000)  # Cap at 10k
+            except psutil.AccessDenied:
+                self.metrics.connection_count = 0
+            
+            # Process uptime
+            create_time = process.create_time()
+            self.metrics.process_uptime = time.time() - create_time
+            
+            # System-wide metrics
+            # Disk usage
+            disk_usage = psutil.disk_usage('/')
+            self.metrics.disk_usage_percent = disk_usage.percent
+            
+            # Disk I/O (if available)
+            try:
+                disk_io = psutil.disk_io_counters()
+                if hasattr(self, '_last_disk_io') and self._last_disk_io:
+                    time_delta = time.time() - self._last_disk_io_time
+                    if time_delta > 0:
+                        self.metrics.disk_io_read_bytes = (disk_io.read_bytes - self._last_disk_io.read_bytes) / time_delta
+                        self.metrics.disk_io_write_bytes = (disk_io.write_bytes - self._last_disk_io.write_bytes) / time_delta
+                self._last_disk_io = disk_io
+                self._last_disk_io_time = time.time()
+            except (AttributeError, RuntimeError):
+                # Disk I/O not available on all platforms
+                pass
+            
+            # Network I/O
+            try:
+                net_io = psutil.net_io_counters()
+                if hasattr(self, '_last_net_io') and self._last_net_io:
+                    time_delta = time.time() - self._last_net_io_time
+                    if time_delta > 0:
+                        self.metrics.network_bytes_sent = (net_io.bytes_sent - self._last_net_io.bytes_sent) / time_delta
+                        self.metrics.network_bytes_recv = (net_io.bytes_recv - self._last_net_io.bytes_recv) / time_delta
+                        self.metrics.network_packets_sent = (net_io.packets_sent - self._last_net_io.packets_sent) / time_delta
+                        self.metrics.network_packets_recv = (net_io.packets_recv - self._last_net_io.packets_recv) / time_delta
+                self._last_net_io = net_io
+                self._last_net_io_time = time.time()
+            except (AttributeError, RuntimeError):
+                pass
+            
+            # System uptime
+            boot_time = psutil.boot_time()
+            self.metrics.system_uptime = time.time() - boot_time
+            
+            # Calculate health score
+            self._calculate_health_score()
 
         except psutil.NoSuchProcess:
             logger.warning("Process not found for metrics collection")
@@ -131,6 +212,69 @@ class MetricsCollector:
         except Exception as e:
             logger.warning("Failed to collect system metrics", error=str(e))
 
+    def _calculate_health_score(self) -> None:
+        """Calculate overall system health score (0-100)."""
+        score = 100.0
+        
+        # CPU penalty (high CPU usage reduces score)
+        if self.metrics.cpu_usage > 90:
+            score -= 30
+        elif self.metrics.cpu_usage > 70:
+            score -= 15
+        elif self.metrics.cpu_usage > 50:
+            score -= 5
+            
+        # Memory penalty
+        if self.metrics.memory_percent > 90:
+            score -= 30
+        elif self.metrics.memory_percent > 70:
+            score -= 15
+        elif self.metrics.memory_percent > 50:
+            score -= 5
+            
+        # Disk usage penalty
+        if self.metrics.disk_usage_percent > 90:
+            score -= 20
+        elif self.metrics.disk_usage_percent > 80:
+            score -= 10
+        elif self.metrics.disk_usage_percent > 70:
+            score -= 5
+            
+        # Connection count penalty (too many connections)
+        if self.metrics.connection_count > 1000:
+            score -= 10
+        elif self.metrics.connection_count > 500:
+            score -= 5
+            
+        # Thread count penalty
+        if self.metrics.thread_count > 100:
+            score -= 10
+        elif self.metrics.thread_count > 50:
+            score -= 5
+            
+        # Open files penalty
+        if self.metrics.open_files > 1000:
+            score -= 10
+        elif self.metrics.open_files > 500:
+            score -= 5
+            
+        # Rate limit penalty
+        if self.metrics.rate_limit_usage > 90:
+            score -= 20
+        elif self.metrics.rate_limit_usage > 70:
+            score -= 10
+            
+        # Tilt score penalty
+        if self.metrics.tilt_score > 70:
+            score -= 15
+        elif self.metrics.tilt_score > 50:
+            score -= 10
+        elif self.metrics.tilt_score > 30:
+            score -= 5
+            
+        # Ensure score stays within bounds
+        self.metrics.health_score = max(0, min(100, score))
+    
     async def _calculate_derived_metrics(self) -> None:
         """Calculate derived metrics from raw data."""
         # Calculate win rate
@@ -197,18 +341,89 @@ class MetricsCollector:
             self.metrics.current_drawdown
         )
 
-        # System metrics
-        if hasattr(self.metrics, 'memory_usage'):
-            await self.registry.set_gauge(
-                "genesis_memory_usage_bytes",
-                float(self.metrics.memory_usage)
-            )
-
-        if hasattr(self.metrics, 'cpu_usage'):
-            await self.registry.set_gauge(
-                "genesis_cpu_usage_percent",
-                float(self.metrics.cpu_usage)
-            )
+        # System health metrics
+        await self.registry.set_gauge(
+            "genesis_cpu_usage_percent",
+            float(self.metrics.cpu_usage),
+            {"type": "process"}
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_memory_usage_bytes",
+            float(self.metrics.memory_usage),
+            {"type": "rss"}
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_memory_usage_percent",
+            float(self.metrics.memory_percent)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_disk_usage_percent",
+            float(self.metrics.disk_usage_percent)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_disk_io_read_bytes_per_second",
+            float(self.metrics.disk_io_read_bytes)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_disk_io_write_bytes_per_second",
+            float(self.metrics.disk_io_write_bytes)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_network_bytes_sent_per_second",
+            float(self.metrics.network_bytes_sent)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_network_bytes_recv_per_second",
+            float(self.metrics.network_bytes_recv)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_network_packets_sent_per_second",
+            float(self.metrics.network_packets_sent)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_network_packets_recv_per_second",
+            float(self.metrics.network_packets_recv)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_connection_count",
+            float(self.metrics.connection_count)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_thread_count",
+            float(self.metrics.thread_count)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_open_files_count",
+            float(self.metrics.open_files)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_system_uptime_seconds",
+            float(self.metrics.system_uptime)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_process_uptime_seconds",
+            float(self.metrics.process_uptime)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_health_score",
+            float(self.metrics.health_score),
+            {"description": "Overall system health score (0-100)"}
+        )
 
     async def _update_metrics(self) -> None:
         """Update metrics (called by registry during collection)."""

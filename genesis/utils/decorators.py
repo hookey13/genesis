@@ -2,12 +2,17 @@
 Decorators for Project GENESIS.
 
 This module contains decorators for tier enforcement, timeout management,
-and other cross-cutting concerns.
+retry logic with exponential backoff, and other cross-cutting concerns.
 """
 
 import asyncio
+import random
+import time
 from collections.abc import Callable
 from functools import wraps
+from typing import Tuple, Type, Union, Optional
+
+import structlog
 
 from genesis.core.constants import TradingTier
 from genesis.core.exceptions import TierViolation
@@ -204,4 +209,171 @@ def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
         else:
             return sync_wrapper
 
+    return decorator
+
+
+def with_retry(
+    max_attempts: int = 5,
+    initial_delay: float = 1.0,
+    max_delay: float = 30.0,
+    backoff_factor: float = 2.0,
+    jitter: bool = True,
+    retryable_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
+    logger: Optional[structlog.BoundLogger] = None,
+):
+    """
+    Decorator to retry failed operations with exponential backoff and jitter.
+    
+    Implements exponential backoff with optional jitter to prevent thundering herd.
+    Default sequence: 1s, 2s, 4s, 8s, 16s (capped at max_delay).
+    
+    Args:
+        max_attempts: Maximum number of retry attempts (default: 5)
+        initial_delay: Initial delay between retries in seconds (default: 1.0)
+        max_delay: Maximum delay between retries in seconds (default: 30.0)
+        backoff_factor: Multiplier for delay after each failure (default: 2.0)
+        jitter: Add random jitter to prevent thundering herd (default: True)
+        retryable_exceptions: Tuple of exception types to retry (default: all)
+        logger: Logger instance for retry logging (optional)
+        
+    Example:
+        @with_retry(max_attempts=3, retryable_exceptions=(NetworkError, TimeoutError))
+        async def fetch_data():
+            return await api_client.get("/data")
+    """
+    if retryable_exceptions is None:
+        # Default to common retryable exceptions
+        from genesis.core.exceptions import (
+            NetworkError,
+            ConnectionTimeout,
+            RateLimitError,
+            DatabaseLocked,
+        )
+        retryable_exceptions = (
+            NetworkError,
+            ConnectionTimeout,
+            RateLimitError,
+            DatabaseLocked,
+            TimeoutError,
+            ConnectionError,
+        )
+    
+    if logger is None:
+        logger = structlog.get_logger(__name__)
+    
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            current_delay = initial_delay
+            last_exception = None
+            
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except retryable_exceptions as e:
+                    last_exception = e
+                    
+                    if attempt < max_attempts:
+                        # Calculate delay with exponential backoff
+                        delay = min(current_delay, max_delay)
+                        
+                        # Add jitter if enabled (±25% of delay)
+                        if jitter:
+                            jitter_amount = delay * 0.25
+                            delay = delay + random.uniform(-jitter_amount, jitter_amount)
+                            delay = max(0.1, delay)  # Ensure minimum delay
+                        
+                        logger.warning(
+                            "Retrying after failure",
+                            function=func.__name__,
+                            attempt=attempt,
+                            max_attempts=max_attempts,
+                            delay_seconds=round(delay, 2),
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                        )
+                        
+                        await asyncio.sleep(delay)
+                        current_delay *= backoff_factor
+                    else:
+                        logger.error(
+                            "Max retry attempts exhausted",
+                            function=func.__name__,
+                            attempts=max_attempts,
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                        )
+                except Exception as e:
+                    # Non-retryable exception, raise immediately
+                    logger.error(
+                        "Non-retryable exception encountered",
+                        function=func.__name__,
+                        error_type=type(e).__name__,
+                        error_message=str(e),
+                    )
+                    raise
+            
+            # Raise the last exception after all retries exhausted
+            raise last_exception
+        
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            current_delay = initial_delay
+            last_exception = None
+            
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except retryable_exceptions as e:
+                    last_exception = e
+                    
+                    if attempt < max_attempts:
+                        # Calculate delay with exponential backoff
+                        delay = min(current_delay, max_delay)
+                        
+                        # Add jitter if enabled (±25% of delay)
+                        if jitter:
+                            jitter_amount = delay * 0.25
+                            delay = delay + random.uniform(-jitter_amount, jitter_amount)
+                            delay = max(0.1, delay)  # Ensure minimum delay
+                        
+                        logger.warning(
+                            "Retrying after failure",
+                            function=func.__name__,
+                            attempt=attempt,
+                            max_attempts=max_attempts,
+                            delay_seconds=round(delay, 2),
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                        )
+                        
+                        time.sleep(delay)
+                        current_delay *= backoff_factor
+                    else:
+                        logger.error(
+                            "Max retry attempts exhausted",
+                            function=func.__name__,
+                            attempts=max_attempts,
+                            error_type=type(e).__name__,
+                            error_message=str(e),
+                        )
+                except Exception as e:
+                    # Non-retryable exception, raise immediately
+                    logger.error(
+                        "Non-retryable exception encountered",
+                        function=func.__name__,
+                        error_type=type(e).__name__,
+                        error_message=str(e),
+                    )
+                    raise
+            
+            # Raise the last exception after all retries exhausted
+            raise last_exception
+        
+        # Return appropriate wrapper based on function type
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+    
     return decorator

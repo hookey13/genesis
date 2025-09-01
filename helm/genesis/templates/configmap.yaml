@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "genesis.fullname" . }}-config
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+data:
+  deployment_env: {{ .Values.config.deploymentEnv | quote }}
+  binance_testnet: {{ .Values.config.binanceTestnet | quote }}
+  log_level: {{ .Values.config.logLevel | quote }}
+  max_positions: {{ .Values.config.maxPositions | quote }}
+  max_order_size: {{ .Values.config.maxOrderSize | quote }}
+  enable_paper_trading: {{ .Values.config.enablePaperTrading | quote }}
+  max_clock_drift_ms: {{ .Values.config.maxClockDriftMs | quote }}
+  ntp_check_interval: {{ .Values.config.ntpCheckInterval | quote }}
+  api_rate_limit_per_minute: {{ .Values.config.apiRateLimitPerMinute | quote }}
+  ws_max_connections: {{ .Values.config.wsMaxConnections | quote }}
+  health_check_interval: {{ .Values.config.healthCheckInterval | quote }}
+  health_check_timeout: {{ .Values.config.healthCheckTimeout | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "genesis.fullname" . }}-trading-rules
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+data:
+  trading_rules.yaml: |
+    sniper:
+      max_position_size_usdt: {{ .Values.tradingRules.sniper.maxPositionSizeUsdt }}
+      max_daily_loss_usdt: {{ .Values.tradingRules.sniper.maxDailyLossUsdt }}
+      max_orders_per_minute: {{ .Values.tradingRules.sniper.maxOrdersPerMinute }}
+      max_leverage: {{ .Values.tradingRules.sniper.maxLeverage }}
+      min_profit_threshold_percent: {{ .Values.tradingRules.sniper.minProfitThresholdPercent }}
+      stop_loss_percent: {{ .Values.tradingRules.sniper.stopLossPercent }}
+    
+    hunter:
+      max_position_size_usdt: {{ .Values.tradingRules.hunter.maxPositionSizeUsdt }}
+      max_daily_loss_usdt: {{ .Values.tradingRules.hunter.maxDailyLossUsdt }}
+      max_orders_per_minute: {{ .Values.tradingRules.hunter.maxOrdersPerMinute }}
+      max_leverage: {{ .Values.tradingRules.hunter.maxLeverage }}
+      min_profit_threshold_percent: {{ .Values.tradingRules.hunter.minProfitThresholdPercent }}
+      stop_loss_percent: {{ .Values.tradingRules.hunter.stopLossPercent }}
+      max_concurrent_pairs: {{ .Values.tradingRules.hunter.maxConcurrentPairs }}
+    
+    strategist:
+      max_position_size_usdt: {{ .Values.tradingRules.strategist.maxPositionSizeUsdt }}
+      max_daily_loss_usdt: {{ .Values.tradingRules.strategist.maxDailyLossUsdt }}
+      max_orders_per_minute: {{ .Values.tradingRules.strategist.maxOrdersPerMinute }}
+      max_leverage: {{ .Values.tradingRules.strategist.maxLeverage }}
+      min_profit_threshold_percent: {{ .Values.tradingRules.strategist.minProfitThresholdPercent }}
+      stop_loss_percent: {{ .Values.tradingRules.strategist.stopLossPercent }}
+      max_concurrent_pairs: {{ .Values.tradingRules.strategist.maxConcurrentPairs }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "genesis.fullname" . }}-tier-gates
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+data:
+  tier_gates.yaml: |
+    gates:
+      sniper_to_hunter:
+        min_profitable_days: {{ .Values.tierGates.sniperToHunter.minProfitableDays }}
+        min_total_profit_usdt: {{ .Values.tierGates.sniperToHunter.minTotalProfitUsdt }}
+        max_drawdown_percent: {{ .Values.tierGates.sniperToHunter.maxDrawdownPercent }}
+        min_sharpe_ratio: {{ .Values.tierGates.sniperToHunter.minSharpeRatio }}
+        min_trades: {{ .Values.tierGates.sniperToHunter.minTrades }}
+      
+      hunter_to_strategist:
+        min_profitable_days: {{ .Values.tierGates.hunterToStrategist.minProfitableDays }}
+        min_total_profit_usdt: {{ .Values.tierGates.hunterToStrategist.minTotalProfitUsdt }}
+        max_drawdown_percent: {{ .Values.tierGates.hunterToStrategist.maxDrawdownPercent }}
+        min_sharpe_ratio: {{ .Values.tierGates.hunterToStrategist.minSharpeRatio }}
+        min_trades: {{ .Values.tierGates.hunterToStrategist.minTrades }}

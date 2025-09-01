@@ -1,0 +1,101 @@
+# Production environment values for Genesis Trading System
+# Override default values for production
+
+replicaCount: 2
+
+image:
+  pullPolicy: IfNotPresent
+  tag: "stable"
+
+config:
+  deploymentEnv: "production"
+  binanceTestnet: "false"
+  logLevel: "INFO"
+  enablePaperTrading: "false"
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+persistence:
+  enabled: true
+  storageClass: "fast-ssd"
+  data:
+    size: 20Gi
+  logs:
+    size: 10Gi
+  state:
+    size: 2Gi
+  backups:
+    size: 50Gi
+
+networkPolicy:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: genesis.trading.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: genesis-tls
+      hosts:
+        - genesis.trading.example.com
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+  prometheusRule:
+    enabled: true
+
+backup:
+  enabled: true
+  schedule: "0 */6 * * *"
+  retention: 60
+
+# Production Redis
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+    password: "changeme"  # Use external secret in real production
+  master:
+    persistence:
+      enabled: true
+      size: 16Gi
+
+# Production PostgreSQL
+postgresql:
+  enabled: true
+  auth:
+    database: genesis
+    username: genesis
+    password: "changeme"  # Use external secret in real production
+  persistence:
+    enabled: true
+    size: 50Gi
+
+serviceMesh:
+  enabled: true
+  type: "istio"
+  istio:
+    sidecarInject: true

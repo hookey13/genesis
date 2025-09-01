@@ -130,12 +130,14 @@ LABEL org.label-schema.build-date=$BUILD_DATE \
 # Switch to non-root user
 USER genesis
 
-# Health check endpoint
+# Health check endpoint using CLI doctor command
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import sys, os; sys.path.insert(0, '/app'); from genesis.api.health import health_check; sys.exit(0 if health_check() else 1)" || exit 1
+    CMD python -m genesis.cli doctor || exit 1
 
-# Expose API port (if needed)
-EXPOSE 8000
+# Expose ports
+# 8000: API port (when enabled)
+# 9090: Prometheus metrics endpoint
+EXPOSE 8000 9090
 
 # Default command using supervisor for production
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/genesis.conf"]

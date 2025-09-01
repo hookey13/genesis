@@ -1,0 +1,119 @@
+# Linkerd ServiceProfile for Genesis Trading System
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: genesis.genesis.svc.cluster.local
+  namespace: genesis
+spec:
+  # Define routes for observability and traffic management
+  routes:
+  - name: health-check
+    condition:
+      method: GET
+      pathRegex: "/health.*"
+    timeout: 10s
+    
+  - name: metrics
+    condition:
+      method: GET
+      pathRegex: "/metrics"
+    timeout: 5s
+    
+  - name: api-orders
+    condition:
+      method: POST
+      pathRegex: "/api/v1/orders.*"
+    timeout: 30s
+    retryBudget:
+      retryRatio: 0.2
+      minRetriesPerSecond: 10
+      ttl: 10s
+      
+  - name: api-positions
+    condition:
+      method: GET
+      pathRegex: "/api/v1/positions.*"
+    timeout: 10s
+    
+  - name: websocket
+    condition:
+      method: GET
+      pathRegex: "/ws.*"
+    timeout: 3600s  # 1 hour for WebSocket connections
+    
+  # Default route
+  - name: default
+    timeout: 30s
+    
+  # Retry budget for the service
+  retryBudget:
+    retryRatio: 0.2
+    minRetriesPerSecond: 10
+    ttl: 10s
+---
+apiVersion: split.smi-spec.io/v1alpha1
+kind: TrafficSplit
+metadata:
+  name: genesis
+  namespace: genesis
+spec:
+  service: genesis
+  backends:
+  - service: genesis-stable
+    weight: 900  # 90%
+  - service: genesis-canary
+    weight: 100  # 10%
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: ServerAuthorization
+metadata:
+  name: genesis
+  namespace: genesis
+spec:
+  server:
+    name: genesis
+  client:
+    # Allow traffic from same namespace
+    meshTLS:
+      identities:
+      - "genesis.genesis.serviceaccount.identity.linkerd.cluster.local"
+      - "prometheus.monitoring.serviceaccount.identity.linkerd.cluster.local"
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: genesis
+  namespace: genesis
+spec:
+  podSelector:
+    matchLabels:
+      app: genesis
+  port: 8000
+  proxyProtocol: "HTTP/2"
+---
+apiVersion: policy.linkerd.io/v1beta1
+kind: Server
+metadata:
+  name: genesis-metrics
+  namespace: genesis
+spec:
+  podSelector:
+    matchLabels:
+      app: genesis
+  port: 9090
+  proxyProtocol: "HTTP/1.1"
+---
+# Circuit breaker configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: linkerd-circuit-breaker
+  namespace: genesis
+data:
+  config.yaml: |
+    # Circuit breaker settings
+    consecutiveFailures: 5
+    failureThreshold: 0.5
+    successThreshold: 5
+    timeout: 30s
+    interval: 10s

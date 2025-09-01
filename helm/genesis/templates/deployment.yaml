@@ -1,0 +1,154 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "genesis.fullname" . }}
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "genesis.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "genesis.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "genesis.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: api
+          containerPort: {{ .Values.service.apiPort }}
+          protocol: TCP
+        - name: metrics
+          containerPort: {{ .Values.service.metricsPort }}
+          protocol: TCP
+        env:
+        - name: DEPLOYMENT_ENV
+          value: {{ .Values.config.deploymentEnv | quote }}
+        - name: BINANCE_TESTNET
+          value: {{ .Values.config.binanceTestnet | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.config.logLevel | quote }}
+        - name: BINANCE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "genesis.fullname" . }}-secrets
+              key: binance-api-key
+        - name: BINANCE_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "genesis.fullname" . }}-secrets
+              key: binance-api-secret
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "genesis.fullname" . }}-secrets
+              key: database-url
+        {{- if .Values.redis.enabled }}
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "genesis.fullname" . }}-secrets
+              key: redis-url
+        {{- end }}
+        {{- if .Values.healthCheck.liveness.enabled }}
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -m
+            - genesis.cli
+            - doctor
+          initialDelaySeconds: {{ .Values.healthCheck.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.liveness.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.liveness.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.liveness.failureThreshold }}
+          successThreshold: {{ .Values.healthCheck.liveness.successThreshold }}
+        {{- end }}
+        {{- if .Values.healthCheck.readiness.enabled }}
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -m
+            - genesis.cli
+            - doctor
+          initialDelaySeconds: {{ .Values.healthCheck.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.readiness.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.readiness.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.readiness.failureThreshold }}
+          successThreshold: {{ .Values.healthCheck.readiness.successThreshold }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          mountPath: /app/.genesis/data
+        - name: logs
+          mountPath: /app/.genesis/logs
+        - name: state
+          mountPath: /app/.genesis/state
+        {{- end }}
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: trading-rules
+          mountPath: /app/config/trading_rules.yaml
+          subPath: trading_rules.yaml
+          readOnly: true
+        - name: tier-gates
+          mountPath: /app/config/tier_gates.yaml
+          subPath: tier_gates.yaml
+          readOnly: true
+      volumes:
+      {{- if .Values.persistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "genesis.fullname" . }}-data
+      - name: logs
+        persistentVolumeClaim:
+          claimName: {{ include "genesis.fullname" . }}-logs
+      - name: state
+        persistentVolumeClaim:
+          claimName: {{ include "genesis.fullname" . }}-state
+      {{- end }}
+      - name: config
+        configMap:
+          name: {{ include "genesis.fullname" . }}-config
+      - name: trading-rules
+        configMap:
+          name: {{ include "genesis.fullname" . }}-trading-rules
+      - name: tier-gates
+        configMap:
+          name: {{ include "genesis.fullname" . }}-tier-gates
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

@@ -1,0 +1,136 @@
+# Gitleaks configuration for Genesis trading system
+# Custom rules for detecting trading platform credentials and secrets
+
+title = "Genesis Gitleaks Configuration"
+
+# Extend the base configuration
+[extend]
+useDefault = true
+
+# Genesis-specific rules
+[[rules]]
+id = "binance-api-key"
+description = "Binance API Key"
+regex = '''(?i)(binance[_\-]?api[_\-]?key)\s*[=:]\s*["']([a-zA-Z0-9]{64})["']'''
+tags = ["key", "binance", "api"]
+secretGroup = 2
+
+[[rules]]
+id = "binance-api-secret"  
+description = "Binance API Secret"
+regex = '''(?i)(binance[_\-]?api[_\-]?secret)\s*[=:]\s*["']([a-zA-Z0-9]{64})["']'''
+tags = ["secret", "binance", "api"]
+secretGroup = 2
+
+[[rules]]
+id = "genesis-vault-token"
+description = "Genesis Vault Token"
+regex = '''(?i)(vault[_\-]?token|VAULT_TOKEN)\s*[=:]\s*["']([a-zA-Z0-9\.\-\_]{20,})["']'''
+tags = ["token", "vault", "genesis"]
+secretGroup = 2
+
+[[rules]]
+id = "genesis-encryption-key"
+description = "Genesis Encryption Key"
+regex = '''(?i)(encryption[_\-]?key|DATABASE_ENCRYPTION_KEY|BACKUP_ENCRYPTION_KEY)\s*[=:]\s*["']([^"']{16,})["']'''
+tags = ["encryption", "key", "genesis"]
+secretGroup = 2
+
+[[rules]]
+id = "genesis-master-key"
+description = "Genesis Master Key"
+regex = '''(?i)(master[_\-]?key)\s*[=:]\s*["']([^"']{32,})["']'''
+tags = ["master", "key", "genesis"]
+secretGroup = 2
+
+[[rules]]
+id = "trading-webhook-secret"
+description = "Trading Webhook Secret"
+regex = '''(?i)(webhook[_\-]?secret)\s*[=:]\s*["']([^"']{16,})["']'''
+tags = ["webhook", "secret", "trading"]
+secretGroup = 2
+
+[[rules]]
+id = "jwt-secret"
+description = "JWT Secret Key"
+regex = '''(?i)(jwt[_\-]?secret|JWT_SECRET)\s*[=:]\s*["']([^"']{32,})["']'''
+tags = ["jwt", "secret", "auth"]
+secretGroup = 2
+
+[[rules]]
+id = "genesis-api-path"
+description = "Genesis Secret Path Reference"
+regex = '''['"](/genesis/(exchange|database|tls|backup)/[a-z\-]+)['"]'''
+tags = ["path", "genesis", "config"]
+
+[[rules]]
+id = "digitalocean-token"
+description = "DigitalOcean API Token"
+regex = '''(?i)(digitalocean[_\-]?token|DO_TOKEN)\s*[=:]\s*["']([a-f0-9]{64})["']'''
+tags = ["token", "digitalocean", "cloud"]
+secretGroup = 2
+
+[[rules]]
+id = "postgres-password"
+description = "PostgreSQL Password"
+regex = '''(?i)(postgres[_\-]?password|POSTGRES_PASSWORD|DATABASE_PASSWORD)\s*[=:]\s*["']([^"']{8,})["']'''
+tags = ["password", "database", "postgres"]
+secretGroup = 2
+
+# Allowlist configuration
+[allowlist]
+description = "Genesis allowlist"
+paths = [
+    # Documentation
+    "docs/.*",
+    "README.md",
+    "CONTRIBUTING.md",
+    
+    # Configuration examples
+    ".env.example",
+    "config.example.yaml",
+    "docker-compose.example.yml",
+    
+    # Tests
+    "tests/.*",
+    "test_.*\\.py",
+    
+    # Dependencies
+    "requirements.*\\.txt",
+    "poetry.lock",
+    "package-lock.json",
+    "yarn.lock",
+    
+    # Build artifacts
+    "dist/.*",
+    "build/.*",
+    ".genesis/.*"
+]
+
+# Specific files to ignore
+files = [
+    ".gitleaks.toml",
+    ".pre-commit-config.yaml",
+    ".secrets.baseline"
+]
+
+# Regex patterns to ignore (false positives)
+regexes = [
+    "(?i)example",
+    "(?i)test",
+    "(?i)fake",
+    "(?i)dummy",
+    "(?i)mock",
+    "(?i)placeholder",
+    "(?i)todo",
+    "(?i)fixme",
+    "<[^>]+>",  # Template variables
+    "\\{[^}]+\\}"  # Format strings
+]
+
+# Commits to ignore
+commits = [
+    "(?i)initial commit",
+    "(?i)merge branch",
+    "(?i)update documentation"
+]

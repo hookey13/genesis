@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: genesis
+  namespace: genesis
+  labels:
+    app: genesis
+    component: trading-engine
+    app.kubernetes.io/name: genesis
+    app.kubernetes.io/component: trading-engine
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+spec:
+  type: ClusterIP
+  selector:
+    app: genesis
+    component: trading-engine
+  ports:
+  - name: api
+    port: 8000
+    targetPort: api
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: genesis-headless
+  namespace: genesis
+  labels:
+    app: genesis
+    component: trading-engine
+  annotations:
+    description: "Headless service for StatefulSet pod discovery"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: genesis
+    component: trading-engine
+  ports:
+  - name: api
+    port: 8000
+    targetPort: api
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP

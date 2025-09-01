@@ -1,0 +1,316 @@
+metadata:
+  run_id: c4ba87b6-4db4-46d9-b136-ccda04a42b3a
+  timestamp: '2025-09-01T22:51:54.309486'
+  duration_seconds: 0.211865
+  overall_status: warning
+  overall_score: 58.333333333333336
+  validators_run: 3
+  validators_passed: 1
+  validators_failed: 0
+  validators_warning: 1
+  validators_skipped: 1
+  blocking_issues: []
+  overrides:
+    test3:
+      reason: Known issue, will fix
+      authorized_by: admin
+      authorization_level: admin
+      timestamp: '2025-09-01T22:51:54.309198'
+  results:
+    test1:
+      validator_id: test1
+      validator_name: Test Validator 1
+      status: passed
+      message: All checks passed
+      checks:
+      - id: test1-check
+        name: Test Check 1
+        description: Basic test check
+        category: test
+        status: passed
+        details: Check passed successfully
+        is_blocking: false
+        evidence:
+          screenshots: []
+          logs:
+          - Test log entry
+          metrics:
+            test_metric: 100
+          artifacts: []
+          raw_data: {}
+        duration_ms: 100
+        timestamp: '2025-09-01T22:51:54.412343'
+        error_message: null
+        remediation: null
+        severity: medium
+        tags: []
+      evidence:
+        screenshots: []
+        logs:
+        - Test log entry
+        metrics:
+          test_metric: 100
+        artifacts: []
+        raw_data: {}
+      metadata:
+        version: 1.0.0
+        environment: production
+        run_id: c4ba87b6-4db4-46d9-b136-ccda04a42b3a
+        started_at: '2025-09-01T22:51:54.309486'
+        completed_at: null
+        duration_ms: null
+        machine_info: {}
+        additional_info: {}
+      score: '100.0'
+      passed_checks: 1
+      failed_checks: 0
+      warning_checks: 0
+      skipped_checks: 0
+      error_checks: 0
+      is_blocking: false
+      dependencies: []
+    test3:
+      validator_id: test3
+      validator_name: Test Validator 3
+      status: skipped
+      message: 'Overridden: Known issue, will fix'
+      checks: []
+      evidence:
+        screenshots: []
+        logs: []
+        metrics: {}
+        artifacts: []
+        raw_data: {}
+      metadata:
+        version: 1.0.0
+        environment: production
+        run_id: c4ba87b6-4db4-46d9-b136-ccda04a42b3a
+        started_at: '2025-09-01T22:51:54.309486'
+        completed_at: null
+        duration_ms: null
+        machine_info: {}
+        additional_info: {}
+      score: '0.0'
+      passed_checks: 0
+      failed_checks: 0
+      warning_checks: 0
+      skipped_checks: 0
+      error_checks: 0
+      is_blocking: false
+      dependencies: []
+    test2:
+      validator_id: test2
+      validator_name: Test Validator 2
+      status: warning
+      message: Validation completed with warnings
+      checks:
+      - id: test2-check1
+        name: Test Check 2-1
+        description: First check
+        category: test
+        status: passed
+        details: Check passed
+        is_blocking: false
+        evidence:
+          screenshots: []
+          logs: []
+          metrics: {}
+          artifacts: []
+          raw_data: {}
+        duration_ms: 50
+        timestamp: '2025-09-01T22:51:54.520921'
+        error_message: null
+        remediation: null
+        severity: medium
+        tags: []
+      - id: test2-check2
+        name: Test Check 2-2
+        description: Second check with warning
+        category: test
+        status: warning
+        details: Check has warnings
+        is_blocking: false
+        evidence:
+          screenshots: []
+          logs: []
+          metrics: {}
+          artifacts: []
+          raw_data: {}
+        duration_ms: 50
+        timestamp: '2025-09-01T22:51:54.520979'
+        error_message: null
+        remediation: null
+        severity: medium
+        tags: []
+      evidence:
+        screenshots: []
+        logs: []
+        metrics: {}
+        artifacts: []
+        raw_data: {}
+      metadata:
+        version: 1.0.0
+        environment: production
+        run_id: c4ba87b6-4db4-46d9-b136-ccda04a42b3a
+        started_at: '2025-09-01T22:51:54.309486'
+        completed_at: null
+        duration_ms: null
+        machine_info: {}
+        additional_info: {}
+      score: '75.00'
+      passed_checks: 1
+      failed_checks: 0
+      warning_checks: 1
+      skipped_checks: 0
+      error_checks: 0
+      is_blocking: false
+      dependencies: []
+results:
+  test1:
+    validator_id: test1
+    validator_name: Test Validator 1
+    status: passed
+    message: All checks passed
+    checks:
+    - id: test1-check
+      name: Test Check 1
+      description: Basic test check
+      category: test
+      status: passed
+      details: Check passed successfully
+      is_blocking: false
+      evidence:
+        screenshots: []
+        logs:
+        - Test log entry
+        metrics:
+          test_metric: 100
+        artifacts: []
+        raw_data: {}
+      duration_ms: 100
+      timestamp: '2025-09-01T22:51:54.412343'
+      error_message: null
+      remediation: null
+      severity: medium
+      tags: []
+    evidence:
+      screenshots: []
+      logs:
+      - Test log entry
+      metrics:
+        test_metric: 100
+      artifacts: []
+      raw_data: {}
+    metadata:
+      version: 1.0.0
+      environment: production
+      run_id: c4ba87b6-4db4-46d9-b136-ccda04a42b3a
+      started_at: '2025-09-01T22:51:54.309486'
+      completed_at: null
+      duration_ms: null
+      machine_info: {}
+      additional_info: {}
+    score: '100.0'
+    passed_checks: 1
+    failed_checks: 0
+    warning_checks: 0
+    skipped_checks: 0
+    error_checks: 0
+    is_blocking: false
+    dependencies: []
+  test3:
+    validator_id: test3
+    validator_name: Test Validator 3
+    status: skipped
+    message: 'Overridden: Known issue, will fix'
+    checks: []
+    evidence:
+      screenshots: []
+      logs: []
+      metrics: {}
+      artifacts: []
+      raw_data: {}
+    metadata:
+      version: 1.0.0
+      environment: production
+      run_id: c4ba87b6-4db4-46d9-b136-ccda04a42b3a
+      started_at: '2025-09-01T22:51:54.309486'
+      completed_at: null
+      duration_ms: null
+      machine_info: {}
+      additional_info: {}
+    score: '0.0'
+    passed_checks: 0
+    failed_checks: 0
+    warning_checks: 0
+    skipped_checks: 0
+    error_checks: 0
+    is_blocking: false
+    dependencies: []
+  test2:
+    validator_id: test2
+    validator_name: Test Validator 2
+    status: warning
+    message: Validation completed with warnings
+    checks:
+    - id: test2-check1
+      name: Test Check 2-1
+      description: First check
+      category: test
+      status: passed
+      details: Check passed
+      is_blocking: false
+      evidence:
+        screenshots: []
+        logs: []
+        metrics: {}
+        artifacts: []
+        raw_data: {}
+      duration_ms: 50
+      timestamp: '2025-09-01T22:51:54.520921'
+      error_message: null
+      remediation: null
+      severity: medium
+      tags: []
+    - id: test2-check2
+      name: Test Check 2-2
+      description: Second check with warning
+      category: test
+      status: warning
+      details: Check has warnings
+      is_blocking: false
+      evidence:
+        screenshots: []
+        logs: []
+        metrics: {}
+        artifacts: []
+        raw_data: {}
+      duration_ms: 50
+      timestamp: '2025-09-01T22:51:54.520979'
+      error_message: null
+      remediation: null
+      severity: medium
+      tags: []
+    evidence:
+      screenshots: []
+      logs: []
+      metrics: {}
+      artifacts: []
+      raw_data: {}
+    metadata:
+      version: 1.0.0
+      environment: production
+      run_id: c4ba87b6-4db4-46d9-b136-ccda04a42b3a
+      started_at: '2025-09-01T22:51:54.309486'
+      completed_at: null
+      duration_ms: null
+      machine_info: {}
+      additional_info: {}
+    score: '75.00'
+    passed_checks: 1
+    failed_checks: 0
+    warning_checks: 1
+    skipped_checks: 0
+    error_checks: 0
+    is_blocking: false
+    dependencies: []

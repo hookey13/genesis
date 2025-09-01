@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: genesis-data-pvc
+  namespace: genesis
+  labels:
+    app: genesis
+    component: storage
+    type: data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: genesis-logs-pvc
+  namespace: genesis
+  labels:
+    app: genesis
+    component: storage
+    type: logs
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: genesis-state-pvc
+  namespace: genesis
+  labels:
+    app: genesis
+    component: storage
+    type: state
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: genesis-backups-pvc
+  namespace: genesis
+  labels:
+    app: genesis
+    component: storage
+    type: backups
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard

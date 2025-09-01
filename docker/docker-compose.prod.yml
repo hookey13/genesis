@@ -31,6 +31,7 @@ services:
       - genesis-network
     ports:
       - "127.0.0.1:8000:8000"  # API port (localhost only)
+      - "127.0.0.1:9090:9090"  # Prometheus metrics (localhost only)
     restart: always
     stop_grace_period: 30s
     logging:
@@ -42,7 +43,7 @@ services:
     # Use supervisor for process management
     command: ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/genesis.conf"]
     healthcheck:
-      test: ["CMD", "python", "-m", "genesis.api.health", "readiness"]
+      test: ["CMD", "python", "-m", "genesis.cli", "doctor"]
       interval: 30s
       timeout: 10s
       retries: 3

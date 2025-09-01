@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: genesis
+  labels:
+    name: genesis
+    environment: production
+    app.kubernetes.io/name: genesis
+    app.kubernetes.io/part-of: genesis-trading-system
+  annotations:
+    description: "Genesis Trading System namespace"
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: genesis-quota
+  namespace: genesis
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    persistentvolumeclaims: "10"
+    services: "10"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: genesis-limit-range
+  namespace: genesis
+spec:
+  limits:
+  - default:
+      cpu: 500m
+      memory: 1Gi
+    defaultRequest:
+      cpu: 100m
+      memory: 256Mi
+    max:
+      cpu: 2000m
+      memory: 4Gi
+    min:
+      cpu: 50m
+      memory: 128Mi
+    type: Container
+  - max:
+      cpu: 4000m
+      memory: 8Gi
+    min:
+      cpu: 100m
+      memory: 256Mi
+    type: Pod

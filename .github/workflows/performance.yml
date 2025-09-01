@@ -1,0 +1,79 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  performance:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11.8'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements/*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements/base.txt
+        pip install -r requirements/dev.txt
+    
+    - name: Run performance benchmarks
+      run: |
+        python -m pytest tests/performance/ \
+          --benchmark-only \
+          --benchmark-json=benchmark.json \
+          --benchmark-autosave
+    
+    - name: Check for performance regressions
+      run: |
+        python scripts/check_performance_regression.py \
+          --current benchmark.json \
+          --baseline performance_baseline.json \
+          --threshold 0.1
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: |
+          benchmark.json
+          .benchmarks/
+    
+    - name: Comment PR with performance results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const results = JSON.parse(fs.readFileSync('benchmark.json'));
+          
+          const comment = `## Performance Test Results
+          
+          | Metric | Value | Change |
+          |--------|-------|--------|
+          | Order Execution P99 | ${results.order_execution_p99}ms | - |
+          | Risk Check P99 | ${results.risk_check_p99}ms | - |
+          | Memory Usage | ${results.memory_mb}MB | - |
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

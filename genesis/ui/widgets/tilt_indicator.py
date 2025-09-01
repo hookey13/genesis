@@ -48,7 +48,7 @@ class TiltIndicator(Widget):
         TiltLevel.LEVEL3: "red",
     }
 
-    def __init__(self, event_bus: EventBus | None = None, **kwargs):
+    def __init__(self, event_bus=None, **kwargs):  # Optional[EventBus]
         """Initialize tilt indicator.
 
         Args:
@@ -58,6 +58,12 @@ class TiltIndicator(Widget):
         self.event_bus = event_bus
         self.anomalies: list[dict] = []
         self.last_update = datetime.now(UTC)
+        
+        # History tracking
+        self.tilt_history = []  # List of (timestamp, level, score) tuples
+        self.intervention_history = []  # List of (timestamp, message) tuples
+        self.max_tilt_score_today = 0
+        self.tilt_events_today = 0
 
         # Subscribe to tilt events if event bus provided
         if self.event_bus:
@@ -80,6 +86,10 @@ class TiltIndicator(Widget):
             # Anomaly details
             with Container(id="anomaly-details"):
                 yield Static(self._render_anomaly_list(), id="anomaly-list")
+            
+            # Tilt history
+            with Container(id="tilt-history-container"):
+                yield Static(self._render_tilt_history(), id="tilt-history")
 
     def _render_level(self) -> RenderableType:
         """Render the current tilt level."""
@@ -153,12 +163,52 @@ class TiltIndicator(Widget):
 
         return Panel(table, title="Active Anomalies", border_style="dim")
 
+    def _render_tilt_history(self) -> RenderableType:
+        """Render tilt event history."""
+        if not self.tilt_history:
+            return Text("No tilt events today", style="dim green")
+        
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Time", style="cyan")
+        table.add_column("Level", justify="center")
+        table.add_column("Score", justify="right")
+        table.add_column("Duration", justify="right")
+        
+        # Show last 5 events
+        for i, (timestamp, level, score) in enumerate(self.tilt_history[-5:]):
+            time_str = timestamp.strftime("%H:%M:%S")
+            level_color = self.LEVEL_COLORS[level]
+            level_text = level.value
+            
+            # Calculate duration if not the last event
+            if i < len(self.tilt_history) - 1:
+                next_timestamp = self.tilt_history[i + 1][0]
+                duration = (next_timestamp - timestamp).total_seconds()
+                duration_str = f"{int(duration)}s"
+            else:
+                duration = (datetime.now(UTC) - timestamp).total_seconds()
+                duration_str = f"{int(duration)}s"
+            
+            table.add_row(
+                time_str,
+                Text(level_text, style=level_color),
+                str(score),
+                duration_str,
+            )
+        
+        panel = Panel(
+            table,
+            title=f"Tilt History (Today: {self.tilt_events_today} events, Max: {self.max_tilt_score_today})",
+            border_style="dim",
+        )
+        return panel
+
     def update_tilt_status(
         self,
         level: TiltLevel,
         score: int,
-        anomalies: list[dict],
-        message: str | None = None,
+        anomalies: list,  # list[dict]
+        message=None,  # Optional[str]
     ) -> None:
         """Update the tilt status display.
 
@@ -168,12 +218,26 @@ class TiltIndicator(Widget):
             anomalies: List of active anomalies
             message: Optional intervention message
         """
+        # Track history
+        now = datetime.now(UTC)
+        self.tilt_history.append((now, level, score))
+        
+        # Update daily stats
+        self.tilt_events_today += 1
+        if score > self.max_tilt_score_today:
+            self.max_tilt_score_today = score
+            
+        # Track intervention messages
+        if message:
+            self.intervention_history.append((now, message))
+        
+        # Update reactive attributes
         self.tilt_level = level
         self.tilt_score = score
         self.anomaly_count = len(anomalies)
         self.anomalies = anomalies
         self.intervention_message = message or ""
-        self.last_update = datetime.now(UTC)
+        self.last_update = now
 
         # Update display elements
         self._update_display()
@@ -202,6 +266,10 @@ class TiltIndicator(Widget):
         # Update anomaly list
         if anomaly_list := self.query_one("#anomaly-list", Static):
             anomaly_list.update(self._render_anomaly_list())
+            
+        # Update tilt history
+        if history := self.query_one("#tilt-history", Static):
+            history.update(self._render_tilt_history())
 
     def _apply_border_style(self) -> None:
         """Apply border style based on tilt level."""

@@ -1,0 +1,178 @@
+# Istio VirtualService for Genesis Trading System
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: genesis
+  namespace: genesis
+spec:
+  hosts:
+  - genesis.genesis.svc.cluster.local
+  - genesis.trading.example.com
+  gateways:
+  - genesis-gateway
+  - mesh
+  http:
+  # Route for health checks
+  - match:
+    - uri:
+        prefix: /health
+    route:
+    - destination:
+        host: genesis
+        port:
+          number: 8000
+    timeout: 10s
+  
+  # Route for metrics (Prometheus)
+  - match:
+    - uri:
+        prefix: /metrics
+    - headers:
+        user-agent:
+          regex: ".*Prometheus.*"
+    route:
+    - destination:
+        host: genesis
+        port:
+          number: 9090
+  
+  # Canary deployment route (10% to new version)
+  - match:
+    - headers:
+        x-canary:
+          exact: "true"
+    route:
+    - destination:
+        host: genesis
+        subset: v2
+      weight: 100
+  
+  # Default route with retry policy
+  - route:
+    - destination:
+        host: genesis
+        subset: v1
+      weight: 90
+    - destination:
+        host: genesis
+        subset: v2
+      weight: 10
+    retry:
+      attempts: 3
+      perTryTimeout: 30s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    timeout: 60s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: genesis
+  namespace: genesis
+spec:
+  host: genesis.genesis.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 2
+    loadBalancer:
+      simple: LEAST_REQUEST
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 50
+  - name: v2
+    labels:
+      version: v2
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 50
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: genesis-gateway
+  namespace: genesis
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - genesis.trading.example.com
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - genesis.trading.example.com
+    tls:
+      mode: SIMPLE
+      credentialName: genesis-tls
+---
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: genesis-mtls
+  namespace: genesis
+spec:
+  selector:
+    matchLabels:
+      app: genesis
+  mtls:
+    mode: STRICT
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: genesis-authz
+  namespace: genesis
+spec:
+  selector:
+    matchLabels:
+      app: genesis
+  action: ALLOW
+  rules:
+  # Allow Prometheus to scrape metrics
+  - from:
+    - source:
+        namespaces: ["monitoring", "istio-system"]
+    to:
+    - operation:
+        ports: ["9090"]
+        methods: ["GET"]
+  
+  # Allow internal service communication
+  - from:
+    - source:
+        namespaces: ["genesis"]
+    to:
+    - operation:
+        ports: ["8000"]
+  
+  # Allow ingress gateway
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+    to:
+    - operation:
+        ports: ["8000"]

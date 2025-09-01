@@ -1,240 +1,408 @@
-"""
-Unit tests for RateLimiter.
-"""
+"""Unit tests for rate limiter implementation."""
 
 import asyncio
 import time
-
+from decimal import Decimal
 import pytest
+from unittest.mock import Mock, AsyncMock, patch
 
-from genesis.exchange.rate_limiter import RateLimiter, WeightWindow
+from genesis.core.rate_limiter import (
+    RateLimiter,
+    RateLimitConfig,
+    TokenBucket,
+    SlidingWindowLimiter,
+    Priority,
+    DistributedRateLimiter
+)
+
+
+class TestRateLimitConfig:
+    """Test rate limit configuration."""
+    
+    def test_valid_config(self):
+        """Test valid configuration."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20,
+            window_size_seconds=60,
+            critical_reserve_percent=Decimal("0.2")
+        )
+        assert config.requests_per_second == 10
+        assert config.burst_size == 20
+        assert config.window_size_seconds == 60
+        assert config.critical_reserve_percent == Decimal("0.2")
+    
+    def test_invalid_requests_per_second(self):
+        """Test invalid requests per second."""
+        with pytest.raises(ValueError, match="requests_per_second must be positive"):
+            RateLimitConfig(
+                requests_per_second=0,
+                burst_size=20
+            )
+    
+    def test_invalid_burst_size(self):
+        """Test burst size less than requests per second."""
+        with pytest.raises(ValueError, match="burst_size must be >= requests_per_second"):
+            RateLimitConfig(
+                requests_per_second=10,
+                burst_size=5
+            )
+    
+    def test_invalid_critical_reserve(self):
+        """Test invalid critical reserve percentage."""
+        with pytest.raises(ValueError, match="critical_reserve_percent must be between"):
+            RateLimitConfig(
+                requests_per_second=10,
+                burst_size=20,
+                critical_reserve_percent=Decimal("1.5")
+            )
+
+
+class TestTokenBucket:
+    """Test token bucket implementation."""
+    
+    @pytest.mark.asyncio
+    async def test_initial_tokens(self):
+        """Test initial token state."""
+        bucket = TokenBucket(capacity=10, refill_rate=5.0)
+        assert bucket.tokens == 10.0
+        assert bucket.capacity == 10
+        assert bucket.refill_rate == 5.0
+    
+    @pytest.mark.asyncio
+    async def test_acquire_tokens(self):
+        """Test acquiring tokens."""
+        bucket = TokenBucket(capacity=10, refill_rate=5.0)
+        
+        # Acquire tokens within capacity
+        result = await bucket.acquire(5)
+        assert result is True
+        assert bucket.tokens == 5.0
+        
+        # Acquire more tokens
+        result = await bucket.acquire(3)
+        assert result is True
+        assert bucket.tokens == 2.0
+        
+        # Try to acquire more than available
+        result = await bucket.acquire(5)
+        assert result is False
+        assert bucket.tokens == 2.0
+    
+    @pytest.mark.asyncio
+    async def test_token_refill(self):
+        """Test token refill over time."""
+        with patch('time.monotonic') as mock_time:
+            mock_time.return_value = 0
+            bucket = TokenBucket(capacity=10, refill_rate=5.0)
+            
+            # Use all tokens
+            await bucket.acquire(10)
+            assert bucket.tokens == 0.0
+            
+            # Advance time by 1 second (should add 5 tokens)
+            mock_time.return_value = 1.0
+            result = await bucket.acquire(4)
+            assert result is True
+            assert bucket.tokens == pytest.approx(1.0, rel=0.1)
+    
+    @pytest.mark.asyncio
+    async def test_critical_priority_overdraft(self):
+        """Test critical priority can overdraft."""
+        bucket = TokenBucket(capacity=10, refill_rate=5.0)
+        
+        # Use all tokens
+        await bucket.acquire(10)
+        assert bucket.tokens == 0.0
+        
+        # Critical request can overdraft
+        result = await bucket.acquire(1, priority=Priority.CRITICAL)
+        assert result is True
+        assert bucket.tokens == -1.0
+        
+        # But not beyond 10% of capacity
+        result = await bucket.acquire(1, priority=Priority.CRITICAL)
+        assert result is False
+    
+    @pytest.mark.asyncio
+    async def test_wait_for_tokens(self):
+        """Test calculating wait time for tokens."""
+        bucket = TokenBucket(capacity=10, refill_rate=5.0)
+        
+        # No wait if tokens available
+        wait_time = await bucket.wait_for_tokens(5)
+        assert wait_time == 0.0
+        
+        # Use all tokens
+        await bucket.acquire(10)
+        
+        # Calculate wait time for 5 tokens (1 second at 5 tokens/sec)
+        wait_time = await bucket.wait_for_tokens(5)
+        assert wait_time == pytest.approx(1.0, rel=0.1)
+
+
+class TestSlidingWindowLimiter:
+    """Test sliding window limiter."""
+    
+    @pytest.mark.asyncio
+    async def test_window_limits(self):
+        """Test sliding window limits."""
+        limiter = SlidingWindowLimiter(window_size_seconds=10, max_requests=5)
+        
+        # Add requests within limit
+        for _ in range(5):
+            result = await limiter.check_and_add()
+            assert result is True
+        
+        # Exceed limit
+        result = await limiter.check_and_add()
+        assert result is False
+    
+    @pytest.mark.asyncio
+    async def test_window_sliding(self):
+        """Test sliding window behavior."""
+        with patch('time.time') as mock_time:
+            mock_time.return_value = 0
+            limiter = SlidingWindowLimiter(window_size_seconds=10, max_requests=5)
+            
+            # Add 5 requests at time 0
+            for _ in range(5):
+                await limiter.check_and_add()
+            
+            # Can't add more
+            result = await limiter.check_and_add()
+            assert result is False
+            
+            # Move time forward by 11 seconds (outside window)
+            mock_time.return_value = 11
+            
+            # Now can add again
+            result = await limiter.check_and_add()
+            assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_critical_priority_excess(self):
+        """Test critical priority can exceed limit."""
+        limiter = SlidingWindowLimiter(window_size_seconds=10, max_requests=5)
+        
+        # Fill to limit
+        for _ in range(5):
+            await limiter.check_and_add()
+        
+        # Critical can exceed by 10%
+        result = await limiter.check_and_add(priority=Priority.CRITICAL)
+        assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_get_window_usage(self):
+        """Test getting window usage."""
+        limiter = SlidingWindowLimiter(window_size_seconds=10, max_requests=5)
+        
+        # Initial state
+        used, total = await limiter.get_window_usage()
+        assert used == 0
+        assert total == 5
+        
+        # Add some requests
+        for _ in range(3):
+            await limiter.check_and_add()
+        
+        used, total = await limiter.get_window_usage()
+        assert used == 3
+        assert total == 5
 
 
 class TestRateLimiter:
-    """Test suite for RateLimiter."""
-
-    def test_initialization(self):
+    """Test main rate limiter."""
+    
+    @pytest.mark.asyncio
+    async def test_initialization(self):
         """Test rate limiter initialization."""
-        limiter = RateLimiter(max_weight=1200, window_seconds=60, threshold_percent=80)
-
-        assert limiter.max_weight == 1200
-        assert limiter.window_seconds == 60
-        assert limiter.threshold_percent == 80
-        assert limiter.threshold_weight == 960  # 80% of 1200
-        assert limiter.current_weight == 0
-        assert limiter.max_orders_10s == 50
-        assert limiter.max_orders_daily == 160000
-        assert limiter.order_threshold_10s == 40  # 80% of 50
-        assert limiter.order_threshold_daily == 128000  # 80% of 160000
-
-    @pytest.mark.asyncio
-    async def test_simple_request(self, rate_limiter):
-        """Test a simple request within limits."""
-        await rate_limiter.check_and_wait(
-            "GET", "/api/v3/ticker/price", {"symbol": "BTCUSDT"}
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
         )
-
-        assert rate_limiter.current_weight == 1  # Ticker with symbol = 1 weight
-        assert rate_limiter.total_requests == 1
-        assert rate_limiter.get_current_utilization() < 1  # Less than 1%
-
+        limiter = RateLimiter(config)
+        
+        assert limiter.config == config
+        assert limiter.token_bucket.capacity == 20
+        assert limiter.token_bucket.refill_rate == 10
+        assert len(limiter.priority_queues) == len(Priority)
+    
     @pytest.mark.asyncio
-    async def test_heavy_request(self, rate_limiter):
-        """Test a heavy request."""
-        await rate_limiter.check_and_wait("GET", "/api/v3/account")
-
-        assert rate_limiter.current_weight == 10  # Account endpoint = 10 weight
-        assert rate_limiter.total_requests == 1
-
-    @pytest.mark.asyncio
-    async def test_conditional_weight_limit(self, rate_limiter):
-        """Test conditional weight based on limit parameter."""
-        # Small limit
-        await rate_limiter.check_and_wait("GET", "/api/v3/depth", {"limit": 50})
-        assert rate_limiter.current_weight == 1
-
-        rate_limiter.reset_window()
-
-        # Medium limit
-        await rate_limiter.check_and_wait("GET", "/api/v3/depth", {"limit": 200})
-        assert rate_limiter.current_weight == 5
-
-        rate_limiter.reset_window()
-
-        # Large limit
-        await rate_limiter.check_and_wait("GET", "/api/v3/depth", {"limit": 600})
-        assert rate_limiter.current_weight == 10
-
-    @pytest.mark.asyncio
-    async def test_threshold_warning(self, rate_limiter):
-        """Test threshold warning and backoff."""
-        # Set a low threshold for testing
-        rate_limiter.max_weight = 100
-        rate_limiter.threshold_weight = 80
-
-        # Add weight up to threshold
-        rate_limiter.current_weight = 75
-
-        # This should trigger backoff
-        start_time = time.time()
-        await rate_limiter.check_and_wait("GET", "/api/v3/account")  # 10 weight
-        elapsed = time.time() - start_time
-
-        # Should have waited due to threshold
-        assert elapsed >= 1.0  # Default backoff is 2^1 = 2 seconds, but might be faster
-        assert rate_limiter.threshold_hits == 1
-        assert rate_limiter.consecutive_threshold_hits == 1
-
-    def test_clean_old_weights(self, rate_limiter):
-        """Test cleaning of old weight entries."""
-        current_time = time.time()
-
-        # Add old weight (outside window)
-        old_weight = WeightWindow(
-            timestamp=current_time - 70,  # 70 seconds ago (outside 60s window)
-            weight=10,
+    async def test_acquire_success(self):
+        """Test successful acquire."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
         )
-        rate_limiter.weight_history.append(old_weight)
-        rate_limiter.current_weight = 10
-
-        # Add recent weight
-        recent_weight = WeightWindow(
-            timestamp=current_time - 30, weight=5  # 30 seconds ago (inside window)
-        )
-        rate_limiter.weight_history.append(recent_weight)
-        rate_limiter.current_weight = 15
-
-        # Clean old weights
-        rate_limiter._clean_old_weights()
-
-        # Old weight should be removed
-        assert len(rate_limiter.weight_history) == 1
-        assert rate_limiter.current_weight == 5
-
-    def test_get_remaining_weight(self, rate_limiter):
-        """Test getting remaining weight capacity."""
-        rate_limiter.current_weight = 300
-
-        remaining = rate_limiter.get_remaining_weight()
-        assert remaining == 900  # 1200 - 300
-
-    def test_get_utilization(self, rate_limiter):
-        """Test utilization calculation."""
-        rate_limiter.current_weight = 600
-
-        utilization = rate_limiter.get_current_utilization()
-        assert utilization == 50.0  # 600/1200 * 100
-
-    def test_reset_window(self, rate_limiter):
-        """Test window reset."""
-        rate_limiter.current_weight = 500
-        rate_limiter.consecutive_threshold_hits = 3
-        rate_limiter.backoff_until = time.time() + 10
-
-        rate_limiter.reset_window()
-
-        assert rate_limiter.current_weight == 0
-        assert rate_limiter.consecutive_threshold_hits == 0
-        assert rate_limiter.backoff_until is None
-        assert len(rate_limiter.weight_history) == 0
-
-    def test_get_statistics(self, rate_limiter):
-        """Test statistics retrieval."""
-        rate_limiter.total_requests = 100
-        rate_limiter.total_weight_consumed = 500
-        rate_limiter.current_weight = 200
-        rate_limiter.threshold_hits = 5
-
-        stats = rate_limiter.get_statistics()
-
-        assert stats["total_requests"] == 100
-        assert stats["total_weight_consumed"] == 500
-        assert stats["current_weight"] == 200
-        assert stats["threshold_hits"] == 5
-        assert stats["current_utilization_percent"] == pytest.approx(16.67, rel=0.01)
-        assert stats["remaining_weight"] == 1000
-
+        limiter = RateLimiter(config)
+        
+        result = await limiter.acquire(tokens=1)
+        assert result is True
+        assert limiter.metrics["requests_allowed"] == 1
+        assert limiter.metrics["requests_rejected"] == 0
+    
     @pytest.mark.asyncio
-    async def test_concurrent_requests(self, rate_limiter):
-        """Test handling concurrent requests."""
-        # Create multiple concurrent requests
+    async def test_acquire_rejection(self):
+        """Test acquire rejection when limits exceeded."""
+        config = RateLimitConfig(
+            requests_per_second=1,
+            burst_size=2
+        )
+        limiter = RateLimiter(config)
+        
+        # Use up capacity
+        await limiter.acquire(tokens=2, wait=False)
+        
+        # Next request should be rejected
+        result = await limiter.acquire(tokens=1, wait=False)
+        assert result is False
+        assert limiter.metrics["requests_rejected"] == 1
+    
+    @pytest.mark.asyncio
+    async def test_release_tokens(self):
+        """Test releasing tokens back to bucket."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
+        )
+        limiter = RateLimiter(config)
+        
+        # Use some tokens
+        await limiter.acquire(tokens=5)
+        assert limiter.token_bucket.tokens == 15.0
+        
+        # Release tokens
+        await limiter.release(tokens=3)
+        assert limiter.token_bucket.tokens == 18.0
+    
+    @pytest.mark.asyncio
+    async def test_coalesce_request(self):
+        """Test request coalescing."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
+        )
+        limiter = RateLimiter(config)
+        
+        # Create a mock coroutine
+        call_count = 0
+        
+        async def mock_request():
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.1)
+            return f"result_{call_count}"
+        
+        # Make multiple coalesced requests
         tasks = [
-            rate_limiter.check_and_wait(
-                "GET", "/api/v3/ticker/price", {"symbol": "BTCUSDT"}
-            ),
-            rate_limiter.check_and_wait(
-                "GET", "/api/v3/ticker/price", {"symbol": "ETHUSDT"}
-            ),
-            rate_limiter.check_and_wait(
-                "GET", "/api/v3/ticker/price", {"symbol": "BNBUSDT"}
-            ),
+            limiter.coalesce_request("key1", mock_request())
+            for _ in range(3)
         ]
-
-        await asyncio.gather(*tasks)
-
-        assert rate_limiter.current_weight == 3  # 3 requests, 1 weight each
-        assert rate_limiter.total_requests == 3
-
-    def test_endpoint_weight_mapping(self, rate_limiter):
-        """Test endpoint weight mapping."""
-        # Test various endpoints
-        assert rate_limiter._get_endpoint_weight("GET", "/api/v3/ping") == 1
-        assert rate_limiter._get_endpoint_weight("GET", "/api/v3/time") == 1
-        assert rate_limiter._get_endpoint_weight("GET", "/api/v3/account") == 10
-        assert rate_limiter._get_endpoint_weight("POST", "/api/v3/order") == 1
-        assert rate_limiter._get_endpoint_weight("DELETE", "/api/v3/order") == 1
-        assert rate_limiter._get_endpoint_weight("GET", "/api/v3/exchangeInfo") == 10
-
-        # Test unknown endpoint (default to 1)
-        assert rate_limiter._get_endpoint_weight("GET", "/unknown/endpoint") == 1
-
+        
+        results = await asyncio.gather(*tasks)
+        
+        # All should get same result (only called once)
+        assert call_count == 1
+        assert all(r == "result_1" for r in results)
+    
     @pytest.mark.asyncio
-    async def test_order_rate_limit_10s(self, rate_limiter):
-        """Test order-specific rate limiting for 10-second window."""
-        # Place orders up to threshold (40 orders, 80% of 50)
-        for _ in range(39):
-            await rate_limiter.check_and_wait("POST", "/api/v3/order")
-
-        stats = rate_limiter.get_statistics()
-        assert stats["orders"]["current_10s"] == 39
-        assert stats["orders"]["remaining_10s"] == 11
-
-        # 40th order should trigger warning but still go through
-        await rate_limiter.check_and_wait("POST", "/api/v3/order")
-
-        stats = rate_limiter.get_statistics()
-        assert stats["orders"]["current_10s"] == 40
-        assert stats["orders"]["total_placed"] == 40
-
+    async def test_update_from_headers(self):
+        """Test updating rate limits from response headers."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
+        )
+        limiter = RateLimiter(config)
+        
+        # Test high usage - should slow down
+        headers = {
+            "X-MBX-USED-WEIGHT-1M": "1000",  # 83% of 1200 limit
+        }
+        await limiter.update_from_headers(headers)
+        assert limiter.token_bucket.refill_rate < 10
+        
+        # Test low usage - should speed up
+        headers = {
+            "X-MBX-USED-WEIGHT-1M": "400",  # 33% of 1200 limit
+        }
+        limiter.token_bucket.refill_rate = 5  # Reset to lower rate
+        await limiter.update_from_headers(headers)
+        assert limiter.token_bucket.refill_rate > 5
+    
     @pytest.mark.asyncio
-    async def test_order_rate_limit_10s_wait(self, rate_limiter):
-        """Test that rate limiter waits when 10s order limit is reached."""
-        # Fill up to threshold
-        for _ in range(40):
-            await rate_limiter.check_and_wait("POST", "/api/v3/order")
+    async def test_get_metrics(self):
+        """Test getting metrics."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
+        )
+        limiter = RateLimiter(config)
+        
+        # Make some requests
+        await limiter.acquire(tokens=1)
+        await limiter.acquire(tokens=20, wait=False)  # Will be rejected
+        
+        metrics = limiter.get_metrics()
+        assert metrics["requests_allowed"] == 1
+        assert metrics["requests_rejected"] == 1
+        assert metrics["token_bucket_capacity"] == 20
 
-        # Next order should cause a wait
-        start_time = time.time()
-        await rate_limiter.check_and_wait("POST", "/api/v3/order")
-        _ = time.time() - start_time  # Elapsed time (checking wait occurred)
 
-        # Should have waited, but not too long (mocked time in tests)
-        assert rate_limiter.total_orders_placed == 41
-
+class TestDistributedRateLimiter:
+    """Test distributed rate limiter with Redis."""
+    
     @pytest.mark.asyncio
-    async def test_order_statistics(self, rate_limiter):
-        """Test order statistics in get_statistics."""
-        # Place some orders
-        for _ in range(5):
-            await rate_limiter.check_and_wait("POST", "/api/v3/order")
-
-        stats = rate_limiter.get_statistics()
-
-        assert "orders" in stats
-        assert stats["orders"]["total_placed"] == 5
-        assert stats["orders"]["current_10s"] == 5
-        assert stats["orders"]["current_daily"] == 5
-        assert stats["orders"]["remaining_10s"] == 45
-        assert stats["orders"]["remaining_daily"] == 159995
-        assert stats["orders"]["utilization_10s_percent"] == 10.0  # 5/50 * 100
-        assert stats["orders"]["utilization_daily_percent"] < 0.01  # Very small
+    async def test_fallback_to_local(self):
+        """Test fallback to local rate limiting when Redis unavailable."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
+        )
+        
+        # No Redis client
+        limiter = DistributedRateLimiter(config, redis_client=None)
+        
+        result = await limiter.acquire_distributed("test_key", tokens=1)
+        assert result is True
+    
+    @pytest.mark.asyncio
+    async def test_redis_rate_limiting(self):
+        """Test rate limiting with Redis."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
+        )
+        
+        # Mock Redis client
+        mock_redis = AsyncMock()
+        mock_redis.eval.return_value = 1  # Allow request
+        
+        limiter = DistributedRateLimiter(config, redis_client=mock_redis)
+        
+        result = await limiter.acquire_distributed("test_key", tokens=1)
+        assert result is True
+        
+        # Verify Redis was called with correct script
+        mock_redis.eval.assert_called_once()
+        args = mock_redis.eval.call_args
+        assert "ratelimit:test_key" in args[1]["keys"]
+    
+    @pytest.mark.asyncio
+    async def test_redis_failure_fallback(self):
+        """Test fallback when Redis fails."""
+        config = RateLimitConfig(
+            requests_per_second=10,
+            burst_size=20
+        )
+        
+        # Mock Redis client that fails
+        mock_redis = AsyncMock()
+        mock_redis.eval.side_effect = Exception("Redis connection failed")
+        
+        limiter = DistributedRateLimiter(config, redis_client=mock_redis)
+        
+        # Should fall back to local rate limiting
+        result = await limiter.acquire_distributed("test_key", tokens=1)
+        assert result is True  # Local rate limiter allows it

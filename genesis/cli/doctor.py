@@ -7,6 +7,8 @@ is properly configured and ready for operation.
 
 import asyncio
 import sys
+import os
+import psutil
 from pathlib import Path
 
 import aiohttp
@@ -25,6 +27,7 @@ sys.path.insert(0, str(project_root))
 
 from config.settings import ValidationError, get_settings, validate_configuration
 from genesis.utils.time_sync import check_clock_drift_ms
+from genesis.validation.history import ValidationHistory
 
 console = Console()
 
@@ -71,6 +74,18 @@ class DoctorRunner:
 
             # 6. WebSocket connectivity
             await self._check_websocket()
+            
+            # 7. Redis connectivity (if configured)
+            await self._check_redis()
+            
+            # 8. System resources
+            self._check_system_resources()
+            
+            # 9. Critical background tasks
+            self._check_background_tasks()
+            
+            # 10. Validation status
+            await self._check_validation_status()
 
         # Display results
         self._display_results()
@@ -300,6 +315,266 @@ class DoctorRunner:
                     False,
                     str(e)[:100],
                     severity="warning",  # Not critical
+                )
+            )
+
+    async def _check_redis(self):
+        """Check Redis connectivity if configured."""
+        if not self.settings:
+            return
+            
+        # Check if Redis is configured in settings
+        redis_url = os.getenv("REDIS_URL")
+        if not redis_url:
+            # Redis is optional, skip if not configured
+            return
+            
+        try:
+            import redis.asyncio as redis
+            
+            client = redis.from_url(redis_url)
+            await client.ping()
+            await client.close()
+            
+            self.checks.append(
+                HealthCheck(
+                    "Redis Connection",
+                    True,
+                    "Connected successfully",
+                    severity="warning"  # Not critical for MVP
+                )
+            )
+        except ImportError:
+            self.checks.append(
+                HealthCheck(
+                    "Redis Connection",
+                    False,
+                    "Redis library not installed",
+                    severity="warning"
+                )
+            )
+        except Exception as e:
+            self.checks.append(
+                HealthCheck(
+                    "Redis Connection",
+                    False,
+                    str(e)[:100],
+                    severity="warning"
+                )
+            )
+    
+    async def _check_validation_status(self):
+        """Check latest validation status."""
+        try:
+            history = ValidationHistory()
+            latest = history.get_latest()
+            
+            if not latest:
+                self.checks.append(
+                    HealthCheck(
+                        "Validation Status",
+                        False,
+                        "No validation history found - run 'genesis validate all'",
+                        severity="warning"
+                    )
+                )
+                return
+            
+            # Check if validation is recent (within 24 hours)
+            from datetime import datetime, timedelta
+            age = datetime.utcnow() - latest.timestamp
+            is_recent = age < timedelta(hours=24)
+            
+            if latest.ready and is_recent:
+                self.checks.append(
+                    HealthCheck(
+                        "Validation Status", 
+                        True,
+                        f"GO - Score: {latest.overall_score:.1f}% ({latest.pipeline_name})"
+                    )
+                )
+            elif latest.ready and not is_recent:
+                self.checks.append(
+                    HealthCheck(
+                        "Validation Status",
+                        True,
+                        f"GO (stale) - Score: {latest.overall_score:.1f}% - Re-run validation",
+                        severity="warning"
+                    )
+                )
+            else:
+                self.checks.append(
+                    HealthCheck(
+                        "Validation Status",
+                        False,
+                        f"NO-GO - Score: {latest.overall_score:.1f}% ({latest.blocking_issues} issues)",
+                        severity="warning"
+                    )
+                )
+                
+        except Exception as e:
+            self.checks.append(
+                HealthCheck(
+                    "Validation Status",
+                    False,
+                    f"Failed to check: {str(e)[:100]}",
+                    severity="warning"
+                )
+            )
+    
+    def _check_system_resources(self):
+        """Check system CPU and memory usage."""
+        if not self.settings:
+            return
+            
+        try:
+            # Get current process
+            process = psutil.Process()
+            
+            # Check memory usage
+            memory_info = process.memory_info()
+            memory_mb = memory_info.rss / 1024 / 1024
+            memory_percent = process.memory_percent()
+            
+            # Check CPU usage (over 1 second interval)
+            cpu_percent = process.cpu_percent(interval=1.0)
+            
+            # Get system-wide stats
+            system_memory = psutil.virtual_memory()
+            system_cpu = psutil.cpu_percent(interval=0.1)
+            
+            # Memory check
+            if memory_mb < 1000:  # Less than 1GB
+                self.checks.append(
+                    HealthCheck(
+                        "Memory Usage",
+                        True,
+                        f"Process: {memory_mb:.1f}MB ({memory_percent:.1f}%), System: {system_memory.percent:.1f}%"
+                    )
+                )
+            else:
+                self.checks.append(
+                    HealthCheck(
+                        "Memory Usage",
+                        False,
+                        f"High usage: {memory_mb:.1f}MB ({memory_percent:.1f}%)",
+                        severity="warning"
+                    )
+                )
+            
+            # CPU check
+            if cpu_percent < 80:
+                self.checks.append(
+                    HealthCheck(
+                        "CPU Usage",
+                        True,
+                        f"Process: {cpu_percent:.1f}%, System: {system_cpu:.1f}%"
+                    )
+                )
+            else:
+                self.checks.append(
+                    HealthCheck(
+                        "CPU Usage",
+                        False,
+                        f"High usage: {cpu_percent:.1f}%",
+                        severity="warning"
+                    )
+                )
+            
+            # Check open file descriptors
+            open_files = len(process.open_files())
+            if open_files < 100:
+                self.checks.append(
+                    HealthCheck(
+                        "Open Files",
+                        True,
+                        f"{open_files} file descriptors",
+                        severity="info"
+                    )
+                )
+            else:
+                self.checks.append(
+                    HealthCheck(
+                        "Open Files",
+                        False,
+                        f"Too many open files: {open_files}",
+                        severity="warning"
+                    )
+                )
+                
+        except Exception as e:
+            self.checks.append(
+                HealthCheck(
+                    "System Resources",
+                    False,
+                    str(e)[:100],
+                    severity="warning"
+                )
+            )
+    
+    def _check_background_tasks(self):
+        """Check if critical background tasks are running."""
+        if not self.settings:
+            return
+            
+        try:
+            # Check for critical process patterns
+            critical_processes = {
+                "genesis": False,
+                "supervisord": False
+            }
+            
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    cmdline = ' '.join(proc.info.get('cmdline', []))
+                    name = proc.info.get('name', '')
+                    
+                    if 'genesis' in cmdline.lower() or 'genesis' in name.lower():
+                        critical_processes["genesis"] = True
+                    if 'supervisord' in cmdline.lower() or 'supervisord' in name.lower():
+                        critical_processes["supervisord"] = True
+                        
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            
+            # Check Genesis process
+            if critical_processes["genesis"]:
+                self.checks.append(
+                    HealthCheck(
+                        "Genesis Process",
+                        True,
+                        "Running",
+                        severity="info"
+                    )
+                )
+            else:
+                self.checks.append(
+                    HealthCheck(
+                        "Genesis Process",
+                        False,
+                        "Not detected",
+                        severity="warning"
+                    )
+                )
+            
+            # Supervisor is optional
+            if critical_processes["supervisord"]:
+                self.checks.append(
+                    HealthCheck(
+                        "Supervisor Process",
+                        True,
+                        "Running",
+                        severity="info"
+                    )
+                )
+                
+        except Exception as e:
+            self.checks.append(
+                HealthCheck(
+                    "Background Tasks",
+                    False,
+                    str(e)[:100],
+                    severity="warning"
                 )
             )
 

@@ -23,7 +23,8 @@ from genesis.exchange.models import (
     OrderRequest,
     OrderResponse,
 )
-from genesis.exchange.rate_limiter import RateLimiter
+from genesis.core.rate_limiter import RateLimiter, RateLimitConfig, Priority
+from genesis.core.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, DegradationStrategy
 
 if TYPE_CHECKING:
     from genesis.exchange.mock_exchange import MockExchange
@@ -51,7 +52,30 @@ class BinanceGateway:
         self.mock_mode = mock_mode or self.settings.development.use_mock_exchange
         self.exchange: ccxt.Exchange | None = None
         self.mock_exchange: MockExchange | None = None
-        self.rate_limiter = RateLimiter()
+        
+        # Initialize rate limiter with Binance-specific config
+        rate_config = RateLimitConfig(
+            requests_per_second=20,  # Binance: 1200 weight per minute ≈ 20 requests/second
+            burst_size=50,  # Allow bursts for order placement
+            window_size_seconds=60,
+            critical_reserve_percent=Decimal("0.2")  # Reserve 20% for critical operations
+        )
+        self.rate_limiter = RateLimiter(rate_config)
+        
+        # Initialize circuit breaker with adaptive config
+        circuit_config = CircuitBreakerConfig(
+            failure_threshold=5,
+            recovery_timeout=60.0,
+            success_threshold=2,
+            time_window=30.0,
+            degradation_strategy=DegradationStrategy.CACHE,  # Cache successful responses
+            cache_ttl=5.0  # Cache for 5 seconds for market data
+        )
+        self.circuit_breaker = CircuitBreaker(
+            name="binance_api",
+            config=circuit_config
+        )
+        
         self._initialized = False
 
         # Connection pool configuration
@@ -160,6 +184,46 @@ class BinanceGateway:
             logger.error("Failed to initialize BinanceGateway", error=str(e))
             raise
 
+    async def _update_rate_limits_from_response(self, response: Any) -> None:
+        """
+        Update rate limits based on Binance response headers.
+        
+        Args:
+            response: Response from Binance API
+        """
+        if hasattr(response, 'headers'):
+            headers = dict(response.headers)
+            await self.rate_limiter.update_from_headers(headers)
+    
+    async def _make_request_with_priority(self, 
+                                         func: Any, 
+                                         weight: int = 1,
+                                         priority: Priority = Priority.NORMAL,
+                                         *args, **kwargs) -> Any:
+        """
+        Make a request with rate limiting and circuit breaker.
+        
+        Args:
+            func: Function to call
+            weight: Request weight for rate limiting
+            priority: Request priority
+            *args: Positional arguments for func
+            **kwargs: Keyword arguments for func
+            
+        Returns:
+            Result from func
+        """
+        # Apply rate limiting
+        await self.rate_limiter.acquire(tokens=weight, priority=priority)
+        
+        # Execute through circuit breaker
+        result = await self.circuit_breaker.call(func, *args, **kwargs)
+        
+        # Update rate limits from response if available
+        await self._update_rate_limits_from_response(result)
+        
+        return result
+    
     async def close(self) -> None:
         """Close the exchange connection and cleanup resources."""
         try:
@@ -194,10 +258,11 @@ class BinanceGateway:
             if self.mock_mode and self.mock_exchange:
                 return await self.mock_exchange.fetch_balance()
 
-            # Apply rate limiting
-            await self.rate_limiter.check_and_wait("GET", "/api/v3/account")
+            # Apply rate limiting (account endpoint has high weight)
+            await self.rate_limiter.acquire(tokens=10, priority=Priority.NORMAL)
 
-            balance = await self.exchange.fetch_balance()
+            # Fetch balance through circuit breaker
+            balance = await self.circuit_breaker.call(self.exchange.fetch_balance)
 
             result = {}
             for asset, info in balance["info"]["balances"].items():
@@ -275,18 +340,22 @@ class BinanceGateway:
                     updated_at=None,
                 )
 
-            # Apply rate limiting
-            await self.rate_limiter.check_and_wait("POST", "/api/v3/order")
+            # Apply rate limiting with priority for orders
+            priority = Priority.HIGH if request.type in ["STOP_LOSS", "STOP_LOSS_LIMIT"] else Priority.NORMAL
+            await self.rate_limiter.acquire(tokens=1, priority=priority)
 
-            # Place the order
-            order = await self.exchange.create_order(
-                symbol=request.symbol,
-                type=order_type,  # Use the mapped order type
-                side=request.side,
-                amount=str(request.quantity),  # CCXT handles string to appropriate format
-                price=str(request.price) if request.price else None,
-                params=params,
-            )
+            # Place the order through circuit breaker
+            async def _place_order():
+                return await self.exchange.create_order(
+                    symbol=request.symbol,
+                    type=order_type,  # Use the mapped order type
+                    side=request.side,
+                    amount=str(request.quantity),  # CCXT handles string to appropriate format
+                    price=str(request.price) if request.price else None,
+                    params=params,
+                )
+            
+            order = await self.circuit_breaker.call(_place_order)
 
             # Convert to response model
             from datetime import datetime
@@ -317,6 +386,94 @@ class BinanceGateway:
             logger.error("Failed to place order", error=str(e))
             raise
 
+    async def emergency_close_all_positions(self) -> list[OrderResponse]:
+        """
+        Emergency close all open positions with CRITICAL priority.
+        
+        Returns:
+            List of orders placed to close positions
+        """
+        await self.initialize()
+        
+        try:
+            logger.warning("EMERGENCY: Closing all positions")
+            
+            # Get account balance with critical priority
+            balance = await self._make_request_with_priority(
+                self.exchange.fetch_balance,
+                10,  # weight
+                Priority.CRITICAL  # priority
+            )
+            
+            orders_placed = []
+            
+            # Place market orders to close all positions
+            for asset, info in balance["info"]["balances"].items():
+                if asset != "USDT" and Decimal(info["free"]) > 0:
+                    symbol = f"{asset}/USDT"
+                    
+                    try:
+                        # Place market sell order with CRITICAL priority
+                        order_request = OrderRequest(
+                            symbol=symbol,
+                            side="sell",
+                            type="market",
+                            quantity=Decimal(info["free"]),
+                            client_order_id=f"emergency_{asset}_{int(time.time())}"
+                        )
+                        
+                        # Bypass normal place_order to ensure CRITICAL priority
+                        order = await self._make_request_with_priority(
+                            self.exchange.create_order,
+                            1,  # weight
+                            Priority.CRITICAL,  # priority
+                            symbol,
+                            "market",
+                            "sell",
+                            str(info["free"])
+                        )
+                        
+                        # Convert to OrderResponse
+                        from datetime import datetime
+                        response = OrderResponse(
+                            order_id=order["id"],
+                            client_order_id=order.get("clientOrderId"),
+                            symbol=order["symbol"],
+                            side=order["side"],
+                            type=order["type"],
+                            status=order["status"],
+                            price=Decimal(str(order.get("price", 0))),
+                            quantity=Decimal(str(order["amount"])),
+                            filled_quantity=Decimal(str(order.get("filled", 0))),
+                            created_at=datetime.fromtimestamp(order["timestamp"] / 1000),
+                            updated_at=None,
+                        )
+                        
+                        orders_placed.append(response)
+                        logger.info(
+                            "Emergency position closed",
+                            asset=asset,
+                            quantity=info["free"],
+                            order_id=order["id"]
+                        )
+                        
+                    except Exception as e:
+                        logger.error(
+                            "Failed to close position",
+                            asset=asset,
+                            error=str(e)
+                        )
+            
+            logger.warning(
+                "Emergency close completed",
+                positions_closed=len(orders_placed)
+            )
+            return orders_placed
+            
+        except Exception as e:
+            logger.error("Emergency close failed", error=str(e))
+            raise
+    
     async def cancel_order(self, order_id: str, symbol: str) -> bool:
         """
         Cancel an existing order.
@@ -336,10 +493,14 @@ class BinanceGateway:
             if self.mock_mode:
                 return True
 
-            # Apply rate limiting
-            await self.rate_limiter.check_and_wait("DELETE", "/api/v3/order")
-
-            result = await self.exchange.cancel_order(order_id, symbol)
+            # Apply rate limiting with HIGH priority for cancellations
+            result = await self._make_request_with_priority(
+                self.exchange.cancel_order,
+                1,  # weight
+                Priority.HIGH,  # High priority for order cancellation
+                order_id,
+                symbol
+            )
 
             logger.info("Order cancelled successfully", order_id=order_id)
             return result["status"] == "canceled"
@@ -367,9 +528,12 @@ class BinanceGateway:
                 return []
 
             # Apply rate limiting
-            await self.rate_limiter.check_and_wait("GET", "/api/v3/openOrders")
-
-            orders = await self.exchange.fetch_open_orders(symbol)
+            orders = await self._make_request_with_priority(
+                self.exchange.fetch_open_orders,
+                3,  # weight for open orders endpoint
+                Priority.NORMAL,
+                symbol
+            )
 
             from datetime import datetime
 
@@ -433,9 +597,13 @@ class BinanceGateway:
                 )
 
             # Apply rate limiting
-            await self.rate_limiter.check_and_wait("GET", "/api/v3/order")
-
-            order = await self.exchange.fetch_order(order_id, symbol)
+            order = await self._make_request_with_priority(
+                self.exchange.fetch_order,
+                2,  # weight for order status endpoint
+                Priority.NORMAL,
+                order_id,
+                symbol
+            )
 
             from datetime import datetime
 
@@ -491,12 +659,15 @@ class BinanceGateway:
                     timestamp=datetime.now(),
                 )
 
-            # Apply rate limiting
-            await self.rate_limiter.check_and_wait(
-                "GET", "/api/v3/depth", {"limit": limit}
+            # Apply rate limiting based on limit
+            weight = 1 if limit <= 100 else 5 if limit <= 500 else 10
+            orderbook = await self._make_request_with_priority(
+                self.exchange.fetch_order_book,
+                weight,
+                Priority.NORMAL,
+                symbol,
+                limit
             )
-
-            orderbook = await self.exchange.fetch_order_book(symbol, limit)
 
             from datetime import datetime
 
@@ -545,9 +716,14 @@ class BinanceGateway:
                 ]
 
             # Apply rate limiting
-            await self.rate_limiter.check_and_wait("GET", "/api/v3/klines")
-
-            klines = await self.exchange.fetch_ohlcv(symbol, interval, limit=limit)
+            klines = await self._make_request_with_priority(
+                self.exchange.fetch_ohlcv,
+                1,  # weight for klines endpoint
+                Priority.NORMAL,
+                symbol,
+                interval,
+                limit=limit
+            )
 
             return [
                 {
@@ -592,11 +768,12 @@ class BinanceGateway:
                 )
 
             # Apply rate limiting
-            await self.rate_limiter.check_and_wait(
-                "GET", "/api/v3/ticker/24hr", {"symbol": symbol}
+            ticker = await self._make_request_with_priority(
+                self.exchange.fetch_ticker,
+                1,  # weight for ticker endpoint
+                Priority.NORMAL,
+                symbol
             )
-
-            ticker = await self.exchange.fetch_ticker(symbol)
 
             return MarketTicker(
                 symbol=ticker["symbol"],
@@ -630,10 +807,11 @@ class BinanceGateway:
                 return int(time.time() * 1000)
 
             # Apply rate limiting
-            await self.rate_limiter.check_and_wait("GET", "/api/v3/time")
-
-            # Use ccxt's built-in method
-            return await self.exchange.fetch_time()
+            return await self._make_request_with_priority(
+                self.exchange.fetch_time,
+                1,  # weight for time endpoint
+                Priority.NORMAL
+            )
 
         except Exception as e:
             logger.error("Failed to fetch server time", error=str(e))

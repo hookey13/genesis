@@ -98,6 +98,12 @@ class EventBus:
         # Event batching
         self.batch_size = 10
         self.batch_timeout = 0.1  # seconds
+        
+        # Backpressure handling
+        self.backpressure_threshold = 0.8  # 80% of max queue size
+        self.backpressure_active = False
+        self.shed_low_priority = False  # Shed low priority events when under pressure
+        self.backpressure_callbacks: list[Callable[[bool], None]] = []
 
         logger.info("EventBus initialized", max_queue_size=max_queue_size)
 
@@ -224,6 +230,42 @@ class EventBus:
 
         return removed
 
+    def _check_backpressure(self) -> bool:
+        """
+        Check if backpressure conditions are met.
+        
+        Returns:
+            True if backpressure should be applied
+        """
+        queue_sizes = self.priority_queue.qsize()
+        total_queued = sum(queue_sizes.values())
+        max_total = self.max_queue_size * len(queue_sizes)
+        
+        return total_queued > (max_total * self.backpressure_threshold)
+    
+    def _update_backpressure_state(self) -> None:
+        """Update backpressure state and notify callbacks."""
+        was_active = self.backpressure_active
+        self.backpressure_active = self._check_backpressure()
+        
+        if self.backpressure_active != was_active:
+            logger.warning(
+                "Backpressure state changed",
+                active=self.backpressure_active,
+                queue_sizes=self.priority_queue.qsize()
+            )
+            
+            # Notify callbacks
+            for callback in self.backpressure_callbacks:
+                try:
+                    callback(self.backpressure_active)
+                except Exception as e:
+                    logger.error("Backpressure callback failed", error=str(e))
+    
+    def register_backpressure_callback(self, callback: Callable[[bool], None]) -> None:
+        """Register a callback for backpressure state changes."""
+        self.backpressure_callbacks.append(callback)
+    
     async def publish(
         self, event: Event, priority: EventPriority = EventPriority.NORMAL
     ) -> None:
@@ -234,6 +276,19 @@ class EventBus:
             event: Event to publish
             priority: Event priority
         """
+        # Check backpressure
+        self._update_backpressure_state()
+        
+        # Shed low priority events if under pressure
+        if self.backpressure_active and self.shed_low_priority:
+            if priority == EventPriority.LOW:
+                self.events_dropped += 1
+                logger.warning(
+                    "Low priority event shed due to backpressure",
+                    event_type=event.event_type.value,
+                )
+                return
+        
         # Check queue size
         queue_sizes = self.priority_queue.qsize()
         if queue_sizes[priority] >= self.max_queue_size:
@@ -329,6 +384,22 @@ class EventBus:
                     error=str(e),
                 )
 
+    def get_backpressure_metrics(self) -> dict[str, Any]:
+        """Get backpressure metrics."""
+        queue_sizes = self.priority_queue.qsize()
+        total_queued = sum(queue_sizes.values())
+        max_total = self.max_queue_size * len(queue_sizes)
+        
+        return {
+            "backpressure_active": self.backpressure_active,
+            "queue_utilization_percent": (total_queued / max_total * 100) if max_total > 0 else 0,
+            "total_queued": total_queued,
+            "max_capacity": max_total,
+            "shed_low_priority": self.shed_low_priority,
+            "queue_sizes": queue_sizes,
+            "events_dropped": self.events_dropped,
+        }
+    
     def get_statistics(self) -> dict[str, Any]:
         """Get event bus statistics."""
         queue_sizes = self.priority_queue.qsize()

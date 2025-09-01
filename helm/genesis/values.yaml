@@ -1,0 +1,274 @@
+# Default values for Genesis Trading System
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: genesis-trading
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  apiPort: 8000
+  metricsPort: 9090
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: genesis.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: genesis-tls
+  #    hosts:
+  #      - genesis.local
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Persistence configuration
+persistence:
+  enabled: true
+  storageClass: "standard"
+  
+  data:
+    size: 10Gi
+    accessMode: ReadWriteOnce
+    
+  logs:
+    size: 5Gi
+    accessMode: ReadWriteOnce
+    
+  state:
+    size: 1Gi
+    accessMode: ReadWriteOnce
+    
+  backups:
+    size: 20Gi
+    accessMode: ReadWriteOnce
+
+# Configuration values
+config:
+  deploymentEnv: "production"
+  binanceTestnet: "false"
+  logLevel: "INFO"
+  maxPositions: "3"
+  maxOrderSize: "1000"
+  enablePaperTrading: "false"
+  maxClockDriftMs: "1000"
+  ntpCheckInterval: "300"
+  apiRateLimitPerMinute: "1200"
+  wsMaxConnections: "10"
+  healthCheckInterval: "30"
+  healthCheckTimeout: "10"
+
+# Trading rules configuration
+tradingRules:
+  sniper:
+    maxPositionSizeUsdt: 500
+    maxDailyLossUsdt: 50
+    maxOrdersPerMinute: 10
+    maxLeverage: 1
+    minProfitThresholdPercent: 0.1
+    stopLossPercent: 2.0
+    
+  hunter:
+    maxPositionSizeUsdt: 2000
+    maxDailyLossUsdt: 200
+    maxOrdersPerMinute: 30
+    maxLeverage: 3
+    minProfitThresholdPercent: 0.05
+    stopLossPercent: 3.0
+    maxConcurrentPairs: 5
+    
+  strategist:
+    maxPositionSizeUsdt: 10000
+    maxDailyLossUsdt: 1000
+    maxOrdersPerMinute: 100
+    maxLeverage: 5
+    minProfitThresholdPercent: 0.02
+    stopLossPercent: 5.0
+    maxConcurrentPairs: 20
+
+# Tier gates configuration
+tierGates:
+  sniperToHunter:
+    minProfitableDays: 7
+    minTotalProfitUsdt: 500
+    maxDrawdownPercent: 10
+    minSharpeRatio: 1.5
+    minTrades: 100
+    
+  hunterToStrategist:
+    minProfitableDays: 30
+    minTotalProfitUsdt: 5000
+    maxDrawdownPercent: 15
+    minSharpeRatio: 2.0
+    minTrades: 1000
+
+# Secrets configuration
+# These should be provided via --set or values override
+secrets:
+  binanceApiKey: ""
+  binanceApiSecret: ""
+  databaseUrl: "sqlite:////app/.genesis/data/genesis.db"
+  redisUrl: ""
+  prometheusToken: ""
+  grafanaApiKey: ""
+  backupEncryptionKey: ""
+  alertWebhookUrl: ""
+
+# Network policy configuration
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: genesis
+      ports:
+      - protocol: TCP
+        port: 8000
+      - protocol: TCP
+        port: 9090
+  egress:
+    # DNS
+    - to:
+      - namespaceSelector: {}
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      ports:
+      - protocol: UDP
+        port: 53
+    # HTTPS (Binance API)
+    - to:
+      - namespaceSelector: {}
+      ports:
+      - protocol: TCP
+        port: 443
+
+# Service mesh configuration
+serviceMesh:
+  enabled: false
+  type: "istio"  # or "linkerd"
+  istio:
+    sidecarInject: false
+    virtualService:
+      enabled: false
+      gateway: ""
+      hosts: []
+  linkerd:
+    inject: disabled
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+  prometheusRule:
+    enabled: false
+    rules: []
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 */4 * * *"  # Every 4 hours
+  retention: 30  # days
+  destination: "s3://genesis-backups"
+
+# Health checks
+healthCheck:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
+    
+  readiness:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 10
+    failureThreshold: 3
+    successThreshold: 1
+
+# Redis configuration (optional)
+redis:
+  enabled: false
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 8Gi
+
+# PostgreSQL configuration (optional)
+postgresql:
+  enabled: false
+  auth:
+    database: genesis
+    username: genesis
+    password: ""
+  persistence:
+    enabled: true
+    size: 10Gi

@@ -1,0 +1,70 @@
+{{- if .Values.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "genesis.fullname" . }}-data
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+    type: data
+spec:
+  accessModes:
+    - {{ .Values.persistence.data.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.data.size }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "genesis.fullname" . }}-logs
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+    type: logs
+spec:
+  accessModes:
+    - {{ .Values.persistence.logs.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.logs.size }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "genesis.fullname" . }}-state
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+    type: state
+spec:
+  accessModes:
+    - {{ .Values.persistence.state.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.state.size }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "genesis.fullname" . }}-backups
+  labels:
+    {{- include "genesis.labels" . | nindent 4 }}
+    type: backups
+spec:
+  accessModes:
+    - {{ .Values.persistence.backups.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.backups.size }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+{{- end }}

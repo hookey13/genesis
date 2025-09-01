@@ -1,0 +1,63 @@
+# Validation pipeline configuration
+validation_pipeline:
+  quick:
+    description: "Quick validation for development"
+    validators:
+      - test_coverage
+      - secrets
+      - health
+    timeout_minutes: 5
+    
+  standard:
+    description: "Standard validation for staging"
+    validators:
+      - test_coverage
+      - code_quality
+      - secrets
+      - vulnerabilities
+      - monitoring
+      - documentation
+      - health
+    timeout_minutes: 30
+    
+  comprehensive:
+    description: "Full validation for production"
+    validators: all
+    timeout_minutes: 120
+    
+  go_live:
+    description: "Go-live readiness validation"
+    validators: all
+    required_score: 95
+    blocking_on_failure: true
+    timeout_minutes: 180
+
+# Validator categories for organization
+validator_categories:
+  technical:
+    - test_coverage
+    - code_quality
+    - performance
+    - resources
+    - database
+    
+  security:
+    - secrets
+    - vulnerabilities
+    - compliance
+    - encryption
+    - security_config
+    
+  operational:
+    - monitoring
+    - backup
+    - documentation
+    - deployment
+    - health
+    
+  business:
+    - paper_trading
+    - stability
+    - risk
+    - metrics
+    - tier_gates

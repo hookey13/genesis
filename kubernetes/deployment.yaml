@@ -1,0 +1,181 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: genesis
+  namespace: genesis
+  labels:
+    app: genesis
+    component: trading-engine
+    app.kubernetes.io/name: genesis
+    app.kubernetes.io/component: trading-engine
+    app.kubernetes.io/part-of: genesis-trading-system
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: genesis
+      component: trading-engine
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: genesis
+        component: trading-engine
+        app.kubernetes.io/name: genesis
+        app.kubernetes.io/component: trading-engine
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        # Service mesh annotations (for future Istio/Linkerd integration)
+        sidecar.istio.io/inject: "false"  # Set to true when enabling service mesh
+        linkerd.io/inject: disabled  # Set to enabled when using Linkerd
+    spec:
+      serviceAccountName: genesis
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: genesis
+        image: genesis-trading:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: api
+          containerPort: 8000
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: DEPLOYMENT_ENV
+          value: "production"
+        - name: PYTHONPATH
+          value: "/app"
+        - name: TZ
+          value: "UTC"
+        - name: BINANCE_TESTNET
+          valueFrom:
+            configMapKeyRef:
+              name: genesis-config
+              key: binance_testnet
+        - name: BINANCE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: genesis-secrets
+              key: binance-api-key
+        - name: BINANCE_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: genesis-secrets
+              key: binance-api-secret
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: genesis-secrets
+              key: database-url
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: genesis-secrets
+              key: redis-url
+              optional: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -m
+            - genesis.cli
+            - doctor
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -m
+            - genesis.cli
+            - doctor
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        volumeMounts:
+        - name: data
+          mountPath: /app/.genesis/data
+        - name: logs
+          mountPath: /app/.genesis/logs
+        - name: state
+          mountPath: /app/.genesis/state
+        - name: config
+          mountPath: /app/config
+          readOnly: true
+        - name: trading-rules
+          mountPath: /app/config/trading_rules.yaml
+          subPath: trading_rules.yaml
+          readOnly: true
+        - name: tier-gates
+          mountPath: /app/config/tier_gates.yaml
+          subPath: tier_gates.yaml
+          readOnly: true
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: genesis-data-pvc
+      - name: logs
+        persistentVolumeClaim:
+          claimName: genesis-logs-pvc
+      - name: state
+        persistentVolumeClaim:
+          claimName: genesis-state-pvc
+      - name: config
+        configMap:
+          name: genesis-config
+          defaultMode: 0644
+      - name: trading-rules
+        configMap:
+          name: genesis-trading-rules
+          defaultMode: 0644
+      - name: tier-gates
+        configMap:
+          name: genesis-tier-gates
+          defaultMode: 0644
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 300
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: genesis
+  namespace: genesis
+  labels:
+    app: genesis
+    component: core

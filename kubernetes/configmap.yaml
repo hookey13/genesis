@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: genesis-config
+  namespace: genesis
+  labels:
+    app: genesis
+    component: configuration
+    app.kubernetes.io/name: genesis
+    app.kubernetes.io/component: configuration
+data:
+  # Environment configuration
+  deployment_env: "production"
+  binance_testnet: "false"
+  log_level: "INFO"
+  
+  # Application settings
+  max_positions: "3"
+  max_order_size: "1000"
+  enable_paper_trading: "false"
+  
+  # Time sync settings
+  max_clock_drift_ms: "1000"
+  ntp_check_interval: "300"
+  
+  # API rate limiting
+  api_rate_limit_per_minute: "1200"
+  ws_max_connections: "10"
+  
+  # Health check settings
+  health_check_interval: "30"
+  health_check_timeout: "10"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: genesis-trading-rules
+  namespace: genesis
+  labels:
+    app: genesis
+    component: configuration
+    type: trading-rules
+data:
+  trading_rules.yaml: |
+    # Trading Rules Configuration
+    # Risk limits and trading parameters by tier
+    
+    sniper:
+      max_position_size_usdt: 500
+      max_daily_loss_usdt: 50
+      max_orders_per_minute: 10
+      max_leverage: 1
+      allowed_strategies:
+        - simple_arbitrage
+        - spread_capture
+      min_profit_threshold_percent: 0.1
+      stop_loss_percent: 2.0
+      
+    hunter:
+      max_position_size_usdt: 2000
+      max_daily_loss_usdt: 200
+      max_orders_per_minute: 30
+      max_leverage: 3
+      allowed_strategies:
+        - simple_arbitrage
+        - spread_capture
+        - multi_pair
+        - mean_reversion
+      min_profit_threshold_percent: 0.05
+      stop_loss_percent: 3.0
+      max_concurrent_pairs: 5
+      
+    strategist:
+      max_position_size_usdt: 10000
+      max_daily_loss_usdt: 1000
+      max_orders_per_minute: 100
+      max_leverage: 5
+      allowed_strategies:
+        - all
+      min_profit_threshold_percent: 0.02
+      stop_loss_percent: 5.0
+      max_concurrent_pairs: 20
+      advanced_features:
+        - statistical_arbitrage
+        - market_making
+        - portfolio_optimization
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: genesis-tier-gates
+  namespace: genesis
+  labels:
+    app: genesis
+    component: configuration
+    type: tier-gates
+data:
+  tier_gates.yaml: |
+    # Tier Progression Gates
+    # Requirements to advance between tiers
+    
+    gates:
+      sniper_to_hunter:
+        min_profitable_days: 7
+        min_total_profit_usdt: 500
+        max_drawdown_percent: 10
+        min_sharpe_ratio: 1.5
+        min_trades: 100
+        psychological_requirements:
+          max_tilt_incidents: 3
+          max_revenge_trades: 0
+          discipline_score: 0.8
+          
+      hunter_to_strategist:
+        min_profitable_days: 30
+        min_total_profit_usdt: 5000
+        max_drawdown_percent: 15
+        min_sharpe_ratio: 2.0
+        min_trades: 1000
+        psychological_requirements:
+          max_tilt_incidents: 1
+          max_revenge_trades: 0
+          discipline_score: 0.9
+          consistency_score: 0.85
+          
+    demotion_triggers:
+      immediate:
+        - margin_call
+        - unauthorized_manual_trade
+        - api_key_compromise
+        - excessive_slippage
+        
+      daily_review:
+        - daily_loss_exceeded
+        - tilt_threshold_breached
+        - risk_limit_violated
+        
+      weekly_review:
+        - sharpe_ratio_degradation
+        - win_rate_decline
+        - excessive_drawdown

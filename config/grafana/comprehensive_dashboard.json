@@ -1,0 +1,570 @@
+{
+  "dashboard": {
+    "uid": "genesis-performance",
+    "title": "GENESIS Trading Performance - Comprehensive View",
+    "description": "Complete performance monitoring dashboard for Project GENESIS with drill-down capabilities",
+    "tags": ["trading", "performance", "monitoring"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "graph",
+        "title": "P&L Tracking - Historical",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "genesis_daily_pnl_usdt",
+            "legendFormat": "Daily P&L",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_position_pnl_usdt{type=\"realized\"}",
+            "legendFormat": "Realized P&L - {{symbol}}",
+            "refId": "B"
+          },
+          {
+            "expr": "genesis_position_pnl_usdt{type=\"unrealized\"}",
+            "legendFormat": "Unrealized P&L - {{symbol}}",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "red", "value": -1000},
+                {"color": "yellow", "value": 0},
+                {"color": "green", "value": 1000}
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {"show": true, "placement": "bottom"},
+          "tooltip": {"mode": "multi"}
+        }
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "graph",
+        "title": "Order Execution Latency Percentiles",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.5, sum(rate(genesis_order_execution_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P50 (Median)",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(genesis_order_execution_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(genesis_order_execution_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.05},
+                {"color": "red", "value": 0.1}
+              ]
+            }
+          }
+        },
+        "options": {
+          "legend": {"show": true},
+          "tooltip": {"mode": "multi"}
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8},
+        "type": "stat",
+        "title": "Error Rate & Budget",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "sum(rate(genesis_order_execution_errors_total[5m])) / sum(rate(genesis_order_executions_total[5m])) * 100",
+            "legendFormat": "Order Error Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(genesis_api_call_errors_total[5m])) / sum(rate(genesis_api_calls_total[5m])) * 100",
+            "legendFormat": "API Error Rate",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            },
+            "max": 10
+          }
+        },
+        "options": {
+          "orientation": "horizontal",
+          "textMode": "auto",
+          "colorMode": "background",
+          "reduceOptions": {
+            "values": false,
+            "fields": "",
+            "calcs": ["lastNotNull"]
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 8},
+        "type": "gauge",
+        "title": "API Rate Limit Usage",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "genesis_api_rate_limit_usage_ratio * 100",
+            "legendFormat": "{{exchange}} - {{endpoint}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 70},
+                {"color": "orange", "value": 85},
+                {"color": "red", "value": 95}
+              ]
+            },
+            "min": 0,
+            "max": 100
+          }
+        },
+        "options": {
+          "orientation": "auto",
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8},
+        "type": "table",
+        "title": "Active Positions",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "genesis_active_positions",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_position_value_usdt",
+            "format": "table",
+            "instant": true,
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [
+                {"id": "unit", "value": "currencyUSD"}
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{"displayName": "Value", "desc": true}]
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14},
+        "type": "heatmap",
+        "title": "WebSocket Message Latency Distribution",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "sum(increase(genesis_ws_message_latency_ms_bucket[1m])) by (le)",
+            "format": "heatmap",
+            "legendFormat": "{{le}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "scaleDistribution": {"type": "linear"},
+              "hideFrom": {"legend": false, "tooltip": false, "viz": false}
+            }
+          }
+        },
+        "options": {
+          "calculate": true,
+          "calculation": {"xBuckets": {"mode": "count", "value": "30"}},
+          "color": {
+            "mode": "scheme",
+            "scheme": "Spectral",
+            "steps": 128
+          },
+          "exemplars": {"color": "rgba(255,0,255,0.7)"},
+          "legend": {"show": true},
+          "rowsFrame": {"layout": "auto"},
+          "tooltip": {"show": true, "yHistogram": true},
+          "yAxis": {"axisLabel": "Latency (ms)", "unit": "ms"}
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14},
+        "type": "graph",
+        "title": "System Resources",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "genesis_memory_usage_bytes{type=\"rss\"} / 1024 / 1024",
+            "legendFormat": "Memory RSS (MB)",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_cpu_usage_percent{core=\"total\"}",
+            "legendFormat": "CPU Usage (%)",
+            "refId": "B",
+            "yaxis": 2
+          },
+          {
+            "expr": "genesis_goroutine_count",
+            "legendFormat": "Active Tasks",
+            "refId": "C",
+            "yaxis": 2
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decmbytes"
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "CPU Usage (%)"},
+              "properties": [
+                {"id": "unit", "value": "percent"},
+                {"id": "custom.axisPlacement", "value": "right"}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Active Tasks"},
+              "properties": [
+                {"id": "unit", "value": "short"},
+                {"id": "custom.axisPlacement", "value": "right"}
+              ]
+            }
+          ]
+        },
+        "yaxes": [
+          {"format": "decmbytes", "show": true},
+          {"format": "percent", "show": true}
+        ]
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 22},
+        "type": "graph",
+        "title": "Risk Metrics",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(genesis_risk_check_latency_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "Risk Check P99 (ms)",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(genesis_risk_limit_breaches_total[5m])) * 60",
+            "legendFormat": "Breaches/min",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms"
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Breaches/min"},
+              "properties": [{"id": "unit", "value": "short"}]
+            }
+          ]
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 22},
+        "type": "stat",
+        "title": "Tilt Detection",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "genesis_tilt_score",
+            "legendFormat": "{{indicator}}",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(genesis_tilt_interventions_total[1h]))",
+            "legendFormat": "Interventions/hr",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 30},
+                {"color": "orange", "value": 60},
+                {"color": "red", "value": 80}
+              ]
+            },
+            "min": 0,
+            "max": 100,
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 22},
+        "type": "table",
+        "title": "Database Performance",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "topk(10, avg by (operation, table) (genesis_db_query_latency_seconds))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "color-background"
+            },
+            "unit": "s",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.01},
+                {"color": "red", "value": 0.1}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 11,
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 28},
+        "type": "graph",
+        "title": "Circuit Breaker Status",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "genesis_circuit_breaker_state",
+            "legendFormat": "{{service}} State",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_circuit_breaker_success_rate",
+            "legendFormat": "{{service}} Success Rate",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "stepAfter"
+            }
+          }
+        },
+        "yaxes": [
+          {"format": "short", "min": 0, "max": 2, "label": "State (0=closed, 1=open, 2=half)"},
+          {"format": "percentunit", "min": 0, "max": 1, "label": "Success Rate"}
+        ]
+      },
+      {
+        "id": 12,
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 28},
+        "type": "graph",
+        "title": "Cache Performance",
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "sum(genesis_cache_hits_total) / (sum(genesis_cache_hits_total) + sum(genesis_cache_misses_total))",
+            "legendFormat": "Hit Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(genesis_cache_operation_latency_seconds_bucket[5m])) by (le)) * 1000000",
+            "legendFormat": "Operation P99 (μs)",
+            "refId": "B",
+            "yaxis": 2
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit"
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Operation P99 (μs)"},
+              "properties": [
+                {"id": "unit", "value": "µs"},
+                {"id": "custom.axisPlacement", "value": "right"}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "id": 13,
+        "gridPos": {"h": 6, "w": 24, "x": 0, "y": 34},
+        "type": "alertlist",
+        "title": "Active Alerts",
+        "options": {
+          "showOptions": "current",
+          "maxItems": 10,
+          "sortOrder": 1,
+          "dashboardAlerts": false,
+          "alertName": "",
+          "dashboardTitle": "",
+          "tags": ["genesis", "performance"]
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "tier",
+          "type": "custom",
+          "current": {
+            "text": "All",
+            "value": ""
+          },
+          "options": [
+            {"text": "All", "value": ""},
+            {"text": "Sniper", "value": "sniper"},
+            {"text": "Hunter", "value": "hunter"},
+            {"text": "Strategist", "value": "strategist"}
+          ],
+          "query": "sniper,hunter,strategist",
+          "multi": false,
+          "includeAll": true
+        },
+        {
+          "name": "symbol",
+          "type": "query",
+          "datasource": "Prometheus",
+          "query": "label_values(genesis_active_positions, symbol)",
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "multi": true,
+          "includeAll": true
+        },
+        {
+          "name": "timeframe",
+          "type": "interval",
+          "current": {
+            "text": "5m",
+            "value": "5m"
+          },
+          "options": [
+            {"text": "1m", "value": "1m"},
+            {"text": "5m", "value": "5m"},
+            {"text": "15m", "value": "15m"},
+            {"text": "1h", "value": "1h"}
+          ],
+          "auto": false
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(genesis_tier_progression[1h]) > 0",
+          "name": "Tier Changes",
+          "tagKeys": "tier",
+          "titleFormat": "Tier Change",
+          "textFormat": "Tier progression changed"
+        },
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "increase(genesis_circuit_breaker_trips_total[5m]) > 0",
+          "name": "Circuit Breaker Trips",
+          "tagKeys": "service,reason",
+          "titleFormat": "Circuit Breaker Trip",
+          "textFormat": "Service {{service}} tripped: {{reason}}"
+        }
+      ]
+    },
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"],
+      "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
+    },
+    "refresh": "10s",
+    "schemaVersion": 38,
+    "version": 1,
+    "links": [
+      {
+        "title": "Documentation",
+        "url": "https://github.com/genesis/docs",
+        "tooltip": "View documentation",
+        "icon": "doc",
+        "targetBlank": true
+      }
+    ]
+  }
+}
