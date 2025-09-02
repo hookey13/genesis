@@ -1,20 +1,27 @@
 """Deployment readiness and rollback validation module."""
 
-import asyncio
-import json
 import os
-import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import structlog
 import yaml
 
+from genesis.validation.base import (
+    CheckStatus,
+    ValidationCheck,
+    ValidationContext,
+    ValidationEvidence,
+    ValidationMetadata,
+    ValidationResult,
+    Validator,
+)
+
 logger = structlog.get_logger(__name__)
 
 
-class DeploymentValidator:
+class DeploymentValidator(Validator):
     """Validates deployment readiness and rollback procedures."""
 
     DEPLOYMENT_CHECKS = [
@@ -47,93 +54,328 @@ class DeploymentValidator:
 
     def __init__(self, genesis_root: Path | None = None):
         """Initialize deployment validator.
-        
+
         Args:
             genesis_root: Root directory of Genesis project
         """
+        super().__init__(
+            validator_id="OPS-004",
+            name="DeploymentValidator",
+            description="Validates deployment readiness, rollback procedures, and container configuration",
+        )
         self.genesis_root = genesis_root or Path.cwd()
-        self.results: Dict[str, Any] = {}
+        self.set_timeout(120)  # 2 minutes for deployment checks
+        self.set_retry_policy(retry_count=1, retry_delay_seconds=5)
 
-    async def validate(self) -> Dict[str, Any]:
+    async def run_validation(self, context: ValidationContext) -> ValidationResult:
         """Run deployment validation checks.
-        
+
+        Args:
+            context: Validation context with configuration
+
         Returns:
-            Validation results dictionary
+            ValidationResult with checks and evidence
         """
         logger.info("Starting deployment validation")
         start_time = datetime.utcnow()
 
-        self.results = {
-            "validator": "deployment",
-            "timestamp": start_time.isoformat(),
-            "passed": True,
-            "score": 0,
-            "checks": {},
-            "summary": "",
-            "details": [],
-        }
+        # Update genesis_root from context if available
+        if context.genesis_root:
+            self.genesis_root = Path(context.genesis_root)
 
-        # Verify rollback plan
-        rollback_result = await self._verify_rollback_plan()
-        self.results["checks"]["rollback_plan"] = rollback_result
+        checks = []
+        evidence = ValidationEvidence()
 
-        # Check blue-green deployment
-        blue_green_result = await self._check_blue_green_deployment()
-        self.results["checks"]["blue_green_deployment"] = blue_green_result
-
-        # Validate deployment scripts
-        scripts_result = await self._validate_deployment_scripts()
-        self.results["checks"]["deployment_scripts"] = scripts_result
-
-        # Test staging environment
-        staging_result = await self._test_staging_environment()
-        self.results["checks"]["staging_environment"] = staging_result
-
-        # Check container configuration
-        container_result = await self._check_container_configuration()
-        self.results["checks"]["container_configuration"] = container_result
-
-        # Validate Kubernetes manifests if present
-        k8s_result = await self._validate_kubernetes_manifests()
-        self.results["checks"]["kubernetes_manifests"] = k8s_result
-
-        # Check rollback time
-        rollback_time_result = await self._check_rollback_time()
-        self.results["checks"]["rollback_time"] = rollback_time_result
-
-        # Generate deployment readiness report
-        readiness_report = await self._generate_readiness_report()
-        self.results["checks"]["readiness_report"] = readiness_report
-
-        # Calculate overall score
-        total_checks = len(self.results["checks"])
-        passed_checks = sum(
-            1 for check in self.results["checks"].values() if check.get("passed", False)
-        )
-        self.results["score"] = int((passed_checks / total_checks) * 100) if total_checks > 0 else 0
+        # Create validation checks
+        checks.append(await self._create_rollback_plan_check())
+        checks.append(await self._create_blue_green_check())
+        checks.append(await self._create_deployment_scripts_check())
+        checks.append(await self._create_staging_check())
+        checks.append(await self._create_container_check())
+        checks.append(await self._create_kubernetes_check())
+        checks.append(await self._create_rollback_time_check())
+        checks.append(await self._create_readiness_check())
 
         # Determine overall status
-        critical_checks = ["rollback_plan", "deployment_scripts", "container_configuration"]
-        critical_passed = all(
-            self.results["checks"].get(check, {}).get("passed", False)
-            for check in critical_checks
+        failed_checks = [c for c in checks if c.status == CheckStatus.FAILED]
+        warning_checks = [c for c in checks if c.status == CheckStatus.WARNING]
+
+        if not failed_checks and not warning_checks:
+            overall_status = CheckStatus.PASSED
+            message = "Deployment fully configured and ready"
+        elif failed_checks:
+            overall_status = CheckStatus.FAILED
+            message = f"Deployment issues detected - {len(failed_checks)} checks failed"
+        else:
+            overall_status = CheckStatus.WARNING
+            message = f"Deployment partially ready - {len(warning_checks)} warnings"
+
+        # Create metadata
+        metadata = ValidationMetadata(
+            version="1.0.0",
+            environment=context.environment,
+            run_id=context.metadata.run_id if context.metadata else "local-run",
+            started_at=start_time,
+            completed_at=datetime.utcnow(),
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            machine_info={},
+            additional_info={"genesis_root": str(self.genesis_root)},
         )
 
-        if critical_passed and self.results["score"] >= 80:
-            self.results["passed"] = True
-            self.results["summary"] = "Deployment ready with rollback procedures verified"
+        # Create result
+        result = ValidationResult(
+            validator_id=self.validator_id,
+            validator_name=self.name,
+            status=overall_status,
+            message=message,
+            checks=checks,
+            evidence=evidence,
+            metadata=metadata,
+        )
+
+        # Update counts and score
+        result.update_counts()
+
+        return result
+
+    async def _create_rollback_plan_check(self) -> ValidationCheck:
+        """Create validation check for rollback plan."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._verify_rollback_plan()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.FAILED
+        evidence.metrics["rollback_steps"] = result.get("rollback_steps", [])
+
+        return ValidationCheck(
+            id="DEP-001",
+            name="Rollback Plan",
+            description="Verify rollback plan is documented and tested",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=True,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="critical" if not result["passed"] else "low",
+            remediation=(
+                "Document and test rollback procedures"
+                if not result["passed"]
+                else None
+            ),
+            tags=["deployment", "rollback"],
+        )
+
+    async def _create_blue_green_check(self) -> ValidationCheck:
+        """Create validation check for blue-green deployment."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._check_blue_green_deployment()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.WARNING
+        evidence.metrics["configuration"] = result.get("configuration", {})
+
+        return ValidationCheck(
+            id="DEP-002",
+            name="Blue-Green Deployment",
+            description="Check blue-green deployment configuration",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=False,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="medium" if status == CheckStatus.WARNING else "low",
+            remediation=(
+                "Configure blue-green deployment"
+                if status == CheckStatus.WARNING
+                else None
+            ),
+            tags=["deployment", "blue-green"],
+        )
+
+    async def _create_deployment_scripts_check(self) -> ValidationCheck:
+        """Create validation check for deployment scripts."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._validate_deployment_scripts()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.FAILED
+        evidence.metrics["scripts_found"] = result.get("scripts_found", [])
+        evidence.metrics["scripts_missing"] = result.get("scripts_missing", [])
+
+        return ValidationCheck(
+            id="DEP-003",
+            name="Deployment Scripts",
+            description="Validate deployment automation scripts",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=True,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="high" if not result["passed"] else "low",
+            remediation=(
+                "Create missing deployment scripts" if not result["passed"] else None
+            ),
+            tags=["deployment", "automation"],
+        )
+
+    async def _create_staging_check(self) -> ValidationCheck:
+        """Create validation check for staging environment."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._test_staging_environment()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.WARNING
+        evidence.metrics["environment_status"] = result.get("status", "")
+
+        return ValidationCheck(
+            id="DEP-004",
+            name="Staging Environment",
+            description="Test staging environment readiness",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=False,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="medium" if status == CheckStatus.WARNING else "low",
+            remediation=(
+                "Prepare staging environment" if status == CheckStatus.WARNING else None
+            ),
+            tags=["deployment", "staging"],
+        )
+
+    async def _create_container_check(self) -> ValidationCheck:
+        """Create validation check for container configuration."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._check_container_configuration()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.FAILED
+        evidence.metrics["docker_files"] = result.get("docker_files", [])
+
+        return ValidationCheck(
+            id="DEP-005",
+            name="Container Configuration",
+            description="Check Docker and container configuration",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=True,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="high" if not result["passed"] else "low",
+            remediation=(
+                "Fix container configuration issues" if not result["passed"] else None
+            ),
+            tags=["deployment", "docker", "containers"],
+        )
+
+    async def _create_kubernetes_check(self) -> ValidationCheck:
+        """Create validation check for Kubernetes manifests."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._validate_kubernetes_manifests()
+
+        # K8s is optional, so pass if not applicable
+        if result.get("not_applicable", False):
+            status = CheckStatus.SKIPPED
         else:
-            self.results["passed"] = False
-            self.results["summary"] = "Deployment issues detected - review failed checks"
+            status = CheckStatus.PASSED if result["passed"] else CheckStatus.WARNING
 
-        # Add execution time
-        self.results["execution_time"] = (datetime.utcnow() - start_time).total_seconds()
+        evidence.metrics["manifests_validated"] = result.get("manifests_validated", [])
 
-        return self.results
+        return ValidationCheck(
+            id="DEP-006",
+            name="Kubernetes Manifests",
+            description="Validate Kubernetes deployment manifests",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=False,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="low",
+            remediation=(
+                "Fix Kubernetes manifest issues"
+                if status == CheckStatus.WARNING
+                else None
+            ),
+            tags=["deployment", "kubernetes"],
+        )
 
-    async def _verify_rollback_plan(self) -> Dict[str, Any]:
+    async def _create_rollback_time_check(self) -> ValidationCheck:
+        """Create validation check for rollback time."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._check_rollback_time()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.WARNING
+        evidence.metrics["rollback_time_seconds"] = result.get(
+            "rollback_time_seconds", 0
+        )
+
+        return ValidationCheck(
+            id="DEP-007",
+            name="Rollback Time",
+            description="Check rollback time is under 5 minutes",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=False,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="medium" if status == CheckStatus.WARNING else "low",
+            remediation=(
+                "Optimize rollback procedures"
+                if status == CheckStatus.WARNING
+                else None
+            ),
+            tags=["deployment", "rollback", "performance"],
+        )
+
+    async def _create_readiness_check(self) -> ValidationCheck:
+        """Create validation check for deployment readiness."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._generate_readiness_report()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.WARNING
+        evidence.metrics["readiness_score"] = result.get("readiness_score", 0)
+        evidence.metrics["missing_items"] = result.get("missing_items", [])
+
+        return ValidationCheck(
+            id="DEP-008",
+            name="Deployment Readiness",
+            description="Overall deployment readiness assessment",
+            category="deployment",
+            status=status,
+            details=result["message"],
+            is_blocking=False,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="medium" if status == CheckStatus.WARNING else "low",
+            remediation=(
+                "Complete deployment preparation tasks"
+                if status == CheckStatus.WARNING
+                else None
+            ),
+            tags=["deployment", "readiness"],
+        )
+
+    async def _verify_rollback_plan(self) -> dict[str, Any]:
         """Verify rollback plan is documented and tested.
-        
+
         Returns:
             Validation result for rollback plan
         """
@@ -149,36 +391,45 @@ class DeploymentValidator:
         rollback_doc = self.genesis_root / "docs" / "rollback.md"
         if rollback_doc.exists():
             result["documentation_found"] = True
-            
-            with open(rollback_doc, "r", encoding="utf-8") as f:
+
+            with open(rollback_doc, encoding="utf-8") as f:
                 content = f.read()
-                
+
                 # Look for rollback steps
                 import re
+
                 steps = re.findall(r"(\d+\..*)", content)
                 result["rollback_steps"] = steps[:5]  # First 5 steps
-        
+
         # Check for rollback script
         rollback_script = self.genesis_root / "scripts" / "rollback.sh"
         if rollback_script.exists():
             result["script_found"] = True
-            
+
             # Check if script is executable
             if not os.access(rollback_script, os.X_OK):
                 result["message"] = "Rollback script exists but is not executable"
             else:
                 # Check script content
-                with open(rollback_script, "r") as f:
+                with open(rollback_script) as f:
                     script_content = f.read()
-                    
+
                     # Look for key rollback operations
-                    has_backup_restore = "restore" in script_content or "backup" in script_content
-                    has_version_control = "git" in script_content or "tag" in script_content
-                    has_database_rollback = "migrate" in script_content or "database" in script_content
-                    
+                    has_backup_restore = (
+                        "restore" in script_content or "backup" in script_content
+                    )
+                    has_version_control = (
+                        "git" in script_content or "tag" in script_content
+                    )
+                    has_database_rollback = (
+                        "migrate" in script_content or "database" in script_content
+                    )
+
                     if has_backup_restore and has_version_control:
                         result["passed"] = True
-                        result["message"] = "Rollback plan documented with executable script"
+                        result["message"] = (
+                            "Rollback plan documented with executable script"
+                        )
                     else:
                         result["message"] = "Rollback script missing key operations"
         else:
@@ -189,9 +440,9 @@ class DeploymentValidator:
 
         return result
 
-    async def _check_blue_green_deployment(self) -> Dict[str, Any]:
+    async def _check_blue_green_deployment(self) -> dict[str, Any]:
         """Check blue-green deployment configuration.
-        
+
         Returns:
             Validation result for blue-green deployment
         """
@@ -205,42 +456,42 @@ class DeploymentValidator:
         # Check Docker Compose for blue-green setup
         compose_prod = self.genesis_root / "docker" / "docker-compose.prod.yml"
         if compose_prod.exists():
-            with open(compose_prod, "r") as f:
+            with open(compose_prod) as f:
                 compose_content = yaml.safe_load(f)
-                
+
                 services = compose_content.get("services", {})
-                
+
                 # Look for blue and green services
                 has_blue = any("blue" in service for service in services)
                 has_green = any("green" in service for service in services)
-                
+
                 if has_blue and has_green:
                     result["blue_green_configured"] = True
-                
+
                 # Check for load balancer or proxy
                 has_proxy = any(
-                    service in services 
+                    service in services
                     for service in ["nginx", "haproxy", "traefik", "proxy"]
                 )
-                
+
                 if has_proxy:
                     result["load_balancer_configured"] = True
-        
+
         # Check Kubernetes for blue-green
         k8s_deployment = self.genesis_root / "kubernetes" / "deployment.yaml"
         if k8s_deployment.exists():
-            with open(k8s_deployment, "r") as f:
+            with open(k8s_deployment) as f:
                 k8s_content = f.read()
-                
+
                 if "blue" in k8s_content and "green" in k8s_content:
                     result["blue_green_configured"] = True
-        
+
         # Check deployment scripts for blue-green logic
         deploy_script = self.genesis_root / "scripts" / "deploy.sh"
         if deploy_script.exists():
-            with open(deploy_script, "r") as f:
+            with open(deploy_script) as f:
                 script_content = f.read()
-                
+
                 if "blue" in script_content and "green" in script_content:
                     result["blue_green_configured"] = True
 
@@ -252,9 +503,9 @@ class DeploymentValidator:
 
         return result
 
-    async def _validate_deployment_scripts(self) -> Dict[str, Any]:
+    async def _validate_deployment_scripts(self) -> dict[str, Any]:
         """Validate deployment scripts and automation.
-        
+
         Returns:
             Validation result for deployment scripts
         """
@@ -275,23 +526,27 @@ class DeploymentValidator:
         for script_name, script_path in required_scripts.items():
             if script_path.exists():
                 result["scripts_found"].append(script_name)
-                
+
                 # Check if executable
                 if os.access(script_path, os.X_OK):
                     result["scripts_executable"].append(script_name)
-                
+
                 # Validate script content
-                with open(script_path, "r") as f:
+                with open(script_path) as f:
                     content = f.read()
-                    
+
                     # Check for error handling
                     has_error_handling = "set -e" in content or "trap" in content
-                    
+
                     # Check for logging
-                    has_logging = "echo" in content or "logger" in content or "log" in content
-                    
+                    has_logging = (
+                        "echo" in content or "logger" in content or "log" in content
+                    )
+
                     if not has_error_handling:
-                        result["scripts_missing"].append(f"{script_name} (no error handling)")
+                        result["scripts_missing"].append(
+                            f"{script_name} (no error handling)"
+                        )
                     if not has_logging:
                         result["scripts_missing"].append(f"{script_name} (no logging)")
             else:
@@ -299,15 +554,17 @@ class DeploymentValidator:
 
         if len(result["scripts_found"]) >= 2 and not result["scripts_missing"]:
             result["passed"] = True
-            result["message"] = f"Deployment scripts validated ({len(result['scripts_found'])} found)"
+            result["message"] = (
+                f"Deployment scripts validated ({len(result['scripts_found'])} found)"
+            )
         else:
             result["message"] = f"Script issues: {', '.join(result['scripts_missing'])}"
 
         return result
 
-    async def _test_staging_environment(self) -> Dict[str, Any]:
+    async def _test_staging_environment(self) -> dict[str, Any]:
         """Test staging environment configuration.
-        
+
         Returns:
             Validation result for staging environment
         """
@@ -333,14 +590,14 @@ class DeploymentValidator:
         # Check deployment script for staging
         deploy_script = self.genesis_root / "scripts" / "deploy.sh"
         if deploy_script.exists():
-            with open(deploy_script, "r") as f:
+            with open(deploy_script) as f:
                 if "staging" in f.read():
                     result["staging_configured"] = True
 
         # Check if staging environment variables are set
         env_file = self.genesis_root / ".env"
         if env_file.exists():
-            with open(env_file, "r") as f:
+            with open(env_file) as f:
                 content = f.read()
                 if "STAGING_" in content or "ENVIRONMENT=staging" in content:
                     result["staging_configured"] = True
@@ -353,9 +610,9 @@ class DeploymentValidator:
 
         return result
 
-    async def _check_container_configuration(self) -> Dict[str, Any]:
+    async def _check_container_configuration(self) -> dict[str, Any]:
         """Check Docker container configuration.
-        
+
         Returns:
             Validation result for container configuration
         """
@@ -371,13 +628,13 @@ class DeploymentValidator:
         dockerfile = self.genesis_root / "docker" / "Dockerfile"
         if not dockerfile.exists():
             dockerfile = self.genesis_root / "Dockerfile"
-        
+
         if dockerfile.exists():
             result["dockerfile_found"] = True
-            
-            with open(dockerfile, "r") as f:
+
+            with open(dockerfile) as f:
                 content = f.read()
-                
+
                 # Check for best practices
                 checks = {
                     "multi_stage": "FROM.*AS" in content,
@@ -385,7 +642,7 @@ class DeploymentValidator:
                     "health_check": "HEALTHCHECK" in content,
                     "labels": "LABEL" in content,
                 }
-                
+
                 result["dockerfile_quality"] = checks
 
         # Check Docker Compose files
@@ -405,7 +662,7 @@ class DeploymentValidator:
         build_script = self.genesis_root / "scripts" / "build.sh"
         if not build_script.exists():
             build_script = self.genesis_root / "scripts" / "build_container.sh"
-        
+
         if build_script.exists():
             result["build_tested"] = True
 
@@ -422,9 +679,9 @@ class DeploymentValidator:
 
         return result
 
-    async def _validate_kubernetes_manifests(self) -> Dict[str, Any]:
+    async def _validate_kubernetes_manifests(self) -> dict[str, Any]:
         """Validate Kubernetes manifests if present.
-        
+
         Returns:
             Validation result for Kubernetes manifests
         """
@@ -437,39 +694,51 @@ class DeploymentValidator:
 
         k8s_dir = self.genesis_root / "kubernetes"
         helm_dir = self.genesis_root / "helm"
-        
+
         if k8s_dir.exists() or helm_dir.exists():
             result["passed"] = False  # Now we need to validate
-            
+
             if k8s_dir.exists():
-                manifest_files = list(k8s_dir.glob("*.yaml")) + list(k8s_dir.glob("*.yml"))
-                
+                manifest_files = list(k8s_dir.glob("*.yaml")) + list(
+                    k8s_dir.glob("*.yml")
+                )
+
                 for manifest in manifest_files:
                     result["manifests_found"].append(manifest.name)
-                    
+
                     # Validate YAML syntax
                     try:
-                        with open(manifest, "r") as f:
+                        with open(manifest) as f:
                             yaml.safe_load_all(f)
                         result["manifests_valid"].append(manifest.name)
                     except yaml.YAMLError as e:
                         logger.warning(f"Invalid manifest {manifest}: {e}")
-                
+
                 # Check for required manifests
                 required = ["deployment", "service", "configmap"]
-                found_types = [m.split(".")[0].lower() for m in result["manifests_found"]]
-                
+                found_types = [
+                    m.split(".")[0].lower() for m in result["manifests_found"]
+                ]
+
                 missing = [r for r in required if r not in " ".join(found_types)]
-                
-                if not missing and len(result["manifests_valid"]) == len(result["manifests_found"]):
+
+                if not missing and len(result["manifests_valid"]) == len(
+                    result["manifests_found"]
+                ):
                     result["passed"] = True
-                    result["message"] = f"Kubernetes manifests valid ({len(result['manifests_valid'])} files)"
+                    result["message"] = (
+                        f"Kubernetes manifests valid ({len(result['manifests_valid'])} files)"
+                    )
                 else:
                     if missing:
-                        result["message"] = f"Missing K8s manifests: {', '.join(missing)}"
+                        result["message"] = (
+                            f"Missing K8s manifests: {', '.join(missing)}"
+                        )
                     else:
-                        result["message"] = "Some Kubernetes manifests have invalid YAML"
-            
+                        result["message"] = (
+                            "Some Kubernetes manifests have invalid YAML"
+                        )
+
             if helm_dir.exists():
                 # Check for Helm chart
                 chart_file = helm_dir / "Chart.yaml"
@@ -479,9 +748,9 @@ class DeploymentValidator:
 
         return result
 
-    async def _check_rollback_time(self) -> Dict[str, Any]:
+    async def _check_rollback_time(self) -> dict[str, Any]:
         """Check estimated rollback time.
-        
+
         Returns:
             Validation result for rollback time
         """
@@ -493,11 +762,11 @@ class DeploymentValidator:
         }
 
         rollback_script = self.genesis_root / "scripts" / "rollback.sh"
-        
+
         if rollback_script.exists():
-            with open(rollback_script, "r") as f:
+            with open(rollback_script) as f:
                 content = f.read()
-                
+
                 # Estimate time based on operations
                 time_estimates = {
                     "docker": 30,  # Docker operations
@@ -507,28 +776,32 @@ class DeploymentValidator:
                     "restart": 30,  # Service restarts
                     "health": 20,  # Health checks
                 }
-                
+
                 total_time = 0
                 for operation, time in time_estimates.items():
                     if operation in content:
                         total_time += time
                         result["steps_analyzed"].append(f"{operation} (~{time}s)")
-                
+
                 result["estimated_time"] = total_time
-                
+
                 if total_time <= self.MAX_ROLLBACK_TIME_SECONDS:
                     result["passed"] = True
-                    result["message"] = f"Rollback estimated at {total_time}s (under {self.MAX_ROLLBACK_TIME_SECONDS}s limit)"
+                    result["message"] = (
+                        f"Rollback estimated at {total_time}s (under {self.MAX_ROLLBACK_TIME_SECONDS}s limit)"
+                    )
                 else:
-                    result["message"] = f"Rollback too slow: {total_time}s > {self.MAX_ROLLBACK_TIME_SECONDS}s"
+                    result["message"] = (
+                        f"Rollback too slow: {total_time}s > {self.MAX_ROLLBACK_TIME_SECONDS}s"
+                    )
         else:
             result["message"] = "Cannot estimate rollback time - script not found"
 
         return result
 
-    async def _generate_readiness_report(self) -> Dict[str, Any]:
+    async def _generate_readiness_report(self) -> dict[str, Any]:
         """Generate deployment readiness report.
-        
+
         Returns:
             Deployment readiness summary
         """
@@ -541,11 +814,21 @@ class DeploymentValidator:
         }
 
         checks = {
-            "Docker configuration": self.results["checks"].get("container_configuration", {}).get("passed", False),
-            "Deployment scripts": self.results["checks"].get("deployment_scripts", {}).get("passed", False),
-            "Rollback plan": self.results["checks"].get("rollback_plan", {}).get("passed", False),
-            "Staging environment": self.results["checks"].get("staging_environment", {}).get("passed", False),
-            "Blue-green deployment": self.results["checks"].get("blue_green_deployment", {}).get("passed", False),
+            "Docker configuration": self.results["checks"]
+            .get("container_configuration", {})
+            .get("passed", False),
+            "Deployment scripts": self.results["checks"]
+            .get("deployment_scripts", {})
+            .get("passed", False),
+            "Rollback plan": self.results["checks"]
+            .get("rollback_plan", {})
+            .get("passed", False),
+            "Staging environment": self.results["checks"]
+            .get("staging_environment", {})
+            .get("passed", False),
+            "Blue-green deployment": self.results["checks"]
+            .get("blue_green_deployment", {})
+            .get("passed", False),
         }
 
         for item, ready in checks.items():
@@ -554,7 +837,9 @@ class DeploymentValidator:
             else:
                 result["missing_items"].append(item)
 
-        result["readiness_score"] = len(result["ready_items"]) * 20  # Each item worth 20%
+        result["readiness_score"] = (
+            len(result["ready_items"]) * 20
+        )  # Each item worth 20%
 
         if result["readiness_score"] >= 80:
             result["passed"] = True
@@ -566,7 +851,7 @@ class DeploymentValidator:
 
     def generate_report(self) -> str:
         """Generate a detailed deployment validation report.
-        
+
         Returns:
             Formatted report string
         """
@@ -578,35 +863,47 @@ class DeploymentValidator:
         report.append("DEPLOYMENT VALIDATION REPORT")
         report.append("=" * 80)
         report.append(f"Timestamp: {self.results['timestamp']}")
-        report.append(f"Overall Status: {'PASSED' if self.results['passed'] else 'FAILED'}")
+        report.append(
+            f"Overall Status: {'PASSED' if self.results['passed'] else 'FAILED'}"
+        )
         report.append(f"Score: {self.results['score']}%")
         report.append(f"Summary: {self.results['summary']}")
         report.append("")
 
         report.append("CHECK RESULTS:")
         report.append("-" * 40)
-        
+
         for check_name, check_result in self.results["checks"].items():
             status = "✓" if check_result.get("passed", False) else "✗"
             report.append(f"{status} {check_name}: {check_result.get('message', '')}")
-            
+
             # Add details
             if check_result.get("scripts_missing"):
-                report.append(f"  Missing: {', '.join(check_result['scripts_missing'])}")
+                report.append(
+                    f"  Missing: {', '.join(check_result['scripts_missing'])}"
+                )
             if check_result.get("compose_files"):
-                report.append(f"  Compose files: {', '.join(check_result['compose_files'])}")
+                report.append(
+                    f"  Compose files: {', '.join(check_result['compose_files'])}"
+                )
             if check_result.get("manifests_valid"):
-                report.append(f"  Valid manifests: {len(check_result['manifests_valid'])}")
+                report.append(
+                    f"  Valid manifests: {len(check_result['manifests_valid'])}"
+                )
             if check_result.get("estimated_time"):
                 report.append(f"  Rollback time: {check_result['estimated_time']}s")
             if check_name == "readiness_report":
                 if check_result.get("ready_items"):
                     report.append(f"  Ready: {', '.join(check_result['ready_items'])}")
                 if check_result.get("missing_items"):
-                    report.append(f"  Missing: {', '.join(check_result['missing_items'])}")
+                    report.append(
+                        f"  Missing: {', '.join(check_result['missing_items'])}"
+                    )
 
         report.append("")
-        report.append(f"Execution Time: {self.results.get('execution_time', 0):.2f} seconds")
+        report.append(
+            f"Execution Time: {self.results.get('execution_time', 0):.2f} seconds"
+        )
         report.append("=" * 80)
 
         return "\n".join(report)

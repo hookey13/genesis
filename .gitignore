@@ -250,3 +250,10 @@ docker/volumes/
 .ai/
 .bmad-agent-memory/
 !.ai/debug-log.md
+
+# HashiCorp Vault runtime data
+vault/data/
+vault/logs/
+vault/init-keys.txt
+vault/.vault-token
+vault/app-token.txt

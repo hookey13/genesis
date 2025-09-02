@@ -28,6 +28,11 @@ cryptography==41.0.7  # Encryption support
 # Database migrations
 alembic==1.13.1
 SQLAlchemy==2.0.25
+asyncpg==0.29.0  # PostgreSQL async driver
+
+# Backup and scheduling
+apscheduler==3.10.4  # Automated backup scheduling
+deepdiff==6.7.1  # Configuration comparison
 
 # Data analysis
 pandas==2.2.3  # Security and performance updates
@@ -54,3 +59,17 @@ opentelemetry-instrumentation-sqlalchemy==0.45b0  # SQLAlchemy instrumentation
 # Backup and recovery
 boto3==1.35.0  # AWS SDK for S3-compatible storage
 apscheduler==3.10.4  # Scheduled backup tasks
+
+# Two-Factor Authentication
+pyotp==2.9.0  # TOTP generation and verification
+qrcode[pil]==7.4.2  # QR code generation for 2FA setup
+
+# JWT Token Management
+PyJWT[crypto]==2.8.0  # JWT token generation and verification with cryptographic support
+redis==5.0.1  # Redis client for session storage
+
+# Password Security
+bcrypt==4.2.0  # Secure password hashing with salt
+
+# DR and Scheduling
+croniter==2.0.1  # Cron expression parsing for scheduled DR drills

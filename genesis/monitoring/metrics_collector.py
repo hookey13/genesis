@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Optional
 
 import psutil
 import structlog
@@ -14,6 +14,7 @@ import structlog
 from ..core.events import Event, EventType
 from ..core.models import Order, OrderStatus, Position
 from .prometheus_exporter import MetricsRegistry
+from .memory_profiler import MemoryProfiler, MemoryTrend
 
 logger = structlog.get_logger(__name__)
 
@@ -58,6 +59,20 @@ class TradingMetrics:
     tilt_score: float = 0.0
     tilt_indicators: dict[str, float] = field(default_factory=dict)
     
+    # Backup metrics
+    backup_success_count: int = 0
+    backup_failure_count: int = 0
+    last_backup_time: Optional[datetime] = None
+    last_backup_size_mb: float = 0.0
+    backup_completion_time_seconds: float = 0.0
+    recovery_point_objective_seconds: float = 0.0
+    recovery_time_objective_seconds: float = 0.0
+    backup_integrity_checks_passed: int = 0
+    backup_integrity_checks_failed: int = 0
+    cross_region_replications: int = 0
+    vault_snapshots_count: int = 0
+    config_versions_tracked: int = 0
+    
     # System health metrics
     cpu_usage: float = 0.0  # Percentage
     memory_usage: float = 0.0  # Bytes
@@ -77,6 +92,12 @@ class TradingMetrics:
     
     # Health score (0-100)
     health_score: float = 100.0
+    
+    # Memory profiling metrics
+    memory_growth_rate: float = 0.0  # Growth rate per hour
+    memory_leak_detected: bool = False
+    memory_leak_confidence: float = 0.0
+    memory_peak_usage: float = 0.0  # Peak memory usage in bytes
 
     last_update: datetime = field(default_factory=datetime.now)
 
@@ -84,7 +105,7 @@ class TradingMetrics:
 class MetricsCollector:
     """Collects and aggregates metrics from trading components."""
 
-    def __init__(self, registry: MetricsRegistry):
+    def __init__(self, registry: MetricsRegistry, enable_memory_profiling: bool = True):
         self.registry = registry
         self.metrics = TradingMetrics()
         self._start_time = time.time()
@@ -93,6 +114,15 @@ class MetricsCollector:
         self._latency_samples: list[float] = []
         self._collection_interval = 10  # seconds
         self._collection_task: asyncio.Task | None = None
+        
+        # Memory profiler
+        self.memory_profiler: Optional[MemoryProfiler] = None
+        if enable_memory_profiling:
+            self.memory_profiler = MemoryProfiler(
+                growth_threshold=0.05,
+                snapshot_interval=60,
+                enable_tracemalloc=True
+            )
 
         # Register collector with registry
         self.registry.register_collector(self._update_metrics)
@@ -102,6 +132,11 @@ class MetricsCollector:
         if not self._collection_task:
             self._collection_task = asyncio.create_task(self._collection_loop())
             logger.info("Started metrics collector")
+            
+        # Start memory profiler if enabled
+        if self.memory_profiler:
+            await self.memory_profiler.start_monitoring()
+            logger.info("Started memory profiling")
 
     async def stop(self) -> None:
         """Stop metrics collection."""
@@ -113,12 +148,18 @@ class MetricsCollector:
                 pass
             self._collection_task = None
             logger.info("Stopped metrics collector")
+            
+        # Stop memory profiler if enabled
+        if self.memory_profiler:
+            await self.memory_profiler.stop_monitoring()
+            logger.info("Stopped memory profiling")
 
     async def _collection_loop(self) -> None:
         """Main collection loop."""
         while True:
             try:
                 await self._collect_system_metrics()
+                await self._collect_memory_profiling_metrics()
                 await self._calculate_derived_metrics()
                 await self._update_prometheus_metrics()
                 await asyncio.sleep(self._collection_interval)
@@ -212,6 +253,27 @@ class MetricsCollector:
         except Exception as e:
             logger.warning("Failed to collect system metrics", error=str(e))
 
+    async def _collect_memory_profiling_metrics(self) -> None:
+        """Collect memory profiling metrics."""
+        if not self.memory_profiler:
+            return
+            
+        try:
+            # Get memory statistics
+            memory_stats = self.memory_profiler.get_memory_stats()
+            
+            # Update metrics
+            self.metrics.memory_growth_rate = memory_stats.get('growth_rate_per_hour', 0.0)
+            self.metrics.memory_leak_detected = memory_stats.get('leak_detected', False)
+            self.metrics.memory_leak_confidence = memory_stats.get('leak_confidence', 0.0)
+            
+            # Get memory trend for peak usage
+            trend = self.memory_profiler.get_memory_trend(hours=1)
+            self.metrics.memory_peak_usage = trend.peak_usage_bytes
+            
+        except Exception as e:
+            logger.warning("Failed to collect memory profiling metrics", error=str(e))
+    
     def _calculate_health_score(self) -> None:
         """Calculate overall system health score (0-100)."""
         score = 100.0
@@ -421,13 +483,128 @@ class MetricsCollector:
         
         await self.registry.set_gauge(
             "genesis_health_score",
-            float(self.metrics.health_score),
-            {"description": "Overall system health score (0-100)"}
+            float(self.metrics.health_score)
+        )
+        
+        # Memory profiling metrics
+        await self.registry.set_gauge(
+            "genesis_memory_growth_rate_per_hour",
+            float(self.metrics.memory_growth_rate)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_memory_leak_detected",
+            1.0 if self.metrics.memory_leak_detected else 0.0
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_memory_leak_confidence",
+            float(self.metrics.memory_leak_confidence)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_memory_peak_usage_bytes",
+            float(self.metrics.memory_peak_usage)
+        )
+        
+        # Backup metrics
+        await self.registry.set_gauge(
+            "genesis_backup_success_total",
+            float(self.metrics.backup_success_count)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_backup_failure_total",
+            float(self.metrics.backup_failure_count)
+        )
+        
+        if self.metrics.last_backup_time:
+            await self.registry.set_gauge(
+                "genesis_last_backup_timestamp",
+                self.metrics.last_backup_time.timestamp()
+            )
+        
+        await self.registry.set_gauge(
+            "genesis_last_backup_size_mb",
+            float(self.metrics.last_backup_size_mb)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_backup_completion_time_seconds",
+            float(self.metrics.backup_completion_time_seconds)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_recovery_point_objective_seconds",
+            float(self.metrics.recovery_point_objective_seconds)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_recovery_time_objective_seconds",
+            float(self.metrics.recovery_time_objective_seconds)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_backup_integrity_checks_passed",
+            float(self.metrics.backup_integrity_checks_passed)
+        )
+        
+        await self.registry.set_gauge(
+            "genesis_backup_integrity_checks_failed",
+            float(self.metrics.backup_integrity_checks_failed)
         )
 
     async def _update_metrics(self) -> None:
         """Update metrics (called by registry during collection)."""
         await self._update_prometheus_metrics()
+    
+    async def record_backup_metric(
+        self,
+        metric_name: str,
+        value: float,
+        labels: Optional[dict[str, str]] = None
+    ) -> None:
+        """Record a backup-related metric.
+        
+        Args:
+            metric_name: Name of the metric
+            value: Metric value
+            labels: Optional labels
+        """
+        try:
+            # Update internal metrics
+            if metric_name == "backup_success":
+                self.metrics.backup_success_count += 1
+                self.metrics.last_backup_time = datetime.now()
+                self.metrics.last_backup_size_mb = value
+            elif metric_name == "backup_failure":
+                self.metrics.backup_failure_count += 1
+            elif metric_name == "backup_completion_time":
+                self.metrics.backup_completion_time_seconds = value
+            elif metric_name == "recovery_completed":
+                self.metrics.recovery_time_objective_seconds = value
+            elif metric_name.startswith("rpo_"):
+                self.metrics.recovery_point_objective_seconds = value
+            elif metric_name == "integrity_check_passed":
+                self.metrics.backup_integrity_checks_passed += 1
+            elif metric_name == "integrity_check_failed":
+                self.metrics.backup_integrity_checks_failed += 1
+            elif metric_name == "cross_region_replication":
+                self.metrics.cross_region_replications += 1
+            elif metric_name == "vault_snapshot":
+                self.metrics.vault_snapshots_count += 1
+            elif metric_name == "config_version":
+                self.metrics.config_versions_tracked += 1
+            
+            # Export to Prometheus
+            await self.registry.set_gauge(
+                f"genesis_{metric_name}",
+                float(value),
+                labels
+            )
+            
+        except Exception as e:
+            logger.error(f"Failed to record backup metric: {e}", metric=metric_name)
 
     async def record_order(self, order: Order) -> None:
         """Record order metrics with validation."""
@@ -438,27 +615,61 @@ class MetricsCollector:
         try:
             self.metrics.orders_placed += 1
 
+            # Extract order details for labels
+            exchange = getattr(order, 'exchange', 'binance')
+            symbol = getattr(order, 'symbol', 'unknown')
+            side = getattr(order, 'side', 'unknown')
+            order_type = getattr(order, 'order_type', 'unknown')
+            
+            # Create labels for Prometheus metrics
+            labels = {
+                "exchange": exchange,
+                "symbol": symbol,
+                "side": side,
+                "type": order_type,
+                "status": order.status.value
+            }
+
             if order.status == OrderStatus.FILLED:
                 self.metrics.orders_filled += 1
                 self.metrics.trades_executed += 1
-                await self.registry.increment_counter("genesis_trades_total")
+                await self.registry.increment_counter("genesis_orders_total", 1.0, labels)
+                await self.registry.increment_counter("genesis_trades_total", 1.0, 
+                                                     {"exchange": exchange, "symbol": symbol})
+                
+                # Track volume if available
+                if hasattr(order, 'executed_qty') and hasattr(order, 'price'):
+                    volume = Decimal(str(order.executed_qty)) * Decimal(str(order.price))
+                    self.metrics.total_volume += volume
+                    await self.registry.increment_counter("genesis_trading_volume_usdt", 
+                                                         float(volume), 
+                                                         {"exchange": exchange, "symbol": symbol})
+                    
             elif order.status == OrderStatus.CANCELLED:
                 self.metrics.orders_cancelled += 1
+                await self.registry.increment_counter("genesis_orders_total", 1.0, labels)
+                
             elif order.status in [OrderStatus.REJECTED, OrderStatus.EXPIRED]:
                 self.metrics.orders_failed += 1
-                await self.registry.increment_counter("genesis_orders_failed_total")
-
-            await self.registry.increment_counter("genesis_orders_total")
+                await self.registry.increment_counter("genesis_orders_total", 1.0, labels)
+                await self.registry.increment_counter("genesis_orders_failed_total", 1.0,
+                                                     {"exchange": exchange, "reason": order.status.value})
+            else:
+                # For pending/new orders
+                await self.registry.increment_counter("genesis_orders_total", 1.0, labels)
 
             logger.debug("Recorded order metrics",
                         order_id=order.client_order_id,
-                        status=order.status.value)
+                        status=order.status.value,
+                        labels=labels)
         except AttributeError as e:
             logger.error("Invalid order object", error=str(e))
         except Exception as e:
             logger.error("Failed to record order metrics", error=str(e))
 
-    async def record_execution_time(self, duration_seconds: float) -> None:
+    async def record_execution_time(self, duration_seconds: float, 
+                                   exchange: str = "binance", 
+                                   order_type: str = "market") -> None:
         """Record order execution time with validation."""
         try:
             # Validate duration is reasonable (0 to 60 seconds)
@@ -469,10 +680,26 @@ class MetricsCollector:
                 logger.warning("Excessive execution time", duration=duration_seconds)
                 duration_seconds = 60  # Cap at 60 seconds
 
+            # Record with labels for detailed analysis
+            labels = {"exchange": exchange, "type": order_type}
+            
+            await self.registry.observe_histogram(
+                "genesis_order_latency_seconds",
+                duration_seconds,
+                labels
+            )
+            
+            # Also update the general histogram
             await self.registry.observe_histogram(
                 "genesis_order_execution_time_seconds",
                 duration_seconds
             )
+            
+            # Track percentiles for SLA monitoring
+            self._latency_samples.append(duration_seconds)
+            if len(self._latency_samples) > 1000:
+                self._latency_samples.pop(0)
+                
         except Exception as e:
             logger.error("Failed to record execution time", error=str(e))
 
@@ -504,19 +731,57 @@ class MetricsCollector:
         """Update position-related metrics."""
         self.metrics.current_positions = len(positions)
 
-        # Calculate unrealized P&L
+        # Calculate unrealized P&L and position distribution
         unrealized = Decimal("0")
+        position_by_symbol = {}
+        position_by_side = {"long": 0, "short": 0}
+        
         for position in positions:
             if hasattr(position, 'unrealized_pnl'):
                 unrealized += position.unrealized_pnl
+                
+            # Track position distribution
+            symbol = getattr(position, 'symbol', 'unknown')
+            side = getattr(position, 'side', 'unknown').lower()
+            
+            if symbol not in position_by_symbol:
+                position_by_symbol[symbol] = 0
+            position_by_symbol[symbol] += 1
+            
+            if side in ["buy", "long"]:
+                position_by_side["long"] += 1
+            elif side in ["sell", "short"]:
+                position_by_side["short"] += 1
 
         self.metrics.unrealized_pnl = unrealized
 
+        # Update Prometheus metrics with detailed labels
+        for symbol, count in position_by_symbol.items():
+            await self.registry.set_gauge(
+                "genesis_positions_count",
+                float(count),
+                {"symbol": symbol}
+            )
+            
+        # Update position side distribution
+        await self.registry.set_gauge(
+            "genesis_positions_by_side",
+            float(position_by_side["long"]),
+            {"side": "long"}
+        )
+        await self.registry.set_gauge(
+            "genesis_positions_by_side", 
+            float(position_by_side["short"]),
+            {"side": "short"}
+        )
+
         logger.debug("Updated position metrics",
                     count=self.metrics.current_positions,
-                    unrealized_pnl=float(unrealized))
+                    unrealized_pnl=float(unrealized),
+                    distribution=position_by_symbol)
 
-    async def update_pnl(self, realized: Decimal, unrealized: Decimal) -> None:
+    async def update_pnl(self, realized: Decimal, unrealized: Decimal, 
+                        strategy: str = "unknown", symbol: str = "all") -> None:
         """Update P&L metrics with validation."""
         try:
             # Validate P&L values are reasonable
@@ -529,6 +794,27 @@ class MetricsCollector:
 
             self.metrics.realized_pnl = realized
             self.metrics.unrealized_pnl = unrealized
+
+            # Update Prometheus metrics with labels
+            await self.registry.set_gauge(
+                "genesis_trading_pnl_usdt",
+                float(realized),
+                {"type": "realized", "strategy": strategy, "symbol": symbol}
+            )
+            
+            await self.registry.set_gauge(
+                "genesis_trading_pnl_usdt",
+                float(unrealized),
+                {"type": "unrealized", "strategy": strategy, "symbol": symbol}
+            )
+            
+            # Track total P&L
+            total_pnl = realized + unrealized
+            await self.registry.set_gauge(
+                "genesis_trading_pnl_total_usdt",
+                float(total_pnl),
+                {"strategy": strategy}
+            )
 
             # Calculate and update drawdown
             await self._calculate_derived_metrics()

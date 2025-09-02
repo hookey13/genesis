@@ -1,0 +1,128 @@
+# Prometheus configuration for GENESIS monitoring
+global:
+  scrape_interval: 15s  # Default scrape interval
+  evaluation_interval: 15s  # Evaluate rules interval
+  scrape_timeout: 10s
+
+  # Attach labels to all time series
+  external_labels:
+    monitor: 'genesis-monitor'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+          # - 'alertmanager:9093'
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - 'alerts/*.yml'
+
+# Scrape configurations
+scrape_configs:
+  # GENESIS metrics endpoint
+  - job_name: 'genesis'
+    metrics_path: '/metrics'
+    scheme: 'https'  # Use HTTPS for security
+    
+    # Authentication
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/genesis_token.txt
+    
+    # TLS configuration
+    tls_config:
+      insecure_skip_verify: false  # Set to true for self-signed certs in dev
+      
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          service: 'genesis-trading'
+          tier: 'application'
+    
+    # Scrape more frequently for critical metrics
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    
+    # Metric relabeling
+    metric_relabel_configs:
+      # Drop high-cardinality metrics if needed
+      - source_labels: [__name__]
+        regex: 'genesis_debug_.*'
+        action: drop
+      
+      # Keep only essential metrics during high load
+      - source_labels: [__name__]
+        regex: 'genesis_(orders|positions|pnl|health|tilt|drawdown|memory|cpu|websocket|circuit).*'
+        action: keep
+
+  # Node exporter for system metrics (optional)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          service: 'node-exporter'
+          tier: 'infrastructure'
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /var/lib/prometheus/data
+    retention:
+      time: 30d  # Keep data for 30 days
+      size: 10GB  # Maximum storage size
+    
+    # WAL compression to reduce disk usage
+    wal_compression: true
+    
+    # Disable local storage if using remote storage
+    # no_lockfile: false
+    
+    # Chunk encoding for better compression
+    # chunk_encoding_version: 2
+
+# Remote storage configuration (optional)
+# remote_write:
+#   - url: "http://remote-storage:9201/write"
+#     queue_config:
+#       capacity: 10000
+#       max_shards: 5
+#       min_shards: 1
+#       max_samples_per_send: 1000
+#       batch_send_deadline: 5s
+#       min_backoff: 30ms
+#       max_backoff: 100ms
+
+# Remote read configuration (optional)  
+# remote_read:
+#   - url: "http://remote-storage:9201/read"
+#     read_recent: true
+
+# Performance tuning
+# Limit concurrent queries to prevent overload
+query:
+  max_concurrency: 20
+  timeout: 2m
+  max_samples: 50000000  # 50M samples max per query
+  lookback_delta: 5m
+
+# API limits
+web:
+  # Enable admin API for snapshots and deletion
+  enable_admin_api: true
+  
+  # Enable lifecycle API for reload
+  enable_lifecycle: true
+  
+  # Console templates and static assets
+  console:
+    templates: /etc/prometheus/consoles
+    libraries: /etc/prometheus/console_libraries
+  
+  # CORS configuration
+  cors:
+    allow_origins: ['*']
+    allow_methods: ['GET', 'POST']
+    allow_headers: ['Authorization', 'Content-Type']

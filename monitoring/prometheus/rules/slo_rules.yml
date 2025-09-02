@@ -1,0 +1,304 @@
+# Prometheus Recording Rules for SLO Calculations
+# These rules pre-calculate SLI values and error budgets for efficient querying
+
+groups:
+  - name: slo_rules
+    interval: 30s
+    rules:
+      # Trading API SLO Rules
+      - record: sli:availability:trading_api
+        expr: avg_over_time(up{job="trading_api"}[5m])
+      
+      - record: sli:latency_p99:trading_api
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="trading_api"}[5m]))
+      
+      - record: sli:latency_p95:trading_api
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="trading_api"}[5m]))
+      
+      - record: sli:error_rate:trading_api
+        expr: |
+          sum(rate(http_requests_total{job="trading_api",status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="trading_api"}[5m]))
+      
+      - record: sli:throughput:trading_api
+        expr: sum(rate(http_requests_total{job="trading_api"}[5m]))
+      
+      # Order Executor SLO Rules
+      - record: sli:availability:order_executor
+        expr: avg_over_time(up{job="order_executor"}[5m])
+      
+      - record: sli:order_latency_p99:order_executor
+        expr: histogram_quantile(0.99, rate(genesis_order_latency_seconds_bucket[5m]))
+      
+      - record: sli:order_success_rate:order_executor
+        expr: |
+          1 - (
+            sum(rate(genesis_orders_failed_total[5m]))
+            /
+            sum(rate(genesis_orders_total[5m]))
+          )
+      
+      # WebSocket Gateway SLO Rules
+      - record: sli:connection_availability:websocket_gateway
+        expr: |
+          sum(websocket_connections_active)
+          /
+          sum(websocket_connections_total)
+      
+      - record: sli:message_latency_p99:websocket_gateway
+        expr: histogram_quantile(0.99, rate(websocket_message_latency_seconds_bucket[5m]))
+      
+      - record: sli:reconnection_rate:websocket_gateway
+        expr: sum(rate(websocket_reconnections_total[5m]))
+      
+      # Database SLO Rules
+      - record: sli:availability:database
+        expr: avg_over_time(pg_up[5m])
+      
+      - record: sli:query_latency_p95:database
+        expr: histogram_quantile(0.95, rate(pg_stat_statements_exec_time_seconds_bucket[5m]))
+      
+      - record: sli:connection_saturation:database
+        expr: |
+          sum(pg_stat_database_numbackends)
+          /
+          sum(pg_settings_max_connections)
+      
+      - record: sli:replication_lag:database
+        expr: max(pg_replication_lag_seconds)
+      
+      # Vault SLO Rules
+      - record: sli:availability:vault
+        expr: avg_over_time(vault_core_unsealed[5m])
+      
+      - record: sli:request_latency_p99:vault
+        expr: histogram_quantile(0.99, rate(vault_core_handle_request_duration_seconds_bucket[5m]))
+      
+      - record: sli:token_renewal_success:vault
+        expr: |
+          1 - (
+            sum(rate(vault_token_renew_failed_total[5m]))
+            /
+            sum(rate(vault_token_renew_total[5m]))
+          )
+
+  - name: error_budget_rules
+    interval: 1m
+    rules:
+      # 5-minute error budget burn rate
+      - record: error_budget:burn_rate:5m:trading_api
+        expr: |
+          (
+            1 - (
+              sum_over_time(sli:availability:trading_api[5m])
+              /
+              count_over_time(sli:availability:trading_api[5m])
+            )
+          ) / (1 - 0.999)
+      
+      # 1-hour error budget burn rate
+      - record: error_budget:burn_rate:1h:trading_api
+        expr: |
+          (
+            1 - (
+              sum_over_time(sli:availability:trading_api[1h])
+              /
+              count_over_time(sli:availability:trading_api[1h])
+            )
+          ) / (1 - 0.999)
+      
+      # 6-hour error budget burn rate
+      - record: error_budget:burn_rate:6h:trading_api
+        expr: |
+          (
+            1 - (
+              sum_over_time(sli:availability:trading_api[6h])
+              /
+              count_over_time(sli:availability:trading_api[6h])
+            )
+          ) / (1 - 0.999)
+      
+      # 24-hour error budget burn rate
+      - record: error_budget:burn_rate:24h:trading_api
+        expr: |
+          (
+            1 - (
+              sum_over_time(sli:availability:trading_api[24h])
+              /
+              count_over_time(sli:availability:trading_api[24h])
+            )
+          ) / (1 - 0.999)
+      
+      # 30-day error budget consumption
+      - record: error_budget:consumed:30d:trading_api
+        expr: |
+          1 - (
+            (
+              sum_over_time(sli:availability:trading_api[30d])
+              /
+              count_over_time(sli:availability:trading_api[30d])
+              - 0.999
+            ) / (1 - 0.999)
+          )
+      
+      # Remaining error budget
+      - record: error_budget:remaining:30d:trading_api
+        expr: 1 - error_budget:consumed:30d:trading_api
+
+  - name: multi_burn_rate_alerts
+    interval: 30s
+    rules:
+      # Page - High severity, fast burn
+      - alert: ErrorBudgetBurnRateTooHigh_Critical
+        expr: |
+          (
+            error_budget:burn_rate:1h:trading_api > 14.4
+            and
+            error_budget:burn_rate:5m:trading_api > 14.4
+          )
+        for: 2m
+        labels:
+          severity: critical
+          service: trading_api
+          alert_type: error_budget
+        annotations:
+          summary: "Critical error budget burn rate for {{ $labels.service }}"
+          description: |
+            Service {{ $labels.service }} is burning error budget at {{ $value }}x rate.
+            At this rate, the monthly error budget will be exhausted in {{ 720 / $value }} hours.
+            Immediate action required.
+          runbook_url: "https://runbooks.genesis.io/error-budget-critical"
+      
+      # Alert - Medium severity, medium burn
+      - alert: ErrorBudgetBurnRateTooHigh_Warning
+        expr: |
+          (
+            error_budget:burn_rate:6h:trading_api > 6
+            and
+            error_budget:burn_rate:1h:trading_api > 6
+          )
+        for: 5m
+        labels:
+          severity: warning
+          service: trading_api
+          alert_type: error_budget
+        annotations:
+          summary: "Warning: High error budget burn rate for {{ $labels.service }}"
+          description: |
+            Service {{ $labels.service }} is burning error budget at {{ $value }}x rate.
+            At this rate, the monthly error budget will be exhausted in {{ 720 / $value }} hours.
+            Investigation recommended.
+          runbook_url: "https://runbooks.genesis.io/error-budget-warning"
+      
+      # Notify - Low severity, slow burn
+      - alert: ErrorBudgetBurnRateTooHigh_Info
+        expr: |
+          (
+            error_budget:burn_rate:24h:trading_api > 1.5
+            and
+            error_budget:burn_rate:6h:trading_api > 1.5
+          )
+        for: 30m
+        labels:
+          severity: info
+          service: trading_api
+          alert_type: error_budget
+        annotations:
+          summary: "Info: Elevated error budget burn rate for {{ $labels.service }}"
+          description: |
+            Service {{ $labels.service }} is burning error budget at {{ $value }}x rate.
+            Current consumption trending above sustainable levels.
+          runbook_url: "https://runbooks.genesis.io/error-budget-info"
+      
+      # Error budget nearly exhausted
+      - alert: ErrorBudgetNearlyExhausted
+        expr: error_budget:remaining:30d:trading_api < 0.1
+        for: 15m
+        labels:
+          severity: warning
+          service: trading_api
+          alert_type: error_budget
+        annotations:
+          summary: "Error budget nearly exhausted for {{ $labels.service }}"
+          description: |
+            Service {{ $labels.service }} has only {{ $value | humanizePercentage }} of error budget remaining.
+            Consider implementing stricter change controls.
+          runbook_url: "https://runbooks.genesis.io/error-budget-exhausted"
+
+  - name: sli_threshold_alerts
+    interval: 30s
+    rules:
+      # Availability alerts
+      - alert: ServiceUnavailable
+        expr: sli:availability:trading_api < 0.99
+        for: 5m
+        labels:
+          severity: critical
+          service: trading_api
+          sli_type: availability
+        annotations:
+          summary: "Service {{ $labels.service }} availability below threshold"
+          description: |
+            Availability for {{ $labels.service }} is {{ $value | humanizePercentage }}.
+            Target SLO: 99.9%
+          runbook_url: "https://runbooks.genesis.io/service-unavailable"
+      
+      # Latency alerts
+      - alert: HighLatency
+        expr: sli:latency_p99:trading_api > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: trading_api
+          sli_type: latency
+        annotations:
+          summary: "High latency detected for {{ $labels.service }}"
+          description: |
+            P99 latency for {{ $labels.service }} is {{ $value | humanizeDuration }}.
+            Target SLO: 100ms
+          runbook_url: "https://runbooks.genesis.io/high-latency"
+      
+      # Error rate alerts
+      - alert: HighErrorRate
+        expr: sli:error_rate:trading_api > 0.001
+        for: 5m
+        labels:
+          severity: warning
+          service: trading_api
+          sli_type: error_rate
+        annotations:
+          summary: "High error rate for {{ $labels.service }}"
+          description: |
+            Error rate for {{ $labels.service }} is {{ $value | humanizePercentage }}.
+            Target SLO: 0.1%
+          runbook_url: "https://runbooks.genesis.io/high-error-rate"
+      
+      # Database specific alerts
+      - alert: DatabaseConnectionPoolSaturated
+        expr: sli:connection_saturation:database > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+          sli_type: saturation
+        annotations:
+          summary: "Database connection pool near saturation"
+          description: |
+            Connection pool usage is at {{ $value | humanizePercentage }}.
+            Consider scaling connection pool or optimizing connection usage.
+          runbook_url: "https://runbooks.genesis.io/db-connection-saturation"
+      
+      - alert: DatabaseReplicationLag
+        expr: sli:replication_lag:database > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+          sli_type: replication
+        annotations:
+          summary: "Database replication lag detected"
+          description: |
+            Replication lag is {{ $value | humanizeDuration }}.
+            This may impact read consistency.
+          runbook_url: "https://runbooks.genesis.io/db-replication-lag"

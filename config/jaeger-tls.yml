@@ -1,0 +1,55 @@
+# Jaeger TLS Configuration for Production
+# This file configures TLS certificates for secure OTLP communication
+
+collector:
+  tls:
+    enabled: true
+    cert_file: /certs/collector.crt
+    key_file: /certs/collector.key
+    ca_file: /certs/ca.crt
+    client_ca_file: /certs/ca.crt
+    # Require and verify client certificates
+    client_auth_required: true
+    # Minimum TLS version
+    min_version: "1.2"
+    # Cipher suites (secure defaults)
+    cipher_suites:
+      - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+      - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+      - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+      - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+query:
+  tls:
+    enabled: true
+    cert_file: /certs/query.crt
+    key_file: /certs/query.key
+    ca_file: /certs/ca.crt
+
+# OTLP receiver TLS configuration
+otlp:
+  protocols:
+    grpc:
+      endpoint: "0.0.0.0:4317"
+      tls:
+        cert_file: /certs/otlp-grpc.crt
+        key_file: /certs/otlp-grpc.key
+        ca_file: /certs/ca.crt
+        client_ca_file: /certs/ca.crt
+    http:
+      endpoint: "0.0.0.0:4318"
+      tls:
+        cert_file: /certs/otlp-http.crt
+        key_file: /certs/otlp-http.key
+        ca_file: /certs/ca.crt
+
+# Storage backend TLS (Elasticsearch)
+storage:
+  elasticsearch:
+    tls:
+      enabled: true
+      cert_file: /certs/es-client.crt
+      key_file: /certs/es-client.key
+      ca_file: /certs/ca.crt
+      server_name: elasticsearch.genesis.internal
+      insecure_skip_verify: false

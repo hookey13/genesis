@@ -1,21 +1,28 @@
 """
 Pytest configuration and fixtures for Project GENESIS tests.
+Includes memory leak detection and performance regression tracking.
 """
 
 import asyncio
+import gc
 import json
 import os
 import sys
+import time
 from decimal import Decimal
 from pathlib import Path
+from typing import Dict, Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import pytest_asyncio
+import psutil
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+from genesis.monitoring.memory_profiler import MemoryProfiler
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -309,3 +316,126 @@ def clean_imports():
     ]
     for module in modules_to_remove:
         del sys.modules[module]
+
+
+# ============= Pytest Configuration for Memory Leak Detection =============
+
+def pytest_addoption(parser):
+    """Add custom command line options."""
+    parser.addoption(
+        "--memory-threshold",
+        action="store",
+        default="0.05",
+        help="Memory growth threshold for leak detection (default: 5%)"
+    )
+    parser.addoption(
+        "--run-slow",
+        action="store_true",
+        default=False,
+        help="Run slow tests including 48-hour stability tests"
+    )
+
+
+def pytest_configure(config):
+    """Configure pytest with custom markers."""
+    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line("markers", "benchmark: marks tests as benchmark tests")
+    config.addinivalue_line("markers", "memory_intensive: marks tests that use significant memory")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Modify test collection based on markers."""
+    if not config.getoption("--run-slow"):
+        skip_slow = pytest.mark.skip(reason="need --run-slow option to run")
+        for item in items:
+            if "slow" in item.keywords:
+                item.add_marker(skip_slow)
+
+
+# ============= Memory Leak Detection Fixtures =============
+
+class MemoryTracker:
+    """Track memory usage for leak detection."""
+    
+    def __init__(self, threshold: float = 0.05):
+        self.threshold = threshold
+        self.process = psutil.Process()
+        self.start_memory = None
+        self.end_memory = None
+    
+    def start(self):
+        """Start memory tracking."""
+        gc.collect()  # Force GC before measurement
+        self.start_memory = self.process.memory_info().rss
+    
+    def stop(self):
+        """Stop memory tracking and check for leaks."""
+        gc.collect()  # Force GC before measurement
+        self.end_memory = self.process.memory_info().rss
+        
+        if self.start_memory and self.end_memory:
+            growth = (self.end_memory - self.start_memory) / self.start_memory
+            if growth > self.threshold:
+                raise AssertionError(
+                    f"Memory leak detected: {growth:.2%} growth "
+                    f"(threshold: {self.threshold:.2%})\n"
+                    f"Start: {self.start_memory / 1024 / 1024:.2f} MB\n"
+                    f"End: {self.end_memory / 1024 / 1024:.2f} MB"
+                )
+
+
+@pytest.fixture
+def memory_tracker(request):
+    """Fixture for memory leak detection."""
+    threshold = float(request.config.getoption("--memory-threshold"))
+    tracker = MemoryTracker(threshold=threshold)
+    tracker.start()
+    yield tracker
+    tracker.stop()
+
+
+@pytest.fixture
+def assert_no_memory_leak():
+    """Fixture to assert no memory leaks in a test."""
+    def _assert(threshold: float = 0.05):
+        tracker = MemoryTracker(threshold=threshold)
+        tracker.start()
+        return tracker
+    return _assert
+
+
+@pytest.fixture
+def performance_baseline():
+    """Load or create performance baseline for regression testing."""
+    baseline_file = Path(".performance-baseline/baseline.json")
+    
+    if baseline_file.exists():
+        with open(baseline_file, 'r') as f:
+            baseline = json.load(f)
+    else:
+        baseline = {
+            "memory_mb": 100,
+            "cpu_percent": 50,
+            "response_time_ms": 100
+        }
+    
+    return baseline
+
+
+@pytest.fixture
+def assert_no_regression(performance_baseline):
+    """Fixture to assert no performance regression."""
+    def _assert(current_metrics: Dict[str, float], threshold: float = 0.15):
+        """Assert that current metrics don't regress more than threshold."""
+        for metric, current_value in current_metrics.items():
+            if metric in performance_baseline:
+                baseline_value = performance_baseline[metric]
+                if baseline_value > 0:
+                    regression = (current_value - baseline_value) / baseline_value
+                    assert regression <= threshold, (
+                        f"Performance regression in {metric}: "
+                        f"{regression:.2%} increase (threshold: {threshold:.2%})\n"
+                        f"Baseline: {baseline_value}\n"
+                        f"Current: {current_value}"
+                    )
+    return _assert

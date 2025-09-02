@@ -28,6 +28,9 @@ class TestCoverageValidator:
         "genesis/exchange/gateway.py",
         "genesis/core/models.py",
         "genesis/data/repository.py",
+        "genesis/engine/position_manager.py",  # Critical for position sizing
+        "genesis/engine/pnl_calculator.py",     # Critical for P&L calculations
+        "genesis/core/accounting.py",           # Critical for financial accounting
     ]
 
     RISK_PATHS = [
@@ -318,17 +321,36 @@ class TestCoverageValidator:
             threshold = category_data.get("threshold", 0.0)
 
             if coverage < threshold:
+                # Special handling for money paths - they are absolutely critical
+                severity = "critical"
+                if category == "money_paths":
+                    severity = "blocker"  # Money paths below 100% is a blocker
+                elif category == "risk_paths":
+                    severity = "critical"
+                else:
+                    severity = "high" if category == "core_paths" else "medium"
+                
                 violation = {
                     "category": category,
                     "coverage": coverage,
                     "threshold": threshold,
                     "gap": threshold - coverage,
-                    "severity": "critical" if category == "money_paths" else "high" if category == "risk_paths" else "medium",
+                    "severity": severity,
                     "files_below_threshold": [
                         f for f in category_data.get("files", [])
                         if f["coverage"] < threshold
                     ],
                 }
+                
+                # Add specific recommendations for money path violations
+                if category == "money_paths" and violation["files_below_threshold"]:
+                    violation["recommendation"] = (
+                        "CRITICAL: Money paths must have 100% test coverage. "
+                        "These files handle financial calculations and MUST be fully tested. "
+                        "Add comprehensive unit tests immediately covering all edge cases, "
+                        "boundary conditions, and error scenarios."
+                    )
+                
                 violations.append(violation)
 
         return violations

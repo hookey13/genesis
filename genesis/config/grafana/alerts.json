@@ -1,0 +1,369 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "genesis-alerts",
+    "title": "GENESIS Critical Alerts",
+    "tags": ["genesis", "alerts", "monitoring"],
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1,
+    "refresh": "10s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+        "type": "text",
+        "title": "Alert Status Overview",
+        "mode": "markdown",
+        "content": "# Critical System Alerts\n\nThis dashboard monitors critical thresholds that require immediate attention when breached."
+      },
+      {
+        "id": 2,
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 3 },
+        "type": "alert-list",
+        "title": "Active Alerts",
+        "stateFilter": {
+          "alerting": true,
+          "execution_error": true,
+          "no_data": false,
+          "ok": false,
+          "paused": false,
+          "pending": true
+        },
+        "sortOrder": 1,
+        "limit": 10
+      },
+      {
+        "id": 3,
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 3 },
+        "type": "stat",
+        "title": "High Drawdown Alert",
+        "targets": [
+          {
+            "expr": "genesis_drawdown_percent",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "colorMode": "background",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 10 },
+            { "color": "orange", "value": 15 },
+            { "color": "red", "value": 20 }
+          ]
+        },
+        "alert": {
+          "name": "High Drawdown",
+          "conditions": [
+            {
+              "evaluator": { "params": [20], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "noDataState": "alerting",
+          "notifications": [],
+          "message": "Drawdown exceeded 20% threshold"
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 3 },
+        "type": "stat",
+        "title": "High Tilt Score Alert",
+        "targets": [
+          {
+            "expr": "genesis_tilt_score",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "colorMode": "background",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 30 },
+            { "color": "orange", "value": 50 },
+            { "color": "red", "value": 70 }
+          ]
+        },
+        "alert": {
+          "name": "High Tilt Score",
+          "conditions": [
+            {
+              "evaluator": { "params": [70], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "noDataState": "no_data",
+          "notifications": [],
+          "message": "Tilt score exceeded safe threshold - intervention required"
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": { "h": 6, "w": 12, "x": 0, "y": 9 },
+        "type": "graph",
+        "title": "Memory Leak Detection",
+        "targets": [
+          {
+            "expr": "genesis_memory_leak_confidence * 100",
+            "legendFormat": "Leak Confidence %",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_memory_growth_rate_per_hour * 100",
+            "legendFormat": "Growth Rate %/hr",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Percentage" },
+          { "format": "short" }
+        ],
+        "alert": {
+          "name": "Memory Leak Detected",
+          "conditions": [
+            {
+              "evaluator": { "params": [80], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "10m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "5m",
+          "handler": 1,
+          "noDataState": "no_data",
+          "notifications": [],
+          "message": "High confidence memory leak detected"
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": { "h": 6, "w": 12, "x": 12, "y": 9 },
+        "type": "graph",
+        "title": "Rate Limit Warning",
+        "targets": [
+          {
+            "expr": "genesis_rate_limit_usage_ratio * 100",
+            "legendFormat": "Rate Limit Usage %",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_api_rate_limit_remaining",
+            "legendFormat": "Remaining - {{endpoint}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Usage %" },
+          { "format": "short", "label": "Remaining" }
+        ],
+        "alert": {
+          "name": "Rate Limit Warning",
+          "conditions": [
+            {
+              "evaluator": { "params": [80], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "2m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "keep_state",
+          "frequency": "60s",
+          "handler": 1,
+          "noDataState": "no_data",
+          "notifications": [],
+          "message": "API rate limit usage above 80%"
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 15 },
+        "type": "stat",
+        "title": "WebSocket Disconnection Alert",
+        "targets": [
+          {
+            "expr": "sum(genesis_websocket_connections_active)",
+            "refId": "A"
+          }
+        ],
+        "unit": "short",
+        "colorMode": "background",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "red", "value": 0 },
+            { "color": "yellow", "value": 1 },
+            { "color": "green", "value": 2 }
+          ]
+        },
+        "alert": {
+          "name": "WebSocket Disconnected",
+          "conditions": [
+            {
+              "evaluator": { "params": [1], "type": "lt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "2m", "now"] },
+              "reducer": { "params": [], "type": "last" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "30s",
+          "handler": 1,
+          "noDataState": "alerting",
+          "notifications": [],
+          "message": "Critical WebSocket connections lost"
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 15 },
+        "type": "stat",
+        "title": "High CPU Alert",
+        "targets": [
+          {
+            "expr": "genesis_cpu_usage_percent",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "colorMode": "background",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 70 },
+            { "color": "orange", "value": 85 },
+            { "color": "red", "value": 95 }
+          ]
+        },
+        "alert": {
+          "name": "High CPU Usage",
+          "conditions": [
+            {
+              "evaluator": { "params": [90], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "keep_state",
+          "frequency": "60s",
+          "handler": 1,
+          "noDataState": "no_data",
+          "notifications": [],
+          "message": "CPU usage exceeded 90%"
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 15 },
+        "type": "stat",
+        "title": "Circuit Breaker Open",
+        "targets": [
+          {
+            "expr": "sum(genesis_circuit_breaker_state == 1)",
+            "refId": "A"
+          }
+        ],
+        "unit": "short",
+        "colorMode": "background",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": 0 },
+            { "color": "red", "value": 1 }
+          ]
+        },
+        "alert": {
+          "name": "Circuit Breaker Open",
+          "conditions": [
+            {
+              "evaluator": { "params": [0], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "1m", "now"] },
+              "reducer": { "params": [], "type": "last" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "30s",
+          "handler": 1,
+          "noDataState": "no_data",
+          "notifications": [],
+          "message": "Circuit breaker is open - service degraded"
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": { "h": 6, "w": 24, "x": 0, "y": 21 },
+        "type": "table",
+        "title": "Alert History",
+        "targets": [
+          {
+            "expr": "ALERTS{alertname=~\".*\"}",
+            "format": "table",
+            "instant": false,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "alertname": "Alert",
+                "alertstate": "State",
+                "severity": "Severity"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": [
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "iconColor": "red",
+          "name": "Firing Alerts",
+          "tagKeys": "alertname",
+          "textFormat": "{{alertname}} is firing"
+        }
+      ]
+    }
+  },
+  "overwrite": true
+}

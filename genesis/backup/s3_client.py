@@ -31,6 +31,10 @@ class BackupMetadata(BaseModel):
     destination_key: str
     encryption_key_id: str | None = None
     compression_ratio: Decimal | None = None
+    encrypted: bool = False
+    compressed: bool = False
+    database_type: str = "sqlite"  # sqlite or postgresql
+    replicated_regions: list[str] = []
 
     class Config:
         json_encoders = {
@@ -40,16 +44,17 @@ class BackupMetadata(BaseModel):
 
 
 class S3Client:
-    """S3-compatible client for backup storage."""
+    """S3-compatible client for backup storage with multi-region support."""
 
     def __init__(
         self,
-        endpoint_url: str,
-        access_key: str,
-        secret_key: str,
-        bucket_name: str,
-        region: str = "sgp1",
-        use_ssl: bool = True
+        endpoint_url: str | None = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
+        bucket_name: str | None = None,
+        region: str = "us-east-1",
+        use_ssl: bool = True,
+        replication_regions: list[str] | None = None
     ):
         """Initialize S3 client.
         
@@ -58,13 +63,29 @@ class S3Client:
             access_key: Access key ID
             secret_key: Secret access key
             bucket_name: Bucket name for backups
-            region: Region name
+            region: Primary region name
             use_ssl: Whether to use SSL/TLS
+            replication_regions: List of regions for cross-region replication
         """
-        self.bucket_name = bucket_name
-        self.region = region
+        # Try to get credentials from Vault if not provided
+        if not access_key or not secret_key:
+            try:
+                from genesis.security.vault_manager import VaultManager
+                vault = VaultManager()
+                s3_creds = vault.get_s3_credentials()
+                access_key = s3_creds.get('access_key', access_key)
+                secret_key = s3_creds.get('secret_key', secret_key)
+            except Exception:
+                # Use environment variables as fallback
+                import os
+                access_key = access_key or os.getenv('AWS_ACCESS_KEY_ID')
+                secret_key = secret_key or os.getenv('AWS_SECRET_ACCESS_KEY')
 
-        # Initialize boto3 client
+        self.bucket_name = bucket_name or "genesis-backups-primary"
+        self.region = region
+        self.replication_regions = replication_regions or ['us-west-2']
+
+        # Initialize primary boto3 client
         self.client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,
@@ -74,7 +95,77 @@ class S3Client:
             use_ssl=use_ssl
         )
 
+        # Initialize replication clients for other regions
+        self.replication_clients = {}
+        for rep_region in self.replication_regions:
+            self.replication_clients[rep_region] = boto3.client(
+                "s3",
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                region_name=rep_region,
+                use_ssl=use_ssl
+            )
+
         self._ensure_bucket_exists()
+        self._setup_cross_region_replication()
+
+    def _setup_cross_region_replication(self) -> None:
+        """Configure cross-region replication for backup buckets."""
+        try:
+            # Set up replication configuration
+            replication_config = {
+                'Role': 'arn:aws:iam::account-id:role/replication-role',
+                'Rules': []
+            }
+
+            for idx, region in enumerate(self.replication_regions):
+                bucket_name = f"{self.bucket_name}-{region}"
+
+                # Ensure replica bucket exists
+                try:
+                    self.replication_clients[region].create_bucket(
+                        Bucket=bucket_name,
+                        CreateBucketConfiguration={'LocationConstraint': region}
+                    )
+                    logger.info(f"Created replica bucket in {region}", bucket=bucket_name)
+                except ClientError as e:
+                    if e.response['Error']['Code'] != 'BucketAlreadyOwnedByYou':
+                        logger.warning(f"Could not create replica bucket: {e}")
+
+                # Add replication rule
+                replication_config['Rules'].append({
+                    'ID': f'ReplicateToRegion{idx}',
+                    'Priority': idx + 1,
+                    'Status': 'Enabled',
+                    'Filter': {'Prefix': 'backups/'},
+                    'Destination': {
+                        'Bucket': f'arn:aws:s3:::{bucket_name}',
+                        'ReplicationTime': {
+                            'Status': 'Enabled',
+                            'Time': {'Minutes': 15}
+                        },
+                        'Metrics': {
+                            'Status': 'Enabled',
+                            'EventThreshold': {'Minutes': 15}
+                        },
+                        'StorageClass': 'STANDARD_IA'
+                    },
+                    'DeleteMarkerReplication': {'Status': 'Enabled'}
+                })
+
+            # Apply replication configuration to primary bucket
+            if replication_config['Rules']:
+                try:
+                    self.client.put_bucket_replication(
+                        Bucket=self.bucket_name,
+                        ReplicationConfiguration=replication_config
+                    )
+                    logger.info("Cross-region replication configured", regions=self.replication_regions)
+                except ClientError as e:
+                    logger.warning(f"Could not set up replication: {e}")
+
+        except Exception as e:
+            logger.warning(f"Cross-region replication setup failed: {e}")
 
     def _ensure_bucket_exists(self) -> None:
         """Ensure the backup bucket exists."""
@@ -92,6 +183,110 @@ class S3Client:
                 logger.info("Created backup bucket", bucket=self.bucket_name)
             else:
                 raise BackupError(f"Failed to verify bucket: {e}")
+
+    async def upload_backup_with_replication(
+        self,
+        file_path: Path,
+        key_prefix: str,
+        metadata: BackupMetadata,
+        encryption: str | None = "AES256",
+        parallel_upload: bool = True
+    ) -> tuple[str, list[str]]:
+        """Upload backup file to S3 with cross-region replication.
+        
+        Args:
+            file_path: Local file path to upload
+            key_prefix: S3 key prefix
+            metadata: Backup metadata
+            encryption: Server-side encryption method
+            parallel_upload: Whether to upload to all regions in parallel
+            
+        Returns:
+            Tuple of (primary key, list of replica keys)
+        """
+        # First upload to primary region
+        primary_key = await self.upload_backup(file_path, key_prefix, metadata, encryption)
+
+        replica_keys = []
+
+        if parallel_upload and self.replication_regions:
+            # Upload to replica regions in parallel
+            upload_tasks = []
+            for region in self.replication_regions:
+                task = self._upload_to_region(
+                    file_path, key_prefix, metadata, encryption, region
+                )
+                upload_tasks.append(task)
+
+            results = await asyncio.gather(*upload_tasks, return_exceptions=True)
+
+            for region, result in zip(self.replication_regions, results, strict=False):
+                if isinstance(result, Exception):
+                    logger.error(f"Failed to replicate to {region}", error=str(result))
+                else:
+                    replica_keys.append(result)
+                    logger.info(f"Replicated backup to {region}", key=result)
+
+        # Update metadata with replicated regions
+        metadata.replicated_regions = self.replication_regions
+
+        return primary_key, replica_keys
+
+    async def _upload_to_region(
+        self,
+        file_path: Path,
+        key_prefix: str,
+        metadata: BackupMetadata,
+        encryption: str,
+        region: str
+    ) -> str:
+        """Upload backup to a specific region.
+        
+        Args:
+            file_path: Local file path
+            key_prefix: S3 key prefix
+            metadata: Backup metadata
+            encryption: Encryption method
+            region: Target region
+            
+        Returns:
+            S3 object key
+        """
+        client = self.replication_clients[region]
+        bucket_name = f"{self.bucket_name}-{region}"
+
+        # Generate S3 key
+        timestamp_str = metadata.timestamp.strftime("%Y%m%d_%H%M%S")
+        key = f"{key_prefix}{timestamp_str}_{metadata.backup_id}.bak"
+
+        # Upload with metadata
+        extra_args = {
+            "Metadata": {
+                "backup-id": metadata.backup_id,
+                "timestamp": metadata.timestamp.isoformat(),
+                "checksum": metadata.checksum,
+                "backup-type": metadata.backup_type,
+                "database-version": metadata.database_version,
+                "retention-policy": metadata.retention_policy,
+                "primary-region": self.region
+            }
+        }
+
+        if encryption:
+            extra_args["ServerSideEncryption"] = encryption
+
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: client.upload_file(
+                str(file_path),
+                bucket_name,
+                key,
+                ExtraArgs=extra_args
+            )
+        )
+
+        return key
 
     async def upload_backup(
         self,

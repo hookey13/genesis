@@ -1,0 +1,364 @@
+name: Performance and Load Testing
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_scenario:
+        description: 'Test scenario to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - normal_trading
+          - high_volume
+          - stress_test
+          - websocket_load
+          - chaos_test
+          - endurance
+
+jobs:
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.8'
+          
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements/*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          
+      - name: Run performance benchmarks
+        run: |
+          python tests/performance/benchmark_suite.py --iterations 100
+          
+      - name: Check for regressions
+        run: |
+          python tests/performance/regression_test.py \
+            --results test_results/benchmarks/latest.json \
+            --report test_results/regression_report.txt
+            
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: test_results/benchmarks/
+          retention-days: 30
+          
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('test_results/regression_report.txt', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Performance Test Results\n\n```\n' + report + '\n```'
+            });
+
+  load-testing:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    services:
+      postgres:
+        image: postgres:16.1-alpine
+        env:
+          POSTGRES_DB: genesis_test
+          POSTGRES_USER: genesis
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7.2.4-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+          
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11.8'
+          
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/base.txt
+          pip install -r requirements/dev.txt
+          
+      - name: Set up test database
+        env:
+          DATABASE_URL: postgresql://genesis:test_password@localhost:5432/genesis_test
+        run: |
+          alembic upgrade head
+          python scripts/setup_test_data.py
+          
+      - name: Start application
+        env:
+          DATABASE_URL: postgresql://genesis:test_password@localhost:5432/genesis_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: test_secret_key
+          ENVIRONMENT: test
+        run: |
+          python -m genesis &
+          sleep 10
+          
+      - name: Run load tests
+        run: |
+          if [ "${{ github.event.inputs.test_scenario }}" = "all" ]; then
+            python scripts/run_load_tests.py
+          else
+            python scripts/run_load_tests.py --scenarios ${{ github.event.inputs.test_scenario }}
+          fi
+          
+      - name: Analyze results
+        run: |
+          python tests/performance/regression_test.py \
+            --results test_results/load_tests/*_report.json \
+            --report test_results/load_test_analysis.txt
+            
+      - name: Upload load test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: test_results/load_tests/
+          retention-days: 30
+          
+      - name: Check performance targets
+        run: |
+          python -c "
+          import json
+          import sys
+          
+          with open('test_results/load_tests/latest_report.json', 'r') as f:
+              report = json.load(f)
+              
+          summary = report.get('summary', {})
+          
+          # Check targets
+          failures = []
+          
+          if summary.get('overall_success_rate', 0) < 99:
+              failures.append(f\"Success rate {summary['overall_success_rate']:.2f}% < 99%\")
+              
+          if summary.get('avg_p99_response_time', 999) > 50:
+              failures.append(f\"P99 response time {summary['avg_p99_response_time']:.2f}ms > 50ms\")
+              
+          if summary.get('avg_rps', 0) < 1000:
+              failures.append(f\"RPS {summary['avg_rps']:.2f} < 1000\")
+              
+          if failures:
+              print('Performance targets not met:')
+              for f in failures:
+                  print(f'  - {f}')
+              sys.exit(1)
+          else:
+              print('All performance targets met!')
+          "
+
+  chaos-testing:
+    name: Chaos Engineering Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Docker Compose
+        run: |
+          docker-compose -f docker-compose.load-test.yml up -d
+          sleep 30
+          
+      - name: Run chaos tests
+        run: |
+          docker-compose -f docker-compose.load-test.yml \
+            exec -T locust-master \
+            locust -f /mnt/locust/chaos_testing.py \
+            --host http://genesis-api:8000 \
+            --users 50 \
+            --spawn-rate 5 \
+            --run-time 10m \
+            --headless \
+            --csv /mnt/locust/chaos_results
+            
+      - name: Analyze chaos results
+        run: |
+          docker-compose -f docker-compose.load-test.yml \
+            exec -T locust-master \
+            python -c "
+          import csv
+          import json
+          
+          # Read chaos test results
+          with open('/mnt/locust/chaos_results_stats.csv', 'r') as f:
+              reader = csv.DictReader(f)
+              stats = list(reader)
+              
+          # Check resilience
+          aggregated = next((s for s in stats if s['Name'] == 'Aggregated'), None)
+          
+          if aggregated:
+              success_rate = 100 - (float(aggregated.get('Failure Count', 0)) / 
+                                   float(aggregated.get('Request Count', 1)) * 100)
+              
+              print(f'System resilience under chaos: {success_rate:.2f}%')
+              
+              if success_rate < 90:
+                  print('WARNING: System resilience below 90% during chaos testing')
+                  exit(1)
+          "
+          
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose -f docker-compose.load-test.yml down
+          
+  endurance-testing:
+    name: Endurance Testing (48h)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2880  # 48 hours
+    if: github.event.inputs.test_scenario == 'endurance'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up monitoring
+        run: |
+          # Start Prometheus and Grafana
+          docker-compose -f docker-compose.load-test.yml \
+            up -d prometheus grafana
+            
+      - name: Run endurance test
+        run: |
+          docker-compose -f docker-compose.load-test.yml up -d
+          
+          # Run for 48 hours with periodic checks
+          for i in {1..96}; do
+            echo "Hour $((i/2)): Checking system health..."
+            
+            # Check memory usage
+            docker stats --no-stream
+            
+            # Check for memory leaks
+            python tests/load/memory_profiler.py
+            
+            # Sleep 30 minutes
+            sleep 1800
+          done
+          
+      - name: Generate endurance report
+        run: |
+          echo "Generating 48-hour endurance test report..."
+          python scripts/generate_endurance_report.py
+          
+      - name: Upload endurance results
+        uses: actions/upload-artifact@v3
+        with:
+          name: endurance-test-results
+          path: test_results/endurance/
+          retention-days: 90
+
+  notify-results:
+    name: Notify Test Results
+    runs-on: ubuntu-latest
+    needs: [performance-benchmarks, load-testing]
+    if: always()
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: Prepare summary
+        run: |
+          echo "## Performance Test Summary" > summary.md
+          echo "" >> summary.md
+          
+          if [ -f benchmark-results/latest.json ]; then
+            echo "### Benchmark Results" >> summary.md
+            python -c "
+          import json
+          with open('benchmark-results/latest.json', 'r') as f:
+              data = json.load(f)
+              for result in data.get('results', []):
+                  print(f\"- {result['name']}: {result['p99_ms']:.2f}ms (target: {result['target_ms']}ms)\")
+            " >> summary.md
+          fi
+          
+          if [ -f load-test-results/latest_report.json ]; then
+            echo "" >> summary.md
+            echo "### Load Test Results" >> summary.md
+            python -c "
+          import json
+          with open('load-test-results/latest_report.json', 'r') as f:
+              data = json.load(f)
+              summary = data.get('summary', {})
+              print(f\"- Success Rate: {summary.get('overall_success_rate', 0):.2f}%\")
+              print(f\"- P99 Response Time: {summary.get('avg_p99_response_time', 0):.2f}ms\")
+              print(f\"- Throughput: {summary.get('avg_rps', 0):.2f} req/s\")
+            " >> summary.md
+          fi
+          
+      - name: Create issue if tests failed
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('summary.md', 'utf8');
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Performance Test Failure - ${new Date().toISOString().split('T')[0]}`,
+              body: summary + '\n\n[View workflow run](https://github.com/' + 
+                    context.repo.owner + '/' + context.repo.repo + 
+                    '/actions/runs/' + context.runId + ')',
+              labels: ['performance', 'test-failure', 'automated']
+            });

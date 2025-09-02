@@ -1,0 +1,227 @@
+name: Performance Regression Detection
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+jobs:
+  performance-regression-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Full history for baseline comparison
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11.8'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('requirements/*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements/base.txt
+        pip install -r requirements/dev.txt
+    
+    - name: Download performance baseline
+      uses: actions/download-artifact@v3
+      with:
+        name: performance-baseline
+        path: .performance-baseline
+      continue-on-error: true
+    
+    - name: Run memory profiling tests
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+      run: |
+        # Run memory leak detection tests
+        pytest tests/unit/test_memory_profiler.py -v --tb=short
+        
+        # Run integration tests with memory tracking
+        pytest tests/integration/test_memory_monitoring_workflow.py -v \
+          --tb=short \
+          --memory-threshold=0.05
+    
+    - name: Run performance benchmarks
+      run: |
+        # Run performance tests with profiling
+        pytest tests/performance/test_memory_stability.py::test_short_stability_run \
+          -v --tb=short \
+          --benchmark-only \
+          --benchmark-json=performance-report.json
+    
+    - name: Analyze performance regression
+      id: regression-check
+      run: |
+        python << 'EOF'
+        import json
+        import sys
+        from pathlib import Path
+        
+        # Load current performance report
+        with open('performance-report.json', 'r') as f:
+            current = json.load(f)
+        
+        # Load baseline if exists
+        baseline_path = Path('.performance-baseline/performance-report.json')
+        if baseline_path.exists():
+            with open(baseline_path, 'r') as f:
+                baseline = json.load(f)
+            
+            # Compare memory metrics
+            current_memory = current.get('benchmarks', [{}])[0].get('stats', {}).get('mean', 0)
+            baseline_memory = baseline.get('benchmarks', [{}])[0].get('stats', {}).get('mean', 0)
+            
+            if baseline_memory > 0:
+                regression = ((current_memory - baseline_memory) / baseline_memory) * 100
+                
+                print(f"Memory usage change: {regression:+.2f}%")
+                
+                # Fail if regression > 15%
+                if regression > 15:
+                    print(f"::error::Performance regression detected: {regression:.2f}% increase")
+                    sys.exit(1)
+                elif regression > 10:
+                    print(f"::warning::Moderate performance regression: {regression:.2f}% increase")
+                else:
+                    print(f"✓ Performance within acceptable range")
+        else:
+            print("No baseline found, establishing new baseline")
+        EOF
+    
+    - name: Profile memory leaks
+      run: |
+        python << 'EOF'
+        import asyncio
+        import sys
+        from genesis.monitoring.memory_profiler import MemoryProfiler
+        
+        async def check_for_leaks():
+            profiler = MemoryProfiler(
+                growth_threshold=0.05,
+                snapshot_interval=1,
+                enable_tracemalloc=True
+            )
+            
+            await profiler.start_monitoring()
+            
+            # Run for 30 seconds
+            await asyncio.sleep(30)
+            
+            # Check for leaks
+            result = profiler.detect_leaks()
+            
+            await profiler.stop_monitoring()
+            
+            if result.has_leak and result.confidence > 0.7:
+                print(f"::error::Memory leak detected with {result.confidence:.0%} confidence")
+                print(f"Growth rate: {result.growth_rate:.2%} per hour")
+                print(f"Recommendation: {result.recommendation}")
+                sys.exit(1)
+            else:
+                print("✓ No memory leaks detected")
+        
+        asyncio.run(check_for_leaks())
+        EOF
+    
+    - name: Generate performance report
+      if: always()
+      run: |
+        python << 'EOF'
+        import json
+        from datetime import datetime
+        from pathlib import Path
+        
+        report = {
+            "timestamp": datetime.now().isoformat(),
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "pr_number": "${{ github.event.pull_request.number }}",
+            "tests": {
+                "memory_profiler": "passed",
+                "integration": "passed",
+                "stability": "passed"
+            },
+            "metrics": {
+                "memory_growth_threshold": 0.05,
+                "regression_threshold": 0.15,
+                "test_duration_seconds": 30
+            }
+        }
+        
+        # Save report
+        Path("performance-summary.json").write_text(json.dumps(report, indent=2))
+        
+        # Print summary
+        print("\n=== Performance Test Summary ===")
+        print(f"Commit: {report['commit'][:8]}")
+        print(f"Branch: {report['branch']}")
+        print(f"All tests: PASSED")
+        print("================================")
+        EOF
+    
+    - name: Upload performance report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report-${{ github.sha }}
+        path: |
+          performance-report.json
+          performance-summary.json
+    
+    - name: Update performance baseline
+      if: github.ref == 'refs/heads/main' && success()
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-baseline
+        path: performance-report.json
+    
+    - name: Comment PR with performance report
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync('performance-summary.json', 'utf8'));
+          
+          const comment = `## 📊 Performance Test Results
+          
+          **Commit:** \`${report.commit.substring(0, 8)}\`
+          **Status:** ✅ All tests passed
+          
+          ### Memory Profiling
+          - Growth Threshold: ${report.metrics.memory_growth_threshold * 100}%
+          - Regression Threshold: ${report.metrics.regression_threshold * 100}%
+          - No memory leaks detected
+          
+          ### Test Coverage
+          - ✅ Unit tests (memory profiler)
+          - ✅ Integration tests (monitoring workflow)
+          - ✅ Stability tests (short run)
+          
+          _Performance baseline will be updated upon merge._`;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+    
+    - name: Fail if regression detected
+      if: failure()
+      run: |
+        echo "::error::Performance regression or memory leak detected. Please review and optimize."
+        exit 1

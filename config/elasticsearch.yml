@@ -1,0 +1,40 @@
+# Elasticsearch configuration for Jaeger trace storage
+cluster.name: genesis-traces
+node.name: genesis-es-node
+
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+transport.port: 9300
+
+# Discovery settings (single node for simplicity)
+discovery.type: single-node
+
+# Path settings
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs
+
+# Index settings for Jaeger
+action.auto_create_index: +jaeger-*,+genesis-traces-*
+
+# Memory settings
+indices.memory.index_buffer_size: 30%
+indices.memory.min_index_buffer_size: 96mb
+
+# Query settings
+indices.query.bool.max_clause_count: 8192
+search.max_buckets: 100000
+
+# Performance tuning
+thread_pool.search.size: 50
+thread_pool.search.queue_size: 1000
+thread_pool.write.size: 10
+thread_pool.write.queue_size: 1000
+
+# Retention settings (handled by ILM policies)
+indices.lifecycle.poll_interval: 10m
+
+# Disable unnecessary features for trace storage
+xpack.ml.enabled: false
+xpack.graph.enabled: false
+xpack.watcher.enabled: false

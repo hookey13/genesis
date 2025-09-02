@@ -87,10 +87,11 @@ class Metric:
 
 
 class MetricsRegistry:
-    """Registry for Prometheus metrics."""
+    """Registry for Prometheus metrics with support for labeled metrics."""
 
     def __init__(self):
         self._metrics: dict[str, Metric] = {}
+        self._labeled_metrics: dict[str, dict[str, Metric]] = {}  # For metrics with labels
         self._collectors: list[Callable] = []
         self._lock = asyncio.Lock()
 
@@ -98,6 +99,8 @@ class MetricsRegistry:
         """Register a metric."""
         async with self._lock:
             self._metrics[metric.name] = metric
+            if metric.type in [MetricType.COUNTER, MetricType.GAUGE, MetricType.HISTOGRAM]:
+                self._labeled_metrics[metric.name] = {}
             logger.debug("Registered metric", name=metric.name, type=metric.type.value)
 
     async def unregister(self, name: str) -> None:
@@ -105,6 +108,8 @@ class MetricsRegistry:
         async with self._lock:
             if name in self._metrics:
                 del self._metrics[name]
+                if name in self._labeled_metrics:
+                    del self._labeled_metrics[name]
                 logger.debug("Unregistered metric", name=name)
 
     async def set_gauge(self, name: str, value: float, labels: dict[str, str] | None = None) -> None:
@@ -123,9 +128,26 @@ class MetricsRegistry:
 
         async with self._lock:
             if name in self._metrics and self._metrics[name].type == MetricType.GAUGE:
-                self._metrics[name].value = float(value)  # Ensure numeric value
                 if labels:
-                    self._metrics[name].labels = labels
+                    # Create a unique key for this label combination
+                    label_key = self._create_label_key(labels)
+                    if name not in self._labeled_metrics:
+                        self._labeled_metrics[name] = {}
+                    
+                    # Store or update the labeled metric
+                    if label_key not in self._labeled_metrics[name]:
+                        self._labeled_metrics[name][label_key] = Metric(
+                            name=name,
+                            type=MetricType.GAUGE,
+                            help=self._metrics[name].help,
+                            value=float(value),
+                            labels=labels
+                        )
+                    else:
+                        self._labeled_metrics[name][label_key].value = float(value)
+                else:
+                    # Update the base metric without labels
+                    self._metrics[name].value = float(value)
 
     async def increment_counter(self, name: str, value: float = 1.0, labels: dict[str, str] | None = None) -> None:
         """Increment counter metric with validation."""
@@ -147,19 +169,60 @@ class MetricsRegistry:
 
         async with self._lock:
             if name in self._metrics and self._metrics[name].type == MetricType.COUNTER:
-                self._metrics[name].value += float(value)  # Ensure numeric value
                 if labels:
-                    self._metrics[name].labels = labels
+                    # Create a unique key for this label combination
+                    label_key = self._create_label_key(labels)
+                    if name not in self._labeled_metrics:
+                        self._labeled_metrics[name] = {}
+                    
+                    # Store or update the labeled metric
+                    if label_key not in self._labeled_metrics[name]:
+                        self._labeled_metrics[name][label_key] = Metric(
+                            name=name,
+                            type=MetricType.COUNTER,
+                            help=self._metrics[name].help,
+                            value=float(value),
+                            labels=labels
+                        )
+                    else:
+                        self._labeled_metrics[name][label_key].value += float(value)
+                else:
+                    # Update the base metric without labels
+                    self._metrics[name].value += float(value)
 
     async def observe_histogram(self, name: str, value: float, labels: dict[str, str] | None = None) -> None:
         """Observe histogram metric."""
         async with self._lock:
             if name in self._metrics and self._metrics[name].type == MetricType.HISTOGRAM:
-                # In a real implementation, we'd maintain buckets
-                # For now, just track the latest value
-                self._metrics[name].value = value
                 if labels:
-                    self._metrics[name].labels = labels
+                    # Create a unique key for this label combination
+                    label_key = self._create_label_key(labels)
+                    if name not in self._labeled_metrics:
+                        self._labeled_metrics[name] = {}
+                    
+                    # Store or update the labeled metric
+                    if label_key not in self._labeled_metrics[name]:
+                        self._labeled_metrics[name][label_key] = Metric(
+                            name=name,
+                            type=MetricType.HISTOGRAM,
+                            help=self._metrics[name].help,
+                            value=value,
+                            labels=labels,
+                            buckets=self._metrics[name].buckets
+                        )
+                    else:
+                        # For histograms, we'd normally update buckets
+                        # For now, just track the latest value
+                        self._labeled_metrics[name][label_key].value = value
+                else:
+                    # Update the base metric without labels
+                    self._metrics[name].value = value
+
+    def _create_label_key(self, labels: dict[str, str]) -> str:
+        """Create a unique key from label dictionary."""
+        # Sort labels by key for consistent ordering
+        sorted_labels = sorted(labels.items())
+        return ",".join(f"{k}={v}" for k, v in sorted_labels)
 
     async def collect(self) -> str:
         """Collect all metrics in Prometheus format."""
@@ -173,8 +236,28 @@ class MetricsRegistry:
 
             # Format all metrics
             lines = []
+            seen_metrics = set()
+            
+            # First, output base metrics and their HELP/TYPE lines
             for metric in self._metrics.values():
-                lines.append(metric.format_prometheus())
+                if metric.name not in seen_metrics:
+                    lines.append(f"# HELP {metric.name} {metric.help}")
+                    lines.append(f"# TYPE {metric.name} {metric.type.value}")
+                    seen_metrics.add(metric.name)
+                
+                # Output base metric if it has a value
+                if metric.value != 0 or metric.type == MetricType.GAUGE:
+                    lines.append(f"{metric.name} {metric.value}")
+            
+            # Then output all labeled metrics
+            for metric_name, labeled_metrics in self._labeled_metrics.items():
+                for labeled_metric in labeled_metrics.values():
+                    if labeled_metric.labels:
+                        label_str = ",".join(
+                            f'{k}="{str(v).replace("\\", "\\\\").replace("\"", "\\\"")}"'
+                            for k, v in labeled_metric.labels.items()
+                        )
+                        lines.append(f"{metric_name}{{{label_str}}} {labeled_metric.value}")
 
             return "\n".join(lines) + "\n"
 
@@ -361,24 +444,67 @@ class PrometheusExporter:
             labels={"version": "1.0.0", "tier": "sniper"}
         ))
 
-        # Trading metrics
+        # Trading metrics - Enhanced with comprehensive tracking
+        await self.registry.register(Metric(
+            name="genesis_orders_total",
+            type=MetricType.COUNTER,
+            help="Total number of orders by exchange, symbol, side, type and status"
+        ))
+        
         await self.registry.register(Metric(
             name="genesis_order_execution_time_seconds",
             type=MetricType.HISTOGRAM,
             help="Order execution time in seconds",
-            buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
+        ))
+        
+        await self.registry.register(Metric(
+            name="genesis_order_latency_seconds",
+            type=MetricType.HISTOGRAM,
+            help="Order latency by exchange and type",
+            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
+        ))
+
+        await self.registry.register(Metric(
+            name="genesis_positions_count",
+            type=MetricType.GAUGE,
+            help="Current number of open positions by symbol"
+        ))
+        
+        await self.registry.register(Metric(
+            name="genesis_positions_by_side",
+            type=MetricType.GAUGE,
+            help="Position count by side (long/short)"
         ))
 
         await self.registry.register(Metric(
             name="genesis_position_count",
             type=MetricType.GAUGE,
-            help="Current number of open positions"
+            help="Total number of open positions"
+        ))
+
+        await self.registry.register(Metric(
+            name="genesis_trading_pnl_usdt",
+            type=MetricType.GAUGE,
+            help="P&L in USDT by type (realized/unrealized), strategy and symbol"
+        ))
+        
+        await self.registry.register(Metric(
+            name="genesis_trading_pnl_total_usdt",
+            type=MetricType.GAUGE,
+            help="Total P&L in USDT by strategy"
         ))
 
         await self.registry.register(Metric(
             name="genesis_pnl_dollars",
             type=MetricType.GAUGE,
-            help="Current P&L in dollars"
+            help="Current total P&L in dollars"
+        ))
+        
+        await self.registry.register(Metric(
+            name="genesis_trading_volume_usdt",
+            type=MetricType.COUNTER,
+            help="Trading volume in USDT by exchange and symbol"
         ))
 
         await self.registry.register(Metric(
@@ -388,21 +514,15 @@ class PrometheusExporter:
         ))
 
         await self.registry.register(Metric(
-            name="genesis_orders_total",
-            type=MetricType.COUNTER,
-            help="Total number of orders placed"
-        ))
-
-        await self.registry.register(Metric(
             name="genesis_orders_failed_total",
             type=MetricType.COUNTER,
-            help="Total number of failed orders"
+            help="Total number of failed orders by exchange and reason"
         ))
 
         await self.registry.register(Metric(
             name="genesis_trades_total",
             type=MetricType.COUNTER,
-            help="Total number of trades executed"
+            help="Total number of trades executed by exchange and symbol"
         ))
 
         await self.registry.register(Metric(

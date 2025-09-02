@@ -1,0 +1,52 @@
+{
+  "dependencies": {
+    "menuEnabled": true,
+    "dagMaxNumServices": 50
+  },
+  "archiveEnabled": false,
+  "tracking": {
+    "gaID": null,
+    "trackErrors": true,
+    "customWebAnalytics": null
+  },
+  "menu": [
+    {
+      "label": "Genesis Dashboard",
+      "items": [
+        {
+          "label": "Trading Dashboard",
+          "url": "http://genesis-dashboard:3000"
+        },
+        {
+          "label": "Metrics",
+          "url": "http://prometheus:9090"
+        },
+        {
+          "label": "Alerts",
+          "url": "http://alertmanager:9093"
+        }
+      ]
+    }
+  ],
+  "search": {
+    "maxLookback": "7d",
+    "maxLimit": 1500
+  },
+  "linkPatterns": [
+    {
+      "type": "logs",
+      "key": "trace_id",
+      "url": "http://grafana:3000/explore?left=[\"now-1h\",\"now\",\"Loki\",{\"expr\":\"{job=\\\"genesis\\\"} |= \\\"%s\\\"\"}]",
+      "text": "View Logs"
+    },
+    {
+      "type": "metrics",
+      "key": "service",
+      "url": "http://grafana:3000/d/genesis-service?var-service=%s",
+      "text": "View Metrics"
+    }
+  ],
+  "monitor": {
+    "menuEnabled": true
+  }
+}

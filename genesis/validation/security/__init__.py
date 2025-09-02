@@ -7,9 +7,9 @@ from .secrets_scanner import SecretsScanner
 from .vulnerability_scanner import VulnerabilityScanner
 
 __all__ = [
-    "SecretsScanner",
-    "VulnerabilityScanner",
     "ComplianceValidator",
     "EncryptionValidator",
+    "SecretsScanner",
     "SecurityConfigValidator",
+    "VulnerabilityScanner",
 ]

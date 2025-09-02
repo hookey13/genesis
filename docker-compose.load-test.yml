@@ -1,0 +1,320 @@
+version: '3.8'
+
+services:
+  # Locust master node
+  locust-master:
+    image: locustio/locust:2.20.0
+    container_name: genesis-locust-master
+    ports:
+      - "8089:8089"  # Web UI
+      - "5557:5557"  # Master-Worker communication
+    volumes:
+      - ./tests/load:/mnt/locust
+      - ./genesis:/mnt/genesis:ro  # Read-only access to source code
+    environment:
+      - LOCUST_MODE=master
+      - LOCUST_LOCUSTFILE=/mnt/locust/trading_load_test.py
+      - LOCUST_HOST=http://genesis-api:8000
+      - LOCUST_USERS=1000
+      - LOCUST_SPAWN_RATE=10
+      - LOCUST_RUN_TIME=30m
+      - LOCUST_HEADLESS=false
+      - LOCUST_WEB_AUTH=admin:genesis123  # Basic auth for web UI
+    command: >
+      --master
+      --host=http://genesis-api:8000
+      --locustfile=/mnt/locust/trading_load_test.py
+      --users=1000
+      --spawn-rate=10
+    networks:
+      - genesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8089/stats/requests"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Locust worker nodes (scale as needed)
+  locust-worker-1:
+    image: locustio/locust:2.20.0
+    container_name: genesis-locust-worker-1
+    volumes:
+      - ./tests/load:/mnt/locust
+      - ./genesis:/mnt/genesis:ro
+    environment:
+      - LOCUST_MODE=worker
+      - LOCUST_MASTER_HOST=locust-master
+      - LOCUST_MASTER_PORT=5557
+      - LOCUST_LOCUSTFILE=/mnt/locust/trading_load_test.py
+    command: >
+      --worker
+      --master-host=locust-master
+      --locustfile=/mnt/locust/trading_load_test.py
+    networks:
+      - genesis-network
+    depends_on:
+      - locust-master
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  locust-worker-2:
+    image: locustio/locust:2.20.0
+    container_name: genesis-locust-worker-2
+    volumes:
+      - ./tests/load:/mnt/locust
+      - ./genesis:/mnt/genesis:ro
+    environment:
+      - LOCUST_MODE=worker
+      - LOCUST_MASTER_HOST=locust-master
+      - LOCUST_MASTER_PORT=5557
+      - LOCUST_LOCUSTFILE=/mnt/locust/trading_load_test.py
+    command: >
+      --worker
+      --master-host=locust-master
+      --locustfile=/mnt/locust/trading_load_test.py
+    networks:
+      - genesis-network
+    depends_on:
+      - locust-master
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  locust-worker-3:
+    image: locustio/locust:2.20.0
+    container_name: genesis-locust-worker-3
+    volumes:
+      - ./tests/load:/mnt/locust
+      - ./genesis:/mnt/genesis:ro
+    environment:
+      - LOCUST_MODE=worker
+      - LOCUST_MASTER_HOST=locust-master
+      - LOCUST_MASTER_PORT=5557
+      - LOCUST_LOCUSTFILE=/mnt/locust/trading_load_test.py
+    command: >
+      --worker
+      --master-host=locust-master
+      --locustfile=/mnt/locust/trading_load_test.py
+    networks:
+      - genesis-network
+    depends_on:
+      - locust-master
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # WebSocket load testing worker
+  locust-websocket-worker:
+    image: locustio/locust:2.20.0
+    container_name: genesis-locust-websocket
+    volumes:
+      - ./tests/load:/mnt/locust
+      - ./genesis:/mnt/genesis:ro
+    environment:
+      - LOCUST_MODE=worker
+      - LOCUST_MASTER_HOST=locust-master
+      - LOCUST_MASTER_PORT=5557
+      - LOCUST_LOCUSTFILE=/mnt/locust/websocket_load_test.py
+    command: >
+      --worker
+      --master-host=locust-master
+      --locustfile=/mnt/locust/websocket_load_test.py
+    networks:
+      - genesis-network
+    depends_on:
+      - locust-master
+    restart: unless-stopped
+
+  # Chaos engineering worker
+  locust-chaos-worker:
+    image: locustio/locust:2.20.0
+    container_name: genesis-locust-chaos
+    volumes:
+      - ./tests/load:/mnt/locust
+      - ./genesis:/mnt/genesis:ro
+    environment:
+      - LOCUST_MODE=worker
+      - LOCUST_MASTER_HOST=locust-master
+      - LOCUST_MASTER_PORT=5557
+      - LOCUST_LOCUSTFILE=/mnt/locust/chaos_testing.py
+      - CHAOS_ENABLED=true
+    command: >
+      --worker
+      --master-host=locust-master
+      --locustfile=/mnt/locust/chaos_testing.py
+    networks:
+      - genesis-network
+    depends_on:
+      - locust-master
+    restart: unless-stopped
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: genesis-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--storage.tsdb.retention.time=7d'
+    networks:
+      - genesis-network
+    restart: unless-stopped
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: genesis-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=genesis123
+      - GF_INSTALL_PLUGINS=redis-datasource
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+    networks:
+      - genesis-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # Redis for test data caching
+  redis:
+    image: redis:7.2.4-alpine
+    container_name: genesis-redis-test
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 2gb --maxmemory-policy allkeys-lru
+    networks:
+      - genesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # PostgreSQL for test database
+  postgres-test:
+    image: postgres:16.1-alpine
+    container_name: genesis-postgres-test
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=genesis_test
+      - POSTGRES_USER=genesis
+      - POSTGRES_PASSWORD=genesis_test_123
+      - POSTGRES_MAX_CONNECTIONS=1000
+      - POSTGRES_SHARED_BUFFERS=2GB
+      - POSTGRES_EFFECTIVE_CACHE_SIZE=6GB
+      - POSTGRES_MAINTENANCE_WORK_MEM=512MB
+      - POSTGRES_CHECKPOINT_COMPLETION_TARGET=0.9
+      - POSTGRES_WAL_BUFFERS=16MB
+      - POSTGRES_DEFAULT_STATISTICS_TARGET=100
+      - POSTGRES_RANDOM_PAGE_COST=1.1
+      - POSTGRES_EFFECTIVE_IO_CONCURRENCY=200
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+    networks:
+      - genesis-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genesis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PgBouncer for connection pooling
+  pgbouncer:
+    image: edoburu/pgbouncer:1.21.0
+    container_name: genesis-pgbouncer
+    ports:
+      - "6432:6432"
+    environment:
+      - DATABASES_HOST=postgres-test
+      - DATABASES_PORT=5432
+      - DATABASES_DBNAME=genesis_test
+      - DATABASES_USER=genesis
+      - DATABASES_PASSWORD=genesis_test_123
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=2000
+      - DEFAULT_POOL_SIZE=50
+      - RESERVE_POOL_SIZE=25
+      - RESERVE_POOL_TIMEOUT=5
+      - SERVER_LIFETIME=3600
+      - SERVER_IDLE_TIMEOUT=600
+    volumes:
+      - ./config/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./config/pgbouncer_userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    networks:
+      - genesis-network
+    depends_on:
+      - postgres-test
+    restart: unless-stopped
+
+  # Mock Genesis API for testing (if not running actual API)
+  genesis-api-mock:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: genesis-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgresql://genesis:genesis_test_123@pgbouncer:6432/genesis_test
+      - REDIS_URL=redis://redis:6379/0
+      - JWT_SECRET_KEY=test_secret_key_for_load_testing
+      - API_RATE_LIMIT=10000
+      - WS_MAX_CONNECTIONS=10000
+    volumes:
+      - ./genesis:/app/genesis
+      - ./tests:/app/tests
+    networks:
+      - genesis-network
+    depends_on:
+      - postgres-test
+      - pgbouncer
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  genesis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  redis-data:
+  postgres-test-data:

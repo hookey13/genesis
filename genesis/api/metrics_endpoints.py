@@ -1,5 +1,6 @@
 """FastAPI metrics endpoints for operational dashboard data."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
@@ -17,6 +18,12 @@ from genesis.monitoring.deployment_tracker import (
 from genesis.monitoring.error_budget import ErrorBudget, ErrorBudgetStatus
 from genesis.monitoring.metrics_collector import MetricsCollector, TradingMetrics
 from genesis.monitoring.rate_limit_metrics import RateLimitMetricsCollector
+from genesis.monitoring.memory_profiler import MemoryProfiler, MemoryTrend
+from genesis.monitoring.advanced_profiler import (
+    AdvancedPerformanceProfiler,
+    OptimizationRecommendation
+)
+from genesis.monitoring.slo_tracker import SLOTracker, ErrorBudget as SLOErrorBudget
 
 logger = structlog.get_logger(__name__)
 
@@ -125,6 +132,63 @@ class ErrorBudgetResponse(BaseModel):
     error_rate_per_minute: float = Field(..., description="Errors per minute")
     error_rate_per_hour: float = Field(..., description="Errors per hour")
     critical_slos_at_risk: int = Field(..., description="Number of critical SLOs at risk")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class MemoryProfileResponse(BaseModel):
+    """Memory profiling response."""
+    current_memory_mb: float = Field(..., description="Current memory usage in MB")
+    peak_memory_mb: float = Field(..., description="Peak memory usage in MB")
+    growth_rate_per_hour: float = Field(..., description="Memory growth rate per hour")
+    leak_detected: bool = Field(..., description="Whether a memory leak was detected")
+    leak_confidence: float = Field(..., description="Confidence level of leak detection (0-1)")
+    estimated_time_to_oom: Optional[float] = Field(None, description="Estimated hours to OOM")
+    top_allocations: List[Dict[str, Any]] = Field(default_factory=list, description="Top memory allocations")
+    recommendation: str = Field(..., description="Memory optimization recommendation")
+
+
+class CPUProfileResponse(BaseModel):
+    """CPU profiling response."""
+    duration_seconds: float = Field(..., description="Profiling duration")
+    samples: int = Field(..., description="Number of samples collected")
+    top_functions: List[Dict[str, float]] = Field(default_factory=list, description="Top CPU-consuming functions")
+    hot_paths: List[Dict[str, Any]] = Field(default_factory=list, description="Hot execution paths")
+    average_cpu_percent: float = Field(..., description="Average CPU usage during profiling")
+    peak_cpu_percent: float = Field(..., description="Peak CPU usage during profiling")
+
+
+class OptimizationRecommendationResponse(BaseModel):
+    """Optimization recommendation response."""
+    severity: str = Field(..., description="Severity level: critical, high, medium, low")
+    category: str = Field(..., description="Category: cpu, memory, io, algorithm")
+    issue: str = Field(..., description="Description of the issue")
+    recommendation: str = Field(..., description="Recommended action")
+    impact: str = Field(..., description="Expected impact of the optimization")
+    location: Optional[str] = Field(None, description="Code location if applicable")
+
+
+class ProfilingStatusResponse(BaseModel):
+    """Profiling status response."""
+    memory_profiling_active: bool = Field(..., description="Whether memory profiling is active")
+    cpu_profiling_active: bool = Field(..., description="Whether CPU profiling is active")
+    profiling_duration_hours: float = Field(..., description="Total profiling duration in hours")
+    snapshots_collected: int = Field(..., description="Number of memory snapshots collected")
+    profiles_collected: int = Field(..., description="Number of CPU profiles collected")
+
+
+class SLOStatusResponse(BaseModel):
+    """SLO status response."""
+    
+    class ServiceSLO(BaseModel):
+        service: str
+        compliance: Dict[str, float]  # Window -> compliance ratio
+        error_budgets: Dict[str, Dict[str, Any]]  # Window -> budget details
+        current_slis: Dict[str, Dict[str, Any]]  # SLI type -> current value
+        alerts: List[Dict[str, str]] = Field(default_factory=list)
+    
+    services: List[ServiceSLO] = Field(default_factory=list)
+    overall_compliance: float = Field(..., description="Overall SLO compliance")
+    services_at_risk: int = Field(..., description="Number of services at risk")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -544,4 +608,335 @@ async def get_dashboard_summary() -> Dict[str, Any]:
             "medium": 3,
             "unacknowledged": 2,
         },
+    }
+
+
+# ============= Profiling Endpoints =============
+
+# Global profiler instances (in production, use dependency injection)
+_memory_profiler: Optional[MemoryProfiler] = None
+_cpu_profiler: Optional[AdvancedPerformanceProfiler] = None
+_slo_tracker: Optional[SLOTracker] = None
+
+
+def get_memory_profiler() -> MemoryProfiler:
+    """Get or create memory profiler instance."""
+    global _memory_profiler
+    if _memory_profiler is None:
+        _memory_profiler = MemoryProfiler(
+            growth_threshold=0.05,
+            snapshot_interval=60,
+            enable_tracemalloc=True
+        )
+    return _memory_profiler
+
+
+def get_cpu_profiler() -> AdvancedPerformanceProfiler:
+    """Get or create CPU profiler instance."""
+    global _cpu_profiler
+    if _cpu_profiler is None:
+        _cpu_profiler = AdvancedPerformanceProfiler(
+            profile_dir=".profiles",
+            memory_threshold_mb=100.0,
+            cpu_threshold_percent=80.0
+        )
+    return _cpu_profiler
+
+
+@router.get("/profile/memory", response_model=MemoryProfileResponse)
+async def get_memory_profile(
+    profiler: MemoryProfiler = Depends(get_memory_profiler)
+) -> MemoryProfileResponse:
+    """Get current memory profiling data."""
+    stats = profiler.get_memory_stats()
+    trend = profiler.get_memory_trend(hours=1)
+    top_allocations = profiler.get_top_allocations(limit=5)
+    
+    # Format top allocations
+    formatted_allocations = []
+    for location, size in top_allocations:
+        formatted_allocations.append({
+            "location": location,
+            "size_mb": size / 1024 / 1024
+        })
+    
+    return MemoryProfileResponse(
+        current_memory_mb=stats.get('rss_mb', 0),
+        peak_memory_mb=trend.peak_usage_bytes / 1024 / 1024,
+        growth_rate_per_hour=trend.growth_rate_per_hour,
+        leak_detected=trend.leak_detected,
+        leak_confidence=trend.leak_confidence,
+        estimated_time_to_oom=trend.estimated_time_to_oom,
+        top_allocations=formatted_allocations,
+        recommendation="No issues detected" if not trend.leak_detected else 
+                      f"Memory leak detected with {trend.leak_confidence:.0%} confidence. Review allocations."
+    )
+
+
+@router.post("/profile/memory/start")
+async def start_memory_profiling(
+    profiler: MemoryProfiler = Depends(get_memory_profiler)
+) -> Dict[str, str]:
+    """Start memory profiling."""
+    await profiler.start_monitoring()
+    return {"status": "success", "message": "Memory profiling started"}
+
+
+@router.post("/profile/memory/stop")
+async def stop_memory_profiling(
+    profiler: MemoryProfiler = Depends(get_memory_profiler)
+) -> Dict[str, str]:
+    """Stop memory profiling."""
+    await profiler.stop_monitoring()
+    return {"status": "success", "message": "Memory profiling stopped"}
+
+
+@router.get("/profile/cpu", response_model=CPUProfileResponse)
+async def get_cpu_profile(
+    duration_seconds: float = Query(10.0, description="Profiling duration in seconds", ge=1, le=60),
+    profiler: AdvancedPerformanceProfiler = Depends(get_cpu_profiler)
+) -> CPUProfileResponse:
+    """Profile CPU usage for specified duration."""
+    profile = await profiler.profile_cpu_with_cprofile(duration_seconds)
+    
+    # Format top functions
+    formatted_functions = []
+    for func_name, percentage in profile.top_functions[:10]:
+        formatted_functions.append({
+            "function": func_name,
+            "percentage": percentage
+        })
+    
+    # Format hot paths
+    formatted_paths = []
+    for path, percentage in profile.hot_paths[:5]:
+        formatted_paths.append({
+            "path": path,
+            "percentage": percentage
+        })
+    
+    return CPUProfileResponse(
+        duration_seconds=profile.duration_seconds,
+        samples=profile.samples,
+        top_functions=formatted_functions,
+        hot_paths=formatted_paths,
+        average_cpu_percent=70.5,  # Mock data
+        peak_cpu_percent=85.2  # Mock data
+    )
+
+
+@router.post("/profile/cpu/start")
+async def start_cpu_profiling(
+    profiler: AdvancedPerformanceProfiler = Depends(get_cpu_profiler)
+) -> Dict[str, str]:
+    """Start continuous CPU profiling."""
+    await profiler.start_profiling()
+    return {"status": "success", "message": "CPU profiling started"}
+
+
+@router.post("/profile/cpu/stop")
+async def stop_cpu_profiling(
+    profiler: AdvancedPerformanceProfiler = Depends(get_cpu_profiler)
+) -> Dict[str, Any]:
+    """Stop CPU profiling and get report."""
+    report = await profiler.stop_profiling()
+    
+    return {
+        "status": "success",
+        "message": "CPU profiling stopped",
+        "report": {
+            "duration_hours": (report.end_time - report.start_time).total_seconds() / 3600,
+            "cpu_profiles_collected": len(report.cpu_profiles),
+            "memory_snapshots_collected": len(report.memory_snapshots),
+            "recommendations_count": len(report.recommendations)
+        }
+    }
+
+
+@router.get("/profile/recommendations", response_model=List[OptimizationRecommendationResponse])
+async def get_optimization_recommendations(
+    cpu_profiler: AdvancedPerformanceProfiler = Depends(get_cpu_profiler)
+) -> List[OptimizationRecommendationResponse]:
+    """Get optimization recommendations based on profiling data."""
+    recommendations = cpu_profiler.generate_optimization_recommendations()
+    
+    response = []
+    for rec in recommendations:
+        response.append(OptimizationRecommendationResponse(
+            severity=rec.severity,
+            category=rec.category,
+            issue=rec.issue,
+            recommendation=rec.recommendation,
+            impact=rec.impact,
+            location=rec.location
+        ))
+    
+    return response
+
+
+@router.get("/profile/status", response_model=ProfilingStatusResponse)
+async def get_profiling_status(
+    memory_profiler: MemoryProfiler = Depends(get_memory_profiler),
+    cpu_profiler: AdvancedPerformanceProfiler = Depends(get_cpu_profiler)
+) -> ProfilingStatusResponse:
+    """Get current profiling status."""
+    memory_stats = memory_profiler.get_memory_stats()
+    
+    return ProfilingStatusResponse(
+        memory_profiling_active=memory_profiler.is_monitoring,
+        cpu_profiling_active=cpu_profiler._profiling_active,
+        profiling_duration_hours=memory_stats.get('monitoring_duration_hours', 0),
+        snapshots_collected=memory_stats.get('snapshot_count', 0),
+        profiles_collected=len(cpu_profiler.cpu_history)
+    )
+
+
+@router.post("/profile/gc/force")
+async def force_garbage_collection(
+    memory_profiler: MemoryProfiler = Depends(get_memory_profiler)
+) -> Dict[str, Any]:
+    """Force garbage collection and return stats."""
+    stats = memory_profiler.force_gc()
+    return {
+        "status": "success",
+        "message": "Garbage collection completed",
+        "stats": stats
+    }
+
+
+# ============= SLO Endpoints =============
+
+def get_slo_tracker() -> SLOTracker:
+    """Get or create SLO tracker instance."""
+    global _slo_tracker
+    if _slo_tracker is None:
+        _slo_tracker = SLOTracker()
+        asyncio.create_task(_slo_tracker.initialize())
+        asyncio.create_task(_slo_tracker.start())
+    return _slo_tracker
+
+
+@router.get("/slo/status", response_model=SLOStatusResponse)
+async def get_slo_status(
+    tracker: SLOTracker = Depends(get_slo_tracker)
+) -> SLOStatusResponse:
+    """Get current SLO status for all services."""
+    response = SLOStatusResponse(
+        overall_compliance=0.0,
+        services_at_risk=0
+    )
+    
+    total_compliance = 0.0
+    service_count = 0
+    
+    for service_name in tracker.slo_configs.keys():
+        summary = tracker.get_slo_summary(service_name)
+        
+        # Check for alerts
+        alerts = tracker.check_burn_rate_alerts(service_name)
+        alert_list = [
+            {"severity": alert[0].value, "message": alert[1]}
+            for alert in alerts
+        ]
+        
+        # Check if service is at risk
+        if summary.get("error_budgets", {}).get("30d", {}).get("remaining", 1.0) < 0.2:
+            response.services_at_risk += 1
+        
+        # Calculate average compliance
+        if "30d" in summary.get("compliance", {}):
+            total_compliance += summary["compliance"]["30d"]
+            service_count += 1
+        
+        response.services.append(
+            SLOStatusResponse.ServiceSLO(
+                service=service_name,
+                compliance=summary.get("compliance", {}),
+                error_budgets=summary.get("error_budgets", {}),
+                current_slis=summary.get("current_slis", {}),
+                alerts=alert_list
+            )
+        )
+    
+    if service_count > 0:
+        response.overall_compliance = total_compliance / service_count
+    
+    return response
+
+
+@router.get("/slo/{service}/summary")
+async def get_service_slo_summary(
+    service: str,
+    tracker: SLOTracker = Depends(get_slo_tracker)
+) -> Dict[str, Any]:
+    """Get detailed SLO summary for a specific service."""
+    if service not in tracker.slo_configs:
+        raise HTTPException(status_code=404, detail=f"Service {service} not found")
+    
+    return tracker.get_slo_summary(service)
+
+
+@router.post("/slo/evaluate")
+async def evaluate_slos(
+    tracker: SLOTracker = Depends(get_slo_tracker)
+) -> Dict[str, Any]:
+    """Manually trigger SLO evaluation."""
+    results = await tracker.evaluate_slos()
+    
+    summary = {
+        "timestamp": datetime.now(UTC).isoformat(),
+        "services_evaluated": len(results),
+        "total_slis": sum(len(slis) for slis in results.values()),
+        "results": {}
+    }
+    
+    for service, sli_results in results.items():
+        good_count = sum(1 for r in sli_results if r.is_good)
+        total_count = len(sli_results)
+        
+        summary["results"][service] = {
+            "slis_evaluated": total_count,
+            "slis_passing": good_count,
+            "compliance_ratio": good_count / total_count if total_count > 0 else 0
+        }
+    
+    return summary
+
+
+@router.get("/slo/{service}/error-budget")
+async def get_service_error_budget(
+    service: str,
+    window_days: int = Query(30, description="Time window in days"),
+    tracker: SLOTracker = Depends(get_slo_tracker)
+) -> Dict[str, Any]:
+    """Get error budget details for a specific service."""
+    if service not in tracker.slo_configs:
+        raise HTTPException(status_code=404, detail=f"Service {service} not found")
+    
+    budget = tracker.calculate_error_budget(service, timedelta(days=window_days))
+    
+    return {
+        "service": budget.service,
+        "window_days": window_days,
+        "total_budget": budget.total_budget,
+        "consumed_budget": budget.consumed_budget,
+        "remaining_budget": budget.remaining_budget,
+        "remaining_ratio": budget.remaining_ratio,
+        "burn_rate": budget.burn_rate,
+        "time_until_exhaustion_hours": (
+            budget.time_until_exhaustion.total_seconds() / 3600
+            if budget.time_until_exhaustion else None
+        )
+    }
+
+
+@router.post("/slo/reload")
+async def reload_slo_config(
+    tracker: SLOTracker = Depends(get_slo_tracker)
+) -> Dict[str, str]:
+    """Reload SLO configuration from file."""
+    await tracker.load_config()
+    return {
+        "status": "success",
+        "message": f"Reloaded configuration for {len(tracker.slo_configs)} services"
     }

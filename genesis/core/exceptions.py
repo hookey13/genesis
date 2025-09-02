@@ -131,6 +131,57 @@ class TiltInterventionRequired(DomainError):
         self.indicators = indicators or {}
 
 
+# Add GenesisException as alias for BaseError for backward compatibility
+class GenesisException(BaseError):
+    """Main exception class for GENESIS errors."""
+    pass
+
+
+# Security-related exceptions
+class SecurityException(BaseError):
+    """Raised for security-related errors."""
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message,
+            code="GENESIS-8001",  # 8=SECURITY, 001=General
+            details=details
+        )
+
+
+class ConfigurationException(BaseError):
+    """Raised for configuration errors."""
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message,
+            code="GENESIS-7001",  # 7=CONFIG, 001=General
+            details=details
+        )
+
+
+class ValidationException(BaseError):
+    """Raised for validation errors."""
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message,
+            code="GENESIS-6001",  # 6=VALIDATION, 001=General
+            details=details
+        )
+
+
+class DatabaseException(BaseError):
+    """Raised for database-related errors."""
+    
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            message,
+            code="GENESIS-4001",  # 4=DATABASE, 001=General
+            details=details
+        )
+
+
 class RiskLimitExceeded(GenesisException):
     """Raised when a risk limit would be exceeded."""
 
@@ -318,6 +369,18 @@ class DatabaseError(BaseError):
     """Base class for database-related errors."""
     
     pass
+
+
+class MigrationError(DatabaseError):
+    """Raised when database migration fails."""
+    
+    def __init__(self, message: str, table: Optional[str] = None):
+        super().__init__(
+            message,
+            code="GENESIS-3901",  # 3=DATABASE, 9=CRITICAL, 01=Migration
+            details={"table": table} if table else {},
+        )
+        self.table = table
 
 
 class DatabaseLocked(DatabaseError):

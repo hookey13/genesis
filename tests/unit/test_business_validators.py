@@ -2,7 +2,7 @@
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -126,7 +126,7 @@ class TestStabilityValidator:
     def stability_results(self):
         """Generate sample stability test results."""
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "duration_hours": 48.5,
             "initial_memory": 100 * 1024 * 1024,  # 100 MB
             "final_memory": 105 * 1024 * 1024,  # 105 MB (5% growth)

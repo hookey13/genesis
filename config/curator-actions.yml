@@ -1,0 +1,135 @@
+# Curator actions for Elasticsearch index management
+# Manages Jaeger trace indices lifecycle
+
+actions:
+  1:
+    action: delete_indices
+    description: >-
+      Delete Jaeger span indices older than 7 days.
+      Maintains storage efficiency while keeping recent traces.
+    options:
+      ignore_empty_list: True
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: genesis-traces-span-
+    - filtertype: age
+      source: creation_date
+      direction: older
+      unit: days
+      unit_count: 7
+      
+  2:
+    action: delete_indices
+    description: >-
+      Delete Jaeger service indices older than 30 days.
+      Service metadata retained longer for analysis.
+    options:
+      ignore_empty_list: True
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: genesis-traces-service-
+    - filtertype: age
+      source: creation_date
+      direction: older
+      unit: days
+      unit_count: 30
+      
+  3:
+    action: delete_indices
+    description: >-
+      Delete Jaeger dependencies indices older than 30 days.
+      Dependency data useful for architecture analysis.
+    options:
+      ignore_empty_list: True
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: genesis-traces-dependencies-
+    - filtertype: age
+      source: creation_date
+      direction: older
+      unit: days
+      unit_count: 30
+      
+  4:
+    action: forcemerge
+    description: >-
+      Force merge indices older than 1 day to optimize storage.
+      Reduces segment count for better query performance.
+    options:
+      max_num_segments: 1
+      delay: 0
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: genesis-traces-
+    - filtertype: age
+      source: creation_date
+      direction: older
+      unit: days
+      unit_count: 1
+    - filtertype: forcemerged
+      max_num_segments: 1
+      exclude: True
+      
+  5:
+    action: close
+    description: >-
+      Close indices older than 5 days to save memory.
+      Indices can be reopened if needed for investigation.
+    options:
+      ignore_empty_list: True
+      delete_aliases: False
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: genesis-traces-span-
+    - filtertype: age
+      source: creation_date
+      direction: older
+      unit: days
+      unit_count: 5
+    - filtertype: closed
+      exclude: True
+      
+  6:
+    action: snapshot
+    description: >-
+      Snapshot indices older than 1 day for backup.
+      Enables disaster recovery for trace data.
+    options:
+      repository: genesis-backup
+      name: genesis-traces-%Y%m%d%H%M%S
+      ignore_unavailable: False
+      include_global_state: False
+      partial: False
+      wait_for_completion: True
+      skip_repo_fs_check: False
+      continue_if_exception: False
+      disable_action: False
+    filters:
+    - filtertype: pattern
+      kind: prefix
+      value: genesis-traces-
+    - filtertype: age
+      source: creation_date
+      direction: older
+      unit: days
+      unit_count: 1
+    - filtertype: age
+      source: creation_date
+      direction: younger
+      unit: days
+      unit_count: 2

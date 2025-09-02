@@ -1,0 +1,296 @@
+# AlertManager Configuration
+# Manages alert routing, grouping, and delivery to various channels
+
+global:
+  # Global settings for all receivers
+  resolve_timeout: 5m
+  
+  # SMTP configuration for email alerts
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'genesis-alerts@example.com'
+  smtp_auth_username: 'genesis-alerts@example.com'
+  smtp_auth_password: '{{ VAULT_SMTP_PASSWORD }}'  # Retrieved from HashiCorp Vault
+  smtp_require_tls: true
+  
+  # Slack API URL (global)
+  slack_api_url: '{{ VAULT_SLACK_WEBHOOK_URL }}'  # Retrieved from HashiCorp Vault
+  
+  # PagerDuty settings
+  pagerduty_url: 'https://events.pagerduty.com/v2/enqueue'
+
+# Templates for alert messages
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# The root route for all alerts
+route:
+  # Default receiver for alerts that don't match any child routes
+  receiver: 'default-receiver'
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'service', 'severity']
+  
+  # How long to wait before sending initial notification
+  group_wait: 30s
+  
+  # How long to wait before sending notification about new alerts
+  # added to a group that has already been notified
+  group_interval: 5m
+  
+  # How long to wait before resending notification
+  repeat_interval: 4h
+  
+  # Child routes for specific routing rules
+  routes:
+    # Critical alerts - immediate PagerDuty notification
+    - match:
+        severity: critical
+      receiver: pagerduty-critical
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true  # Also send to other matching routes
+    
+    # Error budget alerts - special handling
+    - match:
+        alert_type: error_budget
+      receiver: error-budget-handler
+      group_by: ['service']
+      routes:
+        - match:
+            severity: critical
+          receiver: pagerduty-critical
+          group_wait: 10s
+        - match:
+            severity: warning
+          receiver: slack-warnings
+          group_wait: 1m
+        - match:
+            severity: info
+          receiver: email-notifications
+          group_wait: 5m
+    
+    # Database alerts
+    - match_re:
+        service: (database|postgres|pg_.*)
+      receiver: database-team
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 2h
+    
+    # Trading engine alerts
+    - match_re:
+        service: (trading_api|order_executor|websocket_gateway)
+      receiver: trading-team
+      routes:
+        - match:
+            severity: critical
+          receiver: pagerduty-trading
+        - match:
+            severity: warning
+          receiver: slack-trading
+    
+    # Infrastructure alerts
+    - match_re:
+        alertname: (HighCPU|HighMemory|DiskSpace|NetworkIssue)
+      receiver: infrastructure-team
+      group_wait: 2m
+      group_interval: 15m
+    
+    # Development/test environment alerts
+    - match:
+        environment: development
+      receiver: dev-notifications
+      group_wait: 5m
+      repeat_interval: 24h
+    
+    - match:
+        environment: staging
+      receiver: staging-notifications
+      group_wait: 2m
+      repeat_interval: 6h
+    
+    # Monitoring stack alerts (self-monitoring)
+    - match:
+        service: monitoring_stack
+      receiver: monitoring-team
+      group_wait: 30s
+      repeat_interval: 2h
+
+# Inhibition rules to suppress downstream alerts
+inhibit_rules:
+  # If a critical alert is firing, inhibit warning/info alerts for same service
+  - source_match:
+      severity: critical
+    target_match_re:
+      severity: (warning|info)
+    equal: ['service', 'alertname']
+  
+  # If entire service is down, inhibit component-specific alerts
+  - source_match:
+      alertname: ServiceDown
+    target_match_re:
+      alertname: .*
+    equal: ['service']
+  
+  # If database is down, inhibit database-specific performance alerts
+  - source_match:
+      alertname: DatabaseDown
+    target_match_re:
+      alertname: (HighQueryLatency|ConnectionPoolSaturated|ReplicationLag)
+    equal: ['service']
+  
+  # If we're in maintenance mode, inhibit all non-critical alerts
+  - source_match:
+      alertname: MaintenanceMode
+    target_match_re:
+      severity: (warning|info)
+
+# Receiver configurations
+receivers:
+  # Default receiver - sends to Slack general channel
+  - name: 'default-receiver'
+    slack_configs:
+      - channel: '#alerts-general'
+        title: 'Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+  
+  # PagerDuty for critical alerts
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - routing_key: '{{ VAULT_PAGERDUTY_ROUTING_KEY_CRITICAL }}'
+        description: '{{ .GroupLabels.alertname }}'
+        details:
+          firing: '{{ template "pagerduty.default.firing" . }}'
+          resolved: '{{ template "pagerduty.default.resolved" . }}'
+        severity: critical
+        client: 'Genesis Monitoring'
+        client_url: 'https://grafana.genesis.io'
+  
+  # PagerDuty for trading team
+  - name: 'pagerduty-trading'
+    pagerduty_configs:
+      - routing_key: '{{ VAULT_PAGERDUTY_ROUTING_KEY_TRADING }}'
+        description: 'Trading Alert: {{ .GroupLabels.alertname }}'
+        severity: critical
+  
+  # Slack for warnings
+  - name: 'slack-warnings'
+    slack_configs:
+      - channel: '#alerts-warnings'
+        color: 'warning'
+        title: 'Warning: {{ .GroupLabels.alertname }}'
+        text: |
+          *Service:* {{ .GroupLabels.service }}
+          *Description:* {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+        send_resolved: true
+  
+  # Slack for trading team
+  - name: 'slack-trading'
+    slack_configs:
+      - api_url: '{{ VAULT_SLACK_WEBHOOK_TRADING }}'
+        channel: '#trading-alerts'
+        color: '{{ if eq .Status "firing" }}danger{{ else }}good{{ end }}'
+        title: 'Trading Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Service:* {{ .Labels.service }}
+          *Severity:* {{ .Labels.severity }}
+          *Description:* {{ .Annotations.description }}
+          *Runbook:* {{ .Annotations.runbook_url }}
+          {{ end }}
+  
+  # Email notifications
+  - name: 'email-notifications'
+    email_configs:
+      - to: 'ops-team@genesis.io'
+        headers:
+          Subject: '[Genesis] {{ .GroupLabels.alertname }} - {{ .Status }}'
+        html: |
+          <h2>Alert: {{ .GroupLabels.alertname }}</h2>
+          <p><b>Status:</b> {{ .Status }}</p>
+          <p><b>Service:</b> {{ .GroupLabels.service }}</p>
+          {{ range .Alerts }}
+          <hr>
+          <p><b>Description:</b> {{ .Annotations.description }}</p>
+          <p><b>Started:</b> {{ .StartsAt }}</p>
+          {{ if .Annotations.runbook_url }}
+          <p><b>Runbook:</b> <a href="{{ .Annotations.runbook_url }}">{{ .Annotations.runbook_url }}</a></p>
+          {{ end }}
+          {{ end }}
+  
+  # Error budget handler
+  - name: 'error-budget-handler'
+    webhook_configs:
+      - url: 'http://localhost:8000/api/alerts/error-budget'
+        send_resolved: true
+    slack_configs:
+      - channel: '#error-budgets'
+        color: '{{ if eq .GroupLabels.severity "critical" }}danger{{ else if eq .GroupLabels.severity "warning" }}warning{{ else }}good{{ end }}'
+        title: 'Error Budget Alert: {{ .GroupLabels.service }}'
+        text: |
+          {{ range .Alerts }}
+          *Burn Rate:* {{ .Labels.burn_rate }}x
+          *Remaining Budget:* {{ .Labels.remaining_budget }}%
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
+  
+  # Database team
+  - name: 'database-team'
+    slack_configs:
+      - channel: '#database-alerts'
+        title: 'Database Alert: {{ .GroupLabels.alertname }}'
+    email_configs:
+      - to: 'database-team@genesis.io'
+  
+  # Infrastructure team
+  - name: 'infrastructure-team'
+    slack_configs:
+      - channel: '#infra-alerts'
+        title: 'Infrastructure Alert: {{ .GroupLabels.alertname }}'
+    webhook_configs:
+      - url: 'http://localhost:8000/api/alerts/infrastructure'
+  
+  # Monitoring team (self-monitoring)
+  - name: 'monitoring-team'
+    slack_configs:
+      - channel: '#monitoring-alerts'
+        title: 'Monitoring Stack Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *SELF-MONITORING ALERT*
+          {{ range .Alerts }}
+          {{ .Annotations.description }}
+          {{ end }}
+    pagerduty_configs:
+      - routing_key: '{{ VAULT_PAGERDUTY_ROUTING_KEY_MONITORING }}'
+        severity: high
+  
+  # Development notifications
+  - name: 'dev-notifications'
+    slack_configs:
+      - channel: '#dev-alerts'
+        title: '[DEV] {{ .GroupLabels.alertname }}'
+        send_resolved: false  # Don't spam dev channel with resolutions
+  
+  # Staging notifications
+  - name: 'staging-notifications'
+    slack_configs:
+      - channel: '#staging-alerts'
+        title: '[STAGING] {{ .GroupLabels.alertname }}'
+
+# Advanced configuration
+# Rate limiting for receivers to prevent alert storms
+rate_limit:
+  # Global rate limit
+  global:
+    per_minute: 100
+    burst: 200
+  
+  # Per-receiver rate limits
+  receivers:
+    pagerduty-critical:
+      per_minute: 10
+      burst: 20
+    email-notifications:
+      per_minute: 20
+      burst: 50

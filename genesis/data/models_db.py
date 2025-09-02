@@ -18,11 +18,14 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    BigInteger,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
@@ -903,6 +906,132 @@ class TiltProfile(Base):
     """Alias for TiltProfileDB for backward compatibility."""
 
     __table__ = TiltProfileDB.__table__
+
+
+class User(Base):
+    """User table for authentication and authorization."""
+    __tablename__ = 'users'
+    
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(String(36), unique=True, nullable=False, index=True)  # UUID
+    username = Column(String(50), unique=True, nullable=False)
+    email = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(Text, nullable=False)  # Changed to Text for bcrypt (60 chars)
+    
+    # Password migration fields
+    sha256_migrated = Column(Boolean, default=True, nullable=False)
+    old_sha256_hash = Column(String(64), nullable=True)  # Temporary for migration
+    
+    # Role and permissions
+    role = Column(String(50), default='user')
+    is_active = Column(Boolean, default=True)
+    is_locked = Column(Boolean, default=False)
+    
+    # Two-factor authentication
+    two_fa_enabled = Column(Boolean, default=False)
+    two_fa_required = Column(Boolean, default=False)
+    two_fa_setup_at = Column(DateTime(timezone=True), nullable=True)
+    totp_secret = Column(String(32), nullable=True)
+    totp_enabled = Column(Boolean, default=False, nullable=False)
+    
+    # Password security
+    password_changed_at = Column(DateTime(timezone=True), nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    last_failed_login = Column(DateTime(timezone=True), nullable=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    last_successful_login = Column(DateTime(timezone=True), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), onupdate=datetime.utcnow)
+    
+    # Relationships
+    two_fa_attempts = relationship("TwoFAAttempt", back_populates="user", cascade="all, delete-orphan")
+    password_history = relationship("UserPasswordHistory", back_populates="user", cascade="all, delete-orphan")
+    backup_codes = relationship("UserBackupCode", back_populates="user", cascade="all, delete-orphan")
+    reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index('idx_users_username_lower', text('lower(username)')),
+        Index('idx_users_email_lower', text('lower(email)')),
+    )
+
+
+class TwoFAAttempt(Base):
+    """Track 2FA attempts for rate limiting and auditing."""
+    __tablename__ = 'two_fa_attempts'
+    
+    id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey('users.id'), nullable=False)
+    ip_address = Column(INET, nullable=False)
+    code_used = Column(String(10), nullable=True)  # Masked for security
+    success = Column(Boolean, nullable=False)
+    attempted_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="two_fa_attempts")
+    
+    __table_args__ = (
+        Index('idx_2fa_attempts_user_time', 'user_id', 'attempted_at'),
+    )
+
+
+class UserPasswordHistory(Base):
+    """User password history for preventing password reuse."""
+    __tablename__ = 'user_password_history'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    password_hash = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="password_history")
+    
+    __table_args__ = (
+        Index('idx_user_password_history_user_id', 'user_id'),
+        Index('idx_user_password_history_created', 'created_at'),
+    )
+
+
+class UserBackupCode(Base):
+    """Backup codes for 2FA recovery."""
+    __tablename__ = 'user_backup_codes'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    code_hash = Column(String(60), nullable=False)  # bcrypt hash
+    used = Column(Boolean, default=False, nullable=False)
+    used_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="backup_codes")
+    
+    __table_args__ = (
+        Index('idx_user_backup_codes_user_id', 'user_id'),
+    )
+
+
+class PasswordResetToken(Base):
+    """Password reset tokens with expiration."""
+    __tablename__ = 'password_reset_tokens'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    token_hash = Column(String(64), nullable=False)  # SHA256 hash
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = relationship("User", back_populates="reset_tokens")
+    
+    __table_args__ = (
+        Index('idx_password_reset_tokens_token_hash', 'token_hash'),
+        Index('idx_password_reset_tokens_user_id', 'user_id'),
+        Index('idx_password_reset_tokens_expires_at', 'expires_at'),
+    )
 
 
 # Helper function placeholder

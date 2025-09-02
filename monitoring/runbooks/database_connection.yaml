@@ -1,0 +1,120 @@
+# Runbook for database connection issues
+name: database_connection_recovery
+description: Automated recovery for database connection pool saturation
+author: Database Team
+version: "1.0"
+
+trigger:
+  alert_name: DatabaseConnectionPoolSaturated
+  severity: warning
+
+conditions:
+  - metric: pg_stat_database_numbackends
+    operator: ">"
+    value: 80
+  - metric: service
+    operator: "=="
+    value: database
+
+execution_mode: approval_required  # Requires approval before execution
+max_executions_per_hour: 3
+
+tags:
+  - database
+  - connectivity
+  - recovery
+
+actions:
+  # Step 1: Identify idle connections
+  - name: identify_idle_connections
+    type: database
+    description: Query for idle connections older than 5 minutes
+    command: |
+      SELECT pid, usename, application_name, state, state_change
+      FROM pg_stat_activity
+      WHERE state = 'idle'
+      AND state_change < NOW() - INTERVAL '5 minutes'
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 2: Terminate idle connections
+  - name: terminate_idle_connections
+    type: database
+    description: Terminate connections idle for more than 5 minutes
+    command: |
+      SELECT pg_terminate_backend(pid)
+      FROM pg_stat_activity
+      WHERE state = 'idle'
+      AND state_change < NOW() - INTERVAL '5 minutes'
+      AND pid <> pg_backend_pid()
+    timeout_seconds: 30
+    safe_for_auto: false
+    requires_confirmation: true
+    success_criteria:
+      status: success
+
+  # Step 3: Reset connection pool
+  - name: reset_pool
+    type: http
+    description: Reset application connection pool
+    url: http://localhost:8000/api/admin/database/reset-pool
+    method: POST
+    timeout_seconds: 15
+    safe_for_auto: false
+    requires_confirmation: true
+
+  # Step 4: Increase pool size temporarily
+  - name: increase_pool_size
+    type: shell
+    description: Temporarily increase connection pool size
+    command: |
+      psql -c "ALTER SYSTEM SET max_connections = 200;"
+      psql -c "SELECT pg_reload_conf();"
+    timeout_seconds: 10
+    safe_for_auto: false
+    requires_confirmation: true
+
+  # Step 5: Monitor recovery
+  - name: monitor_connections
+    type: database
+    description: Check current connection count
+    command: |
+      SELECT count(*) as connection_count,
+             max_conn.setting as max_connections
+      FROM pg_stat_activity,
+           (SELECT setting FROM pg_settings WHERE name = 'max_connections') max_conn
+      GROUP BY max_conn.setting
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 6: Alert team
+  - name: alert_team
+    type: notification
+    description: Alert database team of intervention
+    payload:
+      channel: pagerduty
+      severity: info
+      message: "Database connection pool saturated. Automated recovery executed."
+    timeout_seconds: 5
+    safe_for_auto: true
+    requires_confirmation: false
+
+rollback_actions:
+  - name: restore_pool_size
+    type: shell
+    description: Restore original connection pool size
+    command: |
+      psql -c "ALTER SYSTEM SET max_connections = 100;"
+      psql -c "SELECT pg_reload_conf();"
+    timeout_seconds: 10
+
+  - name: notify_failure
+    type: notification
+    description: Notify team of failed remediation
+    payload:
+      channel: pagerduty
+      severity: warning
+      message: "Database connection recovery failed. Manual intervention required."
+    timeout_seconds: 5

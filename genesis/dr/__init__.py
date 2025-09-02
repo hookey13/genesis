@@ -1,7 +1,13 @@
-"""Disaster recovery orchestration and automation."""
+"""Disaster Recovery and Failover Management Module."""
 
-from genesis.dr.dr_dashboard import DRDashboard
-from genesis.dr.dr_orchestrator import DROrchestrator
-from genesis.dr.dr_test_runner import DRTestRunner
+from .failover_manager import FailoverManager, FailoverConfig
+from .dr_testing import DRTestFramework, DRTestConfig
+from .recovery_validator import RecoveryValidator
 
-__all__ = ["DRDashboard", "DROrchestrator", "DRTestRunner"]
+__all__ = [
+    'FailoverManager',
+    'FailoverConfig',
+    'DRTestFramework',
+    'DRTestConfig',
+    'RecoveryValidator'
+]

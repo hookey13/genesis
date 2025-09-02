@@ -1,0 +1,279 @@
+# SLO (Service Level Objective) Definitions
+# Defines SLIs, thresholds, and error budget policies for all services
+
+services:
+  trading_api:
+    description: "Core trading API service"
+    slis:
+      availability:
+        type: availability
+        metric: up{job="trading_api"}
+        threshold: 0.999  # 99.9% uptime
+        aggregation: avg
+        unit: ratio
+      
+      latency_p99:
+        type: latency
+        metric: http_request_duration_seconds{job="trading_api",quantile="0.99"}
+        threshold: 0.1  # 100ms p99 latency
+        aggregation: p99
+        unit: seconds
+      
+      latency_p95:
+        type: latency
+        metric: http_request_duration_seconds{job="trading_api",quantile="0.95"}
+        threshold: 0.05  # 50ms p95 latency
+        aggregation: p95
+        unit: seconds
+      
+      error_rate:
+        type: error_rate
+        metric: rate(http_requests_total{job="trading_api",status=~"5.."}[5m])
+        threshold: 0.001  # 0.1% error rate
+        aggregation: avg
+        unit: ratio
+      
+      throughput:
+        type: throughput
+        metric: rate(http_requests_total{job="trading_api"}[5m])
+        threshold: 100  # Minimum 100 requests per second
+        aggregation: avg
+        unit: rps
+    
+    error_budget:
+      window_days: 30
+      burn_rate_thresholds:
+        # Fast burn (1 hour) - Page immediately
+        - rate: 14.4
+          window_minutes: 60
+          severity: critical
+        
+        # Medium burn (6 hours) - Alert on-call
+        - rate: 6
+          window_minutes: 360
+          severity: warning
+        
+        # Slow burn (24 hours) - Notify team
+        - rate: 1.5
+          window_minutes: 1440
+          severity: info
+
+  order_executor:
+    description: "Order execution engine"
+    slis:
+      availability:
+        type: availability
+        metric: up{job="order_executor"}
+        threshold: 0.9999  # 99.99% uptime for critical service
+        aggregation: avg
+        unit: ratio
+      
+      order_latency:
+        type: latency
+        metric: genesis_order_latency_seconds{quantile="0.99"}
+        threshold: 0.01  # 10ms p99 for order submission
+        aggregation: p99
+        unit: seconds
+      
+      order_success_rate:
+        type: error_rate
+        metric: rate(genesis_orders_failed_total[5m]) / rate(genesis_orders_total[5m])
+        threshold: 0.0001  # 0.01% failure rate
+        aggregation: avg
+        unit: ratio
+    
+    error_budget:
+      window_days: 30
+      burn_rate_thresholds:
+        - rate: 14.4
+          window_minutes: 60
+          severity: critical
+        - rate: 6
+          window_minutes: 360
+          severity: warning
+
+  websocket_gateway:
+    description: "WebSocket market data gateway"
+    slis:
+      connection_availability:
+        type: availability
+        metric: websocket_connections_active / websocket_connections_total
+        threshold: 0.99  # 99% connection success
+        aggregation: avg
+        unit: ratio
+      
+      message_latency:
+        type: latency
+        metric: websocket_message_latency_seconds{quantile="0.99"}
+        threshold: 0.001  # 1ms p99 for message delivery
+        aggregation: p99
+        unit: seconds
+      
+      reconnection_rate:
+        type: error_rate
+        metric: rate(websocket_reconnections_total[5m])
+        threshold: 0.1  # Max 0.1 reconnections per second
+        aggregation: avg
+        unit: rps
+    
+    error_budget:
+      window_days: 7  # Shorter window for real-time service
+      burn_rate_thresholds:
+        - rate: 10
+          window_minutes: 30
+          severity: critical
+        - rate: 5
+          window_minutes: 120
+          severity: warning
+
+  database:
+    description: "PostgreSQL database"
+    slis:
+      availability:
+        type: availability
+        metric: pg_up
+        threshold: 0.999
+        aggregation: avg
+        unit: ratio
+      
+      query_latency:
+        type: latency
+        metric: pg_stat_statements_mean_exec_time_seconds{quantile="0.95"}
+        threshold: 0.01  # 10ms p95 query time
+        aggregation: p95
+        unit: seconds
+      
+      connection_pool_saturation:
+        type: saturation
+        metric: pg_stat_database_numbackends / pg_settings_max_connections
+        threshold: 0.8  # Alert at 80% connection usage
+        aggregation: max
+        unit: ratio
+      
+      replication_lag:
+        type: latency
+        metric: pg_replication_lag_seconds
+        threshold: 1.0  # Max 1 second replication lag
+        aggregation: max
+        unit: seconds
+    
+    error_budget:
+      window_days: 30
+      burn_rate_thresholds:
+        - rate: 14.4
+          window_minutes: 60
+          severity: critical
+        - rate: 6
+          window_minutes: 360
+          severity: warning
+        - rate: 2
+          window_minutes: 720
+          severity: info
+
+  vault:
+    description: "HashiCorp Vault for secrets management"
+    slis:
+      availability:
+        type: availability
+        metric: vault_core_unsealed
+        threshold: 0.999
+        aggregation: avg
+        unit: ratio
+      
+      request_latency:
+        type: latency
+        metric: vault_core_handle_request_duration_seconds{quantile="0.99"}
+        threshold: 0.05  # 50ms p99
+        aggregation: p99
+        unit: seconds
+      
+      token_renewal_success:
+        type: error_rate
+        metric: rate(vault_token_renew_failed_total[5m]) / rate(vault_token_renew_total[5m])
+        threshold: 0.001  # 0.1% renewal failure rate
+        aggregation: avg
+        unit: ratio
+    
+    error_budget:
+      window_days: 30
+      burn_rate_thresholds:
+        - rate: 10
+          window_minutes: 60
+          severity: critical
+        - rate: 5
+          window_minutes: 360
+          severity: warning
+
+  monitoring_stack:
+    description: "Prometheus, Grafana, and AlertManager"
+    slis:
+      prometheus_availability:
+        type: availability
+        metric: up{job="prometheus"}
+        threshold: 0.99
+        aggregation: avg
+        unit: ratio
+      
+      grafana_availability:
+        type: availability
+        metric: up{job="grafana"}
+        threshold: 0.99
+        aggregation: avg
+        unit: ratio
+      
+      alertmanager_availability:
+        type: availability
+        metric: up{job="alertmanager"}
+        threshold: 0.999  # Higher requirement for alerting
+        aggregation: avg
+        unit: ratio
+      
+      alert_delivery_success:
+        type: error_rate
+        metric: rate(alertmanager_notifications_failed_total[5m]) / rate(alertmanager_notifications_total[5m])
+        threshold: 0.01  # 1% alert delivery failure rate
+        aggregation: avg
+        unit: ratio
+    
+    error_budget:
+      window_days: 7
+      burn_rate_thresholds:
+        - rate: 10
+          window_minutes: 30
+          severity: critical
+        - rate: 5
+          window_minutes: 120
+          severity: warning
+
+# Global SLO policies
+global_policies:
+  # Default error budget policy if not specified
+  default_error_budget:
+    window_days: 30
+    burn_rate_thresholds:
+      - rate: 14.4
+        window_minutes: 60
+        severity: critical
+      - rate: 6
+        window_minutes: 360
+        severity: warning
+      - rate: 1.5
+        window_minutes: 1440
+        severity: info
+  
+  # Minimum acceptable SLOs by service tier
+  minimum_slos:
+    critical:
+      availability: 0.999
+      latency_p99: 0.1
+      error_rate: 0.001
+    
+    standard:
+      availability: 0.99
+      latency_p99: 0.5
+      error_rate: 0.01
+    
+    batch:
+      availability: 0.95
+      latency_p99: 5.0
+      error_rate: 0.05

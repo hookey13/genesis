@@ -1,9 +1,12 @@
 """Advanced performance profiling with py-spy and memory tracking for Project GENESIS."""
 
 import asyncio
+import cProfile
 import gc
+import io
 import json
 import os
+import pstats
 import subprocess
 import sys
 import threading
@@ -39,7 +42,30 @@ class CPUProfile:
     duration_seconds: float
     samples: int
     top_functions: List[Tuple[str, float]]  # (function, percentage)
+    hot_paths: List[Tuple[str, float]]  # (call_path, percentage)
     flame_graph_path: Optional[str] = None
+    profile_stats: Optional[pstats.Stats] = None
+
+
+@dataclass
+class HotPath:
+    """Represents a hot path in code execution."""
+    call_stack: str
+    total_time: float
+    calls: int
+    average_time: float
+    percentage: float
+
+
+@dataclass
+class OptimizationRecommendation:
+    """Optimization recommendation based on profiling."""
+    severity: str  # 'critical', 'high', 'medium', 'low'
+    category: str  # 'cpu', 'memory', 'io', 'algorithm'
+    issue: str
+    recommendation: str
+    impact: str
+    location: Optional[str] = None
 
 
 @dataclass
@@ -51,7 +77,8 @@ class PerformanceReport:
     memory_snapshots: List[MemorySnapshot] = field(default_factory=list)
     memory_leaks_detected: List[Dict[str, Any]] = field(default_factory=list)
     slow_operations: List[Dict[str, float]] = field(default_factory=list)
-    recommendations: List[str] = field(default_factory=list)
+    recommendations: List[OptimizationRecommendation] = field(default_factory=list)
+    hot_paths: List[HotPath] = field(default_factory=list)
 
 
 class AdvancedPerformanceProfiler:
@@ -434,6 +461,269 @@ class AdvancedPerformanceProfiler:
                     })
         
         return sorted(slow_ops, key=lambda x: x["max_time_seconds"], reverse=True)
+    
+    async def profile_cpu_with_cprofile(
+        self,
+        duration_seconds: float = 10.0,
+        sort_by: str = 'cumulative'
+    ) -> CPUProfile:
+        """Profile CPU usage using cProfile for detailed function analysis.
+        
+        Args:
+            duration_seconds: Duration to profile
+            sort_by: Sort criteria for stats ('cumulative', 'time', 'calls')
+            
+        Returns:
+            CPUProfile with detailed function statistics
+        """
+        profiler = cProfile.Profile()
+        start_time = time.time()
+        
+        # Start profiling
+        profiler.enable()
+        
+        # Run for specified duration
+        await asyncio.sleep(duration_seconds)
+        
+        # Stop profiling
+        profiler.disable()
+        
+        # Analyze results
+        stats_io = io.StringIO()
+        stats = pstats.Stats(profiler, stream=stats_io)
+        stats.sort_stats(sort_by)
+        
+        # Get top functions
+        top_functions = []
+        total_time = stats.total_tt
+        
+        for func, (cc, nc, tt, ct, callers) in list(stats.stats.items())[:20]:
+            func_name = f"{func[0]}:{func[1]}:{func[2]}"
+            percentage = (ct / total_time * 100) if total_time > 0 else 0
+            top_functions.append((func_name, percentage))
+        
+        # Extract hot paths
+        hot_paths = self._extract_hot_paths(stats)
+        
+        # Create profile
+        profile = CPUProfile(
+            timestamp=start_time,
+            duration_seconds=duration_seconds,
+            samples=len(stats.stats),
+            top_functions=top_functions,
+            hot_paths=hot_paths,
+            profile_stats=stats
+        )
+        
+        self.cpu_history.append((start_time, psutil.cpu_percent(interval=0.1)))
+        
+        return profile
+    
+    def _extract_hot_paths(self, stats: pstats.Stats) -> List[Tuple[str, float]]:
+        """Extract hot paths from profiling statistics.
+        
+        Args:
+            stats: pstats.Stats object
+            
+        Returns:
+            List of (call_path, percentage) tuples
+        """
+        hot_paths = []
+        total_time = stats.total_tt
+        
+        # Get top functions by cumulative time
+        stats.sort_stats('cumulative')
+        
+        for func, (cc, nc, tt, ct, callers) in list(stats.stats.items())[:10]:
+            # Build call path
+            call_path_parts = [f"{func[0]}:{func[1]}:{func[2]}"]
+            
+            # Add caller information if available
+            if callers:
+                for caller_func, caller_stats in list(callers.items())[:1]:
+                    caller_name = f"{caller_func[0]}:{caller_func[1]}:{caller_func[2]}"
+                    call_path_parts.insert(0, caller_name)
+            
+            call_path = " -> ".join(call_path_parts)
+            percentage = (ct / total_time * 100) if total_time > 0 else 0
+            
+            hot_paths.append((call_path, percentage))
+        
+        return hot_paths
+    
+    async def profile_async_operations(
+        self,
+        duration_seconds: float = 10.0
+    ) -> Dict[str, Any]:
+        """Profile asyncio operations for coroutine analysis.
+        
+        Args:
+            duration_seconds: Duration to profile
+            
+        Returns:
+            Dictionary with async operation statistics
+        """
+        start_time = time.time()
+        task_stats = defaultdict(lambda: {'count': 0, 'total_time': 0})
+        
+        # Get all running tasks
+        initial_tasks = asyncio.all_tasks()
+        
+        # Monitor for duration
+        await asyncio.sleep(duration_seconds)
+        
+        # Get final tasks
+        final_tasks = asyncio.all_tasks()
+        
+        # Analyze task statistics
+        async_stats = {
+            'duration_seconds': duration_seconds,
+            'initial_task_count': len(initial_tasks),
+            'final_task_count': len(final_tasks),
+            'created_tasks': len(final_tasks - initial_tasks),
+            'completed_tasks': len(initial_tasks - final_tasks),
+            'task_details': []
+        }
+        
+        # Get details of current tasks
+        for task in final_tasks:
+            if task.get_coro():
+                coro_name = task.get_coro().__name__
+                async_stats['task_details'].append({
+                    'name': coro_name,
+                    'done': task.done(),
+                    'cancelled': task.cancelled()
+                })
+        
+        return async_stats
+    
+    def identify_hot_paths(self) -> List[HotPath]:
+        """Identify hot paths from collected CPU profiles.
+        
+        Returns:
+            List of HotPath objects
+        """
+        hot_paths = []
+        
+        # Aggregate hot paths from all CPU profiles
+        path_stats = defaultdict(lambda: {'total_time': 0, 'calls': 0})
+        
+        for profile in self.cpu_history:
+            if isinstance(profile, CPUProfile) and profile.hot_paths:
+                for path, percentage in profile.hot_paths:
+                    path_stats[path]['total_time'] += percentage
+                    path_stats[path]['calls'] += 1
+        
+        # Create HotPath objects
+        for path, stats in path_stats.items():
+            avg_time = stats['total_time'] / stats['calls'] if stats['calls'] > 0 else 0
+            hot_paths.append(HotPath(
+                call_stack=path,
+                total_time=stats['total_time'],
+                calls=stats['calls'],
+                average_time=avg_time,
+                percentage=stats['total_time'] / len(self.cpu_history) if self.cpu_history else 0
+            ))
+        
+        # Sort by total time
+        return sorted(hot_paths, key=lambda x: x.total_time, reverse=True)
+    
+    def generate_optimization_recommendations(self) -> List[OptimizationRecommendation]:
+        """Generate detailed optimization recommendations based on profiling data.
+        
+        Returns:
+            List of OptimizationRecommendation objects
+        """
+        recommendations = []
+        
+        # Analyze memory patterns
+        if self.memory_history:
+            latest_memory = self.memory_history[-1]
+            
+            # High memory usage
+            if latest_memory.percent > 80:
+                recommendations.append(OptimizationRecommendation(
+                    severity='critical',
+                    category='memory',
+                    issue='Memory usage exceeds 80%',
+                    recommendation='Implement memory pooling and object reuse patterns',
+                    impact='Prevent out-of-memory errors and improve stability',
+                    location=None
+                ))
+            
+            # Memory growth detection
+            if len(self.memory_history) >= 5:
+                growth_rate = self._calculate_memory_growth_rate()
+                if growth_rate > 0.05:  # 5% growth per hour
+                    recommendations.append(OptimizationRecommendation(
+                        severity='high',
+                        category='memory',
+                        issue=f'Memory growing at {growth_rate:.1%} per hour',
+                        recommendation='Review object lifecycle, implement weak references for caches',
+                        impact='Prevent memory exhaustion during long-running operations',
+                        location=None
+                    ))
+        
+        # Analyze CPU patterns
+        if self.cpu_history:
+            avg_cpu = sum(cpu for _, cpu in self.cpu_history) / len(self.cpu_history)
+            
+            if avg_cpu > 70:
+                recommendations.append(OptimizationRecommendation(
+                    severity='high',
+                    category='cpu',
+                    issue=f'Average CPU usage at {avg_cpu:.1f}%',
+                    recommendation='Profile hot paths and optimize algorithmic complexity',
+                    impact='Improve response times and reduce resource costs',
+                    location=None
+                ))
+        
+        # Analyze slow operations
+        slow_ops = self._analyze_slow_operations()
+        for op in slow_ops[:3]:  # Top 3 slowest operations
+            if op['max_time_seconds'] > 1.0:
+                recommendations.append(OptimizationRecommendation(
+                    severity='medium',
+                    category='io',
+                    issue=f"Operation '{op['operation']}' takes up to {op['max_time_seconds']:.2f}s",
+                    recommendation='Consider async I/O, caching, or batch processing',
+                    impact=f'Reduce latency by up to {op['max_time_seconds']-0.1:.1f}s',
+                    location=op['operation']
+                ))
+        
+        # Analyze hot paths
+        hot_paths = self.identify_hot_paths()
+        for path in hot_paths[:3]:  # Top 3 hot paths
+            if path.percentage > 10:
+                recommendations.append(OptimizationRecommendation(
+                    severity='medium',
+                    category='algorithm',
+                    issue=f'Hot path consuming {path.percentage:.1f}% of CPU time',
+                    recommendation='Optimize algorithm or use memoization',
+                    impact=f'Potential {path.percentage/2:.1f}% CPU reduction',
+                    location=path.call_stack
+                ))
+        
+        return recommendations
+    
+    def _calculate_memory_growth_rate(self) -> float:
+        """Calculate memory growth rate per hour.
+        
+        Returns:
+            Growth rate as a percentage per hour
+        """
+        if len(self.memory_history) < 2:
+            return 0.0
+        
+        first = self.memory_history[0]
+        last = self.memory_history[-1]
+        
+        time_diff_hours = (last.timestamp - first.timestamp) / 3600
+        if time_diff_hours == 0:
+            return 0.0
+        
+        growth = (last.rss_bytes - first.rss_bytes) / first.rss_bytes
+        return growth / time_diff_hours
     
     def _generate_recommendations(self) -> List[str]:
         """Generate performance optimization recommendations.

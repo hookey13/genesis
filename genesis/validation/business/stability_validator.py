@@ -3,7 +3,7 @@
 import asyncio
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -332,5 +332,5 @@ class StabilityValidator:
                 "total_errors": test_results.get("total_errors", 0),
                 "error_rate_percent": test_results.get("error_rate", 0) * 100
             },
-            "test_completed": datetime.fromisoformat(test_results.get("timestamp", datetime.utcnow().isoformat()))
+            "test_completed": datetime.fromisoformat(test_results.get("timestamp", datetime.now(UTC).isoformat()))
         }

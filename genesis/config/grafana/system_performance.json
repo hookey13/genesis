@@ -1,0 +1,346 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "genesis-system-perf",
+    "title": "GENESIS System Performance",
+    "tags": ["genesis", "system", "performance", "infrastructure"],
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "type": "graph",
+        "title": "CPU Usage",
+        "targets": [
+          {
+            "expr": "genesis_cpu_usage_percent",
+            "legendFormat": "Process CPU %",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "CPU Usage", "min": 0, "max": 100 },
+          { "format": "short" }
+        ],
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2,
+        "nullPointMode": "connected",
+        "percentage": false,
+        "thresholds": [
+          { "value": 50, "color": "yellow", "fill": false, "line": true },
+          { "value": 80, "color": "red", "fill": false, "line": true }
+        ]
+      },
+      {
+        "id": 2,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "type": "graph",
+        "title": "Memory Usage",
+        "targets": [
+          {
+            "expr": "genesis_memory_usage_bytes / 1024 / 1024",
+            "legendFormat": "RSS Memory (MB)",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_memory_peak_usage_bytes / 1024 / 1024",
+            "legendFormat": "Peak Memory (MB)",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "decmbytes", "label": "Memory (MB)" },
+          { "format": "short" }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 3,
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+        "type": "gauge",
+        "title": "Health Score",
+        "targets": [
+          {
+            "expr": "genesis_health_score",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "red", "value": null },
+            { "color": "orange", "value": 40 },
+            { "color": "yellow", "value": 60 },
+            { "color": "green", "value": 80 }
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+        "type": "stat",
+        "title": "Memory Growth Rate",
+        "targets": [
+          {
+            "expr": "genesis_memory_growth_rate_per_hour",
+            "refId": "A"
+          }
+        ],
+        "unit": "percentunit",
+        "colorMode": "value",
+        "graphMode": "area",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 0.05 },
+            { "color": "red", "value": 0.1 }
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+        "type": "stat",
+        "title": "Memory Leak Detection",
+        "targets": [
+          {
+            "expr": "genesis_memory_leak_confidence * 100",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "colorMode": "background",
+        "graphMode": "none",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 50 },
+            { "color": "red", "value": 80 }
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+        "type": "graph",
+        "title": "Disk I/O",
+        "targets": [
+          {
+            "expr": "genesis_disk_io_read_bytes_per_second / 1024 / 1024",
+            "legendFormat": "Read MB/s",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_disk_io_write_bytes_per_second / 1024 / 1024",
+            "legendFormat": "Write MB/s",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "MBs", "label": "Throughput" },
+          { "format": "short" }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "seriesOverrides": [
+          { "alias": "Read MB/s", "color": "#73BF69" },
+          { "alias": "Write MB/s", "color": "#F2495C" }
+        ]
+      },
+      {
+        "id": 7,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+        "type": "graph",
+        "title": "Network I/O",
+        "targets": [
+          {
+            "expr": "genesis_network_bytes_sent_per_second / 1024",
+            "legendFormat": "Sent KB/s",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_network_bytes_recv_per_second / 1024",
+            "legendFormat": "Received KB/s",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "KBs", "label": "Throughput" },
+          { "format": "short" }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 8,
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 22 },
+        "type": "stat",
+        "title": "Disk Usage",
+        "targets": [
+          {
+            "expr": "genesis_disk_usage_percent",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "colorMode": "background",
+        "graphMode": "none",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 70 },
+            { "color": "orange", "value": 80 },
+            { "color": "red", "value": 90 }
+          ]
+        }
+      },
+      {
+        "id": 9,
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 22 },
+        "type": "stat",
+        "title": "Active Connections",
+        "targets": [
+          {
+            "expr": "genesis_connection_count",
+            "refId": "A"
+          }
+        ],
+        "unit": "short",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      {
+        "id": 10,
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 22 },
+        "type": "stat",
+        "title": "Thread Count",
+        "targets": [
+          {
+            "expr": "genesis_thread_count",
+            "refId": "A"
+          }
+        ],
+        "unit": "short",
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      {
+        "id": 11,
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 22 },
+        "type": "stat",
+        "title": "Process Uptime",
+        "targets": [
+          {
+            "expr": "genesis_process_uptime_seconds / 3600",
+            "refId": "A"
+          }
+        ],
+        "unit": "h",
+        "decimals": 1,
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      {
+        "id": 12,
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 26 },
+        "type": "graph",
+        "title": "WebSocket Performance",
+        "targets": [
+          {
+            "expr": "genesis_websocket_connections_active",
+            "legendFormat": "Active - {{exchange}} {{stream}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(genesis_websocket_messages_total[1m])",
+            "legendFormat": "Msg Rate - {{exchange}} {{direction}}",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(genesis_websocket_latency_ms_bucket[5m]))",
+            "legendFormat": "P95 Latency",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "Count/Messages" },
+          { "format": "ms", "label": "Latency (ms)" }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 13,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 34 },
+        "type": "graph",
+        "title": "API Performance",
+        "targets": [
+          {
+            "expr": "rate(genesis_api_requests_total[5m])",
+            "legendFormat": "{{endpoint}} - {{status}}",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(genesis_api_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "P95 Duration - {{endpoint}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Requests/sec" },
+          { "format": "s", "label": "Duration" }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2
+      },
+      {
+        "id": 14,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 34 },
+        "type": "graph",
+        "title": "Circuit Breaker Status",
+        "targets": [
+          {
+            "expr": "genesis_circuit_breaker_state",
+            "legendFormat": "{{service}}",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(genesis_circuit_breaker_failures_total[5m])",
+            "legendFormat": "Failures - {{service}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "label": "State (0=closed, 1=open, 2=half-open)" },
+          { "format": "short", "label": "Failures/sec" }
+        ],
+        "lines": true,
+        "fill": 0,
+        "linewidth": 2,
+        "points": true,
+        "pointradius": 3
+      }
+    ]
+  },
+  "overwrite": true
+}

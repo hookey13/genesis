@@ -1,0 +1,76 @@
+groups:
+  - name: trading_alerts
+    interval: 30s
+    rules:
+      # High Drawdown Alert
+      - alert: HighDrawdown
+        expr: genesis_drawdown_percent > 20
+        for: 5m
+        labels:
+          severity: critical
+          component: trading
+        annotations:
+          summary: "High drawdown detected: {{ $value }}%"
+          description: "Trading drawdown has exceeded 20% threshold. Current: {{ $value }}%"
+          
+      # Extreme Tilt Score
+      - alert: ExtremeTiltScore
+        expr: genesis_tilt_score > 70
+        for: 2m
+        labels:
+          severity: critical
+          component: psychology
+        annotations:
+          summary: "Extreme tilt detected: {{ $value }}"
+          description: "Tilt score indicates emotional trading. Intervention required."
+          
+      # Position Imbalance
+      - alert: PositionImbalance
+        expr: |
+          (genesis_positions_by_side{side="long"} / genesis_positions_by_side{side="short"}) > 3
+          or
+          (genesis_positions_by_side{side="short"} / genesis_positions_by_side{side="long"}) > 3
+        for: 10m
+        labels:
+          severity: warning
+          component: risk
+        annotations:
+          summary: "Position imbalance detected"
+          description: "Long/short ratio is heavily skewed, indicating potential risk concentration."
+          
+      # High Order Failure Rate
+      - alert: HighOrderFailureRate
+        expr: |
+          (
+            rate(genesis_orders_failed_total[5m]) / 
+            rate(genesis_orders_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: execution
+        annotations:
+          summary: "High order failure rate: {{ $value | humanizePercentage }}"
+          description: "More than 10% of orders are failing. Check exchange connectivity."
+          
+      # P&L Threshold Breach
+      - alert: SignificantLoss
+        expr: genesis_trading_pnl_total_usdt < -1000
+        for: 1m
+        labels:
+          severity: critical
+          component: pnl
+        annotations:
+          summary: "Significant loss detected: ${{ $value }}"
+          description: "Total P&L has dropped below -$1000 threshold."
+          
+      # No Trading Activity
+      - alert: NoTradingActivity
+        expr: rate(genesis_orders_total[15m]) == 0
+        for: 15m
+        labels:
+          severity: warning
+          component: activity
+        annotations:
+          summary: "No trading activity detected"
+          description: "No orders placed in the last 15 minutes. System may be stuck."

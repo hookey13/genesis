@@ -1,0 +1,21 @@
+# Curator configuration
+client:
+  hosts:
+    - elasticsearch
+  port: 9200
+  url_prefix:
+  use_ssl: True
+  certificate: /certs/ca.crt
+  client_cert: /certs/curator.crt
+  client_key: /certs/curator.key
+  ssl_no_validate: False
+  username: elastic
+  password: ${ELASTIC_PASSWORD}
+  timeout: 30
+  master_only: False
+
+logging:
+  loglevel: INFO
+  logfile:
+  logformat: default
+  blacklist: ['elasticsearch', 'urllib3']

@@ -1,20 +1,29 @@
 """Backup and recovery validation module."""
 
 import asyncio
-import json
 import os
 import shutil
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import structlog
+
+from genesis.validation.base import (
+    CheckStatus,
+    ValidationCheck,
+    ValidationContext,
+    ValidationEvidence,
+    ValidationMetadata,
+    ValidationResult,
+    Validator,
+)
 
 logger = structlog.get_logger(__name__)
 
 
-class BackupValidator:
+class BackupValidator(Validator):
     """Validates backup and recovery procedures."""
 
     REQUIRED_BACKUP_COMPONENTS = [
@@ -30,80 +39,279 @@ class BackupValidator:
 
     def __init__(self, genesis_root: Path | None = None):
         """Initialize backup validator.
-        
+
         Args:
             genesis_root: Root directory of Genesis project
         """
+        super().__init__(
+            validator_id="OPS-002",
+            name="BackupValidator",
+            description="Validates backup and recovery procedures including creation, restoration, encryption, and scheduling",
+        )
         self.genesis_root = genesis_root or Path.cwd()
         self.backup_dir = self.genesis_root / ".genesis" / "backups"
-        self.results: Dict[str, Any] = {}
+        self.set_timeout(180)  # 3 minutes for backup operations
+        self.set_retry_policy(retry_count=1, retry_delay_seconds=10)
 
-    async def validate(self) -> Dict[str, Any]:
+    async def run_validation(self, context: ValidationContext) -> ValidationResult:
         """Run backup and recovery validation checks.
-        
+
+        Args:
+            context: Validation context with configuration
+
         Returns:
-            Validation results dictionary
+            ValidationResult with checks and evidence
         """
         logger.info("Starting backup validation")
         start_time = datetime.utcnow()
 
-        self.results = {
-            "validator": "backup",
-            "timestamp": start_time.isoformat(),
-            "passed": True,
-            "score": 0,
-            "checks": {},
-            "summary": "",
-            "details": [],
-        }
+        # Update genesis_root from context if available
+        if context.genesis_root:
+            self.genesis_root = Path(context.genesis_root)
+            self.backup_dir = self.genesis_root / ".genesis" / "backups"
 
-        # Test backup creation
-        backup_result = await self._test_backup_creation()
-        self.results["checks"]["backup_creation"] = backup_result
+        checks = []
+        evidence = ValidationEvidence()
 
-        # Test restore procedure
-        restore_result = await self._test_restore_procedure()
-        self.results["checks"]["restore_procedure"] = restore_result
-
-        # Verify backup encryption
-        encryption_result = await self._verify_backup_encryption()
-        self.results["checks"]["backup_encryption"] = encryption_result
-
-        # Check backup schedule
-        schedule_result = await self._check_backup_schedule()
-        self.results["checks"]["backup_schedule"] = schedule_result
-
-        # Validate offsite storage
-        offsite_result = await self._validate_offsite_storage()
-        self.results["checks"]["offsite_storage"] = offsite_result
-
-        # Check backup scripts
-        scripts_result = await self._check_backup_scripts()
-        self.results["checks"]["backup_scripts"] = scripts_result
-
-        # Calculate overall score
-        total_checks = len(self.results["checks"])
-        passed_checks = sum(
-            1 for check in self.results["checks"].values() if check.get("passed", False)
-        )
-        self.results["score"] = int((passed_checks / total_checks) * 100) if total_checks > 0 else 0
+        # Create validation checks
+        checks.append(await self._create_backup_creation_check())
+        checks.append(await self._create_restore_procedure_check())
+        checks.append(await self._create_encryption_check())
+        checks.append(await self._create_schedule_check())
+        checks.append(await self._create_offsite_storage_check())
+        checks.append(await self._create_scripts_check())
 
         # Determine overall status
-        if all(check.get("passed", False) for check in self.results["checks"].values()):
-            self.results["passed"] = True
-            self.results["summary"] = "Backup and recovery fully operational"
+        failed_checks = [c for c in checks if c.status == CheckStatus.FAILED]
+        warning_checks = [c for c in checks if c.status == CheckStatus.WARNING]
+
+        if not failed_checks and not warning_checks:
+            overall_status = CheckStatus.PASSED
+            message = "Backup and recovery fully operational"
+        elif failed_checks:
+            overall_status = CheckStatus.FAILED
+            message = (
+                f"Backup/recovery issues detected - {len(failed_checks)} checks failed"
+            )
         else:
-            self.results["passed"] = False
-            self.results["summary"] = "Backup/recovery issues detected - review failed checks"
+            overall_status = CheckStatus.WARNING
+            message = f"Backup partially configured - {len(warning_checks)} warnings"
 
-        # Add execution time
-        self.results["execution_time"] = (datetime.utcnow() - start_time).total_seconds()
+        # Create metadata
+        metadata = ValidationMetadata(
+            version="1.0.0",
+            environment=context.environment,
+            run_id=context.metadata.run_id if context.metadata else "local-run",
+            started_at=start_time,
+            completed_at=datetime.utcnow(),
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            machine_info={},
+            additional_info={"backup_dir": str(self.backup_dir)},
+        )
 
-        return self.results
+        # Create result
+        result = ValidationResult(
+            validator_id=self.validator_id,
+            validator_name=self.name,
+            status=overall_status,
+            message=message,
+            checks=checks,
+            evidence=evidence,
+            metadata=metadata,
+        )
 
-    async def _test_backup_creation(self) -> Dict[str, Any]:
+        # Update counts and score
+        result.update_counts()
+
+        return result
+
+    async def _create_backup_creation_check(self) -> ValidationCheck:
+        """Create validation check for backup creation."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._test_backup_creation()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.FAILED
+        evidence.metrics["backup_size"] = result.get("backup_size", 0)
+        evidence.metrics["components_backed_up"] = result.get(
+            "components_backed_up", []
+        )
+
+        return ValidationCheck(
+            id="BAK-001",
+            name="Backup Creation",
+            description="Test backup creation process",
+            category="backup",
+            status=status,
+            details=result["message"],
+            is_blocking=True,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="critical" if not result["passed"] else "low",
+            remediation=(
+                "Ensure all backup components are accessible"
+                if not result["passed"]
+                else None
+            ),
+            tags=["backup", "creation"],
+        )
+
+    async def _create_restore_procedure_check(self) -> ValidationCheck:
+        """Create validation check for restore procedure."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._test_restore_procedure()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.FAILED
+        evidence.metrics["restore_time_seconds"] = result.get("restore_time_seconds", 0)
+        evidence.metrics["components_restored"] = result.get("components_restored", [])
+
+        return ValidationCheck(
+            id="BAK-002",
+            name="Restore Procedure",
+            description="Test backup restoration process",
+            category="backup",
+            status=status,
+            details=result["message"],
+            is_blocking=True,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="critical" if not result["passed"] else "low",
+            remediation=(
+                "Verify restore scripts and backup integrity"
+                if not result["passed"]
+                else None
+            ),
+            tags=["backup", "restore"],
+        )
+
+    async def _create_encryption_check(self) -> ValidationCheck:
+        """Create validation check for backup encryption."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._verify_backup_encryption()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.FAILED
+        evidence.metrics["encryption_algorithm"] = result.get(
+            "encryption_algorithm", ""
+        )
+        evidence.metrics["key_management"] = result.get("key_management", "")
+
+        return ValidationCheck(
+            id="BAK-003",
+            name="Backup Encryption",
+            description="Verify backup encryption is properly configured",
+            category="backup",
+            status=status,
+            details=result["message"],
+            is_blocking=True,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="critical" if not result["passed"] else "low",
+            remediation=(
+                "Configure backup encryption with restic"
+                if not result["passed"]
+                else None
+            ),
+            tags=["backup", "encryption", "security"],
+        )
+
+    async def _create_schedule_check(self) -> ValidationCheck:
+        """Create validation check for backup schedule."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._check_backup_schedule()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.WARNING
+        evidence.metrics["latest_backup"] = result.get("latest_backup", "")
+        evidence.metrics["backup_frequency"] = result.get("backup_frequency", "")
+
+        return ValidationCheck(
+            id="BAK-004",
+            name="Backup Schedule",
+            description="Check backup schedule and frequency",
+            category="backup",
+            status=status,
+            details=result["message"],
+            is_blocking=False,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="medium" if status == CheckStatus.WARNING else "low",
+            remediation=(
+                "Configure automated backup schedule"
+                if status == CheckStatus.WARNING
+                else None
+            ),
+            tags=["backup", "schedule", "automation"],
+        )
+
+    async def _create_offsite_storage_check(self) -> ValidationCheck:
+        """Create validation check for offsite storage."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._validate_offsite_storage()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.WARNING
+        evidence.metrics["storage_location"] = result.get("storage_location", "")
+        evidence.metrics["connectivity"] = result.get("connectivity", "")
+
+        return ValidationCheck(
+            id="BAK-005",
+            name="Offsite Storage",
+            description="Validate offsite backup storage configuration",
+            category="backup",
+            status=status,
+            details=result["message"],
+            is_blocking=False,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="high" if status != CheckStatus.PASSED else "low",
+            remediation=(
+                "Configure DigitalOcean Spaces for offsite backup"
+                if status != CheckStatus.PASSED
+                else None
+            ),
+            tags=["backup", "offsite", "storage"],
+        )
+
+    async def _create_scripts_check(self) -> ValidationCheck:
+        """Create validation check for backup scripts."""
+        start_time = datetime.utcnow()
+        evidence = ValidationEvidence()
+        result = await self._check_backup_scripts()
+
+        status = CheckStatus.PASSED if result["passed"] else CheckStatus.FAILED
+        evidence.metrics["scripts_found"] = result.get("scripts_found", [])
+        evidence.metrics["scripts_missing"] = result.get("scripts_missing", [])
+
+        return ValidationCheck(
+            id="BAK-006",
+            name="Backup Scripts",
+            description="Check backup and restore scripts exist and are executable",
+            category="backup",
+            status=status,
+            details=result["message"],
+            is_blocking=True,
+            evidence=evidence,
+            duration_ms=(datetime.utcnow() - start_time).total_seconds() * 1000,
+            timestamp=datetime.utcnow(),
+            severity="high" if not result["passed"] else "low",
+            remediation=(
+                "Create missing backup scripts in scripts/ directory"
+                if not result["passed"]
+                else None
+            ),
+            tags=["backup", "scripts", "automation"],
+        )
+
+    async def _test_backup_creation(self) -> dict[str, Any]:
         """Test the backup creation process.
-        
+
         Returns:
             Validation result for backup creation
         """
@@ -118,10 +326,10 @@ class BackupValidator:
             # Create a test backup in a temporary directory
             with tempfile.TemporaryDirectory() as temp_dir:
                 test_backup_path = Path(temp_dir) / "test_backup"
-                
+
                 # Simulate backing up each component
                 components_backed_up = []
-                
+
                 # Database backup
                 db_path = self.genesis_root / ".genesis" / "data" / "genesis.db"
                 if db_path.exists():
@@ -129,51 +337,56 @@ class BackupValidator:
                     backup_db_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(db_path, backup_db_path)
                     components_backed_up.append("database")
-                
+
                 # Configuration backup
                 config_dir = self.genesis_root / "config"
                 if config_dir.exists():
                     backup_config_path = test_backup_path / "configuration"
                     shutil.copytree(config_dir, backup_config_path, dirs_exist_ok=True)
                     components_backed_up.append("configuration")
-                
+
                 # State files backup
                 state_dir = self.genesis_root / ".genesis" / "state"
                 if state_dir.exists():
                     backup_state_path = test_backup_path / "state_files"
                     shutil.copytree(state_dir, backup_state_path, dirs_exist_ok=True)
                     components_backed_up.append("state_files")
-                
+
                 # Calculate backup size
                 total_size = sum(
-                    f.stat().st_size
-                    for f in test_backup_path.rglob("*")
-                    if f.is_file()
+                    f.stat().st_size for f in test_backup_path.rglob("*") if f.is_file()
                 )
-                
+
                 result["backup_size"] = total_size
                 result["components_backed_up"] = components_backed_up
-                
+
                 # Check if all required components are backed up
                 missing_components = [
-                    comp for comp in self.REQUIRED_BACKUP_COMPONENTS
-                    if comp not in components_backed_up and comp != "encryption_keys" and comp != "logs"
+                    comp
+                    for comp in self.REQUIRED_BACKUP_COMPONENTS
+                    if comp not in components_backed_up
+                    and comp != "encryption_keys"
+                    and comp != "logs"
                 ]
-                
+
                 if not missing_components:
                     result["passed"] = True
-                    result["message"] = f"Backup created successfully ({total_size / 1024:.2f} KB)"
+                    result["message"] = (
+                        f"Backup created successfully ({total_size / 1024:.2f} KB)"
+                    )
                 else:
-                    result["message"] = f"Missing backup components: {', '.join(missing_components)}"
-                    
+                    result["message"] = (
+                        f"Missing backup components: {', '.join(missing_components)}"
+                    )
+
         except Exception as e:
-            result["message"] = f"Backup creation failed: {str(e)}"
+            result["message"] = f"Backup creation failed: {e!s}"
 
         return result
 
-    async def _test_restore_procedure(self) -> Dict[str, Any]:
+    async def _test_restore_procedure(self) -> dict[str, Any]:
         """Test the restore procedure.
-        
+
         Returns:
             Validation result for restore procedure
         """
@@ -186,63 +399,90 @@ class BackupValidator:
 
         try:
             start_restore = datetime.utcnow()
-            
+
             # Simulate restore process
             with tempfile.TemporaryDirectory() as temp_dir:
                 # Create a mock backup
                 mock_backup_dir = Path(temp_dir) / "mock_backup"
                 mock_backup_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # Create mock backup files
-                (mock_backup_dir / "database" / "genesis.db").parent.mkdir(parents=True, exist_ok=True)
+                (mock_backup_dir / "database" / "genesis.db").parent.mkdir(
+                    parents=True, exist_ok=True
+                )
                 (mock_backup_dir / "database" / "genesis.db").touch()
-                (mock_backup_dir / "configuration" / "settings.yaml").parent.mkdir(parents=True, exist_ok=True)
+                (mock_backup_dir / "configuration" / "settings.yaml").parent.mkdir(
+                    parents=True, exist_ok=True
+                )
                 (mock_backup_dir / "configuration" / "settings.yaml").touch()
-                (mock_backup_dir / "state_files" / "tier_state.json").parent.mkdir(parents=True, exist_ok=True)
+                (mock_backup_dir / "state_files" / "tier_state.json").parent.mkdir(
+                    parents=True, exist_ok=True
+                )
                 (mock_backup_dir / "state_files" / "tier_state.json").touch()
-                
+
                 # Simulate restore to another temporary directory
                 restore_dir = Path(temp_dir) / "restore_test"
                 restore_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 components_restored = []
-                
+
                 # Restore database
                 if (mock_backup_dir / "database").exists():
-                    shutil.copytree(mock_backup_dir / "database", restore_dir / "database", dirs_exist_ok=True)
+                    shutil.copytree(
+                        mock_backup_dir / "database",
+                        restore_dir / "database",
+                        dirs_exist_ok=True,
+                    )
                     components_restored.append("database")
-                
+
                 # Restore configuration
                 if (mock_backup_dir / "configuration").exists():
-                    shutil.copytree(mock_backup_dir / "configuration", restore_dir / "configuration", dirs_exist_ok=True)
+                    shutil.copytree(
+                        mock_backup_dir / "configuration",
+                        restore_dir / "configuration",
+                        dirs_exist_ok=True,
+                    )
                     components_restored.append("configuration")
-                
+
                 # Restore state files
                 if (mock_backup_dir / "state_files").exists():
-                    shutil.copytree(mock_backup_dir / "state_files", restore_dir / "state_files", dirs_exist_ok=True)
+                    shutil.copytree(
+                        mock_backup_dir / "state_files",
+                        restore_dir / "state_files",
+                        dirs_exist_ok=True,
+                    )
                     components_restored.append("state_files")
-                
+
                 restore_time = (datetime.utcnow() - start_restore).total_seconds()
                 result["restore_time"] = restore_time
                 result["components_restored"] = components_restored
-                
-                if restore_time <= self.MAX_RESTORE_TIME_SECONDS and len(components_restored) >= 3:
+
+                if (
+                    restore_time <= self.MAX_RESTORE_TIME_SECONDS
+                    and len(components_restored) >= 3
+                ):
                     result["passed"] = True
-                    result["message"] = f"Restore completed in {restore_time:.2f} seconds"
+                    result["message"] = (
+                        f"Restore completed in {restore_time:.2f} seconds"
+                    )
                 else:
                     if restore_time > self.MAX_RESTORE_TIME_SECONDS:
-                        result["message"] = f"Restore too slow: {restore_time:.2f}s > {self.MAX_RESTORE_TIME_SECONDS}s"
+                        result["message"] = (
+                            f"Restore too slow: {restore_time:.2f}s > {self.MAX_RESTORE_TIME_SECONDS}s"
+                        )
                     else:
-                        result["message"] = f"Incomplete restore: only {len(components_restored)} components"
-                        
+                        result["message"] = (
+                            f"Incomplete restore: only {len(components_restored)} components"
+                        )
+
         except Exception as e:
-            result["message"] = f"Restore procedure failed: {str(e)}"
+            result["message"] = f"Restore procedure failed: {e!s}"
 
         return result
 
-    async def _verify_backup_encryption(self) -> Dict[str, Any]:
+    async def _verify_backup_encryption(self) -> dict[str, Any]:
         """Verify backup encryption is configured.
-        
+
         Returns:
             Validation result for backup encryption
         """
@@ -255,7 +495,7 @@ class BackupValidator:
         # Check for restic configuration (which provides encryption)
         restic_config = self.genesis_root / ".restic"
         restic_password_file = self.genesis_root / ".restic.password"
-        
+
         if restic_config.exists() or restic_password_file.exists():
             result["encryption_type"] = "restic (AES-256)"
             result["passed"] = True
@@ -264,12 +504,14 @@ class BackupValidator:
             # Check for other encryption configurations
             backup_script = self.genesis_root / "scripts" / "backup.sh"
             if backup_script.exists():
-                with open(backup_script, "r") as f:
+                with open(backup_script) as f:
                     content = f.read()
                     if "gpg" in content or "openssl" in content or "restic" in content:
                         result["encryption_type"] = "Script-based encryption"
                         result["passed"] = True
-                        result["message"] = "Backup encryption detected in backup script"
+                        result["message"] = (
+                            "Backup encryption detected in backup script"
+                        )
                     else:
                         result["message"] = "No encryption found in backup script"
             else:
@@ -277,9 +519,9 @@ class BackupValidator:
 
         return result
 
-    async def _check_backup_schedule(self) -> Dict[str, Any]:
+    async def _check_backup_schedule(self) -> dict[str, Any]:
         """Check if backups are scheduled appropriately.
-        
+
         Returns:
             Validation result for backup schedule
         """
@@ -293,28 +535,42 @@ class BackupValidator:
         # Check for cron job or systemd timer
         crontab_check = await self._check_crontab()
         systemd_check = await self._check_systemd_timer()
-        
+
         if crontab_check or systemd_check:
             result["schedule_found"] = True
-            
+
             # Check for recent backups
             if self.backup_dir.exists():
-                backup_files = list(self.backup_dir.glob("*.tar.gz")) + list(self.backup_dir.glob("*.zip"))
+                backup_files = list(self.backup_dir.glob("*.tar.gz")) + list(
+                    self.backup_dir.glob("*.zip")
+                )
                 if backup_files:
                     most_recent = max(backup_files, key=lambda f: f.stat().st_mtime)
-                    last_backup_time = datetime.fromtimestamp(most_recent.stat().st_mtime)
+                    last_backup_time = datetime.fromtimestamp(
+                        most_recent.stat().st_mtime
+                    )
                     result["last_backup"] = last_backup_time.isoformat()
-                    
-                    hours_since_backup = (datetime.utcnow() - last_backup_time).total_seconds() / 3600
+
+                    hours_since_backup = (
+                        datetime.utcnow() - last_backup_time
+                    ).total_seconds() / 3600
                     if hours_since_backup <= self.BACKUP_FREQUENCY_HOURS:
                         result["passed"] = True
-                        result["message"] = f"Backups scheduled and recent (last: {hours_since_backup:.1f}h ago)"
+                        result["message"] = (
+                            f"Backups scheduled and recent (last: {hours_since_backup:.1f}h ago)"
+                        )
                     else:
-                        result["message"] = f"Backup schedule found but last backup was {hours_since_backup:.1f}h ago"
+                        result["message"] = (
+                            f"Backup schedule found but last backup was {hours_since_backup:.1f}h ago"
+                        )
                 else:
-                    result["message"] = "Backup schedule found but no backup files exist"
+                    result["message"] = (
+                        "Backup schedule found but no backup files exist"
+                    )
             else:
-                result["message"] = "Backup schedule found but backup directory doesn't exist"
+                result["message"] = (
+                    "Backup schedule found but backup directory doesn't exist"
+                )
         else:
             result["message"] = "No backup schedule found (cron or systemd)"
 
@@ -322,55 +578,64 @@ class BackupValidator:
 
     async def _check_crontab(self) -> bool:
         """Check if backup is scheduled in crontab.
-        
+
         Returns:
             True if backup job found in crontab
         """
         try:
             # Check user crontab
             process = await asyncio.create_subprocess_exec(
-                "crontab", "-l",
+                "crontab",
+                "-l",
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL
+                stderr=asyncio.subprocess.DEVNULL,
             )
             stdout, _ = await process.communicate()
-            
+
             if stdout:
                 crontab_content = stdout.decode()
-                if "backup" in crontab_content.lower() or "genesis" in crontab_content.lower():
+                if (
+                    "backup" in crontab_content.lower()
+                    or "genesis" in crontab_content.lower()
+                ):
                     return True
         except Exception:
             pass
-        
+
         return False
 
     async def _check_systemd_timer(self) -> bool:
         """Check if backup is scheduled as systemd timer.
-        
+
         Returns:
             True if backup timer found in systemd
         """
         try:
             # Check for genesis backup timer
             process = await asyncio.create_subprocess_exec(
-                "systemctl", "list-timers", "--all",
+                "systemctl",
+                "list-timers",
+                "--all",
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL
+                stderr=asyncio.subprocess.DEVNULL,
             )
             stdout, _ = await process.communicate()
-            
+
             if stdout:
                 timers_output = stdout.decode()
-                if "genesis" in timers_output.lower() and "backup" in timers_output.lower():
+                if (
+                    "genesis" in timers_output.lower()
+                    and "backup" in timers_output.lower()
+                ):
                     return True
         except Exception:
             pass
-        
+
         return False
 
-    async def _validate_offsite_storage(self) -> Dict[str, Any]:
+    async def _validate_offsite_storage(self) -> dict[str, Any]:
         """Validate offsite backup storage configuration.
-        
+
         Returns:
             Validation result for offsite storage
         """
@@ -383,36 +648,38 @@ class BackupValidator:
         # Check for DigitalOcean Spaces configuration
         env_file = self.genesis_root / ".env"
         if env_file.exists():
-            with open(env_file, "r") as f:
+            with open(env_file) as f:
                 env_content = f.read()
                 if "DO_SPACES" in env_content or "DIGITALOCEAN_SPACES" in env_content:
                     result["storage_type"] = "DigitalOcean Spaces"
                     result["passed"] = True
-                    result["message"] = "Offsite storage configured (DigitalOcean Spaces)"
+                    result["message"] = (
+                        "Offsite storage configured (DigitalOcean Spaces)"
+                    )
                 elif "AWS_S3" in env_content or "S3_BUCKET" in env_content:
                     result["storage_type"] = "AWS S3"
                     result["passed"] = True
                     result["message"] = "Offsite storage configured (AWS S3)"
-        
+
         # Check backup script for offsite storage
         if not result["passed"]:
             backup_script = self.genesis_root / "scripts" / "backup.sh"
             if backup_script.exists():
-                with open(backup_script, "r") as f:
+                with open(backup_script) as f:
                     content = f.read()
                     if "s3" in content or "spaces" in content or "rsync" in content:
                         result["storage_type"] = "Script-based offsite storage"
                         result["passed"] = True
                         result["message"] = "Offsite storage detected in backup script"
-        
+
         if not result["passed"]:
             result["message"] = "No offsite backup storage configured"
 
         return result
 
-    async def _check_backup_scripts(self) -> Dict[str, Any]:
+    async def _check_backup_scripts(self) -> dict[str, Any]:
         """Check backup scripts exist and are executable.
-        
+
         Returns:
             Validation result for backup scripts
         """
@@ -431,7 +698,7 @@ class BackupValidator:
         for script_name, script_path in required_scripts.items():
             if script_path.exists():
                 result["scripts_found"].append(script_name)
-                
+
                 # Check if script is executable
                 if not os.access(script_path, os.X_OK):
                     result["scripts_missing"].append(f"{script_name} (not executable)")
@@ -448,7 +715,7 @@ class BackupValidator:
 
     def generate_report(self) -> str:
         """Generate a detailed backup validation report.
-        
+
         Returns:
             Formatted report string
         """
@@ -460,32 +727,42 @@ class BackupValidator:
         report.append("BACKUP VALIDATION REPORT")
         report.append("=" * 80)
         report.append(f"Timestamp: {self.results['timestamp']}")
-        report.append(f"Overall Status: {'PASSED' if self.results['passed'] else 'FAILED'}")
+        report.append(
+            f"Overall Status: {'PASSED' if self.results['passed'] else 'FAILED'}"
+        )
         report.append(f"Score: {self.results['score']}%")
         report.append(f"Summary: {self.results['summary']}")
         report.append("")
 
         report.append("CHECK RESULTS:")
         report.append("-" * 40)
-        
+
         for check_name, check_result in self.results["checks"].items():
             status = "✓" if check_result.get("passed", False) else "✗"
             report.append(f"{status} {check_name}: {check_result.get('message', '')}")
-            
+
             # Add details
             if check_result.get("backup_size"):
-                report.append(f"  Backup size: {check_result['backup_size'] / 1024:.2f} KB")
+                report.append(
+                    f"  Backup size: {check_result['backup_size'] / 1024:.2f} KB"
+                )
             if check_result.get("restore_time"):
-                report.append(f"  Restore time: {check_result['restore_time']:.2f} seconds")
+                report.append(
+                    f"  Restore time: {check_result['restore_time']:.2f} seconds"
+                )
             if check_result.get("encryption_type"):
                 report.append(f"  Encryption: {check_result['encryption_type']}")
             if check_result.get("last_backup"):
                 report.append(f"  Last backup: {check_result['last_backup']}")
             if check_result.get("scripts_missing"):
-                report.append(f"  Missing scripts: {', '.join(check_result['scripts_missing'])}")
+                report.append(
+                    f"  Missing scripts: {', '.join(check_result['scripts_missing'])}"
+                )
 
         report.append("")
-        report.append(f"Execution Time: {self.results.get('execution_time', 0):.2f} seconds")
+        report.append(
+            f"Execution Time: {self.results.get('execution_time', 0):.2f} seconds"
+        )
         report.append("=" * 80)
 
         return "\n".join(report)

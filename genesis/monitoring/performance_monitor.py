@@ -48,6 +48,12 @@ class PerformanceMetrics:
     cpu_usage_gauge: Gauge
     goroutine_count_gauge: Gauge
     
+    # Memory profiling metrics
+    memory_growth_rate_gauge: Gauge
+    memory_leak_detected_gauge: Gauge
+    memory_leak_confidence_gauge: Gauge
+    memory_peak_usage_gauge: Gauge
+    
     # Risk metrics
     risk_check_latency: Histogram
     risk_check_counter: Counter
@@ -186,6 +192,28 @@ class PerformanceMonitor:
             goroutine_count_gauge=Gauge(
                 'genesis_goroutine_count',
                 'Number of active goroutines/tasks',
+                registry=self.registry
+            ),
+            
+            # Memory profiling metrics
+            memory_growth_rate_gauge=Gauge(
+                'genesis_memory_growth_rate_per_hour',
+                'Memory growth rate per hour',
+                registry=self.registry
+            ),
+            memory_leak_detected_gauge=Gauge(
+                'genesis_memory_leak_detected',
+                'Whether a memory leak has been detected (1=yes, 0=no)',
+                registry=self.registry
+            ),
+            memory_leak_confidence_gauge=Gauge(
+                'genesis_memory_leak_confidence',
+                'Confidence level of memory leak detection (0-1)',
+                registry=self.registry
+            ),
+            memory_peak_usage_gauge=Gauge(
+                'genesis_memory_peak_usage_bytes',
+                'Peak memory usage in bytes',
                 registry=self.registry
             ),
             
@@ -569,6 +597,19 @@ class PerformanceMonitor:
         self.metrics.memory_usage_gauge.labels(type="vms").set(memory_vms)
         self.metrics.cpu_usage_gauge.labels(core="total").set(cpu_percent)
         self.metrics.goroutine_count_gauge.set(task_count)
+    
+    async def update_memory_profiling_metrics(
+        self,
+        growth_rate: float,
+        leak_detected: bool,
+        leak_confidence: float,
+        peak_usage: int
+    ) -> None:
+        """Update memory profiling metrics."""
+        self.metrics.memory_growth_rate_gauge.set(growth_rate)
+        self.metrics.memory_leak_detected_gauge.set(1.0 if leak_detected else 0.0)
+        self.metrics.memory_leak_confidence_gauge.set(leak_confidence)
+        self.metrics.memory_peak_usage_gauge.set(peak_usage)
     
     async def update_business_metrics(
         self,

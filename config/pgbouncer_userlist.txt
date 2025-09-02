@@ -1,0 +1,21 @@
+# PgBouncer userlist file
+# Format: "username" "password_hash"
+# 
+# Generate MD5 hash: echo -n "passwordusername" | md5sum
+# For production, use strong passwords and rotate regularly
+#
+# Example users for Genesis Trading System
+# Password hashes are MD5(password + username)
+
+"genesis" "md5f7c3bc1d808e04732adf679965ccc34ca"
+"genesis_read" "md5b4b147bc522828731f1a016bfa72c073"
+"pgbouncer_admin" "md5d8578edf8458ce06fbc5bb76a58c5ca4"
+"pgbouncer_stats" "md5e99a18c428cb38d5f260853678922e03"
+
+# Application users
+"app_trading" "md54124bc0da9f8b5c4f0e8b5c7d4e2f3a"
+"app_analytics" "md5a87ff679a2f3e71d9181a67b7542122c"
+
+# Monitoring users
+"prometheus" "md5c4ca4238a0b923820dcc509a6f75849b"
+"grafana" "md5c81e728d9d4c2f636f067f89cc14862c"

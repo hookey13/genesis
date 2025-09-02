@@ -1,15 +1,22 @@
-"""Automated database backup management system."""
+"""Automated database backup management system with PostgreSQL support."""
 
 import asyncio
+import gzip
+import hashlib
+import os
 import shutil
 import sqlite3
 import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import structlog
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from genesis.backup.s3_client import BackupMetadata, S3Client
 from genesis.core.exceptions import BackupError
@@ -19,32 +26,43 @@ logger = structlog.get_logger(__name__)
 
 
 class BackupManager:
-    """Manages automated database backups with S3 storage."""
+    """Manages automated database backups with S3 storage and PostgreSQL support."""
 
     def __init__(
         self,
-        database_path: Path,
-        s3_client: S3Client,
-        local_backup_dir: Path,
-        backup_interval_hours: int = 4,
+        database_path: Path | None = None,
+        s3_client: S3Client | None = None,
+        local_backup_dir: Path | None = None,
+        backup_interval_minutes: int = 15,  # Changed to 15 minutes per requirements
         incremental_interval_minutes: int = 5,
-        enable_scheduler: bool = True
+        enable_scheduler: bool = True,
+        database_type: str = "sqlite",  # "sqlite" or "postgresql"
+        postgres_config: dict[str, Any] | None = None
     ):
         """Initialize backup manager.
         
         Args:
-            database_path: Path to SQLite database
+            database_path: Path to SQLite database (for SQLite mode)
             s3_client: S3 client for remote storage
             local_backup_dir: Local directory for staging backups
-            backup_interval_hours: Hours between full backups
+            backup_interval_minutes: Minutes between full backups (default 15)
             incremental_interval_minutes: Minutes between incremental backups
             enable_scheduler: Whether to enable automatic scheduling
+            database_type: Type of database ("sqlite" or "postgresql")
+            postgres_config: PostgreSQL connection configuration
         """
         self.database_path = database_path
-        self.s3_client = s3_client
-        self.local_backup_dir = local_backup_dir
-        self.backup_interval_hours = backup_interval_hours
+        self.s3_client = s3_client or S3Client()
+        self.local_backup_dir = local_backup_dir or Path("/tmp/genesis_backups")
+        self.backup_interval_minutes = backup_interval_minutes
         self.incremental_interval_minutes = incremental_interval_minutes
+        self.database_type = database_type
+        self.postgres_config = postgres_config or {}
+
+        # Encryption settings
+        self.encryption_enabled = True
+        self.compression_enabled = True
+        self.compression_level = 9  # Maximum compression
 
         # Create local backup directory
         self.local_backup_dir.mkdir(parents=True, exist_ok=True)
@@ -60,15 +78,20 @@ class BackupManager:
         self.last_incremental_backup: datetime | None = None
         self.backup_history: list[BackupMetadata] = []
 
+        # WAL archiving settings for PostgreSQL
+        self.wal_archive_dir = self.local_backup_dir / "wal_archive"
+        if self.database_type == "postgresql":
+            self.wal_archive_dir.mkdir(parents=True, exist_ok=True)
+
     def _setup_schedule(self) -> None:
         """Set up automated backup schedule."""
         if not self.scheduler:
             return
 
-        # Schedule full backups
+        # Schedule full backups every 15 minutes
         self.scheduler.add_job(
             self.create_full_backup,
-            IntervalTrigger(hours=self.backup_interval_hours),
+            IntervalTrigger(minutes=self.backup_interval_minutes),
             id="full_backup",
             name="Full Database Backup",
             replace_existing=True
@@ -94,8 +117,9 @@ class BackupManager:
 
         logger.info(
             "Backup schedule configured",
-            full_interval_hours=self.backup_interval_hours,
-            incremental_interval_minutes=self.incremental_interval_minutes
+            full_interval_minutes=self.backup_interval_minutes,
+            incremental_interval_minutes=self.incremental_interval_minutes,
+            database_type=self.database_type
         )
 
     def start(self) -> None:
@@ -120,23 +144,42 @@ class BackupManager:
         backup_id = str(uuid.uuid4())
         timestamp = datetime.utcnow()
 
-        logger.info("Starting full backup", backup_id=backup_id)
+        logger.info("Starting full backup", backup_id=backup_id, database_type=self.database_type)
 
         try:
-            # Create local backup file
-            backup_filename = f"genesis_full_{timestamp.strftime('%Y%m%d_%H%M%S')}.db"
-            local_backup_path = self.local_backup_dir / backup_filename
+            # Create local backup file based on database type
+            if self.database_type == "postgresql":
+                backup_filename = f"genesis_full_{timestamp.strftime('%Y%m%d_%H%M%S')}.dump"
+                local_backup_path = self.local_backup_dir / backup_filename
 
-            # Perform SQLite backup with WAL checkpoint
-            await self._backup_sqlite_database(
-                source_path=self.database_path,
-                destination_path=local_backup_path,
-                checkpoint=True
-            )
+                # Perform PostgreSQL backup with custom format for parallel restore
+                await self._backup_postgresql_database(
+                    destination_path=local_backup_path,
+                    format="custom",
+                    compress=False  # We'll compress after encryption
+                )
+            else:
+                backup_filename = f"genesis_full_{timestamp.strftime('%Y%m%d_%H%M%S')}.db"
+                local_backup_path = self.local_backup_dir / backup_filename
+
+                # Perform SQLite backup with WAL checkpoint
+                await self._backup_sqlite_database(
+                    source_path=self.database_path,
+                    destination_path=local_backup_path,
+                    checkpoint=True
+                )
+
+            # Apply encryption and compression if enabled
+            if self.encryption_enabled or self.compression_enabled:
+                local_backup_path = await self._encrypt_and_compress_backup(
+                    local_backup_path,
+                    encrypt=self.encryption_enabled,
+                    compress=self.compression_enabled
+                )
 
             # Calculate metadata
             file_stats = local_backup_path.stat()
-            checksum = await self.s3_client._calculate_checksum(local_backup_path)
+            checksum = await self._calculate_sha256_checksum(local_backup_path)
 
             metadata = BackupMetadata(
                 backup_id=backup_id,
@@ -146,7 +189,7 @@ class BackupManager:
                 database_version=await self._get_database_version(),
                 backup_type="full",
                 retention_policy=self._determine_retention_policy(timestamp),
-                source_path=str(self.database_path),
+                source_path=str(self.database_path) if self.database_path else self.postgres_config.get("database", "genesis"),
                 destination_key=""
             )
 
@@ -296,24 +339,236 @@ class BackupManager:
 
         await loop.run_in_executor(None, perform_backup)
 
+    async def _backup_postgresql_database(
+        self,
+        destination_path: Path,
+        format: str = "custom",
+        compress: bool = False
+    ) -> None:
+        """Perform PostgreSQL database backup using pg_dump.
+        
+        Args:
+            destination_path: Destination backup path
+            format: Backup format (custom, plain, directory)
+            compress: Whether to compress the backup
+        """
+        # Get database credentials from config or Vault
+        try:
+            from genesis.security.vault_manager import VaultManager
+            vault = VaultManager()
+            db_creds = await vault.get_database_credentials()
+            username = db_creds['username']
+            password = db_creds['password']
+        except Exception:
+            username = self.postgres_config.get('user', 'genesis')
+            password = self.postgres_config.get('password', '')
+
+        host = self.postgres_config.get('host', 'localhost')
+        port = self.postgres_config.get('port', 5432)
+        database = self.postgres_config.get('database', 'genesis_trading')
+
+        # Build pg_dump command
+        cmd = [
+            'pg_dump',
+            f'--host={host}',
+            f'--port={port}',
+            f'--username={username}',
+            f'--dbname={database}',
+            f'--format={format[0]}',  # c for custom, p for plain
+            '--verbose',
+            '--no-password',
+            f'--file={destination_path}'
+        ]
+
+        if compress and format == "custom":
+            cmd.append('--compress=9')
+
+        # Set PGPASSWORD environment variable
+        env = os.environ.copy()
+        env['PGPASSWORD'] = password
+
+        # Execute pg_dump
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+
+        stdout, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            raise BackupError(f"PostgreSQL backup failed: {error_msg}")
+
+        logger.info("PostgreSQL backup completed", destination=str(destination_path))
+
+    async def _setup_wal_archiving(self) -> None:
+        """Configure PostgreSQL WAL archiving for continuous backup."""
+        if self.database_type != "postgresql":
+            return
+
+        archive_command = f"test ! -f {self.wal_archive_dir}/%f && cp %p {self.wal_archive_dir}/%f"
+
+        # This would typically be configured in postgresql.conf
+        # For now, we'll document the required settings
+        logger.info(
+            "WAL archiving configuration required",
+            archive_mode="on",
+            archive_command=archive_command,
+            wal_level="replica"
+        )
+
+    async def _encrypt_and_compress_backup(
+        self,
+        file_path: Path,
+        encrypt: bool = True,
+        compress: bool = True
+    ) -> Path:
+        """Encrypt and compress backup file.
+        
+        Args:
+            file_path: Path to backup file
+            encrypt: Whether to encrypt
+            compress: Whether to compress
+            
+        Returns:
+            Path to processed file
+        """
+        processed_path = file_path
+
+        # Encryption
+        if encrypt:
+            try:
+                from genesis.security.vault_manager import VaultManager
+                vault = VaultManager()
+
+                # Get encryption key from Vault
+                encryption_key = await vault.get_encryption_key('backup')
+
+                encrypted_path = file_path.with_suffix(file_path.suffix + '.enc')
+
+                # Use AES-256 in CBC mode
+                iv = os.urandom(16)
+                cipher = Cipher(
+                    algorithms.AES(encryption_key),
+                    modes.CBC(iv),
+                    backend=default_backend()
+                )
+                encryptor = cipher.encryptor()
+
+                # Pad the data to AES block size
+                padder = padding.PKCS7(128).padder()
+
+                with open(file_path, 'rb') as infile, open(encrypted_path, 'wb') as outfile:
+                    # Write IV at the beginning
+                    outfile.write(iv)
+
+                    # Encrypt in chunks
+                    while True:
+                        chunk = infile.read(8192)
+                        if not chunk:
+                            break
+
+                        if len(chunk) < 8192:
+                            # Last chunk, apply padding
+                            padded_data = padder.update(chunk) + padder.finalize()
+                            encrypted_chunk = encryptor.update(padded_data) + encryptor.finalize()
+                        else:
+                            padded_data = padder.update(chunk)
+                            encrypted_chunk = encryptor.update(padded_data)
+
+                        outfile.write(encrypted_chunk)
+
+                # Remove original file
+                file_path.unlink()
+                processed_path = encrypted_path
+
+                logger.info("Backup encrypted", file=str(encrypted_path))
+
+            except Exception as e:
+                logger.warning(f"Encryption failed, using unencrypted backup: {e}")
+
+        # Compression
+        if compress:
+            compressed_path = processed_path.with_suffix(processed_path.suffix + '.gz')
+
+            with open(processed_path, 'rb') as f_in:
+                with gzip.open(compressed_path, 'wb', compresslevel=self.compression_level) as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+
+            # Remove uncompressed file
+            processed_path.unlink()
+            processed_path = compressed_path
+
+            logger.info("Backup compressed", file=str(compressed_path), compression_level=self.compression_level)
+
+        return processed_path
+
+    async def _calculate_sha256_checksum(self, file_path: Path) -> str:
+        """Calculate SHA256 checksum of a file.
+        
+        Args:
+            file_path: Path to file
+            
+        Returns:
+            Hex digest of SHA256 checksum
+        """
+        loop = asyncio.get_event_loop()
+        
+        def calculate_checksum():
+            sha256_hash = hashlib.sha256()
+            with open(file_path, "rb") as f:
+                for byte_block in iter(lambda: f.read(4096), b""):
+                    sha256_hash.update(byte_block)
+            return sha256_hash.hexdigest()
+        
+        return await loop.run_in_executor(None, calculate_checksum)
+
     async def _get_database_version(self) -> str:
         """Get database schema version.
         
         Returns:
             Version string
         """
-        loop = asyncio.get_event_loop()
-
-        def get_version():
-            conn = sqlite3.connect(str(self.database_path))
+        if self.database_type == "postgresql":
+            # For PostgreSQL, get version from migration table
             try:
-                cursor = conn.execute("PRAGMA user_version")
-                version = cursor.fetchone()[0]
-                return f"v{version}"
-            finally:
-                conn.close()
+                import asyncpg
+                conn = await asyncpg.connect(
+                    host=self.postgres_config.get('host', 'localhost'),
+                    port=self.postgres_config.get('port', 5432),
+                    user=self.postgres_config.get('user', 'genesis'),
+                    password=self.postgres_config.get('password', ''),
+                    database=self.postgres_config.get('database', 'genesis_trading')
+                )
 
-        return await loop.run_in_executor(None, get_version)
+                try:
+                    # Query alembic version table
+                    result = await conn.fetchval(
+                        "SELECT version_num FROM alembic_version LIMIT 1"
+                    )
+                    return f"v{result}" if result else "v0"
+                finally:
+                    await conn.close()
+
+            except Exception as e:
+                logger.warning(f"Could not get PostgreSQL version: {e}")
+                return "unknown"
+        else:
+            # SQLite version
+            loop = asyncio.get_event_loop()
+
+            def get_version():
+                conn = sqlite3.connect(str(self.database_path))
+                try:
+                    cursor = conn.execute("PRAGMA user_version")
+                    version = cursor.fetchone()[0]
+                    return f"v{version}"
+                finally:
+                    conn.close()
+
+            return await loop.run_in_executor(None, get_version)
 
     def _determine_retention_policy(self, timestamp: datetime) -> str:
         """Determine retention policy based on timestamp.
@@ -324,16 +579,19 @@ class BackupManager:
         Returns:
             Retention policy (hourly, daily, monthly, yearly)
         """
+        # Calculate hours between backups based on interval
+        backup_interval_hours = self.backup_interval_minutes / 60
+        
+        # First backup of the year -> yearly
+        if timestamp.month == 1 and timestamp.day == 1 and timestamp.hour < backup_interval_hours:
+            return "yearly"
+        
         # First backup of the month -> monthly
-        if timestamp.day == 1 and timestamp.hour < self.backup_interval_hours:
+        if timestamp.day == 1 and timestamp.hour < backup_interval_hours:
             return "monthly"
 
-        # First backup of the year -> yearly
-        if timestamp.month == 1 and timestamp.day == 1 and timestamp.hour < self.backup_interval_hours:
-            return "yearly"
-
         # First backup of the day -> daily
-        if timestamp.hour < self.backup_interval_hours:
+        if timestamp.hour < backup_interval_hours:
             return "daily"
 
         # Default to hourly

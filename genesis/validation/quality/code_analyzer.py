@@ -35,12 +35,16 @@ class CodeQualityAnalyzer:
         "mutable_defaults": re.compile(r"def\s+\w+\s*\([^)]*=\s*(\[\]|\{\})[^)]*\)"),
     }
 
-    # Anti-patterns to detect
+    # Anti-patterns to detect - especially critical for financial systems
     ANTI_PATTERNS = {
-        "float_for_money": re.compile(r"(price|amount|balance|cost|fee|total)\s*[:=]\s*\d+\.\d+"),
+        "float_for_money": re.compile(r"(price|amount|balance|cost|fee|total|pnl|profit|loss|value|usd|usdt)\s*[:=]\s*\d+\.\d+"),
         "missing_type_hints": re.compile(r"def\s+\w+\s*\([^)]*\)\s*(?!->)"),
         "no_docstring": re.compile(r"(def|class)\s+\w+[^:]*:\s*\n\s*(?![\"\'][\"\'][\"\'])"),
         "sync_io_in_async": re.compile(r"async\s+def.*\n.*(?:open|read|write)\s*\("),
+        "bare_await": re.compile(r"^\s*await\s+\w+\s*$", re.MULTILINE),  # Await without error handling
+        "no_idempotency_key": re.compile(r"place_order\([^)]*\)(?!.*client_order_id)"),  # Orders without idempotency
+        "direct_tier_modification": re.compile(r"tier\s*=\s*(?!self\.state_machine)"),  # Bypassing state machine
+        "hardcoded_limits": re.compile(r"(MAX_|LIMIT_|THRESHOLD_)\w*\s*=\s*\d+"),  # Hardcoded tier limits
     }
 
     def __init__(self, project_root: Optional[Path] = None):

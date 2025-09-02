@@ -1,17 +1,16 @@
 """SOC 2 Type II and regulatory compliance validation."""
 
-import asyncio
-import json
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
+
+from genesis.validation.base import Validator
 
 logger = structlog.get_logger(__name__)
 
 
-class ComplianceValidator:
+class ComplianceValidator(Validator):
     """Validates SOC 2 Type II and regulatory compliance requirements."""
 
     SOC2_REQUIREMENTS = {
@@ -120,9 +119,16 @@ class ComplianceValidator:
 
     def __init__(self):
         """Initialize compliance validator."""
+        super().__init__(
+            validator_id="SEC-003",
+            name="Compliance Validator",
+            description="Validates SOC 2 Type II and regulatory compliance requirements"
+        )
         self.compliance_status = {}
         self.audit_trail = []
         self.data_retention_days = 90
+        self.is_critical = True
+        self.timeout_seconds = 120
         self.required_documents = [
             "docs/security/security_policy.md",
             "docs/security/incident_response.md",
@@ -133,29 +139,29 @@ class ComplianceValidator:
             "docs/runbooks/backup_procedures.md",
         ]
 
-    async def validate(self) -> Dict[str, Any]:
+    async def validate(self) -> dict[str, Any]:
         """Run comprehensive compliance validation.
         
         Returns:
             Compliance validation results
         """
         logger.info("Starting SOC 2 compliance validation")
-        
+
         # Check SOC 2 requirements
         soc2_results = await self._validate_soc2_requirements()
-        
+
         # Check audit trail completeness
         audit_trail_results = await self._validate_audit_trail()
-        
+
         # Check data retention policy
         retention_results = await self._validate_data_retention()
-        
+
         # Check required documentation
         documentation_results = await self._validate_documentation()
-        
+
         # Check incident response capability
         incident_response_results = await self._validate_incident_response()
-        
+
         # Calculate compliance score
         total_checks = (
             soc2_results["total_checks"]
@@ -164,7 +170,7 @@ class ComplianceValidator:
             + documentation_results["total_documents"]
             + incident_response_results["checks"]
         )
-        
+
         passed_checks = (
             soc2_results["passed_checks"]
             + audit_trail_results["passed"]
@@ -172,10 +178,10 @@ class ComplianceValidator:
             + documentation_results["found_documents"]
             + incident_response_results["passed"]
         )
-        
+
         compliance_score = (passed_checks / total_checks * 100) if total_checks > 0 else 0
         passed = compliance_score >= 80  # 80% compliance threshold
-        
+
         return {
             "passed": passed,
             "compliance_score": compliance_score,
@@ -211,7 +217,7 @@ class ComplianceValidator:
             ),
         }
 
-    async def _validate_soc2_requirements(self) -> Dict[str, Any]:
+    async def _validate_soc2_requirements(self) -> dict[str, Any]:
         """Validate SOC 2 Type II requirements.
         
         Returns:
@@ -223,46 +229,46 @@ class ComplianceValidator:
             "passed_checks": 0,
             "failed_checks": [],
         }
-        
+
         for category, requirements in self.SOC2_REQUIREMENTS.items():
             category_results = {
                 "requirements": {},
                 "passed": 0,
                 "total": 0,
             }
-            
+
             for req_name, req_details in requirements.items():
                 req_passed = 0
                 req_total = len(req_details["checks"])
                 failed_checks = []
-                
+
                 for check in req_details["checks"]:
                     check_passed = await self._perform_soc2_check(category, req_name, check)
                     if check_passed:
                         req_passed += 1
                     else:
                         failed_checks.append(check)
-                
+
                 category_results["requirements"][req_name] = {
                     "description": req_details["description"],
                     "passed": req_passed,
                     "total": req_total,
                     "failed_checks": failed_checks,
                 }
-                
+
                 category_results["passed"] += req_passed
                 category_results["total"] += req_total
-            
+
             results["categories"][category] = category_results
             results["total_checks"] += category_results["total"]
             results["passed_checks"] += category_results["passed"]
-        
+
         results["compliance_percentage"] = (
             (results["passed_checks"] / results["total_checks"] * 100)
             if results["total_checks"] > 0
             else 0
         )
-        
+
         return results
 
     async def _perform_soc2_check(self, category: str, requirement: str, check: str) -> bool:
@@ -292,7 +298,7 @@ class ComplianceValidator:
             "patch_management": self._check_patch_management,
             "security_updates": self._check_security_updates,
             "penetration_testing": self._check_penetration_testing,
-            
+
             # Availability checks
             "uptime_monitoring": self._check_uptime_monitoring,
             "performance_metrics": self._check_performance_metrics,
@@ -302,7 +308,7 @@ class ComplianceValidator:
             "backup_testing": self._check_backup_testing,
             "recovery_procedures": self._check_recovery_procedures,
             "rto_rpo_defined": self._check_rto_rpo,
-            
+
             # Processing integrity checks
             "input_validation": self._check_input_validation,
             "output_verification": self._check_output_verification,
@@ -312,7 +318,7 @@ class ComplianceValidator:
             "testing_procedures": self._check_testing_procedures,
             "deployment_controls": self._check_deployment_controls,
             "rollback_procedures": self._check_rollback_procedures,
-            
+
             # Confidentiality checks
             "data_classification_policy": self._check_data_classification,
             "data_handling_procedures": self._check_data_handling,
@@ -322,18 +328,18 @@ class ComplianceValidator:
             "data_masking": self._check_data_masking,
             "audit_logging": self._check_audit_logging,
             "confidentiality_agreements": self._check_confidentiality_agreements,
-            
+
             # Privacy checks
             "privacy_policy": self._check_privacy_policy,
             "consent_management": self._check_consent_management,
             "data_minimization": self._check_data_minimization,
             "user_rights_management": self._check_user_rights,
         }
-        
+
         check_func = check_map.get(check)
         if check_func:
             return await check_func()
-        
+
         # Default to False for unimplemented checks
         logger.warning(f"SOC 2 check not implemented: {check}")
         return False
@@ -560,7 +566,7 @@ class ComplianceValidator:
         # Check for user rights implementation
         return Path("genesis/privacy/user_rights.py").exists()
 
-    async def _validate_audit_trail(self) -> Dict[str, Any]:
+    async def _validate_audit_trail(self) -> dict[str, Any]:
         """Validate audit trail completeness.
         
         Returns:
@@ -574,14 +580,14 @@ class ComplianceValidator:
             "system_events": False,
             "error_events": False,
         }
-        
+
         # Check for audit log files
         audit_dir = Path(".genesis/logs")
         if audit_dir.exists():
             audit_log = audit_dir / "audit.log"
             if audit_log.exists():
                 content = audit_log.read_text()
-                
+
                 # Check for various event types
                 audit_checks["authentication_events"] = "auth" in content.lower()
                 audit_checks["authorization_events"] = "permission" in content.lower()
@@ -589,10 +595,10 @@ class ComplianceValidator:
                 audit_checks["configuration_changes"] = "config" in content.lower()
                 audit_checks["system_events"] = "system" in content.lower()
                 audit_checks["error_events"] = "error" in content.lower()
-        
+
         passed_checks = sum(audit_checks.values())
         total_checks = len(audit_checks)
-        
+
         return {
             "complete": passed_checks == total_checks,
             "checks": total_checks,
@@ -603,7 +609,7 @@ class ComplianceValidator:
             ],
         }
 
-    async def _validate_data_retention(self) -> Dict[str, Any]:
+    async def _validate_data_retention(self) -> dict[str, Any]:
         """Validate data retention policy compliance.
         
         Returns:
@@ -616,32 +622,32 @@ class ComplianceValidator:
             "log_rotation": False,
             "data_archival": False,
         }
-        
+
         # Check for retention policy
         policy_file = Path("docs/security/data_retention.md")
         retention_checks["policy_defined"] = policy_file.exists()
-        
+
         # Check for automated deletion
         deletion_script = Path("scripts/data_cleanup.py")
         retention_checks["automated_deletion"] = deletion_script.exists()
-        
+
         # Check backup retention
         backup_config = Path("config/backup.yaml")
         if backup_config.exists():
             content = backup_config.read_text()
             retention_checks["backup_retention"] = "retention" in content.lower()
-        
+
         # Check log rotation
         logrotate_config = Path("/etc/logrotate.d/genesis")
         retention_checks["log_rotation"] = logrotate_config.exists()
-        
+
         # Check data archival
         archive_script = Path("scripts/archive_data.py")
         retention_checks["data_archival"] = archive_script.exists()
-        
+
         passed_checks = sum(retention_checks.values())
         total_checks = len(retention_checks)
-        
+
         return {
             "compliant": passed_checks >= 3,  # At least 3 of 5 checks
             "checks": total_checks,
@@ -650,7 +656,7 @@ class ComplianceValidator:
             "details": retention_checks,
         }
 
-    async def _validate_documentation(self) -> Dict[str, Any]:
+    async def _validate_documentation(self) -> dict[str, Any]:
         """Validate required compliance documentation.
         
         Returns:
@@ -658,14 +664,14 @@ class ComplianceValidator:
         """
         found_documents = []
         missing_documents = []
-        
+
         for doc_path in self.required_documents:
             doc_file = Path(doc_path)
             if doc_file.exists():
                 found_documents.append(doc_path)
             else:
                 missing_documents.append(doc_path)
-        
+
         return {
             "complete": len(missing_documents) == 0,
             "total_documents": len(self.required_documents),
@@ -674,7 +680,7 @@ class ComplianceValidator:
             "found": found_documents,
         }
 
-    async def _validate_incident_response(self) -> Dict[str, Any]:
+    async def _validate_incident_response(self) -> dict[str, Any]:
         """Validate incident response capability.
         
         Returns:
@@ -687,22 +693,22 @@ class ComplianceValidator:
             "communication_plan": False,
             "post_incident_review": False,
         }
-        
+
         # Check for incident response plan
         ir_plan = Path("docs/security/incident_response.md")
         if ir_plan.exists():
             ir_checks["incident_response_plan"] = True
             content = ir_plan.read_text()
-            
+
             # Check for specific sections
             ir_checks["contact_list"] = "contact" in content.lower()
             ir_checks["escalation_procedures"] = "escalation" in content.lower()
             ir_checks["communication_plan"] = "communication" in content.lower()
             ir_checks["post_incident_review"] = "post-incident" in content.lower() or "review" in content.lower()
-        
+
         passed_checks = sum(ir_checks.values())
         total_checks = len(ir_checks)
-        
+
         return {
             "ready": passed_checks == total_checks,
             "checks": total_checks,
@@ -710,7 +716,7 @@ class ComplianceValidator:
             "details": ir_checks,
         }
 
-    def _identify_compliance_gaps(self, *results) -> List[Dict[str, Any]]:
+    def _identify_compliance_gaps(self, *results) -> list[dict[str, Any]]:
         """Identify compliance gaps from validation results.
         
         Args:
@@ -720,7 +726,7 @@ class ComplianceValidator:
             List of compliance gaps
         """
         gaps = []
-        
+
         # Check SOC 2 gaps
         soc2_results = results[0]
         for category, cat_results in soc2_results["categories"].items():
@@ -732,7 +738,7 @@ class ComplianceValidator:
                         "gap": f"Failed checks: {', '.join(req_results['failed_checks'])}",
                         "severity": "high" if category == "security" else "medium",
                     })
-        
+
         # Check audit trail gaps
         audit_results = results[1]
         if not audit_results["complete"]:
@@ -743,7 +749,7 @@ class ComplianceValidator:
                 "gap": f"Missing event types: {', '.join(missing_events)}",
                 "severity": "high",
             })
-        
+
         # Check documentation gaps
         doc_results = results[3]
         if doc_results["missing_documents"]:
@@ -753,10 +759,10 @@ class ComplianceValidator:
                 "gap": f"Missing documents: {', '.join(doc_results['missing_documents'])}",
                 "severity": "medium",
             })
-        
+
         return gaps
 
-    def _generate_recommendations(self, *results) -> List[str]:
+    def _generate_recommendations(self, *results) -> list[str]:
         """Generate compliance recommendations.
         
         Args:
@@ -766,14 +772,14 @@ class ComplianceValidator:
             List of recommendations
         """
         recommendations = []
-        
+
         # SOC 2 recommendations
         soc2_results = results[0]
         if soc2_results["compliance_percentage"] < 100:
             recommendations.append(
                 f"Improve SOC 2 compliance from {soc2_results['compliance_percentage']:.1f}% to 100%"
             )
-            
+
             # Specific category recommendations
             for category, cat_results in soc2_results["categories"].items():
                 if cat_results["passed"] < cat_results["total"]:
@@ -781,30 +787,30 @@ class ComplianceValidator:
                         f"Address {cat_results['total'] - cat_results['passed']} "
                         f"failed checks in {category} category"
                     )
-        
+
         # Audit trail recommendations
         audit_results = results[1]
         if not audit_results["complete"]:
             recommendations.append("Implement comprehensive audit logging for all event types")
-        
+
         # Data retention recommendations
         retention_results = results[2]
         if not retention_results["compliant"]:
             recommendations.append("Implement automated data retention and deletion policies")
-        
+
         # Documentation recommendations
         doc_results = results[3]
         if doc_results["missing_documents"]:
             recommendations.append(
                 f"Create {len(doc_results['missing_documents'])} missing compliance documents"
             )
-        
+
         # Incident response recommendations
         ir_results = results[4]
         if not ir_results["ready"]:
             recommendations.append("Complete incident response plan with all required sections")
-        
+
         if not recommendations:
             recommendations.append("Maintain current compliance posture with regular reviews")
-        
+
         return recommendations

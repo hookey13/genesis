@@ -1,0 +1,48 @@
+# HashiCorp Vault Configuration for Genesis Trading Platform
+# This file contains the Docker Compose setup for Vault deployment
+# Use: docker-compose -f docker-compose.vault.yml up -d
+
+version: '3.8'
+
+services:
+  vault:
+    image: vault:1.15
+    container_name: genesis-vault
+    restart: unless-stopped
+    ports:
+      - "8200:8200"
+      - "8201:8201"
+    environment:
+      VAULT_ADDR: 'http://0.0.0.0:8200'
+      VAULT_API_ADDR: 'http://0.0.0.0:8200'
+      VAULT_LOCAL_CONFIG: |
+        {
+          "backend": {"file": {"path": "/vault/data"}},
+          "listener": {"tcp": {"address": "0.0.0.0:8200", "tls_disable": 1}},
+          "ui": true
+        }
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - ./vault/config:/vault/config:ro
+      - ./vault/data:/vault/data
+      - ./vault/logs:/vault/logs
+      - ./vault/policies:/vault/policies:ro
+    command: vault server -config=/vault/config/vault.hcl
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+networks:
+  genesis-network:
+    driver: bridge
+    name: genesis-network
+
+volumes:
+  vault-data:
+    driver: local

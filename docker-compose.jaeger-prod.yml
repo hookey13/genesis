@@ -1,0 +1,242 @@
+version: '3.8'
+
+# Production Jaeger deployment with TLS and security hardening
+services:
+  jaeger-collector:
+    image: jaegertracing/jaeger-collector:1.54
+    container_name: genesis-jaeger-collector
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=https://elasticsearch:9200
+      - ES_INDEX_PREFIX=genesis-traces
+      - ES_TAGS_AS_FIELDS_ALL=true
+      - ES_NUM_SHARDS=3
+      - ES_NUM_REPLICAS=1
+      - ES_TLS_ENABLED=true
+      - ES_TLS_CA=/certs/ca.crt
+      - ES_TLS_CERT=/certs/es-client.crt
+      - ES_TLS_KEY=/certs/es-client.key
+      - COLLECTOR_OTLP_ENABLED=true
+      - COLLECTOR_OTLP_GRPC_TLS_ENABLED=true
+      - COLLECTOR_OTLP_GRPC_TLS_CERT=/certs/otlp-grpc.crt
+      - COLLECTOR_OTLP_GRPC_TLS_KEY=/certs/otlp-grpc.key
+      - COLLECTOR_OTLP_HTTP_TLS_ENABLED=true
+      - COLLECTOR_OTLP_HTTP_TLS_CERT=/certs/otlp-http.crt
+      - COLLECTOR_OTLP_HTTP_TLS_KEY=/certs/otlp-http.key
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+      - LOG_LEVEL=info
+    ports:
+      - "4317:4317"    # OTLP gRPC (TLS)
+      - "4318:4318"    # OTLP HTTP (TLS)
+      - "14250:14250"  # Jaeger gRPC (TLS)
+      - "14268:14268"  # Jaeger HTTP (TLS)
+      - "14269:14269"  # Admin port (internal only)
+    volumes:
+      - ./certs:/certs:ro
+      - ./config/jaeger-tls.yml:/etc/jaeger/tls-config.yml:ro
+      - jaeger-collector-data:/data
+    depends_on:
+      - elasticsearch
+    restart: always
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  jaeger-query:
+    image: jaegertracing/jaeger-query:1.54
+    container_name: genesis-jaeger-query
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=https://elasticsearch:9200
+      - ES_INDEX_PREFIX=genesis-traces
+      - ES_TAGS_AS_FIELDS_ALL=true
+      - ES_TLS_ENABLED=true
+      - ES_TLS_CA=/certs/ca.crt
+      - ES_TLS_CERT=/certs/es-client.crt
+      - ES_TLS_KEY=/certs/es-client.key
+      - QUERY_MAX_CLOCK_SKEW_ADJUSTMENT=10s
+      - QUERY_BASE_PATH=/jaeger
+      - QUERY_UI_CONFIG=/etc/jaeger/ui-config.json
+      - QUERY_BEARER_TOKEN_PROPAGATION=true
+      - LOG_LEVEL=info
+    ports:
+      - "16686:16686"  # Jaeger UI (TLS)
+      - "16687:16687"  # Health check
+    volumes:
+      - ./certs:/certs:ro
+      - ./config/jaeger-ui-config.json:/etc/jaeger/ui-config.json:ro
+    depends_on:
+      - elasticsearch
+    restart: always
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16687/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    container_name: genesis-elasticsearch
+    environment:
+      - node.name=genesis-es-node
+      - cluster.name=genesis-traces
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
+      - xpack.security.enabled=true
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca.crt
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certs/elasticsearch.crt
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certs/elasticsearch.key
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca.crt
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/elasticsearch.crt
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/elasticsearch.key
+      - indices.query.bool.max_clause_count=8192
+      - bootstrap.memory_lock=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - jaeger-elastic-data:/usr/share/elasticsearch/data
+      - ./config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - ./certs:/usr/share/elasticsearch/config/certs:ro
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    restart: always
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "--cacert", "/usr/share/elasticsearch/config/certs/ca.crt", "-u", "elastic:${ELASTIC_PASSWORD:-changeme}", "https://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 4G
+        reservations:
+          cpus: '2'
+          memory: 2G
+    security_opt:
+      - no-new-privileges:true
+
+  # Jaeger agent for local development (optional, better performance)
+  jaeger-agent:
+    image: jaegertracing/jaeger-agent:1.54
+    container_name: genesis-jaeger-agent
+    command: [
+      "--reporter.grpc.host-port=jaeger-collector:14250",
+      "--reporter.grpc.tls.enabled=true",
+      "--reporter.grpc.tls.ca=/certs/ca.crt",
+      "--reporter.grpc.tls.cert=/certs/agent.crt",
+      "--reporter.grpc.tls.key=/certs/agent.key",
+      "--processor.jaeger-compact.server-host-port=0.0.0.0:6831",
+      "--processor.jaeger-binary.server-host-port=0.0.0.0:6832",
+      "--log-level=info"
+    ]
+    ports:
+      - "6831:6831/udp"  # Jaeger compact thrift protocol
+      - "6832:6832/udp"  # Jaeger binary thrift protocol
+      - "5778:5778"      # Serve configs
+      - "14271:14271"    # Admin port
+    volumes:
+      - ./certs:/certs:ro
+    depends_on:
+      - jaeger-collector
+    restart: always
+    networks:
+      - genesis-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+
+  # Elasticsearch curator for index management
+  curator:
+    image: bitnami/elasticsearch-curator:5.8.4
+    container_name: genesis-curator
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD:-changeme}
+      - ELASTICSEARCH_SSL_VERIFY=true
+      - ELASTICSEARCH_CA_CERTS=/certs/ca.crt
+    volumes:
+      - ./config/curator-actions.yml:/etc/curator/actions.yml:ro
+      - ./config/curator-config.yml:/etc/curator/config.yml:ro
+      - ./certs:/certs:ro
+    command: ["--config", "/etc/curator/config.yml", "/etc/curator/actions.yml"]
+    depends_on:
+      - elasticsearch
+    networks:
+      - genesis-network
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 24h  # Run daily
+
+volumes:
+  jaeger-elastic-data:
+    driver: local
+  jaeger-collector-data:
+    driver: local
+
+networks:
+  genesis-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24

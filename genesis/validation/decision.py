@@ -11,6 +11,7 @@ from typing import Any
 
 import structlog
 
+from genesis.validation.auth import get_auth_manager
 from genesis.validation.orchestrator import ValidationCheck, ValidationReport
 
 logger = structlog.get_logger(__name__)
@@ -93,12 +94,6 @@ class DecisionEngine:
         DeploymentTarget.PRODUCTION: 95.0
     }
 
-    # Authorized users for overrides (in production, this would be from a secure config)
-    AUTHORIZED_USERS = {
-        "admin": "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5",  # SHA256 of "12345"
-        "lead_dev": "a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3",  # SHA256 of "123"
-    }
-
     def __init__(self, genesis_root: Path | None = None):
         """Initialize decision engine.
         
@@ -108,6 +103,9 @@ class DecisionEngine:
         self.genesis_root = genesis_root or Path.cwd()
         self.audit_log_path = self.genesis_root / ".genesis" / "audit.log"
         self.audit_log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Use the production-grade authentication manager
+        self.auth_manager = get_auth_manager(genesis_root)
 
     def make_decision(
         self,
@@ -163,7 +161,8 @@ class DecisionEngine:
         decision: GoLiveDecision,
         override_reason: str,
         username: str,
-        password: str
+        password: str,
+        ip_address: str | None = None
     ) -> GoLiveDecision:
         """Apply manual override to decision.
         
@@ -172,6 +171,7 @@ class DecisionEngine:
             override_reason: Reason for override
             username: Username requesting override
             password: Password for authorization
+            ip_address: Client IP address for rate limiting
             
         Returns:
             Updated decision with override
@@ -179,14 +179,36 @@ class DecisionEngine:
         Raises:
             UnauthorizedError: If user is not authorized
         """
-        # Validate authorization
-        if not self._validate_authorization(username, password):
+        # Authenticate user with production-grade auth system
+        auth_success, auth_message = self.auth_manager.authenticate(
+            username=username,
+            password=password,
+            ip_address=ip_address
+        )
+
+        if not auth_success:
             logger.warning(
-                "Unauthorized override attempt",
+                "Override authentication failed",
                 username=username,
+                message=auth_message,
                 decision_id=id(decision)
             )
-            raise UnauthorizedError(f"User {username} not authorized for override")
+            raise UnauthorizedError(f"Authentication failed: {auth_message}")
+
+        # Check authorization for override operation
+        auth_granted, auth_message = self.auth_manager.authorize(
+            username=username,
+            operation="override_deployment"
+        )
+
+        if not auth_granted:
+            logger.warning(
+                "Override authorization denied",
+                username=username,
+                message=auth_message,
+                decision_id=id(decision)
+            )
+            raise UnauthorizedError(f"Authorization denied: {auth_message}")
 
         # Create override
         override = Override(
@@ -499,22 +521,6 @@ class DecisionEngine:
 
         return warnings
 
-    def _validate_authorization(self, username: str, password: str) -> bool:
-        """Validate user authorization for override.
-        
-        Args:
-            username: Username
-            password: Password
-            
-        Returns:
-            True if authorized
-        """
-        if username not in self.AUTHORIZED_USERS:
-            return False
-
-        # Hash the password and compare
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
-        return self.AUTHORIZED_USERS[username] == password_hash
 
     def _generate_auth_code(self, username: str, reason: str) -> str:
         """Generate authorization code for audit trail.

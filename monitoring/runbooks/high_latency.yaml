@@ -1,0 +1,101 @@
+# Runbook for handling high latency alerts
+name: high_latency_remediation
+description: Automated response to high latency alerts in trading API
+author: Operations Team
+version: "1.0"
+
+trigger:
+  alert_name: HighLatency
+  severity: warning
+
+conditions:
+  - metric: genesis_order_latency_seconds
+    operator: ">"
+    value: 0.5
+  - metric: service
+    operator: "=="
+    value: trading_api
+
+execution_mode: automatic  # Can be: dry_run, manual, automatic, approval_required
+max_executions_per_hour: 5
+
+tags:
+  - performance
+  - latency
+  - trading
+
+actions:
+  # Step 1: Scale up worker pool
+  - name: scale_workers
+    type: scale_service
+    description: Increase worker pool size to handle load
+    timeout_seconds: 30
+    safe_for_auto: true
+    requires_confirmation: false
+    success_criteria:
+      status: success
+
+  # Step 2: Clear connection pool
+  - name: clear_connection_pool
+    type: http
+    description: Clear stale database connections
+    url: http://localhost:8000/api/admin/connection-pool/clear
+    method: POST
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+    success_criteria:
+      status_code: 200
+
+  # Step 3: Clear application cache
+  - name: clear_cache
+    type: clear_cache
+    description: Clear application cache to free memory
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 4: Wait for stabilization
+  - name: wait_for_stabilization
+    type: wait
+    description: Wait for system to stabilize
+    timeout_seconds: 30
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 5: Check metrics
+  - name: verify_improvement
+    type: http
+    description: Verify latency has improved
+    url: http://localhost:8000/api/metrics/performance
+    method: GET
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+    success_criteria:
+      status_code: 200
+
+  # Step 6: Send notification
+  - name: notify_team
+    type: notification
+    description: Notify team of remediation actions
+    payload:
+      channel: slack
+      message: "Auto-remediation executed for high latency. Workers scaled, cache cleared."
+    timeout_seconds: 5
+    safe_for_auto: true
+    requires_confirmation: false
+
+rollback_actions:
+  - name: scale_workers_down
+    type: scale_service
+    description: Scale workers back to normal level
+    timeout_seconds: 30
+
+  - name: notify_rollback
+    type: notification
+    description: Notify team of rollback
+    payload:
+      channel: slack
+      message: "Runbook remediation failed. Rolled back changes."
+    timeout_seconds: 5

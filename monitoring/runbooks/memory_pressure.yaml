@@ -1,0 +1,125 @@
+# Runbook for handling memory pressure
+name: memory_pressure_mitigation
+description: Automated response to high memory usage alerts
+author: Infrastructure Team
+version: "1.0"
+
+trigger:
+  alert_name: HighMemoryUsage
+  severity: warning
+
+conditions:
+  - metric: memory_usage_percent
+    operator: ">"
+    value: 85
+  - metric: service
+    operator: "in"
+    value: ["trading_api", "order_executor", "websocket_gateway"]
+
+execution_mode: automatic
+max_executions_per_hour: 10
+
+tags:
+  - memory
+  - performance
+  - infrastructure
+
+actions:
+  # Step 1: Force garbage collection
+  - name: force_gc
+    type: http
+    description: Force garbage collection in Python application
+    url: http://localhost:8000/api/profile/gc/force
+    method: POST
+    timeout_seconds: 30
+    safe_for_auto: true
+    requires_confirmation: false
+    success_criteria:
+      status: success
+
+  # Step 2: Clear application caches
+  - name: clear_all_caches
+    type: shell
+    description: Clear all application-level caches
+    command: |
+      curl -X POST http://localhost:8000/api/admin/cache/clear-all
+      redis-cli FLUSHDB
+    timeout_seconds: 20
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 3: Restart memory-intensive workers
+  - name: restart_workers
+    type: shell
+    description: Restart background workers to free memory
+    command: |
+      supervisorctl restart worker:*
+    timeout_seconds: 60
+    safe_for_auto: false
+    requires_confirmation: true
+
+  # Step 4: Enable memory profiling
+  - name: enable_profiling
+    type: http
+    description: Enable memory profiling for diagnostics
+    url: http://localhost:8000/api/profile/memory/start
+    method: POST
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 5: Wait and check
+  - name: wait_and_monitor
+    type: wait
+    description: Wait for memory to stabilize
+    timeout_seconds: 60
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 6: Get memory profile
+  - name: get_memory_profile
+    type: http
+    description: Retrieve memory profile for analysis
+    url: http://localhost:8000/api/profile/memory
+    method: GET
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+
+  # Step 7: Scale horizontally if needed
+  - name: scale_horizontally
+    type: kubernetes
+    description: Add additional pod if memory still high
+    command: |
+      kubectl scale deployment trading-engine --replicas=+1
+    timeout_seconds: 120
+    safe_for_auto: false
+    requires_confirmation: true
+
+  # Step 8: Create incident
+  - name: create_incident
+    type: notification
+    description: Create incident for tracking
+    payload:
+      channel: pagerduty
+      severity: warning
+      message: "Memory pressure detected and mitigated. Review memory profile for root cause."
+      create_incident: true
+    timeout_seconds: 10
+    safe_for_auto: true
+    requires_confirmation: false
+
+rollback_actions:
+  - name: stop_profiling
+    type: http
+    description: Stop memory profiling
+    url: http://localhost:8000/api/profile/memory/stop
+    method: POST
+    timeout_seconds: 10
+
+  - name: scale_down
+    type: kubernetes
+    description: Scale back to original replica count
+    command: |
+      kubectl scale deployment trading-engine --replicas=-1
+    timeout_seconds: 120

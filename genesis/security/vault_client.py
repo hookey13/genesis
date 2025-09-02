@@ -1,607 +1,564 @@
-"""HashiCorp Vault client for secure secrets management.
-
-This module provides integration with HashiCorp Vault for production secrets
-management with caching, TTL management, and fallback to environment variables
-for local development. Enhanced to use the new SecretsManager infrastructure.
+"""
+HashiCorp Vault Client for Genesis Trading Platform
+Provides secure secret management and dynamic credential generation
 """
 
 import os
-from dataclasses import dataclass
+import json
+import time
+import logging
+from typing import Optional, Dict, Any, List, Tuple
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Optional, Dict, List
+from decimal import Decimal
 import asyncio
+from functools import lru_cache
+import hvac
+from hvac.exceptions import VaultError, InvalidPath, Forbidden
 
 import structlog
-
-from genesis.security.secrets_manager import SecretsManager, SecretBackend
-from genesis.security.api_key_rotation import APIKeyRotationManager, APIKeySet
 
 logger = structlog.get_logger(__name__)
 
 
 @dataclass
-class SecretCache:
-    """Cache entry for a secret with TTL management."""
+class VaultConfig:
+    """Vault configuration settings"""
+    url: str = field(default_factory=lambda: os.getenv('VAULT_ADDR', 'http://localhost:8200'))
+    token: Optional[str] = field(default_factory=lambda: os.getenv('VAULT_TOKEN'))
+    namespace: Optional[str] = field(default_factory=lambda: os.getenv('VAULT_NAMESPACE', 'genesis'))
+    timeout: int = 30
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    cache_ttl: int = 300  # 5 minutes
+    verify_ssl: bool = field(default_factory=lambda: os.getenv('VAULT_VERIFY_SSL', 'true').lower() == 'true')
 
-    value: Any
-    fetched_at: datetime
-    ttl_seconds: int
 
-    def is_expired(self) -> bool:
-        """Check if the cached secret has expired."""
-        elapsed = datetime.now() - self.fetched_at
-        return elapsed.total_seconds() > self.ttl_seconds
+@dataclass
+class DatabaseCredentials:
+    """Dynamic database credentials from Vault"""
+    username: str
+    password: str
+    ttl: int
+    lease_id: str
+    expires_at: datetime
+
+
+@dataclass
+class EncryptedData:
+    """Encrypted data response from Transit engine"""
+    ciphertext: str
+    key_version: int
+    encryption_context: Optional[Dict[str, str]] = None
 
 
 class VaultClient:
-    """Enhanced Vault client using the new SecretsManager infrastructure.
-    
-    Provides secure secret retrieval with multi-backend support, runtime injection,
-    and seamless integration with API key rotation system.
     """
-
-    DEFAULT_TTL = 3600  # 1 hour default TTL for cached secrets
-
-    # Secret paths in Vault
-    EXCHANGE_API_KEYS_PATH = "/genesis/exchange/api-keys"
-    DATABASE_ENCRYPTION_KEY_PATH = "/genesis/database/encryption-key"
-    TLS_CERTIFICATES_PATH = "/genesis/tls/certificates"
-    BACKUP_ENCRYPTION_KEY_PATH = "/genesis/backup/encryption-key"
-
-    def __init__(
-        self,
-        vault_url: str | None = None,
-        vault_token: str | None = None,
-        use_vault: bool = True,
-        cache_ttl: int = DEFAULT_TTL,
-        backend_type: Optional[SecretBackend] = None,
-        enable_rotation: bool = True
-    ):
-        """Initialize the enhanced Vault client with SecretsManager.
-        
-        Args:
-            vault_url: URL of the Vault server (e.g., https://vault.example.com:8200)
-            vault_token: Authentication token for Vault
-            use_vault: Whether to use Vault (False for local development)
-            cache_ttl: Default TTL for cached secrets in seconds
-            backend_type: Override backend type (Vault, AWS, Local)
-            enable_rotation: Enable API key rotation manager
-        """
-        self.vault_url = vault_url or os.environ.get("GENESIS_VAULT_URL")
-        self.vault_token = vault_token or os.environ.get("GENESIS_VAULT_TOKEN")
-        self.use_vault = use_vault and bool(self.vault_url and self.vault_token)
-        self.cache_ttl = cache_ttl
-        self._cache: dict[str, SecretCache] = {}
-        
-        # Determine backend type
-        if backend_type:
-            self.backend_type = backend_type
-        elif self.use_vault:
-            self.backend_type = SecretBackend.VAULT
-        elif os.environ.get("AWS_REGION"):
-            self.backend_type = SecretBackend.AWS
-        else:
-            self.backend_type = SecretBackend.LOCAL
-        
-        # Initialize SecretsManager with appropriate backend
-        self._init_secrets_manager()
-        
-        # Initialize API key rotation manager if enabled
-        self.rotation_manager = None
-        if enable_rotation:
-            self._init_rotation_manager()
-        
-        # Runtime secret injection storage
-        self._runtime_secrets: Dict[str, Any] = {}
-        
-        logger.info(
-            "Enhanced Vault client initialized",
-            backend=self.backend_type.value,
-            rotation_enabled=enable_rotation
-        )
+    Thread-safe Vault client with caching and retry logic
+    """
     
-    def _init_secrets_manager(self):
-        """Initialize the SecretsManager with appropriate backend."""
-        config = {}
+    def __init__(self, config: Optional[VaultConfig] = None):
+        """Initialize Vault client with configuration"""
+        self.config = config or VaultConfig()
+        self._client: Optional[hvac.Client] = None
+        self._cache: Dict[str, Tuple[Any, float]] = {}
+        self._credentials_cache: Dict[str, DatabaseCredentials] = {}
+        self._lock = asyncio.Lock()
+        self._initialize_client()
         
-        if self.backend_type == SecretBackend.VAULT:
-            config = {
-                "vault_url": self.vault_url,
-                "vault_token": self.vault_token,
-                "mount_point": "secret"
-            }
-        elif self.backend_type == SecretBackend.AWS:
-            config = {
-                "aws_region": os.environ.get("AWS_REGION", "us-east-1")
-            }
-        
-        self.secrets_manager = SecretsManager(
-            backend=self.backend_type,
-            config=config
-        )
-    
-    def _init_rotation_manager(self):
-        """Initialize the API key rotation manager."""
+    def _initialize_client(self) -> None:
+        """Initialize the HVAC client"""
         try:
-            self.rotation_manager = APIKeyRotationManager(
-                secrets_manager=self.secrets_manager,
-                exchange_api=None,  # Will be set by application
-                verification_callback=None  # Will be set by application
+            self._client = hvac.Client(
+                url=self.config.url,
+                token=self.config.token,
+                namespace=self.config.namespace,
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl
             )
             
-            # Initialize with existing keys
-            asyncio.create_task(self.rotation_manager.initialize())
-            
+            # Verify authentication
+            if not self._client.is_authenticated():
+                raise VaultError("Failed to authenticate with Vault")
+                
+            logger.info("Vault client initialized", 
+                       vault_url=self.config.url,
+                       namespace=self.config.namespace)
+                       
         except Exception as e:
-            logger.error("Failed to initialize rotation manager", error=str(e))
-            self.rotation_manager = None
+            logger.error("Failed to initialize Vault client", error=str(e))
+            raise
     
-    def inject_runtime_secret(self, path: str, value: Any):
+    @property
+    def client(self) -> hvac.Client:
+        """Get the HVAC client, reinitializing if necessary"""
+        if not self._client or not self._client.is_authenticated():
+            self._initialize_client()
+        return self._client
+    
+    def _is_cache_valid(self, timestamp: float) -> bool:
+        """Check if cached data is still valid"""
+        return (time.time() - timestamp) < self.config.cache_ttl
+    
+    def _retry_operation(self, operation, *args, **kwargs) -> Any:
+        """Execute operation with retry logic"""
+        last_error = None
+        
+        for attempt in range(self.config.max_retries):
+            try:
+                return operation(*args, **kwargs)
+            except (VaultError, ConnectionError) as e:
+                last_error = e
+                if attempt < self.config.max_retries - 1:
+                    logger.warning(f"Vault operation failed, retrying...", 
+                                 attempt=attempt + 1,
+                                 error=str(e))
+                    time.sleep(self.config.retry_delay * (2 ** attempt))
+                    
+                    # Reinitialize client on connection errors
+                    if isinstance(e, ConnectionError):
+                        self._initialize_client()
+        
+        logger.error("Vault operation failed after retries", 
+                    error=str(last_error))
+        raise last_error
+    
+    # Secret Management Methods
+    
+    def get_secret(self, path: str, key: Optional[str] = None) -> Any:
         """
-        Inject a secret at runtime without code changes.
+        Get secret from KV-v2 engine
+        
+        Args:
+            path: Secret path (e.g., 'app/config')
+            key: Optional specific key from secret
+            
+        Returns:
+            Secret value or entire secret dict
+        """
+        cache_key = f"secret:{path}:{key}"
+        
+        # Check cache
+        if cache_key in self._cache:
+            value, timestamp = self._cache[cache_key]
+            if self._is_cache_valid(timestamp):
+                logger.debug("Returning cached secret", path=path, key=key)
+                return value
+        
+        try:
+            # Read from Vault
+            response = self._retry_operation(
+                self.client.secrets.kv.v2.read_secret_version,
+                mount_point='genesis-secrets',
+                path=path
+            )
+            
+            data = response['data']['data']
+            
+            # Extract specific key if requested
+            if key:
+                value = data.get(key)
+                if value is None:
+                    raise KeyError(f"Key '{key}' not found in secret '{path}'")
+            else:
+                value = data
+            
+            # Update cache
+            self._cache[cache_key] = (value, time.time())
+            
+            logger.info("Secret retrieved", path=path, key=key)
+            return value
+            
+        except InvalidPath:
+            logger.error("Secret not found", path=path)
+            raise
+        except Forbidden:
+            logger.error("Access denied to secret", path=path)
+            raise
+    
+    def put_secret(self, path: str, data: Dict[str, Any]) -> None:
+        """
+        Store secret in KV-v2 engine
         
         Args:
             path: Secret path
-            value: Secret value to inject
+            data: Secret data dictionary
         """
-        self._runtime_secrets[path] = value
-        logger.info("Runtime secret injected", path=path)
-
-    async def get_secret_async(
-        self,
-        path: str,
-        key: str | None = None,
-        ttl: int | None = None,
-        force_refresh: bool = False
-    ) -> str | dict[str, Any] | None:
-        """
-        Async version using SecretsManager for enhanced functionality.
-        
-        Args:
-            path: Path to the secret
-            key: Specific key within the secret
-            ttl: Custom TTL for caching
-            force_refresh: Force refresh from backend
-        
-        Returns:
-            Secret value or None
-        """
-        # Check runtime injected secrets first
-        if path in self._runtime_secrets:
-            runtime_value = self._runtime_secrets[path]
-            if key and isinstance(runtime_value, dict):
-                return runtime_value.get(key)
-            return runtime_value
-        
-        # Use SecretsManager for retrieval
-        secret = await self.secrets_manager.get_secret(
-            path,
-            use_cache=not force_refresh,
-            fallback_to_env=True
-        )
-        
-        if secret and key:
-            return secret.get(key)
-        
-        return secret
-
-    def get_secret(
-        self,
-        path: str,
-        key: str | None = None,
-        ttl: int | None = None,
-        force_refresh: bool = False
-    ) -> str | dict[str, Any] | None:
-        """Enhanced secret retrieval with multi-backend support.
-        
-        Synchronous wrapper around async functionality for backward compatibility.
-        
-        Args:
-            path: Path to the secret in Vault
-            key: Specific key within the secret to retrieve
-            ttl: Custom TTL for this secret (seconds)
-            force_refresh: Force refresh from Vault, bypassing cache
-            
-        Returns:
-            The secret value or None if not found
-        """
-        # Check runtime injected secrets first
-        if path in self._runtime_secrets:
-            runtime_value = self._runtime_secrets[path]
-            if key and isinstance(runtime_value, dict):
-                return runtime_value.get(key)
-            return runtime_value
-        
-        # Try to get existing event loop
         try:
-            loop = asyncio.get_running_loop()
-            # We're in an async context, create task
-            future = asyncio.create_task(
-                self.get_secret_async(path, key, ttl, force_refresh)
+            self._retry_operation(
+                self.client.secrets.kv.v2.create_or_update_secret,
+                mount_point='genesis-secrets',
+                path=path,
+                secret=data
             )
-            # Can't await in sync function, fallback to old method
-            cache_key = f"{path}:{key}" if key else path
-
-            # Check cache unless force refresh
-            if not force_refresh and cache_key in self._cache:
-                cache_entry = self._cache[cache_key]
-                if not cache_entry.is_expired():
-                    logger.debug("Returning cached secret", path=path, key=key)
-                    return cache_entry.value
-
-            # Fetch from Vault or environment
-            if self.use_vault:
-                secret_value = self._fetch_from_vault(path, key)
-            else:
-                secret_value = self._fetch_from_environment(path, key)
-
-            # Cache the secret if found
-            if secret_value is not None:
-                ttl_seconds = ttl or self.cache_ttl
-                self._cache[cache_key] = SecretCache(
-                    value=secret_value,
-                    fetched_at=datetime.now(),
-                    ttl_seconds=ttl_seconds
-                )
-                logger.debug("Cached secret", path=path, key=key, ttl=ttl_seconds)
-
-            return secret_value
             
-        except RuntimeError:
-            # No event loop, use sync version
-            cache_key = f"{path}:{key}" if key else path
-
-            # Check cache unless force refresh
-            if not force_refresh and cache_key in self._cache:
-                cache_entry = self._cache[cache_key]
-                if not cache_entry.is_expired():
-                    logger.debug("Returning cached secret", path=path, key=key)
-                    return cache_entry.value
-
-            # Fetch from Vault or environment
-            if self.use_vault:
-                secret_value = self._fetch_from_vault(path, key)
-            else:
-                secret_value = self._fetch_from_environment(path, key)
-
-            # Cache the secret if found
-            if secret_value is not None:
-                ttl_seconds = ttl or self.cache_ttl
-                self._cache[cache_key] = SecretCache(
-                    value=secret_value,
-                    fetched_at=datetime.now(),
-                    ttl_seconds=ttl_seconds
-                )
-                logger.debug("Cached secret", path=path, key=key, ttl=ttl_seconds)
-
-            return secret_value
-
-    def _fetch_from_vault(self, path: str, key: str | None = None) -> Any | None:
-        """Fetch a secret from HashiCorp Vault.
-        
-        Args:
-            path: Path to the secret in Vault
-            key: Specific key within the secret
-            
-        Returns:
-            The secret value or None if not found
-        """
-        if not self.client:
-            return None
-
-        try:
-            # Remove leading slash if present for hvac compatibility
-            vault_path = path.lstrip('/')
-
-            # Read secret from Vault (KV v2 secrets engine)
-            response = self.client.secrets.kv.v2.read_secret_version(
-                path=vault_path,
-                mount_point='secret'
-            )
-
-            if response and 'data' in response and 'data' in response['data']:
-                secret_data = response['data']['data']
-
-                if key:
-                    return secret_data.get(key)
-                return secret_data
-
-            logger.warning("Secret not found in Vault", path=path, key=key)
-            return None
-
-        except Exception as e:
-            logger.error("Failed to fetch secret from Vault", path=path, key=key, error=str(e))
-            return None
-
-    def _fetch_from_environment(self, path: str, key: str | None = None) -> str | None:
-        """Fetch a secret from environment variables (fallback for development).
-        
-        Args:
-            path: Path to map to environment variable
-            key: Specific key within the secret
-            
-        Returns:
-            The secret value or None if not found
-        """
-        # Map Vault paths to environment variables
-        env_mapping = {
-            self.EXCHANGE_API_KEYS_PATH: {
-                "api_key": "BINANCE_API_KEY",
-                "api_secret": "BINANCE_API_SECRET",
-                "api_key_read": "BINANCE_API_KEY_READ",
-                "api_secret_read": "BINANCE_API_SECRET_READ"
-            },
-            self.DATABASE_ENCRYPTION_KEY_PATH: {
-                "key": "DATABASE_ENCRYPTION_KEY"
-            },
-            self.TLS_CERTIFICATES_PATH: {
-                "cert": "TLS_CERT_PATH",
-                "key": "TLS_KEY_PATH",
-                "ca": "TLS_CA_PATH"
-            },
-            self.BACKUP_ENCRYPTION_KEY_PATH: {
-                "key": "BACKUP_ENCRYPTION_KEY"
-            }
-        }
-
-        if path in env_mapping:
-            if key and key in env_mapping[path]:
-                env_var = env_mapping[path][key]
-                value = os.environ.get(env_var)
-                if value:
-                    logger.debug("Retrieved secret from environment", env_var=env_var)
-                return value
-            elif not key:
-                # Return all keys for this path
-                result = {}
-                for k, env_var in env_mapping[path].items():
-                    value = os.environ.get(env_var)
-                    if value:
-                        result[k] = value
-                return result if result else None
-
-        logger.warning("Secret not found in environment", path=path, key=key)
-        return None
-
-    def get_exchange_api_keys(self, read_only: bool = False) -> dict[str, str] | None:
-        """Get exchange API keys from Vault.
-        
-        Args:
-            read_only: Whether to get read-only keys
-            
-        Returns:
-            Dictionary with 'api_key' and 'api_secret' or None
-        """
-        keys = self.get_secret(self.EXCHANGE_API_KEYS_PATH)
-        if not keys:
-            return None
-
-        if read_only:
-            return {
-                "api_key": keys.get("api_key_read"),
-                "api_secret": keys.get("api_secret_read")
-            }
-        else:
-            return {
-                "api_key": keys.get("api_key"),
-                "api_secret": keys.get("api_secret")
-            }
-
-    def get_database_encryption_key(self) -> str | None:
-        """Get database encryption key from Vault.
-        
-        Returns:
-            The encryption key or None
-        """
-        return self.get_secret(self.DATABASE_ENCRYPTION_KEY_PATH, key="key")
-
-    def get_backup_encryption_key(self) -> str | None:
-        """Get backup encryption key from Vault.
-        
-        Returns:
-            The encryption key or None
-        """
-        return self.get_secret(self.BACKUP_ENCRYPTION_KEY_PATH, key="key")
-
-    def get_tls_certificates(self) -> dict[str, str] | None:
-        """Get TLS certificates from Vault.
-        
-        Returns:
-            Dictionary with 'cert', 'key', and 'ca' paths or None
-        """
-        return self.get_secret(self.TLS_CERTIFICATES_PATH)
-
-    def store_secret(
-        self,
-        path: str,
-        data: dict[str, Any],
-        cas: int | None = None
-    ) -> bool:
-        """Store a secret in Vault (admin operation).
-        
-        Args:
-            path: Path to store the secret
-            data: Secret data to store
-            cas: Check-and-set version for concurrent updates
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        if not self.use_vault or not self.client:
-            logger.error("Cannot store secrets without Vault connection")
-            return False
-
-        try:
-            vault_path = path.lstrip('/')
-
-            # Write secret to Vault
-            self.client.secrets.kv.v2.create_or_update_secret(
-                path=vault_path,
-                secret=data,
-                cas=cas,
-                mount_point='secret'
-            )
-
             # Invalidate cache for this path
-            cache_keys_to_remove = [k for k in self._cache if k.startswith(path)]
-            for k in cache_keys_to_remove:
-                del self._cache[k]
-
-            logger.info("Successfully stored secret", path=path)
-            return True
-
+            cache_keys_to_remove = [k for k in self._cache.keys() if k.startswith(f"secret:{path}")]
+            for key in cache_keys_to_remove:
+                del self._cache[key]
+            
+            logger.info("Secret stored", path=path)
+            
         except Exception as e:
             logger.error("Failed to store secret", path=path, error=str(e))
-            return False
-
-    def rotate_secret(
-        self,
-        path: str,
-        key: str,
-        new_value: str
-    ) -> bool:
-        """Rotate a specific secret value.
+            raise
+    
+    def delete_secret(self, path: str) -> None:
+        """Delete secret from KV-v2 engine"""
+        try:
+            self._retry_operation(
+                self.client.secrets.kv.v2.delete_metadata_and_all_versions,
+                mount_point='genesis-secrets',
+                path=path
+            )
+            
+            # Invalidate cache
+            cache_keys_to_remove = [k for k in self._cache.keys() if k.startswith(f"secret:{path}")]
+            for key in cache_keys_to_remove:
+                del self._cache[key]
+            
+            logger.info("Secret deleted", path=path)
+            
+        except Exception as e:
+            logger.error("Failed to delete secret", path=path, error=str(e))
+            raise
+    
+    def list_secrets(self, path: str = "") -> List[str]:
+        """List secrets at given path"""
+        try:
+            response = self._retry_operation(
+                self.client.secrets.kv.v2.list_secrets,
+                mount_point='genesis-secrets',
+                path=path
+            )
+            return response.get('data', {}).get('keys', [])
+            
+        except InvalidPath:
+            return []
+    
+    # Database Credential Management
+    
+    def get_database_credentials(self, role: str = 'genesis-app') -> DatabaseCredentials:
+        """
+        Get dynamic database credentials
         
         Args:
-            path: Path to the secret
-            key: Key within the secret to rotate
-            new_value: New value for the key
+            role: Database role name
             
         Returns:
-            True if successful, False otherwise
+            DatabaseCredentials object
         """
-        # Get current secret data
-        current_data = self.get_secret(path, force_refresh=True)
-        if not current_data:
-            current_data = {}
-        elif not isinstance(current_data, dict):
-            logger.error("Cannot rotate non-dict secret", path=path)
-            return False
-
-        # Update the specific key
-        current_data[key] = new_value
-
-        # Store the updated secret
-        return self.store_secret(path, current_data)
-
-    def clear_cache(self, path: str | None = None):
-        """Clear cached secrets.
+        # Check if we have valid cached credentials
+        if role in self._credentials_cache:
+            creds = self._credentials_cache[role]
+            # Renew if less than 20% of TTL remaining
+            remaining_ttl = (creds.expires_at - datetime.utcnow()).total_seconds()
+            if remaining_ttl > (creds.ttl * 0.2):
+                logger.debug("Using cached database credentials", 
+                           role=role, 
+                           remaining_ttl=remaining_ttl)
+                return creds
+        
+        try:
+            response = self._retry_operation(
+                self.client.secrets.database.generate_credentials,
+                name=role,
+                mount_point='genesis-database'
+            )
+            
+            creds = DatabaseCredentials(
+                username=response['data']['username'],
+                password=response['data']['password'],
+                ttl=response['lease_duration'],
+                lease_id=response['lease_id'],
+                expires_at=datetime.utcnow() + timedelta(seconds=response['lease_duration'])
+            )
+            
+            # Cache the credentials
+            self._credentials_cache[role] = creds
+            
+            logger.info("Database credentials generated", 
+                       role=role,
+                       username=creds.username,
+                       ttl=creds.ttl)
+            
+            return creds
+            
+        except Exception as e:
+            logger.error("Failed to get database credentials", 
+                        role=role,
+                        error=str(e))
+            raise
+    
+    def revoke_database_credentials(self, lease_id: str) -> None:
+        """Revoke database credentials by lease ID"""
+        try:
+            self._retry_operation(
+                self.client.sys.revoke_lease,
+                lease_id=lease_id
+            )
+            
+            # Remove from cache
+            for role, creds in list(self._credentials_cache.items()):
+                if creds.lease_id == lease_id:
+                    del self._credentials_cache[role]
+            
+            logger.info("Database credentials revoked", lease_id=lease_id)
+            
+        except Exception as e:
+            logger.error("Failed to revoke credentials", 
+                        lease_id=lease_id,
+                        error=str(e))
+    
+    # Encryption Services
+    
+    def encrypt_data(self, 
+                    plaintext: str,
+                    context: Optional[Dict[str, str]] = None) -> EncryptedData:
+        """
+        Encrypt data using Transit engine
         
         Args:
-            path: Specific path to clear, or None to clear all
-        """
-        if path:
-            cache_keys_to_remove = [k for k in self._cache if k.startswith(path)]
-            for k in cache_keys_to_remove:
-                del self._cache[k]
-            logger.debug("Cleared cache for path", path=path)
-        else:
-            self._cache.clear()
-            logger.debug("Cleared entire secret cache")
-
-    def is_connected(self) -> bool:
-        """Check if connected to Vault.
-        
+            plaintext: Data to encrypt
+            context: Optional encryption context for convergent encryption
+            
         Returns:
-            True if connected to Vault, False if using environment variables
+            EncryptedData object
         """
-        return self.use_vault and self.client is not None
-
-    async def rotate_api_keys(
-        self,
-        grace_period: timedelta = timedelta(minutes=5)
-    ) -> Dict[str, Any]:
+        try:
+            import base64
+            
+            # Encode plaintext to base64
+            encoded = base64.b64encode(plaintext.encode()).decode()
+            
+            # Prepare request
+            request_data = {'plaintext': encoded}
+            if context:
+                request_data['context'] = base64.b64encode(
+                    json.dumps(context).encode()
+                ).decode()
+            
+            response = self._retry_operation(
+                self.client.secrets.transit.encrypt_data,
+                mount_point='genesis-transit',
+                name='genesis-key',
+                **request_data
+            )
+            
+            return EncryptedData(
+                ciphertext=response['data']['ciphertext'],
+                key_version=response['data'].get('key_version', 1),
+                encryption_context=context
+            )
+            
+        except Exception as e:
+            logger.error("Encryption failed", error=str(e))
+            raise
+    
+    def decrypt_data(self,
+                    ciphertext: str,
+                    context: Optional[Dict[str, str]] = None) -> str:
         """
-        Rotate API keys using the rotation manager.
+        Decrypt data using Transit engine
         
         Args:
-            grace_period: Time to maintain both old and new keys
-        
+            ciphertext: Encrypted data
+            context: Optional decryption context
+            
         Returns:
-            Rotation result
+            Decrypted plaintext
         """
-        if not self.rotation_manager:
+        try:
+            import base64
+            
+            # Prepare request
+            request_data = {'ciphertext': ciphertext}
+            if context:
+                request_data['context'] = base64.b64encode(
+                    json.dumps(context).encode()
+                ).decode()
+            
+            response = self._retry_operation(
+                self.client.secrets.transit.decrypt_data,
+                mount_point='genesis-transit',
+                name='genesis-key',
+                **request_data
+            )
+            
+            # Decode from base64
+            plaintext = base64.b64decode(response['data']['plaintext']).decode()
+            
+            return plaintext
+            
+        except Exception as e:
+            logger.error("Decryption failed", error=str(e))
+            raise
+    
+    def rewrap_data(self, ciphertext: str) -> str:
+        """
+        Rewrap encrypted data with latest key version
+        
+        Args:
+            ciphertext: Encrypted data to rewrap
+            
+        Returns:
+            Rewrapped ciphertext
+        """
+        try:
+            response = self._retry_operation(
+                self.client.secrets.transit.rewrap_data,
+                mount_point='genesis-transit',
+                name='genesis-key',
+                ciphertext=ciphertext
+            )
+            
+            return response['data']['ciphertext']
+            
+        except Exception as e:
+            logger.error("Rewrap failed", error=str(e))
+            raise
+    
+    # Health and Status Methods
+    
+    def health_check(self) -> Dict[str, Any]:
+        """Check Vault health status"""
+        try:
+            response = self.client.sys.read_health_status()
             return {
-                "status": "error",
-                "error": "Rotation manager not initialized"
+                'initialized': response.get('initialized', False),
+                'sealed': response.get('sealed', True),
+                'standby': response.get('standby', False),
+                'performance_standby': response.get('performance_standby', False),
+                'version': response.get('version', 'unknown'),
+                'cluster_name': response.get('cluster_name', 'unknown'),
+                'cluster_id': response.get('cluster_id', 'unknown')
             }
-        
-        return await self.rotation_manager.rotate_keys(
-            key_path=self.EXCHANGE_API_KEYS_PATH,
-            grace_period=grace_period
-        )
+        except Exception as e:
+            logger.error("Health check failed", error=str(e))
+            return {
+                'initialized': False,
+                'sealed': True,
+                'error': str(e)
+            }
     
-    async def configure_automatic_rotation(
-        self,
-        interval: timedelta = timedelta(days=30),
-        grace_period: timedelta = timedelta(minutes=5)
-    ):
-        """
-        Configure automatic API key rotation.
-        
-        Args:
-            interval: Rotation interval
-            grace_period: Grace period for each rotation
-        """
-        if not self.rotation_manager:
-            raise ValueError("Rotation manager not initialized")
-        
-        await self.rotation_manager.configure_automatic_rotation(
-            key_path=self.EXCHANGE_API_KEYS_PATH,
-            interval=interval,
-            grace_period=grace_period
-        )
-        
-        logger.info(
-            "Configured automatic key rotation",
-            interval=str(interval),
-            grace_period=str(grace_period)
-        )
+    def get_token_info(self) -> Dict[str, Any]:
+        """Get current token information"""
+        try:
+            response = self.client.auth.token.lookup_self()
+            return response['data']
+        except Exception as e:
+            logger.error("Failed to get token info", error=str(e))
+            raise
     
-    async def get_rotation_status(self) -> Dict[str, Any]:
-        """Get current rotation status."""
-        if not self.rotation_manager:
-            return {"status": "disabled"}
-        
-        return self.rotation_manager.get_status()
+    def renew_token(self) -> None:
+        """Renew current token"""
+        try:
+            self.client.auth.token.renew_self()
+            logger.info("Token renewed successfully")
+        except Exception as e:
+            logger.error("Failed to renew token", error=str(e))
+            raise
     
-    def health_check(self) -> dict[str, Any]:
-        """Enhanced health check including SecretsManager status.
-        
-        Returns:
-            Health check results
-        """
-        health = {
-            "backend": self.backend_type.value,
-            "cache_size": len(self._cache),
-            "runtime_secrets_count": len(self._runtime_secrets),
-            "rotation_enabled": bool(self.rotation_manager)
-        }
-        
-        # Add SecretsManager health
-        if hasattr(self, 'secrets_manager'):
-            try:
-                loop = asyncio.new_event_loop()
-                sm_health = loop.run_until_complete(
-                    self.secrets_manager.health_check()
-                )
-                health["secrets_manager"] = sm_health
-            except Exception as e:
-                health["secrets_manager_error"] = str(e)
-        
-        # Add rotation manager status
-        if self.rotation_manager:
-            health["rotation_status"] = self.rotation_manager.get_status()
-        
-        # Legacy Vault health check
-        if self.use_vault and hasattr(self, 'client') and self.client:
-            try:
-                import hvac
-                if isinstance(self.client, hvac.Client):
-                    is_authenticated = self.client.is_authenticated()
-                    health["vault_authenticated"] = is_authenticated
-                    health["vault_url"] = self.vault_url
-            except Exception as e:
-                health["vault_error"] = str(e)
-        
-        return health
+    # Cleanup Methods
+    
+    def clear_cache(self) -> None:
+        """Clear all cached data"""
+        self._cache.clear()
+        self._credentials_cache.clear()
+        logger.info("Cache cleared")
+    
+    def close(self) -> None:
+        """Close client and cleanup resources"""
+        self.clear_cache()
+        if self._client:
+            self._client.adapter.close()
+        logger.info("Vault client closed")
+    
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit"""
+        self.close()
+
+
+# Async wrapper for async applications
+class AsyncVaultClient:
+    """Async wrapper for VaultClient"""
+    
+    def __init__(self, config: Optional[VaultConfig] = None):
+        self._sync_client = VaultClient(config)
+        self._executor = None
+    
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+    
+    async def _run_sync(self, func, *args, **kwargs):
+        """Run synchronous function in executor"""
+        loop = asyncio.get_event_loop()
+        if self._executor is None:
+            import concurrent.futures
+            self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+        return await loop.run_in_executor(self._executor, func, *args, **kwargs)
+    
+    async def get_secret(self, path: str, key: Optional[str] = None) -> Any:
+        """Async get secret"""
+        return await self._run_sync(self._sync_client.get_secret, path, key)
+    
+    async def put_secret(self, path: str, data: Dict[str, Any]) -> None:
+        """Async put secret"""
+        await self._run_sync(self._sync_client.put_secret, path, data)
+    
+    async def get_database_credentials(self, role: str = 'genesis-app') -> DatabaseCredentials:
+        """Async get database credentials"""
+        return await self._run_sync(self._sync_client.get_database_credentials, role)
+    
+    async def encrypt_data(self, plaintext: str, context: Optional[Dict[str, str]] = None) -> EncryptedData:
+        """Async encrypt data"""
+        return await self._run_sync(self._sync_client.encrypt_data, plaintext, context)
+    
+    async def decrypt_data(self, ciphertext: str, context: Optional[Dict[str, str]] = None) -> str:
+        """Async decrypt data"""
+        return await self._run_sync(self._sync_client.decrypt_data, ciphertext, context)
+    
+    async def health_check(self) -> Dict[str, Any]:
+        """Async health check"""
+        return await self._run_sync(self._sync_client.health_check)
+    
+    async def close(self) -> None:
+        """Close async client"""
+        if self._executor:
+            self._executor.shutdown(wait=True)
+        self._sync_client.close()
+
+
+# Singleton instance for application use
+_vault_client: Optional[VaultClient] = None
+
+
+def get_vault_client(config: Optional[VaultConfig] = None) -> VaultClient:
+    """Get or create singleton Vault client"""
+    global _vault_client
+    if _vault_client is None:
+        _vault_client = VaultClient(config)
+    return _vault_client
+
+
+# Convenience functions
+def get_secret(path: str, key: Optional[str] = None) -> Any:
+    """Get secret using singleton client"""
+    return get_vault_client().get_secret(path, key)
+
+
+def encrypt(plaintext: str) -> str:
+    """Encrypt data using singleton client"""
+    return get_vault_client().encrypt_data(plaintext).ciphertext
+
+
+def decrypt(ciphertext: str) -> str:
+    """Decrypt data using singleton client"""
+    return get_vault_client().decrypt_data(ciphertext)

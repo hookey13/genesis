@@ -1,0 +1,288 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "genesis-trading-ops",
+    "title": "GENESIS Trading Operations",
+    "tags": ["genesis", "trading", "operations"],
+    "timezone": "browser",
+    "schemaVersion": 30,
+    "version": 1,
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "type": "graph",
+        "title": "Order Flow Rate",
+        "targets": [
+          {
+            "expr": "rate(genesis_orders_total[5m])",
+            "legendFormat": "{{exchange}} - {{symbol}} - {{status}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "ops", "label": "Orders/sec" },
+          { "format": "short" }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "nullPointMode": "null as zero"
+      },
+      {
+        "id": 2,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "type": "graph",
+        "title": "P&L Over Time",
+        "targets": [
+          {
+            "expr": "genesis_trading_pnl_usdt{type=\"realized\"}",
+            "legendFormat": "Realized - {{strategy}}",
+            "refId": "A"
+          },
+          {
+            "expr": "genesis_trading_pnl_usdt{type=\"unrealized\"}",
+            "legendFormat": "Unrealized - {{strategy}}",
+            "refId": "B"
+          },
+          {
+            "expr": "genesis_trading_pnl_total_usdt",
+            "legendFormat": "Total - {{strategy}}",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          { "format": "currencyUSD", "label": "P&L (USDT)" },
+          { "format": "short" }
+        ],
+        "lines": true,
+        "fill": 2,
+        "linewidth": 2,
+        "seriesOverrides": [
+          {
+            "alias": "/Total/",
+            "linewidth": 3,
+            "color": "#73BF69"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+        "type": "piechart",
+        "title": "Position Distribution",
+        "targets": [
+          {
+            "expr": "genesis_positions_count",
+            "legendFormat": "{{symbol}}",
+            "refId": "A"
+          }
+        ],
+        "pieType": "donut",
+        "legendType": "table",
+        "legendValues": true,
+        "unit": "short"
+      },
+      {
+        "id": 4,
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 8 },
+        "type": "stat",
+        "title": "Trading Volume",
+        "targets": [
+          {
+            "expr": "sum(increase(genesis_trading_volume_usdt[1h]))",
+            "refId": "A"
+          }
+        ],
+        "unit": "currencyUSD",
+        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "area",
+        "textSize": { "titleSize": 16, "valueSize": 32 }
+      },
+      {
+        "id": 5,
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 8 },
+        "type": "gauge",
+        "title": "Win Rate",
+        "targets": [
+          {
+            "expr": "(sum(rate(genesis_orders_total{status=\"filled\"}[1h])) / sum(rate(genesis_orders_total[1h]))) * 100",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "min": 0,
+        "max": 100,
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "red", "value": null },
+            { "color": "yellow", "value": 40 },
+            { "color": "green", "value": 60 }
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+        "type": "heatmap",
+        "title": "Order Latency Heatmap",
+        "targets": [
+          {
+            "expr": "genesis_order_latency_seconds_bucket",
+            "format": "heatmap",
+            "legendFormat": "{{le}}",
+            "refId": "A"
+          }
+        ],
+        "dataFormat": "timeseries",
+        "yAxis": { "format": "s", "decimals": 3 },
+        "cards": {
+          "cardPadding": 2,
+          "cardRound": 2
+        },
+        "color": {
+          "mode": "spectrum",
+          "scheme": "interpolateSpectral",
+          "exponent": 0.5
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+        "type": "graph",
+        "title": "Drawdown %",
+        "targets": [
+          {
+            "expr": "genesis_drawdown_percent",
+            "legendFormat": "Current Drawdown",
+            "refId": "A"
+          },
+          {
+            "expr": "max_over_time(genesis_drawdown_percent[24h])",
+            "legendFormat": "Max Drawdown (24h)",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "percent", "label": "Drawdown %", "min": 0 },
+          { "format": "short" }
+        ],
+        "lines": true,
+        "fill": 3,
+        "linewidth": 2,
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": { "params": [20], "type": "gt" },
+              "operator": { "type": "and" },
+              "query": { "params": ["A", "5m", "now"] },
+              "reducer": { "params": [], "type": "avg" },
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "High Drawdown Alert",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 22 },
+        "type": "stat",
+        "title": "Active Positions",
+        "targets": [
+          {
+            "expr": "genesis_position_count",
+            "refId": "A"
+          }
+        ],
+        "unit": "short",
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      {
+        "id": 9,
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 22 },
+        "type": "stat",
+        "title": "Long/Short Ratio",
+        "targets": [
+          {
+            "expr": "genesis_positions_by_side{side=\"long\"} / genesis_positions_by_side{side=\"short\"}",
+            "refId": "A"
+          }
+        ],
+        "unit": "percentunit",
+        "colorMode": "value",
+        "graphMode": "none",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "blue", "value": null },
+            { "color": "green", "value": 0.8 },
+            { "color": "yellow", "value": 1.2 },
+            { "color": "red", "value": 2 }
+          ]
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 22 },
+        "type": "stat",
+        "title": "Tilt Score",
+        "targets": [
+          {
+            "expr": "genesis_tilt_score",
+            "refId": "A"
+          }
+        ],
+        "unit": "percent",
+        "colorMode": "background",
+        "graphMode": "area",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 30 },
+            { "color": "orange", "value": 50 },
+            { "color": "red", "value": 70 }
+          ]
+        }
+      },
+      {
+        "id": 11,
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 22 },
+        "type": "stat",
+        "title": "Failed Orders (1h)",
+        "targets": [
+          {
+            "expr": "sum(increase(genesis_orders_failed_total[1h]))",
+            "refId": "A"
+          }
+        ],
+        "unit": "short",
+        "colorMode": "background",
+        "graphMode": "area",
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 5 },
+            { "color": "red", "value": 10 }
+          ]
+        }
+      }
+    ]
+  },
+  "overwrite": true
+}

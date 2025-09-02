@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  jaeger-collector:
+    image: jaegertracing/jaeger-collector:1.54
+    container_name: genesis-jaeger-collector
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
+      - ES_INDEX_PREFIX=genesis-traces
+      - ES_TAGS_AS_FIELDS_ALL=true
+      - ES_NUM_SHARDS=3
+      - ES_NUM_REPLICAS=1
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+      - "14250:14250"  # Jaeger gRPC
+      - "14268:14268"  # Jaeger HTTP
+      - "14269:14269"  # Admin port (health check)
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:14269/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  jaeger-query:
+    image: jaegertracing/jaeger-query:1.54
+    container_name: genesis-jaeger-query
+    environment:
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elasticsearch:9200
+      - ES_INDEX_PREFIX=genesis-traces
+      - ES_TAGS_AS_FIELDS_ALL=true
+      - QUERY_MAX_CLOCK_SKEW_ADJUSTMENT=10s
+      - QUERY_BASE_PATH=/jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "16687:16687"  # Health check
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16687/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    container_name: genesis-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      - xpack.security.enabled=false
+      - indices.query.bool.max_clause_count=8192
+      - bootstrap.memory_lock=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - jaeger-elastic-data:/usr/share/elasticsearch/data
+      - ./config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    restart: unless-stopped
+    networks:
+      - genesis-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Jaeger agent for local development (optional, can be used for better performance)
+  jaeger-agent:
+    image: jaegertracing/jaeger-agent:1.54
+    container_name: genesis-jaeger-agent
+    command: [
+      "--reporter.grpc.host-port=jaeger-collector:14250",
+      "--processor.jaeger-compact.server-host-port=0.0.0.0:6831",
+      "--processor.jaeger-binary.server-host-port=0.0.0.0:6832"
+    ]
+    ports:
+      - "6831:6831/udp"  # Jaeger compact thrift protocol
+      - "6832:6832/udp"  # Jaeger binary thrift protocol
+      - "5778:5778"      # Serve configs
+      - "14271:14271"    # Admin port
+    depends_on:
+      - jaeger-collector
+    restart: unless-stopped
+    networks:
+      - genesis-network
+
+volumes:
+  jaeger-elastic-data:
+    driver: local
+
+networks:
+  genesis-network:
+    driver: bridge
