@@ -228,9 +228,9 @@ class PairsTradingStrategy(BaseStrategy):
                     break
 
         # Update strategy metrics
-        is_win = position.realized_pnl > 0 if position.realized_pnl else False
+        is_win = position.pnl_dollars > 0 if position.pnl_dollars else False
         self.update_performance_metrics(
-            position.realized_pnl or Decimal("0"),
+            position.pnl_dollars or Decimal("0"),
             is_win
         )
 

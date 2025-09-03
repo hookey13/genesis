@@ -40,7 +40,8 @@ class CointegrationTester:
             confidence_level: Confidence level for tests (default 0.95).
         """
         self.confidence_level = confidence_level
-        self.p_value_threshold = Decimal(str(1 - confidence_level))
+        # Use string formatting to avoid floating point precision issues
+        self.p_value_threshold = Decimal("1") - Decimal(str(confidence_level))
     
     def test_adf(self, series: pd.Series | np.ndarray, max_lag: int | None = None) -> CointegrationResult:
         """Augmented Dickey-Fuller test for stationarity.
@@ -440,13 +441,27 @@ class CointegrationTester:
             if isinstance(series, pd.Series):
                 series = series.values
             
-            # Calculate the range of cumulative deviations
+            # Calculate the standard deviation of the differences
             lags = range(2, min(100, len(series) // 2))
-            tau = [np.sqrt(np.std(np.subtract(series[lag:], series[:-lag]))) for lag in lags]
+            tau = []
+            for lag in lags:
+                # Calculate differences at each lag
+                diff = series[lag:] - series[:-lag]
+                # Calculate standard deviation of differences
+                std_diff = np.std(diff)
+                if std_diff > 0:
+                    tau.append(std_diff)
+                    
+            if not tau:
+                return Decimal("0.5")
             
             # Use a linear fit to estimate the Hurst exponent
-            poly = np.polyfit(np.log(lags), np.log(tau), 1)
-            hurst = poly[0] * 2.0
+            # For standard deviations, H = slope / 2
+            poly = np.polyfit(np.log(lags[:len(tau)]), np.log(tau), 1)
+            hurst = poly[0] / 2.0
+            
+            # Clamp to reasonable range [0, 1]
+            hurst = max(0.0, min(1.0, hurst))
             
             return Decimal(str(hurst))
             

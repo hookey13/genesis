@@ -268,7 +268,8 @@ class TestPairsTradingStrategy:
             side=PositionSide.LONG,
             quantity=Decimal("1"),
             entry_price=Decimal("40000"),
-            dollar_value=Decimal("40000")
+            dollar_value=Decimal("40000"),
+            pnl_dollars=Decimal("100")  # Winning trade
         )
         
         await strategy.on_position_closed(position)

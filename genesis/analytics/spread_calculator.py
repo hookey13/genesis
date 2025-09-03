@@ -95,6 +95,20 @@ class SpreadCalculator:
             if isinstance(series2, np.ndarray):
                 series2 = pd.Series(series2)
             
+            # Handle empty series
+            if len(series1) == 0 or len(series2) == 0:
+                return CorrelationMetrics(
+                    pearson_correlation=Decimal("0"),
+                    spearman_correlation=Decimal("0"),
+                    kendall_correlation=Decimal("0"),
+                    rolling_correlation=np.array([]),
+                    correlation_stability=Decimal("1.0"),
+                    correlation_trend=Decimal("0.0"),
+                    is_stable=False,
+                    metadata={"n_observations": 0, "window_size": self.lookback_window, 
+                             "min_correlation": 0, "max_correlation": 0}
+                )
+            
             # Ensure same length
             min_len = min(len(series1), len(series2))
             series1 = series1.iloc[:min_len] if isinstance(series1, pd.Series) else series1[:min_len]
@@ -224,14 +238,18 @@ class SpreadCalculator:
                 # Perform SVD
                 _, _, V = np.linalg.svd(data_matrix)
                 
-                # The hedge ratio is the ratio of the components of the first principal component
-                hedge_ratio = V[1, 1] / V[0, 1]
+                # The hedge ratio is from the last singular vector (TLS solution)
+                # This gives the direction of minimum perpendicular distance
+                hedge_ratio = -V[-1, 0] / V[-1, 1] if V[-1, 1] != 0 else 1.0
                 
-                # Calculate R-squared equivalent
-                y_pred = hedge_ratio * x
+                # Calculate R-squared equivalent for TLS
+                # The prediction should be y = y_mean + hedge_ratio * (x - x_mean)
+                y_pred = y_mean + hedge_ratio * (x - x_mean)
                 ss_res = np.sum((y - y_pred) ** 2)
                 ss_tot = np.sum((y - np.mean(y)) ** 2)
-                r_squared = 1 - (ss_res / ss_tot)
+                r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+                # Ensure R-squared is non-negative for TLS
+                r_squared = max(0, r_squared)
                 
                 # Simplified confidence interval for TLS
                 std_error = np.sqrt(ss_res / (len(y) - 2))
@@ -483,14 +501,16 @@ class SpreadCalculator:
             
             # Get mean reversion coefficient
             theta = -results.params[1]
+            p_value = results.pvalues[1]
             
-            # Calculate half-life
-            if theta > 0:
+            # Calculate half-life only if statistically significant
+            # and theta is positive (mean-reverting)
+            if theta > 0 and p_value < 0.05:
                 half_life = int(np.log(2) / theta)
                 # Cap half-life at reasonable values
                 half_life = min(half_life, 252)  # Max 1 trading year
             else:
-                half_life = None  # No mean reversion
+                half_life = None  # No mean reversion or not significant
             
             return half_life
             
