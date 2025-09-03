@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import structlog
 
-from genesis.core.models import Order, OrderSide, OrderType, Signal, SignalType
+from genesis.core.models import Order, OrderSide, OrderType, OrderStatus, Signal, SignalType
 from genesis.strategies.base import BaseStrategy, StrategyConfig
 
 logger = structlog.get_logger(__name__)
@@ -147,7 +147,7 @@ class AdverseSelectionTracker:
         buy_ratio = Decimal(self.buy_fills) / Decimal(self.total_fills)
         sell_ratio = Decimal(self.sell_fills) / Decimal(self.total_fills)
 
-        self.toxic_flow_detected = max(buy_ratio, sell_ratio) > threshold
+        self.toxic_flow_detected = max(buy_ratio, sell_ratio) >= threshold
         return self.toxic_flow_detected
 
     def should_recover(self, required_fills: int) -> bool:
@@ -273,6 +273,7 @@ class MarketMakingStrategy(BaseStrategy):
             if self.inventory.current_position > 0:
                 # Long position, need to sell
                 signal = Signal(
+                    strategy_id=self.config.name,
                     signal_type=SignalType.EXIT_LONG,
                     symbol=self.config.symbol,
                     strength=Decimal("1.0"),
@@ -287,6 +288,7 @@ class MarketMakingStrategy(BaseStrategy):
             elif self.inventory.current_position < 0:
                 # Short position, need to buy
                 signal = Signal(
+                    strategy_id=self.config.name,
                     signal_type=SignalType.EXIT_SHORT,
                     symbol=self.config.symbol,
                     strength=Decimal("1.0"),
@@ -387,10 +389,11 @@ class MarketMakingStrategy(BaseStrategy):
 
         for order in self.active_buy_orders + self.active_sell_orders:
             signal = Signal(
-                signal_type=SignalType.CANCEL,
+                strategy_id=self.config.name,
+                signal_type=SignalType.CLOSE,
                 symbol=self.config.symbol,
-                strength=Decimal("1.0"),
-                entry_price=order.price,
+                confidence=Decimal("1.0"),
+                price_target=order.price,
                 metadata={"order_id": str(order.order_id), "reason": "refresh"},
             )
             signals.append(signal)
@@ -473,13 +476,14 @@ class MarketMakingStrategy(BaseStrategy):
             if buy_size >= self.config.min_quote_size_usdt:
                 buy_quantity = buy_size / buy_price
                 buy_signal = Signal(
+                    strategy_id=self.config.name,
                     signal_type=SignalType.BUY,
                     symbol=self.config.symbol,
-                    strength=Decimal(
+                    confidence=Decimal(
                         "0.8"
                     ),  # Market making signals are medium strength
-                    entry_price=buy_price,
-                    position_size=buy_quantity,
+                    price_target=buy_price,
+                    quantity=buy_quantity,
                     metadata={
                         "order_type": "LIMIT",
                         "post_only": True,  # Ensure maker fee
@@ -491,13 +495,13 @@ class MarketMakingStrategy(BaseStrategy):
 
                 # Track active order
                 buy_order = Order(
-                    order_id=uuid4(),
+                    order_id=str(uuid4()),
                     symbol=self.config.symbol,
                     side=OrderSide.BUY,
-                    order_type=OrderType.LIMIT,
+                    type=OrderType.LIMIT,
                     price=buy_price,
                     quantity=buy_quantity,
-                    status="PENDING",
+                    status=OrderStatus.PENDING,
                 )
                 self.active_buy_orders.append(buy_order)
 
@@ -505,11 +509,12 @@ class MarketMakingStrategy(BaseStrategy):
             if sell_size >= self.config.min_quote_size_usdt:
                 sell_quantity = sell_size / sell_price
                 sell_signal = Signal(
+                    strategy_id=self.config.name,
                     signal_type=SignalType.SELL,
                     symbol=self.config.symbol,
-                    strength=Decimal("0.8"),
-                    entry_price=sell_price,
-                    position_size=sell_quantity,
+                    confidence=Decimal("0.8"),
+                    price_target=sell_price,
+                    quantity=sell_quantity,
                     metadata={
                         "order_type": "LIMIT",
                         "post_only": True,
@@ -521,13 +526,13 @@ class MarketMakingStrategy(BaseStrategy):
 
                 # Track active order
                 sell_order = Order(
-                    order_id=uuid4(),
+                    order_id=str(uuid4()),
                     symbol=self.config.symbol,
                     side=OrderSide.SELL,
-                    order_type=OrderType.LIMIT,
+                    type=OrderType.LIMIT,
                     price=sell_price,
                     quantity=sell_quantity,
-                    status="PENDING",
+                    status=OrderStatus.PENDING,
                 )
                 self.active_sell_orders.append(sell_order)
 

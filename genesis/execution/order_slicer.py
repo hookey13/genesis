@@ -181,11 +181,12 @@ class OrderSlicer:
                 slice_size = self._randomize_size(slice_size)
 
             if slice_size > 0 and remaining > 0:
+                actual_slice_size = min(slice_size, remaining)
                 slices.append(
                     OrderSlice(
                         slice_number=i + 1,
                         total_slices=num_slices,
-                        quantity=min(slice_size, remaining),
+                        quantity=actual_slice_size,
                         execution_time=volume_profile.intervals[i]
                         if i < len(volume_profile.intervals)
                         else None,
@@ -197,7 +198,7 @@ class OrderSlicer:
                     )
                 )
 
-                remaining -= slice_size
+                remaining -= actual_slice_size
 
                 if remaining <= 0:
                     break

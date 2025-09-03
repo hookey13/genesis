@@ -74,8 +74,9 @@ class VolumeCurveEstimator:
         if date is None:
             date = datetime.now(UTC)
 
-        # Check cache
-        cache_key = f"{symbol}:{date.date()}"
+        # Check cache - include special events in key
+        events_str = ":".join(special_events) if special_events else "none"
+        cache_key = f"{symbol}:{date.date()}:{events_str}"
         if cache_key in self.cached_curves:
             return self.cached_curves[cache_key]
 
@@ -89,7 +90,10 @@ class VolumeCurveEstimator:
             )
         else:
             # Generate default U-shaped curve
-            profile = self._generate_default_curve(symbol, date)
+            base_profile = self._generate_default_curve(symbol, date)
+            profile = await self._adjust_for_conditions(
+                base_profile, date, special_events
+            )
 
         # Cache result
         self.cached_curves[cache_key] = profile

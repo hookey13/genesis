@@ -116,209 +116,259 @@ class TestVWAPExecutionIntegration:
         return ExecutionScheduler(config)
     
     @pytest.mark.asyncio
+    @pytest.mark.timeout(5)  # Add 5 second timeout
     async def test_end_to_end_vwap_execution(self, vwap_strategy, mock_exchange):
         """Test complete VWAP execution flow."""
-        # Create parent order
-        parent_config = VWAPOrderConfig(
-            symbol="BTCUSDT",
-            side=OrderSide.BUY,
-            total_quantity=Decimal("10.0"),
-            urgency=UrgencyLevel.MEDIUM,
-            start_time=datetime.now(UTC),
-            end_time=datetime.now(UTC) + timedelta(minutes=10),
-            min_slice_size=Decimal("0.5"),
-            max_slice_size=Decimal("2.0")
-        )
-        
-        parent_id = await vwap_strategy.create_parent_order(parent_config)
-        
-        # Simulate execution loop
-        executed_count = 0
-        max_iterations = 20
-        
-        for _ in range(max_iterations):
-            # Check if should execute
-            if await vwap_strategy._should_execute_slice(parent_id):
-                # Generate signal
-                signal = await vwap_strategy._generate_slice_signal(parent_id)
-                
-                if signal:
-                    # Create order from signal
-                    order = Order(
-                        symbol=signal.symbol,
-                        side=OrderSide.BUY,
-                        type=OrderType.MARKET,
-                        quantity=signal.quantity
-                    )
-                    
-                    # Execute on mock exchange
-                    filled_order = await mock_exchange.place_order(order)
-                    
-                    # Update strategy
-                    await vwap_strategy.update_child_order(parent_id, filled_order)
-                    executed_count += 1
-                    
-            # Check completion
-            state = vwap_strategy.order_states[parent_id]
-            if state.remaining_quantity <= 0:
-                break
-                
-        # Verify execution
-        state = vwap_strategy.order_states[parent_id]
-        assert state.executed_quantity == Decimal("10.0")
-        assert state.remaining_quantity == Decimal("0")
-        assert len(state.completed_orders) == executed_count
-        assert state.average_price > Decimal("0")
-    
-    @pytest.mark.asyncio
-    async def test_adaptive_execution_with_market_impact(self, vwap_strategy, mock_exchange):
-        """Test adaptive execution with market impact simulation."""
-        # Create large order
-        parent_config = VWAPOrderConfig(
-            symbol="BTCUSDT",
-            side=OrderSide.BUY,
-            total_quantity=Decimal("100.0"),  # Large order
-            urgency=UrgencyLevel.HIGH,
-            target_participation_rate=Decimal("0.05"),  # 5% to minimize impact
-            start_time=datetime.now(UTC),
-            end_time=datetime.now(UTC) + timedelta(minutes=30)
-        )
-        
-        parent_id = await vwap_strategy.create_parent_order(parent_config)
-        
-        # Track market impact
-        initial_price = mock_exchange.market_data["BTCUSDT"]["price"]
-        executed_quantity = Decimal("0")
-        
-        while executed_quantity < Decimal("100.0"):
-            if await vwap_strategy._should_execute_slice(parent_id):
-                signal = await vwap_strategy._generate_slice_signal(parent_id)
-                
-                if signal:
-                    # Simulate market impact - price rises with buying
-                    impact = (executed_quantity / Decimal("1000")) * Decimal("100")  # 0.1% per 10 BTC
-                    mock_exchange.market_data["BTCUSDT"]["price"] = initial_price + impact
-                    mock_exchange.market_data["BTCUSDT"]["ask"] = initial_price + impact + Decimal("10")
-                    
-                    # Execute order
-                    order = Order(
-                        symbol=signal.symbol,
-                        side=OrderSide.BUY,
-                        type=OrderType.MARKET,
-                        quantity=signal.quantity
-                    )
-                    
-                    filled_order = await mock_exchange.place_order(order)
-                    await vwap_strategy.update_child_order(parent_id, filled_order)
-                    
-                    executed_quantity += filled_order.filled_quantity
-                    
-        # Calculate implementation shortfall
-        state = vwap_strategy.order_states[parent_id]
-        final_price = mock_exchange.market_data["BTCUSDT"]["price"]
-        market_impact_pct = ((final_price - initial_price) / initial_price) * Decimal("100")
-        
-        assert state.executed_quantity == Decimal("100.0")
-        assert market_impact_pct < Decimal("10")  # Less than 10% impact
-    
-    @pytest.mark.asyncio
-    async def test_emergency_liquidation_flow(self, vwap_strategy, mock_exchange):
-        """Test emergency liquidation execution."""
-        # Create normal order
-        parent_config = VWAPOrderConfig(
-            symbol="BTCUSDT",
-            side=OrderSide.SELL,
-            total_quantity=Decimal("50.0"),
-            urgency=UrgencyLevel.LOW,
-            start_time=datetime.now(UTC),
-            end_time=datetime.now(UTC) + timedelta(hours=2)
-        )
-        
-        parent_id = await vwap_strategy.create_parent_order(parent_config)
-        
-        # Execute a few slices normally
-        for i in range(3):
-            if await vwap_strategy._should_execute_slice(parent_id):
-                signal = await vwap_strategy._generate_slice_signal(parent_id)
-                if signal:
-                    order = Order(
-                        symbol=signal.symbol,
-                        side=OrderSide.SELL,
-                        type=OrderType.MARKET,
-                        quantity=signal.quantity
-                    )
-                    filled_order = await mock_exchange.place_order(order)
-                    await vwap_strategy.update_child_order(parent_id, filled_order)
-        
-        # Trigger emergency liquidation
-        await vwap_strategy.trigger_emergency_liquidation(parent_id)
-        
-        # Execute emergency order
-        signal = await vwap_strategy._generate_slice_signal(parent_id)
-        assert signal is not None
-        assert signal.metadata["urgency"] == UrgencyLevel.EMERGENCY.value
-        
-        # Remaining quantity should be in single order
-        state = vwap_strategy.order_states[parent_id]
-        assert len(state.schedule) == 1
-        assert state.schedule[0]["urgency"] == UrgencyLevel.EMERGENCY.value
-    
-    @pytest.mark.asyncio
-    async def test_scheduler_integration(self, scheduler, vwap_strategy):
-        """Test integration between scheduler and VWAP strategy."""
-        # Start scheduler
-        await scheduler.start()
-        
-        try:
-            # Create VWAP order
+        # Mock time to avoid waiting for scheduled times
+        with patch('genesis.strategies.strategist.vwap_execution.datetime') as mock_datetime:
+            # Set current time for schedule generation
+            current_time = datetime.now(UTC)
+            mock_datetime.now.return_value = current_time
+            mock_datetime.fromisoformat = datetime.fromisoformat
+            
+            # Create parent order with immediate execution
             parent_config = VWAPOrderConfig(
                 symbol="BTCUSDT",
                 side=OrderSide.BUY,
-                total_quantity=Decimal("20.0"),
-                urgency=UrgencyLevel.MEDIUM
+                total_quantity=Decimal("10.0"),
+                urgency=UrgencyLevel.MEDIUM,  # Use MEDIUM to get multiple slices
+                start_time=current_time,
+                end_time=current_time + timedelta(hours=1),  # 1 hour to get 6 slices for MEDIUM urgency
+                min_slice_size=Decimal("0.5"),
+                max_slice_size=Decimal("3.0")  # Increase max slice size
             )
             
             parent_id = await vwap_strategy.create_parent_order(parent_config)
-            state = vwap_strategy.order_states[parent_id]
             
-            # Create slices
-            slicer = OrderSlicer()
-            slices = slicer.slice_order(
-                total_quantity=parent_config.total_quantity,
-                method=SlicingMethod.LINEAR
-            )
+            # Force immediate execution by advancing time for each slice
+            executed_count = 0
+            max_iterations = 20
             
-            # Create execution plan
-            plan = await scheduler.create_execution_plan(
-                parent_order_id=str(parent_id),
-                slices=slices,
-                urgency=parent_config.urgency,
-                start_time=datetime.now(UTC),
-                end_time=datetime.now(UTC) + timedelta(minutes=5)
-            )
-            
-            assert plan.plan_id in scheduler.execution_plans
-            assert len(plan.tasks) == len(slices)
-            
-            # Simulate task execution
-            executed_tasks = 0
-            while executed_tasks < 3:
-                task = await scheduler.get_next_task()
-                if task:
-                    # Simulate execution
-                    await asyncio.sleep(0.01)
-                    scheduler.complete_task(task.task_id, success=True)
-                    executed_tasks += 1
-                else:
-                    await asyncio.sleep(0.1)
+            for i in range(max_iterations):
+                # Advance time by 10 minutes each iteration to match schedule intervals
+                mock_datetime.now.return_value = current_time + timedelta(minutes=i * 10)
+                
+                # Check if should execute
+                if await vwap_strategy._should_execute_slice(parent_id):
+                    # Generate signal
+                    signal = await vwap_strategy._generate_slice_signal(parent_id)
                     
-            # Verify execution tracking
-            assert plan.executed_quantity > Decimal("0")
-            
-        finally:
-            await scheduler.stop()
+                    if signal:
+                        # Create order from signal
+                        order = Order(
+                            symbol=signal.symbol,
+                            side=OrderSide.BUY,
+                            type=OrderType.MARKET,
+                            quantity=signal.quantity
+                        )
+                        
+                        # Execute on mock exchange
+                        filled_order = await mock_exchange.place_order(order)
+                        
+                        # Update strategy
+                        await vwap_strategy.update_child_order(parent_id, filled_order)
+                        executed_count += 1
+                        
+                # Check completion
+                state = vwap_strategy.order_states[parent_id]
+                if state.remaining_quantity <= 0:
+                    break
+                    
+            # Verify execution
+            state = vwap_strategy.order_states[parent_id]
+            assert state.executed_quantity == Decimal("10.0")
+            assert state.remaining_quantity == Decimal("0")
+            assert len(state.completed_orders) == executed_count
+            assert state.average_price > Decimal("0")
     
     @pytest.mark.asyncio
+    @pytest.mark.timeout(5)  # Add 5 second timeout
+    async def test_adaptive_execution_with_market_impact(self, vwap_strategy, mock_exchange):
+        """Test adaptive execution with market impact simulation."""
+        # Mock time to avoid waiting
+        with patch('genesis.strategies.strategist.vwap_execution.datetime') as mock_datetime:
+            current_time = datetime.now(UTC)
+            mock_datetime.now.return_value = current_time
+            mock_datetime.fromisoformat = datetime.fromisoformat
+            
+            # Create large order with immediate execution
+            parent_config = VWAPOrderConfig(
+                symbol="BTCUSDT",
+                side=OrderSide.BUY,
+                total_quantity=Decimal("100.0"),  # Large order
+                urgency=UrgencyLevel.HIGH,  # Use HIGH for faster but sliced execution
+                target_participation_rate=Decimal("0.05"),  # 5% to minimize impact
+                start_time=current_time,
+                end_time=current_time + timedelta(hours=3),  # 3 hours to get 12 slices for HIGH urgency
+                max_slice_size=Decimal("10.0")  # Limit slice size to force multiple orders
+            )
+            
+            parent_id = await vwap_strategy.create_parent_order(parent_config)
+            
+            # Track market impact
+            initial_price = mock_exchange.market_data["BTCUSDT"]["price"]
+            executed_quantity = Decimal("0")
+            max_iterations = 50  # Add iteration limit to prevent infinite loop
+            iteration = 0
+            
+            while executed_quantity < Decimal("100.0") and iteration < max_iterations:
+                # Advance time by 15 minutes each iteration to match schedule intervals (3 hours / 12 slices = 15 min)
+                mock_datetime.now.return_value = current_time + timedelta(minutes=iteration * 15)
+                
+                if await vwap_strategy._should_execute_slice(parent_id):
+                    signal = await vwap_strategy._generate_slice_signal(parent_id)
+                    
+                    if signal:
+                        # Simulate market impact - price rises with buying
+                        impact = (executed_quantity / Decimal("1000")) * Decimal("100")  # 0.1% per 10 BTC
+                        mock_exchange.market_data["BTCUSDT"]["price"] = initial_price + impact
+                        mock_exchange.market_data["BTCUSDT"]["ask"] = initial_price + impact + Decimal("10")
+                        
+                        # Execute order
+                        order = Order(
+                            symbol=signal.symbol,
+                            side=OrderSide.BUY,
+                            type=OrderType.MARKET,
+                            quantity=signal.quantity
+                        )
+                        
+                        filled_order = await mock_exchange.place_order(order)
+                        await vwap_strategy.update_child_order(parent_id, filled_order)
+                        
+                        executed_quantity += filled_order.filled_quantity
+                
+                iteration += 1
+                        
+            # Calculate implementation shortfall
+            state = vwap_strategy.order_states[parent_id]
+            final_price = mock_exchange.market_data["BTCUSDT"]["price"]
+            market_impact_pct = ((final_price - initial_price) / initial_price) * Decimal("100")
+            
+            assert state.executed_quantity == Decimal("100.0")
+            assert market_impact_pct < Decimal("10")  # Less than 10% impact
+    
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(5)  # Add 5 second timeout
+    async def test_emergency_liquidation_flow(self, vwap_strategy, mock_exchange):
+        """Test emergency liquidation execution."""
+        # Mock time to avoid waiting
+        with patch('genesis.strategies.strategist.vwap_execution.datetime') as mock_datetime:
+            current_time = datetime.now(UTC)
+            mock_datetime.now.return_value = current_time
+            mock_datetime.fromisoformat = datetime.fromisoformat
+            
+            # Create normal order
+            parent_config = VWAPOrderConfig(
+                symbol="BTCUSDT",
+                side=OrderSide.SELL,
+                total_quantity=Decimal("50.0"),
+                urgency=UrgencyLevel.LOW,
+                start_time=current_time,
+                end_time=current_time + timedelta(hours=2)
+            )
+            
+            parent_id = await vwap_strategy.create_parent_order(parent_config)
+            
+            # Execute a few slices normally
+            for i in range(3):
+                # Advance time to trigger slice execution
+                mock_datetime.now.return_value = current_time + timedelta(seconds=i * 10)
+                
+                if await vwap_strategy._should_execute_slice(parent_id):
+                    signal = await vwap_strategy._generate_slice_signal(parent_id)
+                    if signal:
+                        order = Order(
+                            symbol=signal.symbol,
+                            side=OrderSide.SELL,
+                            type=OrderType.MARKET,
+                            quantity=signal.quantity
+                        )
+                        filled_order = await mock_exchange.place_order(order)
+                        await vwap_strategy.update_child_order(parent_id, filled_order)
+            
+            # Trigger emergency liquidation
+            await vwap_strategy.trigger_emergency_liquidation(parent_id)
+            
+            # Execute emergency order
+            signal = await vwap_strategy._generate_slice_signal(parent_id)
+            assert signal is not None
+            assert signal.metadata["urgency"] == UrgencyLevel.EMERGENCY.value
+            
+            # Remaining quantity should be in single order
+            state = vwap_strategy.order_states[parent_id]
+            assert len(state.schedule) == 1
+            assert state.schedule[0]["urgency"] == UrgencyLevel.EMERGENCY.value
+    
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(5)  # Add 5 second timeout
+    async def test_scheduler_integration(self, scheduler, vwap_strategy):
+        """Test integration between scheduler and VWAP strategy."""
+        # Mock time to avoid waiting
+        with patch('genesis.execution.execution_scheduler.datetime') as mock_datetime:
+            current_time = datetime.now(UTC)
+            mock_datetime.now.return_value = current_time
+            mock_datetime.fromisoformat = datetime.fromisoformat
+            
+            # Start scheduler
+            await scheduler.start()
+            
+            try:
+                # Create VWAP order with immediate execution
+                parent_config = VWAPOrderConfig(
+                    symbol="BTCUSDT",
+                    side=OrderSide.BUY,
+                    total_quantity=Decimal("20.0"),
+                    urgency=UrgencyLevel.EMERGENCY  # Use emergency for immediate execution
+                )
+                
+                parent_id = await vwap_strategy.create_parent_order(parent_config)
+                state = vwap_strategy.order_states[parent_id]
+                
+                # Create slices
+                slicer = OrderSlicer()
+                slices = slicer.slice_order(
+                    total_quantity=parent_config.total_quantity,
+                    method=SlicingMethod.LINEAR
+                )
+                
+                # Create execution plan
+                plan = await scheduler.create_execution_plan(
+                    parent_order_id=str(parent_id),
+                    slices=slices,
+                    urgency=parent_config.urgency,
+                    start_time=current_time,
+                    end_time=current_time + timedelta(seconds=5)  # Short timeframe
+                )
+                
+                assert plan.plan_id in scheduler.execution_plans
+                assert len(plan.tasks) == len(slices)
+                
+                # Simulate task execution with time advancement
+                executed_tasks = 0
+                max_iterations = 10
+                
+                for i in range(max_iterations):
+                    # Advance time
+                    mock_datetime.now.return_value = current_time + timedelta(seconds=i * 0.5)
+                    
+                    task = await scheduler.get_next_task()
+                    if task:
+                        # Simulate execution
+                        await asyncio.sleep(0.01)
+                        scheduler.complete_task(task.task_id, success=True)
+                        executed_tasks += 1
+                        
+                        if executed_tasks >= 3:
+                            break
+                        
+                # Verify execution tracking
+                assert plan.executed_quantity > Decimal("0")
+                
+            finally:
+                await scheduler.stop()
+    
+    @pytest.mark.asyncio
+    @pytest.mark.timeout(5)  # Add 5 second timeout
     async def test_volume_curve_adaptation(self, vwap_strategy):
         """Test volume curve adaptation to real-time data."""
         estimator = VolumeCurveEstimator()
@@ -349,89 +399,103 @@ class TestVWAPExecutionIntegration:
                 assert updated_curve.normalized_volumes[current_interval + 1] != initial_curve.normalized_volumes[current_interval + 1]
     
     @pytest.mark.asyncio
+    @pytest.mark.timeout(5)  # Add 5 second timeout
     async def test_multi_parent_order_execution(self, vwap_strategy, mock_exchange):
         """Test executing multiple parent orders concurrently."""
-        # Create multiple parent orders
-        parent_ids = []
-        
-        for i in range(3):
-            config = VWAPOrderConfig(
-                symbol="BTCUSDT",
-                side=OrderSide.BUY if i % 2 == 0 else OrderSide.SELL,
-                total_quantity=Decimal(f"{10 + i * 5}.0"),
-                urgency=UrgencyLevel.MEDIUM,
-                start_time=datetime.now(UTC),
-                end_time=datetime.now(UTC) + timedelta(minutes=30)
-            )
-            parent_id = await vwap_strategy.create_parent_order(config)
-            parent_ids.append(parent_id)
-        
-        # Generate signals for all orders
-        all_signals = await vwap_strategy.generate_signals()
-        
-        # Should have signals from multiple parents
-        parent_order_ids = {s.metadata.get("parent_order_id") for s in all_signals}
-        assert len(parent_order_ids) <= 3
-        
-        # Execute orders
-        for signal in all_signals:
-            order = Order(
-                symbol=signal.symbol,
-                side=OrderSide.BUY if signal.signal_type == signal.signal_type.BUY else OrderSide.SELL,
-                type=OrderType.MARKET,
-                quantity=signal.quantity
-            )
+        # Mock time to avoid waiting
+        with patch('genesis.strategies.strategist.vwap_execution.datetime') as mock_datetime:
+            current_time = datetime.now(UTC)
+            mock_datetime.now.return_value = current_time
+            mock_datetime.fromisoformat = datetime.fromisoformat
             
-            filled_order = await mock_exchange.place_order(order)
+            # Create multiple parent orders
+            parent_ids = []
             
-            # Update correct parent order
-            parent_id = uuid4()  # Would parse from signal metadata in real implementation
-            for pid in parent_ids:
-                if str(pid) == signal.metadata.get("parent_order_id"):
-                    await vwap_strategy.update_child_order(pid, filled_order)
-                    break
+            for i in range(3):
+                config = VWAPOrderConfig(
+                    symbol="BTCUSDT",
+                    side=OrderSide.BUY if i % 2 == 0 else OrderSide.SELL,
+                    total_quantity=Decimal(f"{10 + i * 5}.0"),
+                    urgency=UrgencyLevel.EMERGENCY,  # Use emergency for immediate execution
+                    start_time=current_time,
+                    end_time=current_time + timedelta(seconds=30)
+                )
+                parent_id = await vwap_strategy.create_parent_order(config)
+                parent_ids.append(parent_id)
+        
+            # Generate signals for all orders
+            all_signals = await vwap_strategy.generate_signals()
+            
+            # Should have signals from multiple parents
+            parent_order_ids = {s.metadata.get("parent_order_id") for s in all_signals}
+            assert len(parent_order_ids) <= 3
+            
+            # Execute orders
+            for signal in all_signals:
+                order = Order(
+                    symbol=signal.symbol,
+                    side=OrderSide.BUY if signal.signal_type == signal.signal_type.BUY else OrderSide.SELL,
+                    type=OrderType.MARKET,
+                    quantity=signal.quantity
+                )
+                
+                filled_order = await mock_exchange.place_order(order)
+                
+                # Update correct parent order
+                parent_id = uuid4()  # Would parse from signal metadata in real implementation
+                for pid in parent_ids:
+                    if str(pid) == signal.metadata.get("parent_order_id"):
+                        await vwap_strategy.update_child_order(pid, filled_order)
+                        break
     
     @pytest.mark.asyncio
+    @pytest.mark.timeout(5)  # Add 5 second timeout
     async def test_performance_benchmark(self, vwap_strategy):
         """Benchmark performance of VWAP execution."""
-        start_time = time.perf_counter()
-        
-        # Create large parent order
-        parent_config = VWAPOrderConfig(
-            symbol="BTCUSDT",
-            side=OrderSide.BUY,
-            total_quantity=Decimal("1000.0"),
-            urgency=UrgencyLevel.HIGH,
-            start_time=datetime.now(UTC),
-            end_time=datetime.now(UTC) + timedelta(hours=1)
-        )
-        
-        parent_id = await vwap_strategy.create_parent_order(parent_config)
-        
-        # Measure schedule generation time
-        schedule_time = time.perf_counter() - start_time
-        
-        state = vwap_strategy.order_states[parent_id]
-        
-        # Performance assertions
-        assert schedule_time < 0.1  # Schedule generation under 100ms
-        assert len(state.schedule) > 0
-        assert len(state.schedule) <= 100  # Reasonable slice count
-        
-        # Measure signal generation time
-        signal_start = time.perf_counter()
-        
-        for _ in range(10):
-            await vwap_strategy.generate_signals()
+        # Mock time to avoid waiting
+        with patch('genesis.strategies.strategist.vwap_execution.datetime') as mock_datetime:
+            current_time = datetime.now(UTC)
+            mock_datetime.now.return_value = current_time
+            mock_datetime.fromisoformat = datetime.fromisoformat
             
-        signal_time = (time.perf_counter() - signal_start) / 10
+            start_time = time.perf_counter()
+            
+            # Create large parent order
+            parent_config = VWAPOrderConfig(
+                symbol="BTCUSDT",
+                side=OrderSide.BUY,
+                total_quantity=Decimal("1000.0"),
+                urgency=UrgencyLevel.HIGH,
+                start_time=current_time,
+                end_time=current_time + timedelta(hours=1)
+            )
         
-        assert signal_time < 0.02  # Signal generation under 20ms
-        
-        # Measure memory usage (approximate)
-        import sys
-        memory_usage = sys.getsizeof(vwap_strategy.parent_orders) + \
-                      sys.getsizeof(vwap_strategy.order_states) + \
-                      sys.getsizeof(vwap_strategy.volume_curves)
-        
-        assert memory_usage < 100 * 1024 * 1024  # Under 100MB
+            parent_id = await vwap_strategy.create_parent_order(parent_config)
+            
+            # Measure schedule generation time
+            schedule_time = time.perf_counter() - start_time
+            
+            state = vwap_strategy.order_states[parent_id]
+            
+            # Performance assertions
+            assert schedule_time < 0.1  # Schedule generation under 100ms
+            assert len(state.schedule) > 0
+            assert len(state.schedule) <= 100  # Reasonable slice count
+            
+            # Measure signal generation time
+            signal_start = time.perf_counter()
+            
+            for _ in range(10):
+                await vwap_strategy.generate_signals()
+                
+            signal_time = (time.perf_counter() - signal_start) / 10
+            
+            assert signal_time < 0.02  # Signal generation under 20ms
+            
+            # Measure memory usage (approximate)
+            import sys
+            memory_usage = sys.getsizeof(vwap_strategy.parent_orders) + \
+                          sys.getsizeof(vwap_strategy.order_states) + \
+                          sys.getsizeof(vwap_strategy.volume_curves)
+            
+            assert memory_usage < 100 * 1024 * 1024  # Under 100MB

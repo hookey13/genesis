@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, Optional, Union
 
 import structlog
 
@@ -134,7 +134,7 @@ class MigrationPlan:
 class StrategyLoader:
     """Loads and manages strategies based on tier."""
 
-    def __init__(self, session: Session | None = None):
+    def __init__(self, session: Optional[Session] = None):
         """Initialize strategy loader.
 
         Args:

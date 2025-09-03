@@ -29,6 +29,16 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from config.settings import get_settings, validate_configuration
+
+# Trading engine imports
+from genesis.engine.event_bus import EventBus
+from genesis.engine.risk_engine import RiskEngine
+from genesis.engine.state_machine import TierStateMachine
+from genesis.engine.strategy_registry import StrategyRegistry
+from genesis.engine.trading_loop import TradingLoop
+from genesis.exchange.gateway import ExchangeGateway
+from genesis.strategies.loader import StrategyLoader
+from genesis.tilt.detector import TiltDetector
 from genesis.utils.logger import LoggerType, get_logger, setup_logging
 from genesis.utils.time_sync import check_clock_drift_ms
 
@@ -47,10 +57,21 @@ class GenesisApplication:
         self.settings = None
         self.running = False
 
+        # Trading engine components
+        self.event_bus: EventBus | None = None
+        self.risk_engine: RiskEngine | None = None
+        self.exchange_gateway: ExchangeGateway | None = None
+        self.state_machine: TierStateMachine | None = None
+        self.strategy_registry: StrategyRegistry | None = None
+        self.strategy_loader: StrategyLoader | None = None
+        self.tilt_detector: TiltDetector | None = None
+        self.trading_loop: TradingLoop | None = None
+        self.main_loop_task: asyncio.Task | None = None
+
     def setup_signal_handlers(self) -> None:
         """Configure signal handlers for graceful shutdown."""
 
-        def signal_handler(signum: int, frame: Any) -> None:
+        def signal_handler(signum: int, frame: Any) -> None:  # noqa: ARG001
             """Handle shutdown signals."""
             if self.logger:
                 self.logger.info("shutdown_signal_received", signal=signum)
@@ -215,17 +236,32 @@ class GenesisApplication:
                 "genesis_started", trading_pairs=self.settings.trading.trading_pairs
             )
 
-            # TODO: Initialize and start trading engine
-            print("\n⚠️  Trading engine not yet implemented")
-            print("📚 This is the infrastructure setup phase")
-            print("\n💡 Next steps:")
-            print("  1. Implement core trading engine")
-            print("  2. Add exchange connectivity")
-            print("  3. Implement trading strategies")
-            print("  4. Add tilt detection system")
+            # Initialize trading engine components
+            if not self.initialize_trading_engine():
+                self.logger.error("trading_engine_initialization_failed")
+                return 1
 
-            # For now, just indicate successful startup
-            self.logger.info("genesis_ready", status="awaiting_implementation")
+            # Start the trading loop
+            print("\n🚀 Starting trading engine...")
+            self.logger.info("trading_engine_starting")
+
+            # Run the async main loop
+            loop = asyncio.get_event_loop()
+            self.main_loop_task = loop.create_task(self.run_trading_loop())
+
+            try:
+                # Keep the main thread alive
+                loop.run_forever()
+            except KeyboardInterrupt:
+                self.logger.info("keyboard_interrupt_received")
+            finally:
+                # Clean shutdown
+                if self.main_loop_task and not self.main_loop_task.done():
+                    self.main_loop_task.cancel()
+                    try:
+                        loop.run_until_complete(self.main_loop_task)
+                    except asyncio.CancelledError:
+                        pass
 
             return 0
 
@@ -307,6 +343,114 @@ class GenesisApplication:
                 self.logger.warning("websocket_connectivity_failed", error=str(e))
             return False
 
+    def initialize_trading_engine(self) -> bool:
+        """
+        Initialize all trading engine components.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Initialize event bus
+            self.event_bus = EventBus()
+            self.logger.info("event_bus_initialized")
+
+            # Initialize exchange gateway
+            self.exchange_gateway = ExchangeGateway(
+                api_key=self.settings.exchange.binance_api_key,
+                secret_key=self.settings.exchange.binance_secret_key,
+                testnet=self.settings.exchange.binance_testnet
+            )
+            self.logger.info("exchange_gateway_initialized")
+
+            # Initialize risk engine
+            self.risk_engine = RiskEngine(
+                max_position_size=self.settings.trading.max_position_size_usdt,
+                max_daily_loss=self.settings.trading.max_daily_loss_usdt,
+                max_positions=self.settings.trading.max_concurrent_positions
+            )
+            self.logger.info("risk_engine_initialized")
+
+            # Initialize state machine
+            self.state_machine = TierStateMachine(
+                initial_tier=self.settings.trading.trading_tier
+            )
+            self.logger.info("state_machine_initialized", tier=self.settings.trading.trading_tier)
+
+            # Initialize strategy components
+            self.strategy_loader = StrategyLoader(tier=self.settings.trading.trading_tier)
+            self.strategy_registry = StrategyRegistry(
+                event_bus=self.event_bus,
+                loader=self.strategy_loader
+            )
+
+            # Load strategies for current tier
+            loaded_strategies = self.strategy_loader.load_tier_strategies(
+                self.settings.trading.trading_tier
+            )
+            for strategy_name in loaded_strategies:
+                self.strategy_registry.register(strategy_name)
+                self.logger.info("strategy_registered", name=strategy_name)
+
+            # Initialize tilt detector
+            self.tilt_detector = TiltDetector(
+                baseline_window_days=7,
+                detection_threshold=2.0,
+                cooldown_minutes=30
+            )
+            self.logger.info("tilt_detector_initialized")
+
+            # Initialize trading loop
+            self.trading_loop = TradingLoop(
+                event_bus=self.event_bus,
+                risk_engine=self.risk_engine,
+                exchange_gateway=self.exchange_gateway,
+                state_machine=self.state_machine,
+                paper_trading_mode=self.settings.deployment.paper_trading
+            )
+            self.logger.info("trading_loop_initialized")
+
+            return True
+
+        except Exception as e:
+            self.logger.error(
+                "trading_engine_init_error",
+                error=str(e),
+                traceback=traceback.format_exc()
+            )
+            return False
+
+    async def run_trading_loop(self) -> None:
+        """
+        Run the main trading loop asynchronously.
+        """
+        try:
+            # Validate startup conditions
+            if not await self.trading_loop.validate_startup():
+                self.logger.error("startup_validation_failed")
+                return
+
+            self.logger.info("trading_loop_started")
+            self.running = True
+
+            # Start the main trading loop
+            await self.trading_loop.start()
+
+        except asyncio.CancelledError:
+            self.logger.info("trading_loop_cancelled")
+            raise
+        except Exception as e:
+            self.logger.error(
+                "trading_loop_error",
+                error=str(e),
+                traceback=traceback.format_exc()
+            )
+        finally:
+            # Ensure clean shutdown
+            if self.trading_loop:
+                await self.trading_loop.stop()
+            self.running = False
+
     def shutdown(self) -> None:
         """Perform graceful shutdown."""
         if not self.running:
@@ -318,11 +462,21 @@ class GenesisApplication:
             self.logger.info("genesis_shutting_down")
 
         try:
-            # TODO: Add cleanup for:
-            # - Open positions
-            # - Active connections
-            # - Pending orders
-            # - Save state
+            # Stop the main loop
+            if self.main_loop_task and not self.main_loop_task.done():
+                self.main_loop_task.cancel()
+
+            # Clean up trading components
+            if self.trading_loop:
+                asyncio.run(self.trading_loop.stop())
+
+            # Save state
+            if self.state_machine:
+                self.state_machine.save_state()
+
+            # Close exchange connections
+            if self.exchange_gateway:
+                asyncio.run(self.exchange_gateway.close())
 
             if self.logger:
                 self.logger.info("genesis_shutdown_complete")

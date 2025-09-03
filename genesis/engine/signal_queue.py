@@ -14,7 +14,7 @@ from genesis.core.exceptions import ValidationError
 from genesis.core.models import Signal, SignalType
 from genesis.data.repository import Repository
 from genesis.engine.event_bus import Event, EventBus
-from genesis.engine.event_bus import Priority as EventPriority
+from genesis.core.events import EventPriority
 
 logger = structlog.get_logger(__name__)
 

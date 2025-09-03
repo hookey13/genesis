@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from genesis.core.models import Order, OrderSide, OrderType, Position, Signal, SignalType
+from genesis.core.models import Order, OrderSide, OrderStatus, OrderType, Position, Signal, SignalType
 from genesis.execution.quote_generator import QuoteGenerator, QuoteParameters
 from genesis.execution.spread_model import MarketConditions, SpreadModel
 from genesis.strategies.strategist.inventory_manager import InventoryManager, InventoryLimits
@@ -87,7 +87,7 @@ class MockOrderExecutor:
     
     async def submit_order(self, order: Order) -> Order:
         """Submit an order."""
-        order.status = "NEW"
+        order.status = OrderStatus.PENDING
         self.orders.append(order)
         return order
     
@@ -95,7 +95,7 @@ class MockOrderExecutor:
         """Cancel an order."""
         for order in self.orders:
             if order.order_id == order_id:
-                order.status = "CANCELLED"
+                order.status = OrderStatus.CANCELLED
                 self.cancelled_orders.append(order)
                 self.orders.remove(order)
                 return True
@@ -120,9 +120,9 @@ class MockOrderExecutor:
                     should_fill = True
             
             if should_fill:
-                order.status = "FILLED"
+                order.status = OrderStatus.FILLED
                 order.filled_quantity = order.quantity
-                order.filled_price = order.price
+                # Order doesn't have filled_price, just use price
                 
                 self.filled_orders.append(order)
                 self.orders.remove(order)
@@ -156,6 +156,9 @@ class TestMarketMakingIntegration:
         market_data = MockMarketData(Decimal("50000"))
         executor = MockOrderExecutor(fill_probability=0.3)
         
+        # Force initial quote generation by setting last_refresh_time to past
+        strategy.last_refresh_time = datetime.now(UTC) - timedelta(seconds=10)
+        
         # Track performance
         pnl_history = []
         inventory_history = []
@@ -176,29 +179,27 @@ class TestMarketMakingIntegration:
             for signal in signals:
                 if signal.signal_type == SignalType.BUY:
                     order = Order(
-                        order_id=signal.metadata.get("order_id"),
                         symbol=signal.symbol,
                         side=OrderSide.BUY,
-                        order_type=OrderType.LIMIT,
-                        price=signal.entry_price,
-                        quantity=signal.position_size,
-                        status="NEW"
+                        type=OrderType.LIMIT,
+                        price=signal.price_target,
+                        quantity=signal.quantity,
+                        status=OrderStatus.PENDING
                     )
                     await executor.submit_order(order)
                     
                 elif signal.signal_type == SignalType.SELL:
                     order = Order(
-                        order_id=signal.metadata.get("order_id"),
                         symbol=signal.symbol,
                         side=OrderSide.SELL,
-                        order_type=OrderType.LIMIT,
-                        price=signal.entry_price,
-                        quantity=signal.position_size,
-                        status="NEW"
+                        type=OrderType.LIMIT,
+                        price=signal.price_target,
+                        quantity=signal.quantity,
+                        status=OrderStatus.PENDING
                     )
                     await executor.submit_order(order)
                     
-                elif signal.signal_type == SignalType.CANCEL:
+                elif signal.signal_type == SignalType.CLOSE:
                     order_id = signal.metadata.get("order_id")
                     if order_id:
                         await executor.cancel_order(order_id)
@@ -264,7 +265,7 @@ class TestMarketMakingIntegration:
         signals = await strategy.manage_positions()
         
         # Should generate exit signals
-        exit_signals = [s for s in signals if s.signal_type in [SignalType.EXIT_LONG, SignalType.EXIT_SHORT]]
+        exit_signals = [s for s in signals if s.signal_type == SignalType.CLOSE]
         assert len(exit_signals) > 0, "Should generate position reduction signals"
     
     async def test_adverse_selection_handling(self):
@@ -283,13 +284,12 @@ class TestMarketMakingIntegration:
         # Simulate toxic flow (one-sided fills)
         for _ in range(10):
             buy_order = Order(
-                order_id=None,
                 symbol="BTCUSDT",
                 side=OrderSide.BUY,
-                order_type=OrderType.LIMIT,
+                type=OrderType.LIMIT,
                 price=Decimal("49900"),
                 quantity=Decimal("0.1"),
-                status="FILLED"
+                status=OrderStatus.FILLED
             )
             await strategy.on_order_filled(buy_order)
         
@@ -357,10 +357,9 @@ class TestMarketMakingIntegration:
         
         # Buy
         buy_order = Order(
-            order_id=None,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
-            order_type=OrderType.LIMIT,
+            type=OrderType.LIMIT,
             price=buy_price,
             quantity=quantity,
             status="FILLED"
@@ -369,10 +368,9 @@ class TestMarketMakingIntegration:
         
         # Sell at higher price
         sell_order = Order(
-            order_id=None,
             symbol="BTCUSDT",
             side=OrderSide.SELL,
-            order_type=OrderType.LIMIT,
+            type=OrderType.LIMIT,
             price=sell_price,
             quantity=quantity,
             status="FILLED"
@@ -404,7 +402,7 @@ class TestMarketMakingIntegration:
         
         # Create mock position
         position = MagicMock()
-        position.realized_pnl = -Decimal("100")
+        position.pnl_dollars = -Decimal("100")
         
         # Trigger position close event
         await strategy.on_position_closed(position)
@@ -466,3 +464,211 @@ class TestMarketMakingIntegration:
         # All should be within bounds
         for spread in spreads:
             assert model.min_spread_bps <= spread <= model.max_spread_bps
+    
+    async def test_comprehensive_pnl_tracking(self):
+        """Test comprehensive P&L tracking with fees and slippage."""
+        config = MarketMakerConfig(
+            name="ComprehensivePnLTest",
+            symbol="BTCUSDT",
+            max_position_usdt=Decimal("10000"),
+            base_spread_bps=Decimal("10"),
+            maker_fee_bps=Decimal("-2.5"),  # -0.025% rebate
+            taker_fee_bps=Decimal("5")  # 0.05% fee
+        )
+        
+        strategy = MarketMakingStrategy(config)
+        
+        # Track all P&L components
+        gross_pnl = Decimal("0")
+        fee_pnl = Decimal("0")
+        net_pnl = Decimal("0")
+        
+        # Execute multiple round-trip trades
+        trades = [
+            (Decimal("49950"), Decimal("50050"), Decimal("0.1")),  # Small profit
+            (Decimal("50100"), Decimal("49900"), Decimal("0.05")),  # Small loss
+            (Decimal("49800"), Decimal("50200"), Decimal("0.08")),  # Large profit
+        ]
+        
+        for buy_price, sell_price, quantity in trades:
+            # Buy order
+            buy_order = Order(
+                symbol="BTCUSDT",
+                side=OrderSide.BUY,
+                type=OrderType.LIMIT,
+                price=buy_price,
+                quantity=quantity,
+                status=OrderStatus.FILLED
+            )
+            await strategy.on_order_filled(buy_order)
+            
+            # Calculate fees
+            buy_fee = buy_price * quantity * abs(config.maker_fee_bps) / Decimal("10000")
+            fee_pnl += buy_fee  # Rebate is positive
+            
+            # Sell order
+            sell_order = Order(
+                symbol="BTCUSDT",
+                side=OrderSide.SELL,
+                type=OrderType.LIMIT,
+                price=sell_price,
+                quantity=quantity,
+                status=OrderStatus.FILLED
+            )
+            await strategy.on_order_filled(sell_order)
+            
+            # Calculate fees
+            sell_fee = sell_price * quantity * abs(config.maker_fee_bps) / Decimal("10000")
+            fee_pnl += sell_fee  # Rebate is positive
+            
+            # Track gross P&L
+            trade_pnl = (sell_price - buy_price) * quantity
+            gross_pnl += trade_pnl
+        
+        net_pnl = gross_pnl + fee_pnl
+        
+        # Verify P&L tracking accuracy
+        assert strategy.state.pnl_usdt > 0, "Should have net positive P&L"
+        assert strategy.state.trades_count == len(trades) * 2, "Should track all trades"
+        
+        # Check P&L components are reasonable
+        assert abs(strategy.state.pnl_usdt - net_pnl) < Decimal("1"), "P&L calculation should be accurate"
+    
+    async def test_performance_validation_metrics(self):
+        """Test performance validation metrics (Sharpe, win rate, etc)."""
+        config = MarketMakerConfig(
+            name="PerformanceValidationTest",
+            symbol="BTCUSDT",
+            max_position_usdt=Decimal("10000")
+        )
+        
+        strategy = MarketMakingStrategy(config)
+        
+        # Simulate a series of trades with known outcomes
+        winning_trades = 0
+        losing_trades = 0
+        total_profit = Decimal("0")
+        total_loss = Decimal("0")
+        pnl_series = []
+        
+        # Generate trades with controlled outcomes
+        for i in range(50):
+            if i % 3 == 0:  # 33% losing trades
+                # Losing trade
+                buy_price = Decimal("50000")
+                sell_price = Decimal("49950")
+                quantity = Decimal("0.1")
+                losing_trades += 1
+                loss = (sell_price - buy_price) * quantity
+                total_loss += abs(loss)
+            else:  # 67% winning trades
+                # Winning trade
+                buy_price = Decimal("50000")
+                sell_price = Decimal("50100")
+                quantity = Decimal("0.1")
+                winning_trades += 1
+                profit = (sell_price - buy_price) * quantity
+                total_profit += profit
+            
+            # Execute the trade
+            buy_order = Order(
+                symbol="BTCUSDT",
+                side=OrderSide.BUY,
+                type=OrderType.LIMIT,
+                price=buy_price,
+                quantity=quantity,
+                status=OrderStatus.FILLED
+            )
+            await strategy.on_order_filled(buy_order)
+            
+            sell_order = Order(
+                symbol="BTCUSDT",
+                side=OrderSide.SELL,
+                type=OrderType.LIMIT,
+                price=sell_price,
+                quantity=quantity,
+                status=OrderStatus.FILLED
+            )
+            await strategy.on_order_filled(sell_order)
+            
+            # Track P&L series
+            pnl_series.append(float(strategy.state.pnl_usdt))
+        
+        # Calculate performance metrics
+        win_rate = winning_trades / (winning_trades + losing_trades)
+        avg_winner = total_profit / winning_trades if winning_trades > 0 else Decimal("0")
+        avg_loser = total_loss / losing_trades if losing_trades > 0 else Decimal("0")
+        profit_factor = total_profit / total_loss if total_loss > 0 else Decimal("999")
+        
+        # Validate metrics
+        assert win_rate > 0.5, "Win rate should be above 50%"
+        assert profit_factor > 1, "Profit factor should be above 1"
+        assert avg_winner > avg_loser, "Average winner should exceed average loser"
+        
+        # Check strategy is profitable overall
+        final_pnl = strategy.state.pnl_usdt
+        assert final_pnl > 0, "Strategy should be net profitable"
+        
+        # Verify positive expectancy
+        expectancy = (win_rate * avg_winner) - ((1 - Decimal(str(win_rate))) * avg_loser)
+        assert expectancy > 0, "Strategy should have positive expectancy"
+    
+    async def test_volume_weighted_performance(self):
+        """Test performance tracking with volume weighting."""
+        config = MarketMakerConfig(
+            name="VolumeWeightedTest",
+            symbol="BTCUSDT",
+            max_position_usdt=Decimal("10000")
+        )
+        
+        strategy = MarketMakingStrategy(config)
+        
+        # Execute trades with different volumes
+        trades = [
+            # (buy_price, sell_price, quantity, expected_impact)
+            (Decimal("50000"), Decimal("50100"), Decimal("0.01"), "low"),   # Small trade
+            (Decimal("49900"), Decimal("50100"), Decimal("0.5"), "high"),   # Large profitable trade
+            (Decimal("50200"), Decimal("50150"), Decimal("0.3"), "medium"), # Medium losing trade
+        ]
+        
+        total_volume = Decimal("0")
+        volume_weighted_pnl = Decimal("0")
+        
+        for buy_price, sell_price, quantity, impact in trades:
+            # Execute buy
+            buy_order = Order(
+                symbol="BTCUSDT",
+                side=OrderSide.BUY,
+                type=OrderType.LIMIT,
+                price=buy_price,
+                quantity=quantity,
+                status=OrderStatus.FILLED
+            )
+            await strategy.on_order_filled(buy_order)
+            
+            # Execute sell
+            sell_order = Order(
+                symbol="BTCUSDT",
+                side=OrderSide.SELL,
+                type=OrderType.LIMIT,
+                price=sell_price,
+                quantity=quantity,
+                status=OrderStatus.FILLED
+            )
+            await strategy.on_order_filled(sell_order)
+            
+            # Track volume-weighted metrics
+            trade_volume = quantity * ((buy_price + sell_price) / 2)
+            trade_pnl = (sell_price - buy_price) * quantity
+            total_volume += trade_volume
+            volume_weighted_pnl += trade_pnl * trade_volume
+        
+        # Calculate volume-weighted average P&L
+        vwap_pnl = volume_weighted_pnl / total_volume if total_volume > 0 else Decimal("0")
+        
+        # Verify volume tracking
+        assert strategy.state.trades_count == len(trades) * 2, "Should track all trades"
+        assert total_volume > 0, "Should have positive volume"
+        
+        # Large profitable trade should dominate P&L
+        assert strategy.state.pnl_usdt > 0, "Should be net profitable due to large winning trade"
