@@ -80,6 +80,27 @@ class BaseStrategy(ABC):
         pass
 
     @abstractmethod
+    async def analyze(self, market_data: dict[str, Any]) -> Signal | None:
+        """Analyze market data and generate trading signal.
+
+        Args:
+            market_data: Market data from analyzer.
+
+        Returns:
+            Trading signal or None if no opportunity.
+        """
+        pass
+
+    @abstractmethod
+    async def manage_positions(self) -> list[Signal]:
+        """Manage existing positions and generate exit signals.
+
+        Returns:
+            List of exit signals for position management.
+        """
+        pass
+
+    @abstractmethod
     async def on_order_filled(self, order: Order) -> None:
         """Handle order fill event.
 
@@ -256,3 +277,66 @@ class BaseStrategy(ABC):
             "positions_count": len(self.state.positions),
             "last_update": self.state.last_update.isoformat(),
         }
+
+    async def save_state(self) -> dict[str, Any]:
+        """Save strategy state for persistence.
+
+        Returns:
+            Dictionary containing the strategy state.
+        """
+        return {
+            "config": {
+                "strategy_id": str(self.config.strategy_id),
+                "name": self.config.name,
+                "symbol": self.config.symbol,
+                "max_position_usdt": str(self.config.max_position_usdt),
+                "position_multiplier": str(self.config.position_multiplier),
+                "risk_limit": str(self.config.risk_limit),
+                "enabled": self.config.enabled,
+                "tier_required": self.config.tier_required,
+                "metadata": self.config.metadata,
+            },
+            "state": {
+                "status": self.state.status,
+                "positions": [p.to_dict() if hasattr(p, "to_dict") else str(p) for p in self.state.positions],
+                "pending_orders": [o.to_dict() if hasattr(o, "to_dict") else str(o) for o in self.state.pending_orders],
+                "last_signal": self.state.last_signal.to_dict() if self.state.last_signal and hasattr(self.state.last_signal, "to_dict") else None,
+                "pnl_usdt": str(self.state.pnl_usdt),
+                "win_rate": str(self.state.win_rate),
+                "trades_count": self.state.trades_count,
+                "wins_count": self.state.wins_count,
+                "losses_count": self.state.losses_count,
+                "max_drawdown": str(self.state.max_drawdown),
+                "sharpe_ratio": str(self.state.sharpe_ratio),
+                "last_update": self.state.last_update.isoformat(),
+            },
+        }
+
+    async def load_state(self, state_data: dict[str, Any]) -> None:
+        """Load strategy state from persistence.
+
+        Args:
+            state_data: Dictionary containing the strategy state.
+        """
+        if "config" in state_data:
+            config = state_data["config"]
+            self.config.strategy_id = UUID(config.get("strategy_id", str(self.config.strategy_id)))
+            self.config.name = config.get("name", self.config.name)
+            self.config.symbol = config.get("symbol", self.config.symbol)
+            self.config.max_position_usdt = Decimal(config.get("max_position_usdt", "1000"))
+            self.config.position_multiplier = Decimal(config.get("position_multiplier", "1.0"))
+            self.config.risk_limit = Decimal(config.get("risk_limit", "0.02"))
+            self.config.enabled = config.get("enabled", True)
+            self.config.tier_required = config.get("tier_required", "SNIPER")
+            self.config.metadata = config.get("metadata", {})
+
+        if "state" in state_data:
+            state = state_data["state"]
+            self.state.status = state.get("status", "IDLE")
+            self.state.pnl_usdt = Decimal(state.get("pnl_usdt", "0"))
+            self.state.win_rate = Decimal(state.get("win_rate", "0"))
+            self.state.trades_count = state.get("trades_count", 0)
+            self.state.wins_count = state.get("wins_count", 0)
+            self.state.losses_count = state.get("losses_count", 0)
+            self.state.max_drawdown = Decimal(state.get("max_drawdown", "0"))
+            self.state.sharpe_ratio = Decimal(state.get("sharpe_ratio", "0"))

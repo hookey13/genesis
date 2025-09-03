@@ -3,12 +3,12 @@
 ## Functional Requirements
 
 **Core Trading Engine:**
-- FR1: The system shall enforce tier-locked execution strategies that automatically evolve based on account balance thresholds ($500/$2k/$10k)
-- FR2: Market orders shall be used exclusively for positions <$500, with mandatory 3-slice execution for $500-$2k range
-- FR3: The system shall monitor and classify market states (DEAD/NORMAL/VOLATILE/PANIC) in real-time with <5 second detection latency
-- FR4: Statistical arbitrage engine shall identify and execute mean reversion trades when spreads exceed 2-sigma historical norms
-- FR5: Position sizing shall automatically calculate based on current capital with hard 5% maximum per position
-- FR6: The system shall scan and rank trading pairs by liquidity appropriateness for current capital tier
+- FR1: The system shall enforce tier-locked execution strategies that automatically evolve based on account balance thresholds ($500/$2k/$10k) ✅ (Epic 10)
+- FR2: Market orders shall be used exclusively for positions <$500, with mandatory 3-slice execution for $500-$2k range ✅ (Epic 10)
+- FR3: The system shall monitor and classify market states (DEAD/NORMAL/VOLATILE/PANIC) in real-time with <5 second detection latency ✅ (Epic 10)
+- FR4: Statistical arbitrage engine shall identify and execute mean reversion trades when spreads exceed 2-sigma historical norms ✅ (Epic 10)
+- FR5: Position sizing shall automatically calculate based on current capital with hard 5% maximum per position ✅ (Epic 10)
+- FR6: The system shall scan and rank trading pairs by liquidity appropriateness for current capital tier ✅ (Epic 10)
 - FR7: Emergency override protocol shall require typed confirmation and enforce 24-hour cooldown after use
 
 **Risk Management:**

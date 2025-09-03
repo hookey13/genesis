@@ -1,6 +1,10 @@
 """Core constants and enums for Project GENESIS."""
 
+from decimal import Decimal
 from enum import Enum
+
+# Decimal precision for financial calculations
+DECIMAL_PRECISION = Decimal('0.00000001')  # 8 decimal places for crypto
 
 
 class TradingTier(Enum):

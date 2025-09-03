@@ -4,4 +4,6 @@
 -r base.txt
 
 # Additional dependencies for Hunter tier
-# (To be added as tier features are implemented)
+# Statistical analysis for pairs trading
+statsmodels==0.14.1
+scipy==1.11.4

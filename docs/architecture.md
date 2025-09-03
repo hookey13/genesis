@@ -20,6 +20,7 @@ No existing trading frameworks (Freqtrade, Jesse, etc.) will be used - they woul
 | Date | Version | Description | Author |
 |------|---------|-------------|--------|
 | 2025-08-23 | 1.0 | Initial architecture document creation | Winston (Architect) |
+| 2025-09-02 | 1.1 | Added Epic 10 trading strategy architecture | Claude (Agent) |
 
 ## High Level Architecture
 
@@ -1977,20 +1978,118 @@ These standards are MANDATORY for all development on Project GENESIS. They are e
 | 11. Test Strategy | EXCELLENT | 100% coverage for money paths, chaos testing | Property-based testing for edge cases |
 | 12. Security | EXCELLENT | Tilt-specific protections, code integrity checking | Revenge coding detection |
 
+## Trading Strategy Architecture (Epic 10)
+
+### Strategy Framework Overview
+
+The trading brain is implemented as a pluggable strategy framework that supports tier-based evolution:
+
+```mermaid
+graph LR
+    subgraph "Market Analysis Layer"
+        MA[Market Analyzer]
+        AD[Arbitrage Detector]
+        TA[Technical Analysis]
+        MS[Market State Classifier]
+    end
+    
+    subgraph "Strategy Layer"
+        SS[Sniper Strategies]
+        HS[Hunter Strategies]
+        ST[Strategist Strategies]
+    end
+    
+    subgraph "Execution Layer"
+        SG[Signal Generator]
+        RV[Risk Validator]
+        OE[Order Executor]
+        PM[Position Manager]
+    end
+    
+    MA --> SS
+    MA --> HS
+    MA --> ST
+    
+    SS --> SG
+    HS --> SG
+    ST --> SG
+    
+    SG --> RV
+    RV --> OE
+    OE --> PM
+```
+
+### Strategy Implementation Pattern
+
+All strategies follow a consistent pattern enabling hot-swapping and A/B testing:
+
+- **BaseStrategy Abstract Class:** Defines interface all strategies must implement
+- **Analyze Method:** Processes market data and generates signals
+- **Validate Method:** Internal strategy validation before risk checks
+- **Performance Tracking:** Built-in metrics collection
+- **State Persistence:** Automatic save/restore of strategy state
+
+### Market Analysis Components
+
+**Real-time Analysis Pipeline:**
+- Order book aggregation across exchanges
+- Spread tracking with historical baselines
+- Liquidity depth assessment
+- Microstructure anomaly detection
+- Volume profile estimation
+
+**Latency Requirements:**
+- Market data processing: <5ms
+- Strategy calculation: <50ms
+- Signal generation: <10ms
+- Total loop time: <100ms
+
+### Strategy Tiers
+
+**Sniper Tier ($500-$2k):**
+- Simple arbitrage (>0.3% profit)
+- Momentum breakout detection
+- Single pair focus
+- Market orders only
+
+**Hunter Tier ($2k-$10k):**
+- Mean reversion with Bollinger Bands
+- Statistical pairs trading
+- Multi-pair portfolio (up to 5)
+- Iceberg order slicing
+
+**Strategist Tier ($10k+):**
+- VWAP/TWAP execution
+- Market making with inventory management
+- Smart order routing
+- Pre/post trade analytics
+
 ## Next Steps
 
-### Immediate Next Steps (Before Development)
+### Immediate Next Steps (Epic 10 Implementation)
 
-1. **Review Architecture with Fresh Eyes**
-2. **Set Up Development Environment**
-3. **Create Critical Path First**
+1. **Implement Market Analyzer (Story 10.1)**
+2. **Create Sniper Strategies (Story 10.2)**
+3. **Connect Trading Engine (Story 10.5)**
+4. **Validate with Backtesting (Story 10.6)**
+5. **Deploy Paper Trading (Story 10.8)**
 
 ### Development Phase Checkpoints
 
-**Week 1-2: Foundation**
-**Week 3-4: Trading Core**
-**Week 5-6: Safety Systems**
-**Week 7-8: Terminal UI**
+**Week 1-2: Foundation & Core Trading**
+- Market analysis engine
+- Sniper tier strategies
+- Trading loop integration
+
+**Week 3: Validation**
+- Backtesting framework
+- Paper trading deployment
+- Performance validation
+
+**Week 4: Production**
+- Production configuration
+- Live deployment with minimum capital
+- Gradual scaling
 
 ### Pre-Launch Checklist
 
