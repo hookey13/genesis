@@ -1,14 +1,50 @@
 [run]
-source = genesis/paper_trading
+source = genesis
 omit = 
     */tests/*
     */__pycache__/*
     */site-packages/*
+    genesis/__main__.py
+    genesis/ui/*
+    genesis/api/*
+branch = True
+parallel = True
 
 [report]
+# Require high coverage for critical paths
+fail_under = 90
 precision = 2
 show_missing = True
 skip_covered = False
+sort = Cover
+
+exclude_lines =
+    # Standard exclusions
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Debug-only code
+    if __debug__:
+    if DEBUG:
+    
+    # Defensive programming
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abc.abstractmethod
+    
+    # Non-critical code paths
+    except ImportError:
+    except KeyboardInterrupt:
 
 [html]
-directory = htmlcov_paper_trading
+directory = htmlcov
+title = GENESIS Test Coverage Report
+
+[xml]
+output = coverage.xml
+
+[json]
+output = coverage.json
+pretty_print = True

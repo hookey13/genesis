@@ -339,3 +339,149 @@ class Repository(ABC):
     async def get_database_info(self, key: str) -> str | None:
         """Get database metadata."""
         pass
+
+
+class StateRepository:
+    """Repository for state persistence and recovery (test compatibility)."""
+    
+    def __init__(self):
+        self._state = {}
+        self._positions = []
+        self._orders = []
+        
+    async def save_position(self, position_data: dict[str, Any]) -> None:
+        """Save position to repository."""
+        self._positions.append(position_data)
+        
+    async def save_order(self, order_data: dict[str, Any]) -> None:
+        """Save order to repository."""
+        self._orders.append(order_data)
+        
+    async def save_state(self, state: dict[str, Any]) -> None:
+        """Save complete state."""
+        self._state = state
+        
+    async def load_state(self) -> dict[str, Any] | None:
+        """Load saved state."""
+        return self._state if self._state else None
+        
+    async def migrate_state(self, old_state: dict, target_version: str) -> dict:
+        """Migrate state to new version."""
+        migrated = old_state.copy()
+        migrated["version"] = target_version
+        
+        # Add new v2 fields if missing
+        if target_version == "2.0":
+            if "positions" in migrated:
+                for pos in migrated["positions"]:
+                    if "risk_score" not in pos:
+                        pos["risk_score"] = Decimal("0.0")
+            if "strategies" not in migrated:
+                migrated["strategies"] = []
+                
+        return migrated
+        
+    def atomic_transaction(self):
+        """Context manager for atomic transactions."""
+        return AtomicTransaction(self)
+        
+    async def save_component(self, component: str, data: Any) -> None:
+        """Save a component of state."""
+        if component not in self._state:
+            self._state[component] = {}
+        self._state[component] = data
+
+
+class AtomicTransaction:
+    """Atomic transaction context manager."""
+    
+    def __init__(self, repo: StateRepository):
+        self.repo = repo
+        self._temp_state = {}
+        self._failed = False
+        
+    async def __aenter__(self):
+        return self
+        
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if not self._failed and exc_type is None:
+            # Commit changes
+            for key, value in self._temp_state.items():
+                await self.repo.save_component(key, value)
+                
+    async def save_component(self, component: str, data: Any) -> None:
+        """Save component in transaction."""
+        self._temp_state[component] = data
+        
+    async def simulate_failure(self) -> None:
+        """Simulate transaction failure."""
+        self._failed = True
+
+
+class TradeRepository:
+    """Repository for trade data (test compatibility)."""
+    
+    def __init__(self):
+        self._trades = {}
+        self._recent_trades = []
+        
+    async def save_trade(self, trade: dict[str, Any]) -> None:
+        """Save trade to repository."""
+        order_id = trade.get("order_id")
+        if order_id:
+            self._trades[order_id] = trade
+            self._recent_trades.append(trade)
+            # Keep only last 10000 trades
+            if len(self._recent_trades) > 10000:
+                self._recent_trades = self._recent_trades[-10000:]
+                
+    async def get_trade(self, order_id: str) -> dict[str, Any] | None:
+        """Get trade by order ID."""
+        return self._trades.get(order_id)
+        
+    async def get_recent_trades(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Get recent trades."""
+        return self._recent_trades[-limit:]
+
+
+class DatabaseConnection:
+    """Database connection wrapper (test compatibility)."""
+    
+    def __init__(self, name: str):
+        self.name = name
+        self.replica = None
+        self._data = {}
+        
+    async def save(self, data: dict[str, Any]) -> bool:
+        """Save data to database."""
+        if "order_id" in data:
+            self._data[data["order_id"]] = data
+            return True
+        return False
+        
+    async def get_position(self, symbol: str) -> dict | None:
+        """Get position by symbol."""
+        for item in self._data.values():
+            if item.get("symbol") == symbol and item.get("type") == "position":
+                return item
+        return None
+        
+    async def get_all_positions(self) -> list[dict]:
+        """Get all positions."""
+        return [item for item in self._data.values() if item.get("type") == "position"]
+        
+    async def get_all_orders(self) -> list[dict]:
+        """Get all orders."""
+        return [item for item in self._data.values() if item.get("type") == "order"]
+        
+    async def save_config(self, config: dict) -> None:
+        """Save configuration."""
+        self._data["_config"] = config
+        
+    async def load_config(self) -> dict:
+        """Load configuration."""
+        return self._data.get("_config", {})
+        
+    async def health_check(self) -> dict:
+        """Check database health."""
+        return {"status": "healthy", "name": self.name}

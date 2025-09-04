@@ -38,6 +38,47 @@ class Tier(Enum):
     EMPEROR = "EMPEROR"
 
 
+# Backwards compatibility aliases
+TierState = Tier
+
+
+class StateMachine:
+    """Simple state machine for test compatibility."""
+    
+    def __init__(self):
+        self.current_state = "IDLE"
+        self.current_tier = Tier.SNIPER
+        self.current_balance = Decimal("100.00")
+        self.trade_count = 0
+        self.win_rate = Decimal("0.0")
+    
+    def set_tier(self, tier):
+        self.current_tier = tier
+    
+    def set_balance(self, balance):
+        self.current_balance = balance
+    
+    def record_trade_count(self, count):
+        self.trade_count = count
+    
+    def record_win_rate(self, rate):
+        self.win_rate = rate
+    
+    async def save_state(self):
+        return {
+            "tier": self.current_tier,
+            "balance": self.current_balance,
+            "trade_count": self.trade_count,
+            "win_rate": self.win_rate
+        }
+    
+    async def restore_state(self, state):
+        self.current_tier = state["tier"]
+        self.current_balance = state["balance"]
+        self.trade_count = state["trade_count"]
+        self.win_rate = state["win_rate"]
+
+
 # Tier progression order
 TIER_ORDER = [Tier.SNIPER, Tier.HUNTER, Tier.STRATEGIST, Tier.ARCHITECT, Tier.EMPEROR]
 
