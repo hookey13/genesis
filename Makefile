@@ -3,7 +3,8 @@
 
 .PHONY: help install install-dev test test-unit test-integration test-coverage \
         format lint typecheck clean run run-docker deploy backup migrate \
-        build-docker stop-docker logs pre-commit setup
+        build-docker stop-docker logs pre-commit setup validate validate-quick \
+        validate-security validate-performance smoke-test
 
 # Default target
 help:
@@ -37,6 +38,13 @@ help:
 	@echo "Deployment:"
 	@echo "  make deploy         - Deploy to production"
 	@echo "  make backup         - Run backup script"
+	@echo ""
+	@echo "Validation & Testing:"
+	@echo "  make validate       - Run full production validation"
+	@echo "  make validate-quick - Run quick smoke tests only"
+	@echo "  make validate-security - Run security-focused validation"
+	@echo "  make validate-performance - Run performance benchmarks"
+	@echo "  make smoke-test     - Run smoke test suite"
 	@echo ""
 	@echo "Maintenance:"
 	@echo "  make clean          - Remove Python cache files"
@@ -142,6 +150,32 @@ backup:
 	@echo "Running backup..."
 	@bash scripts/backup.sh
 	@echo "✓ Backup complete"
+
+# Validation Commands
+validate:
+	@echo "Running full production validation..."
+	@python scripts/validate_production.py --mode standard --format console
+	@echo "✓ Validation complete"
+
+validate-quick:
+	@echo "Running quick validation (smoke tests)..."
+	@python scripts/validate_production.py --mode quick --format console
+	@echo "✓ Quick validation complete"
+
+validate-security:
+	@echo "Running security validation..."
+	@python scripts/validate_production.py --mode security --format console
+	@echo "✓ Security validation complete"
+
+validate-performance:
+	@echo "Running performance validation..."
+	@python scripts/validate_production.py --mode performance --format console
+	@echo "✓ Performance validation complete"
+
+smoke-test:
+	@echo "Running smoke test suite..."
+	@python scripts/smoke_tests.py
+	@echo "✓ Smoke tests complete"
 
 # Maintenance
 clean:

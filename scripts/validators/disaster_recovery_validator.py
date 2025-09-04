@@ -260,7 +260,7 @@ from genesis.config.settings import Settings
 
 async def emergency_close_all():
     """Close all positions immediately."""
-    print("  EMERGENCY STOP INITIATED  ")
+    print("EMERGENCY STOP INITIATED")
     
     settings = Settings()
     engine = TradingEngine(settings)
@@ -285,12 +285,12 @@ async def emergency_close_all():
         # Set emergency flag
         await engine.set_emergency_stop(True)
         
-        print(" Emergency stop completed")
+        print("Emergency stop completed")
         print(f"- Positions closed: {len(positions)}")
         print(f"- Orders cancelled: {len(orders)}")
         
     except Exception as e:
-        print(f"L Emergency stop failed: {e}")
+        print(f"Emergency stop failed: {e}")
         sys.exit(1)
 
 

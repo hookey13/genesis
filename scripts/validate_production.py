@@ -112,7 +112,7 @@ async def main(
             cert_path = Path("scripts/reports/compliance_certificate.html")
             cert_html = report_generator.generate_compliance_certificate()
             cert_path.write_text(cert_html)
-            print(f"\n✅ Compliance certificate generated: {cert_path}")
+            print(f"\n[OK] Compliance certificate generated: {cert_path}")
         
         # Determine exit code
         if summary["overall_status"] == "PASSED":
@@ -130,7 +130,7 @@ async def main(
                 sys.exit(2)  # Failure
     
     except Exception as e:
-        print(f"\n❌ Validation suite failed with error: {e}")
+        print(f"\n[ERROR] Validation suite failed with error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(3)

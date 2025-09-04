@@ -29,9 +29,9 @@ class ValidationReportGenerator:
         # Summary statistics
         print("\nSummary:")
         print(f"  Total Validators: {self.summary['total_validators']}")
-        print(f"  Passed: {self.summary['passed']} ✅")
-        print(f"  Failed: {self.summary['failed']} ❌")
-        print(f"  Warnings: {self.summary['warnings']} ⚠️")
+        print(f"  Passed: {self.summary['passed']}")
+        print(f"  Failed: {self.summary['failed']}")
+        print(f"  Warnings: {self.summary['warnings']}")
         
         # Individual validator results
         print("\nValidator Results:")
@@ -91,22 +91,22 @@ class ValidationReportGenerator:
                         warning_items.append(item)
         
         if critical_items:
-            print("\n🔴 CRITICAL (Fix immediately):")
+            print("\n[CRITICAL] Fix immediately:")
             for item in critical_items[:5]:
-                print(f"  • {item}")
+                print(f"  - {item}")
         
         if error_items:
-            print("\n🟠 HIGH (Fix before production):")
+            print("\n[HIGH] Fix before production:")
             for item in error_items[:5]:
-                print(f"  • {item}")
+                print(f"  - {item}")
         
         if warning_items:
-            print("\n🟡 MEDIUM (Address soon):")
+            print("\n[MEDIUM] Address soon:")
             for item in warning_items[:5]:
-                print(f"  • {item}")
+                print(f"  - {item}")
         
         if not (critical_items or error_items or warning_items):
-            print("\n✅ No action items - system ready!")
+            print("\n[OK] No action items - system ready!")
     
     def generate_json(self) -> Dict[str, Any]:
         """Generate JSON report."""
@@ -417,15 +417,15 @@ class ValidationReportGenerator:
     def _get_status_emoji(self, status: str) -> str:
         """Get emoji for status."""
         emoji_map = {
-            "PASSED": "✅",
-            "FAILED": "❌",
-            "WARNING": "⚠️",
-            "ERROR": "❌",
-            "RUNNING": "🔄",
-            "PENDING": "⏳",
-            "SKIPPED": "⏭️"
+            "PASSED": "[OK]",
+            "FAILED": "[FAIL]",
+            "WARNING": "[WARN]",
+            "ERROR": "[ERR]",
+            "RUNNING": "[RUN]",
+            "PENDING": "[WAIT]",
+            "SKIPPED": "[SKIP]"
         }
-        return emoji_map.get(status, "❓")
+        return emoji_map.get(status, "[?]")
     
     def _get_action_items(self) -> Dict[str, List[str]]:
         """Get categorized action items."""

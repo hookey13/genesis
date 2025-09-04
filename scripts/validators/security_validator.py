@@ -280,11 +280,11 @@ class SecurityValidator(BaseValidator):
         """Scan codebase for hardcoded secrets."""
         # Patterns that indicate potential secrets
         secret_patterns = [
-            (r"api[_-]?key\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]"i, "API Key"),
-            (r"secret\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]"i, "Secret"),
-            (r"password\s*=\s*['\"][^'\"]+['\"]"i, "Password"),
-            (r"token\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]"i, "Token"),
-            (r"private[_-]?key\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]"i, "Private Key")
+            (r"api[_-]?key\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]", "API Key"),
+            (r"secret\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]", "Secret"),
+            (r"password\s*=\s*['\"][^'\"]+['\"]", "Password"),
+            (r"token\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]", "Token"),
+            (r"private[_-]?key\s*=\s*['\"][a-zA-Z0-9]{20,}['\"]", "Private Key")
         ]
         
         # Directories to scan

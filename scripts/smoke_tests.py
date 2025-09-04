@@ -93,15 +93,15 @@ class SmokeTestSuite:
             duration = time.perf_counter() - start
             
             if result is None or result is True:
-                print("✅ PASSED")
+                print("[PASSED]")
                 self.results.append(SmokeTestResult(test_name, True, duration))
             else:
-                print("❌ FAILED")
+                print("[FAILED]")
                 message = result if isinstance(result, str) else "Test failed"
                 self.results.append(SmokeTestResult(test_name, False, duration, message))
         except Exception as e:
             duration = time.perf_counter() - start
-            print("❌ ERROR")
+            print("[ERROR]")
             self.results.append(SmokeTestResult(
                 test_name,
                 False,
@@ -276,8 +276,8 @@ class SmokeTestSuite:
         print("Smoke Test Summary")
         print("="*60)
         print(f"Total Tests: {total}")
-        print(f"Passed: {passed} ✅")
-        print(f"Failed: {failed} ❌")
+        print(f"Passed: {passed}")
+        print(f"Failed: {failed}")
         print(f"Duration: {duration:.2f} seconds")
         print(f"Result: {'PASSED' if failed == 0 else 'FAILED'}")
         
