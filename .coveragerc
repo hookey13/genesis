@@ -1,0 +1,14 @@
+[run]
+source = genesis/paper_trading
+omit = 
+    */tests/*
+    */__pycache__/*
+    */site-packages/*
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov_paper_trading

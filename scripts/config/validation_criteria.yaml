@@ -1,0 +1,128 @@
+# Validation Criteria Configuration
+# Defines thresholds and modes for production validation
+
+thresholds:
+  performance:
+    max_latency_ms: 50
+    min_throughput_ops: 1000
+    max_memory_gb: 2
+    max_cpu_percent: 50
+    max_db_query_ms: 10
+    max_ws_processing_ms: 5
+    max_strategy_calc_ms: 100
+  
+  reliability:
+    min_uptime_percent: 99.9
+    max_error_rate_percent: 0.1
+    max_recovery_time_minutes: 5
+    max_rpo_minutes: 1
+  
+  security:
+    max_critical_vulnerabilities: 0
+    max_high_vulnerabilities: 0
+    min_password_strength: strong
+    require_encryption: true
+    require_api_key_encryption: true
+    require_secure_websockets: true
+  
+  compliance:
+    min_audit_retention_days: 365
+    min_position_retention_days: 365
+    min_order_retention_days: 365
+    min_metrics_retention_days: 90
+    min_error_log_retention_days: 30
+    require_regulatory_reporting: true
+  
+  tier_requirements:
+    sniper:
+      min_capital: 500
+      max_capital: 2000
+      max_positions: 1
+      max_daily_trades: 10
+    hunter:
+      min_capital: 2000
+      max_capital: 10000
+      max_positions: 3
+      max_daily_trades: 50
+    strategist:
+      min_capital: 10000
+      max_capital: null
+      max_positions: 10
+      max_daily_trades: 200
+
+validation_modes:
+  quick:  # Smoke tests only
+    duration_minutes: 5
+    validators:
+      - health
+      - basic_flow
+      - critical_path
+    parallel: true
+    fail_fast: true
+  
+  standard:  # Normal validation
+    duration_minutes: 30
+    validators:
+      - strategy
+      - risk
+      - execution
+      - database
+      - monitoring
+      - compliance
+    parallel: true
+    fail_fast: false
+  
+  thorough:  # Full production validation
+    duration_minutes: 120
+    validators: all
+    include_load_tests: true
+    include_security_scan: true
+    include_performance_benchmark: true
+    parallel: false
+    fail_fast: false
+  
+  security:  # Security-focused validation
+    duration_minutes: 60
+    validators:
+      - security
+      - compliance
+    include_dependency_scan: true
+    include_code_analysis: true
+    parallel: false
+    fail_fast: true
+  
+  performance:  # Performance-focused validation
+    duration_minutes: 45
+    validators:
+      - performance
+      - database
+    include_load_tests: true
+    include_stress_tests: true
+    parallel: false
+    fail_fast: false
+
+reporting:
+  output_formats:
+    - console
+    - html
+    - json
+    - markdown
+  
+  report_location: scripts/reports/validation_results
+  
+  notifications:
+    slack_enabled: false
+    slack_webhook: ${SLACK_WEBHOOK_URL}
+    email_enabled: false
+    email_recipients: []
+  
+  compliance_certificate:
+    generate: true
+    template: scripts/reports/templates/compliance_cert.html
+    signature_required: true
+
+exit_codes:
+  success: 0
+  warning: 1
+  failure: 2
+  critical: 3

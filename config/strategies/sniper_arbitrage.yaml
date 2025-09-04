@@ -1,0 +1,73 @@
+# Sniper Tier - Simple Arbitrage Strategy Configuration
+# This strategy focuses on capturing small price discrepancies with minimal risk
+# Tier Limits: Max 1 position, $100 max order, 5% daily loss limit
+
+strategy:
+  name: "SniperArbitrage"
+  version: "1.0.0"
+  tier: "sniper"
+  enabled: true
+  description: "Basic arbitrage strategy for Sniper tier traders"
+
+parameters:
+  min_profit_pct: 0.3        # Minimum profit percentage to trigger trade
+  max_position_pct: 0.02      # Max 2% of account per position
+  stop_loss_pct: 1.0          # 1% stop loss
+  take_profit_pct: 0.5        # 0.5% take profit
+  min_order_size: 10.0        # Minimum order size in USDT
+  max_order_size: 100.0       # Maximum order size in USDT (tier limit)
+  
+risk_limits:
+  max_positions: 1            # Sniper tier: single position only
+  max_daily_loss_pct: 5.0     # Maximum 5% daily loss
+  max_correlation: 0.7        # Maximum correlation between pairs
+  
+execution:
+  order_type: "market"        # Market orders only for sniper tier
+  time_in_force: "IOC"        # Immediate or cancel
+  retry_attempts: 3           # Retry failed orders 3 times
+  retry_delay_ms: 100         # 100ms delay between retries
+  slippage_tolerance_pct: 0.1 # Maximum acceptable slippage
+  
+monitoring:
+  log_level: "INFO"           # Standard logging level
+  metrics_interval_seconds: 60 # Report metrics every minute
+  alert_on_loss: true         # Alert when position goes negative
+  performance_tracking: true   # Track strategy performance metrics
+  
+# A/B Testing Variants (optional)
+variants:
+  - name: "conservative"
+    parameters:
+      min_profit_pct: 0.5     # Higher profit threshold
+      stop_loss_pct: 0.5      # Tighter stop loss
+  - name: "aggressive"
+    parameters:
+      min_profit_pct: 0.2     # Lower profit threshold
+      max_position_pct: 0.03  # Larger position size
+
+# Environment-specific overrides
+overrides:
+  dev:
+    parameters:
+      min_profit_pct: 0.1     # Lower threshold for testing
+      min_order_size: 5.0     # Smaller orders in dev
+    monitoring:
+      log_level: "DEBUG"      # Verbose logging in development
+  staging:
+    parameters:
+      min_profit_pct: 0.2     # Moderate threshold for staging
+  prod:
+    parameters:
+      min_profit_pct: 0.3     # Production threshold
+    monitoring:
+      alert_on_loss: true     # Always alert in production
+      
+# Advanced Settings
+advanced:
+  price_precision: 8          # Decimal places for price
+  quantity_precision: 8       # Decimal places for quantity
+  min_spread_bps: 10          # Minimum spread in basis points
+  max_latency_ms: 100         # Maximum acceptable latency
+  cooldown_seconds: 30        # Cooldown between trades
+  max_open_time_seconds: 300  # Maximum time to hold position

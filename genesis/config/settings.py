@@ -13,26 +13,46 @@ from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
 from genesis.core.models import TradingTier
+from genesis.security.secrets_manager import SecretBackend, SecretsManager
 from genesis.security.vault_client import VaultClient
-from genesis.security.secrets_manager import SecretsManager, SecretBackend
 
 
 class TierLimits(BaseModel):
     """Tier-specific trading limits and parameters."""
 
-    max_position_size: Decimal = Field(gt=0, description="Maximum position size in USDT")
-    daily_loss_limit: Decimal = Field(gt=0, le=100, description="Daily loss limit as percentage")
-    position_risk_percent: Decimal = Field(gt=0, le=100, description="Risk per position as percentage")
+    max_position_size: Decimal = Field(
+        gt=0, description="Maximum position size in USDT"
+    )
+    daily_loss_limit: Decimal = Field(
+        gt=0, le=100, description="Daily loss limit as percentage"
+    )
+    position_risk_percent: Decimal = Field(
+        gt=0, le=100, description="Risk per position as percentage"
+    )
     max_positions: int = Field(gt=0, description="Maximum concurrent positions")
-    stop_loss_percent: Decimal = Field(gt=0, le=100, description="Stop loss as percentage")
-    allowed_strategies: list[str] = Field(min_length=1, description="Allowed strategy names")
+    stop_loss_percent: Decimal = Field(
+        gt=0, le=100, description="Stop loss as percentage"
+    )
+    allowed_strategies: list[str] = Field(
+        min_length=1, description="Allowed strategy names"
+    )
     max_leverage: Decimal = Field(ge=1, description="Maximum leverage allowed")
-    min_win_rate: Decimal = Field(ge=0, le=1, description="Minimum win rate to maintain")
-    max_drawdown: Decimal = Field(gt=0, le=100, description="Maximum drawdown as percentage")
-    recovery_lockout_hours: Decimal = Field(ge=0, description="Lockout hours after tilt level 3")
+    min_win_rate: Decimal = Field(
+        ge=0, le=1, description="Minimum win rate to maintain"
+    )
+    max_drawdown: Decimal = Field(
+        gt=0, le=100, description="Maximum drawdown as percentage"
+    )
+    recovery_lockout_hours: Decimal = Field(
+        ge=0, description="Lockout hours after tilt level 3"
+    )
     tilt_thresholds: dict[str, int] = Field(description="Tilt detection thresholds")
-    kelly_sizing: dict[str, Any] | None = Field(default=None, description="Kelly sizing parameters")
-    conviction_multipliers: dict[str, Decimal] | None = Field(default=None, description="Conviction level multipliers")
+    kelly_sizing: dict[str, Any] | None = Field(
+        default=None, description="Kelly sizing parameters"
+    )
+    conviction_multipliers: dict[str, Decimal] | None = Field(
+        default=None, description="Conviction level multipliers"
+    )
 
     @field_validator("tilt_thresholds")
     @classmethod
@@ -52,12 +72,22 @@ class TierLimits(BaseModel):
 class GlobalRules(BaseModel):
     """Global risk rules that apply to all tiers."""
 
-    min_position_size: Decimal = Field(gt=0, description="Minimum position size in USDT")
-    max_portfolio_exposure: Decimal = Field(gt=0, le=100, description="Max portfolio exposure as percentage")
-    max_correlation_exposure: Decimal = Field(gt=0, le=100, description="Max correlated exposure as percentage")
-    force_close_loss_percent: Decimal = Field(gt=0, le=100, description="Force close at loss percentage")
+    min_position_size: Decimal = Field(
+        gt=0, description="Minimum position size in USDT"
+    )
+    max_portfolio_exposure: Decimal = Field(
+        gt=0, le=100, description="Max portfolio exposure as percentage"
+    )
+    max_correlation_exposure: Decimal = Field(
+        gt=0, le=100, description="Max correlated exposure as percentage"
+    )
+    force_close_loss_percent: Decimal = Field(
+        gt=0, le=100, description="Force close at loss percentage"
+    )
     max_daily_trades: int = Field(gt=0, description="Maximum trades per day")
-    max_slippage_percent: Decimal = Field(ge=0, description="Maximum slippage as percentage")
+    max_slippage_percent: Decimal = Field(
+        ge=0, description="Maximum slippage as percentage"
+    )
     order_timeout_seconds: int = Field(gt=0, description="Order timeout in seconds")
 
 
@@ -67,15 +97,21 @@ class ExchangeLimits(BaseModel):
     rate_limit_per_second: int = Field(gt=0, description="API calls per second")
     max_order_size_usdt: Decimal = Field(gt=0, description="Maximum single order size")
     min_order_size_usdt: Decimal = Field(gt=0, description="Minimum order size")
-    max_websocket_connections: int = Field(gt=0, description="Maximum WebSocket connections")
+    max_websocket_connections: int = Field(
+        gt=0, description="Maximum WebSocket connections"
+    )
 
 
 class MarketConditionAdjustment(BaseModel):
     """Adjustments based on market conditions."""
 
-    position_size_multiplier: Decimal = Field(gt=0, description="Position size adjustment")
+    position_size_multiplier: Decimal = Field(
+        gt=0, description="Position size adjustment"
+    )
     stop_loss_multiplier: Decimal = Field(gt=0, description="Stop loss adjustment")
-    max_positions_multiplier: Decimal = Field(gt=0, description="Max positions adjustment")
+    max_positions_multiplier: Decimal = Field(
+        gt=0, description="Max positions adjustment"
+    )
 
 
 class TierGate(BaseModel):
@@ -85,7 +121,9 @@ class TierGate(BaseModel):
     trades_required: int = Field(gt=0, description="Number of trades required")
     win_rate_required: Decimal = Field(ge=0, le=1, description="Win rate requirement")
     days_required: int = Field(gt=0, description="Days of trading required")
-    max_drawdown_allowed: Decimal = Field(gt=0, le=100, description="Maximum drawdown allowed")
+    max_drawdown_allowed: Decimal = Field(
+        gt=0, le=100, description="Maximum drawdown allowed"
+    )
 
 
 class TradingRulesConfig(BaseModel):
@@ -104,34 +142,53 @@ class Settings(BaseSettings):
     # Trading rules configuration
     trading_rules_path: Path = Field(
         default=Path(__file__).parent / "trading_rules.yaml",
-        description="Path to trading rules YAML file"
+        description="Path to trading rules YAML file",
     )
 
     # Database settings
     database_url: str = Field(
-        default="sqlite:///genesis.db",
-        description="Database connection URL"
+        default="sqlite:///genesis.db", description="Database connection URL"
     )
 
     # Exchange settings (deprecated - use Vault)
-    exchange_api_key: str | None = Field(default=None, description="Exchange API key (deprecated)")
-    exchange_api_secret: str | None = Field(default=None, description="Exchange API secret (deprecated)")
-    exchange_testnet: bool = Field(default=True, description="Use testnet instead of mainnet")
+    exchange_api_key: str | None = Field(
+        default=None, description="Exchange API key (deprecated)"
+    )
+    exchange_api_secret: str | None = Field(
+        default=None, description="Exchange API secret (deprecated)"
+    )
+    exchange_testnet: bool = Field(
+        default=True, description="Use testnet instead of mainnet"
+    )
 
     # Vault settings
     vault_url: str | None = Field(default=None, description="HashiCorp Vault URL")
     vault_token: str | None = Field(default=None, description="HashiCorp Vault token")
-    use_vault: bool = Field(default=True, description="Use Vault for secrets (False for dev)")
-    
+    use_vault: bool = Field(
+        default=True, description="Use Vault for secrets (False for dev)"
+    )
+
     # Secrets management settings
-    secrets_backend: str = Field(default="vault", description="Secrets backend: vault, aws, local")
-    enable_key_rotation: bool = Field(default=True, description="Enable automatic API key rotation")
-    rotation_interval_days: int = Field(default=30, description="API key rotation interval in days")
-    
+    secrets_backend: str = Field(
+        default="vault", description="Secrets backend: vault, aws, local"
+    )
+    enable_key_rotation: bool = Field(
+        default=True, description="Enable automatic API key rotation"
+    )
+    rotation_interval_days: int = Field(
+        default=30, description="API key rotation interval in days"
+    )
+
     # HSM settings
-    enable_hsm: bool = Field(default=False, description="Enable Hardware Security Module")
-    hsm_type: str = Field(default="simulator", description="HSM type: simulator, softhsm, yubihsm")
-    hsm_library_path: str | None = Field(default=None, description="Path to HSM PKCS#11 library")
+    enable_hsm: bool = Field(
+        default=False, description="Enable Hardware Security Module"
+    )
+    hsm_type: str = Field(
+        default="simulator", description="HSM type: simulator, softhsm, yubihsm"
+    )
+    hsm_library_path: str | None = Field(
+        default=None, description="Path to HSM PKCS#11 library"
+    )
 
     # Logging settings
     log_level: str = Field(default="INFO", description="Logging level")
@@ -151,7 +208,7 @@ class Settings(BaseSettings):
 
     def get_vault_client(self) -> VaultClient:
         """Get or create enhanced Vault client instance with SecretsManager.
-        
+
         Returns:
             VaultClient instance
         """
@@ -160,22 +217,22 @@ class Settings(BaseSettings):
             backend_map = {
                 "vault": SecretBackend.VAULT,
                 "aws": SecretBackend.AWS,
-                "local": SecretBackend.LOCAL
+                "local": SecretBackend.LOCAL,
             }
             backend_type = backend_map.get(self.secrets_backend.lower())
-            
+
             self._vault_client = VaultClient(
                 vault_url=self.vault_url,
                 vault_token=self.vault_token,
                 use_vault=self.use_vault,
                 backend_type=backend_type,
-                enable_rotation=self.enable_key_rotation
+                enable_rotation=self.enable_key_rotation,
             )
         return self._vault_client
-    
+
     def get_secrets_manager(self) -> SecretsManager:
         """Get or create SecretsManager instance.
-        
+
         Returns:
             SecretsManager instance
         """
@@ -183,27 +240,23 @@ class Settings(BaseSettings):
             backend_map = {
                 "vault": SecretBackend.VAULT,
                 "aws": SecretBackend.AWS,
-                "local": SecretBackend.LOCAL
+                "local": SecretBackend.LOCAL,
             }
             backend = backend_map.get(self.secrets_backend.lower(), SecretBackend.LOCAL)
-            
-            config = {
-                "vault_url": self.vault_url,
-                "vault_token": self.vault_token
-            }
-            
-            self._secrets_manager = SecretsManager(
-                backend=backend,
-                config=config
-            )
+
+            config = {"vault_url": self.vault_url, "vault_token": self.vault_token}
+
+            self._secrets_manager = SecretsManager(backend=backend, config=config)
         return self._secrets_manager
 
-    def get_exchange_credentials(self, read_only: bool = False) -> dict[str, str] | None:
+    def get_exchange_credentials(
+        self, read_only: bool = False
+    ) -> dict[str, str] | None:
         """Get exchange API credentials from Vault or environment.
-        
+
         Args:
             read_only: Whether to get read-only credentials
-            
+
         Returns:
             Dictionary with 'api_key' and 'api_secret' or None
         """
@@ -223,16 +276,13 @@ class Settings(BaseSettings):
                 api_secret = self.exchange_api_secret
 
             if api_key and api_secret:
-                credentials = {
-                    "api_key": api_key,
-                    "api_secret": api_secret
-                }
+                credentials = {"api_key": api_key, "api_secret": api_secret}
 
         return credentials
 
     def get_database_encryption_key(self) -> str | None:
         """Get database encryption key from Vault or environment.
-        
+
         Returns:
             Encryption key or None
         """
@@ -242,16 +292,18 @@ class Settings(BaseSettings):
     def load_trading_rules(self) -> TradingRulesConfig:
         """
         Load and validate trading rules from YAML file.
-        
+
         Returns:
             Validated trading rules configuration
-            
+
         Raises:
             FileNotFoundError: If configuration file not found
             ValueError: If configuration is invalid
         """
         if not self.trading_rules_path.exists():
-            raise FileNotFoundError(f"Trading rules file not found: {self.trading_rules_path}")
+            raise FileNotFoundError(
+                f"Trading rules file not found: {self.trading_rules_path}"
+            )
 
         with open(self.trading_rules_path) as f:
             raw_config = yaml.safe_load(f)
@@ -261,10 +313,10 @@ class Settings(BaseSettings):
     def get_tier_limits(self, tier: TradingTier) -> dict[str, Any]:
         """
         Get tier-specific limits.
-        
+
         Args:
             tier: Trading tier
-            
+
         Returns:
             Dictionary of tier limits
         """
@@ -293,10 +345,10 @@ settings = Settings()
 def load_tier_configuration(tier: TradingTier) -> dict[str, Any]:
     """
     Load tier configuration from YAML file.
-    
+
     Args:
         tier: Trading tier to load configuration for
-        
+
     Returns:
         Dictionary containing tier limits and parameters
     """

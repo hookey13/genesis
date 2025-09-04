@@ -49,8 +49,10 @@ class ConfigValidator:
 
         # Validate each tier
         required_tier_fields = [
-            "daily_loss_limit", "position_risk_percent",
-            "max_positions", "stop_loss_percent"
+            "daily_loss_limit",
+            "position_risk_percent",
+            "max_positions",
+            "stop_loss_percent",
         ]
 
         for tier_name, tier_config in config.get("tiers", {}).items():
@@ -83,7 +85,7 @@ class ConfigValidator:
 class RuntimeConfigManager:
     """
     Manages runtime configuration with hot-reload capability.
-    
+
     Features:
     - File system monitoring for configuration changes
     - Validation before applying changes
@@ -106,12 +108,14 @@ class RuntimeConfigManager:
         self.config_files = {
             "trading_rules.yaml": "trading_rules",
             "tier_gates.yaml": "tier_gates",
-            "settings.py": "settings"
+            "settings.py": "settings",
         }
 
     async def start(self) -> None:
         """Start configuration monitoring."""
-        logger.info("Starting runtime configuration manager", config_dir=str(self.config_dir))
+        logger.info(
+            "Starting runtime configuration manager", config_dir=str(self.config_dir)
+        )
 
         # Load initial configurations
         await self.load_all_configs()
@@ -144,11 +148,11 @@ class RuntimeConfigManager:
     async def load_config(self, file_path: Path, config_type: str) -> bool:
         """
         Load and validate a configuration file.
-        
+
         Args:
             file_path: Path to configuration file
             config_type: Type of configuration
-            
+
         Returns:
             True if configuration loaded successfully
         """
@@ -179,15 +183,13 @@ class RuntimeConfigManager:
                 logger.error(
                     "Configuration validation failed",
                     config_type=config_type,
-                    errors=errors
+                    errors=errors,
                 )
                 return False
 
             # Create snapshot before applying
             snapshot = ConfigSnapshot(
-                config=config,
-                timestamp=datetime.now(),
-                checksum=checksum
+                config=config, timestamp=datetime.now(), checksum=checksum
             )
 
             # Store snapshot
@@ -197,7 +199,9 @@ class RuntimeConfigManager:
 
             # Trim old snapshots
             if len(self.snapshots[config_type]) > self.max_snapshots:
-                self.snapshots[config_type] = self.snapshots[config_type][-self.max_snapshots:]
+                self.snapshots[config_type] = self.snapshots[config_type][
+                    -self.max_snapshots :
+                ]
 
             # Apply configuration
             old_config = self.configs.get(config_type, {})
@@ -211,26 +215,24 @@ class RuntimeConfigManager:
             logger.info(
                 "Configuration loaded successfully",
                 config_type=config_type,
-                checksum=checksum[:8]
+                checksum=checksum[:8],
             )
             return True
 
         except Exception as e:
             logger.error(
-                "Failed to load configuration",
-                config_type=config_type,
-                error=str(e)
+                "Failed to load configuration", config_type=config_type, error=str(e)
             )
             return False
 
     def get_config(self, config_type: str, path: str | None = None) -> Any:
         """
         Get configuration value.
-        
+
         Args:
             config_type: Type of configuration
             path: Dot-separated path to value (e.g., "tiers.SNIPER.stop_loss_percent")
-            
+
         Returns:
             Configuration value or entire config if path not specified
         """
@@ -255,12 +257,12 @@ class RuntimeConfigManager:
     def update_config(self, config_type: str, path: str, value: Any) -> bool:
         """
         Update configuration value at runtime.
-        
+
         Args:
             config_type: Type of configuration
             path: Dot-separated path to value
             value: New value
-            
+
         Returns:
             True if update successful
         """
@@ -273,7 +275,7 @@ class RuntimeConfigManager:
             timestamp=datetime.now(),
             checksum=hashlib.sha256(
                 json.dumps(self.configs[config_type], sort_keys=True).encode()
-            ).hexdigest()
+            ).hexdigest(),
         )
 
         try:
@@ -293,7 +295,9 @@ class RuntimeConfigManager:
             config[parts[-1]] = value
 
             # Validate new configuration
-            errors = ConfigValidator.validate_config(config_type, self.configs[config_type])
+            errors = ConfigValidator.validate_config(
+                config_type, self.configs[config_type]
+            )
             if errors:
                 # Rollback
                 config[parts[-1]] = old_value
@@ -301,7 +305,7 @@ class RuntimeConfigManager:
                     "Configuration update failed validation",
                     config_type=config_type,
                     path=path,
-                    errors=errors
+                    errors=errors,
                 )
                 return False
 
@@ -320,7 +324,7 @@ class RuntimeConfigManager:
                 config_type=config_type,
                 path=path,
                 old_value=old_value,
-                new_value=value
+                new_value=value,
             )
             return True
 
@@ -329,25 +333,24 @@ class RuntimeConfigManager:
                 "Failed to update configuration",
                 config_type=config_type,
                 path=path,
-                error=str(e)
+                error=str(e),
             )
             return False
 
     def rollback_config(self, config_type: str, reason: str) -> bool:
         """
         Rollback to previous configuration snapshot.
-        
+
         Args:
             config_type: Type of configuration to rollback
             reason: Reason for rollback
-            
+
         Returns:
             True if rollback successful
         """
         if config_type not in self.snapshots or len(self.snapshots[config_type]) < 2:
             logger.warning(
-                "No previous snapshot available for rollback",
-                config_type=config_type
+                "No previous snapshot available for rollback", config_type=config_type
             )
             return False
 
@@ -366,9 +369,7 @@ class RuntimeConfigManager:
             # Notify subscribers
             asyncio.create_task(
                 self.notify_subscribers(
-                    config_type,
-                    current_snapshot.config,
-                    previous_snapshot.config
+                    config_type, current_snapshot.config, previous_snapshot.config
                 )
             )
 
@@ -376,7 +377,7 @@ class RuntimeConfigManager:
                 "Configuration rolled back",
                 config_type=config_type,
                 reason=reason,
-                restored_timestamp=previous_snapshot.timestamp
+                restored_timestamp=previous_snapshot.timestamp,
             )
             return True
 
@@ -384,14 +385,14 @@ class RuntimeConfigManager:
             logger.error(
                 "Failed to rollback configuration",
                 config_type=config_type,
-                error=str(e)
+                error=str(e),
             )
             return False
 
     def subscribe(self, config_type: str, callback: Callable) -> None:
         """
         Subscribe to configuration changes.
-        
+
         Args:
             config_type: Type of configuration to monitor
             callback: Async function to call on changes
@@ -402,13 +403,13 @@ class RuntimeConfigManager:
         logger.debug(
             "Configuration subscriber added",
             config_type=config_type,
-            callback=callback.__name__
+            callback=callback.__name__,
         )
 
     def unsubscribe(self, config_type: str, callback: Callable) -> None:
         """
         Unsubscribe from configuration changes.
-        
+
         Args:
             config_type: Type of configuration
             callback: Callback to remove
@@ -417,10 +418,7 @@ class RuntimeConfigManager:
             self.subscribers[config_type].discard(callback)
 
     async def notify_subscribers(
-        self,
-        config_type: str,
-        old_config: dict[str, Any],
-        new_config: dict[str, Any]
+        self, config_type: str, old_config: dict[str, Any], new_config: dict[str, Any]
     ) -> None:
         """Notify subscribers of configuration changes."""
         if config_type not in self.subscribers:
@@ -437,7 +435,7 @@ class RuntimeConfigManager:
                     "Failed to notify configuration subscriber",
                     config_type=config_type,
                     callback=callback.__name__,
-                    error=str(e)
+                    error=str(e),
                 )
 
     def start_file_monitoring(self) -> None:
@@ -455,7 +453,7 @@ class RuntimeConfigManager:
                         logger.info(
                             "Configuration file modified",
                             file=file_path.name,
-                            config_type=config_type
+                            config_type=config_type,
                         )
                         # Schedule reload
                         asyncio.create_task(
@@ -489,16 +487,12 @@ class RuntimeConfigManager:
                 return False
 
             logger.info(
-                "Configuration exported",
-                config_type=config_type,
-                file_path=file_path
+                "Configuration exported", config_type=config_type, file_path=file_path
             )
             return True
 
         except Exception as e:
             logger.error(
-                "Failed to export configuration",
-                config_type=config_type,
-                error=str(e)
+                "Failed to export configuration", config_type=config_type, error=str(e)
             )
             return False

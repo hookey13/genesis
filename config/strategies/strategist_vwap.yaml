@@ -1,0 +1,176 @@
+# Strategist Tier - VWAP Execution Strategy Configuration
+# Advanced VWAP strategy with sophisticated execution algorithms
+# Tier Limits: Max 20 positions, $5000 max order, 20% daily loss limit
+
+strategy:
+  name: "StrategistVWAP"
+  version: "1.0.0"
+  tier: "strategist"
+  enabled: true
+  description: "Advanced VWAP execution strategy for Strategist tier"
+
+parameters:
+  min_profit_pct: 0.2         # Lower minimum due to volume advantages
+  max_position_pct: 0.10      # Max 10% of account per position
+  stop_loss_pct: 3.0          # 3% stop loss (wider for VWAP)
+  take_profit_pct: 2.0        # 2% take profit target
+  min_order_size: 100.0       # Minimum order size in USDT
+  max_order_size: 5000.0      # Maximum order size in USDT (tier limit)
+  
+  # VWAP Specific Parameters
+  vwap_periods: 20            # Number of periods for VWAP calculation
+  volume_participation: 0.05   # Max 5% of market volume
+  slice_count: 10             # Split large orders into 10 slices
+  time_weighted: true         # Use time-weighted average
+  aggressive_in_range: true   # Aggressive when price near VWAP
+  passive_out_range: true     # Passive when price far from VWAP
+  vwap_bands_mult: 2.0        # Standard deviation multiplier for bands
+  
+risk_limits:
+  max_positions: 20           # Strategist tier: up to 20 positions
+  max_daily_loss_pct: 20.0    # Maximum 20% daily loss
+  max_correlation: 0.3        # Very low correlation for diversification
+  max_per_symbol: 5           # Maximum positions per trading symbol
+  max_sector_exposure: 0.3    # Maximum 30% exposure to any sector
+  var_limit: 0.15             # Value at Risk limit (15%)
+  
+execution:
+  order_type: "limit"         # Primarily limit orders
+  time_in_force: "GTX"        # Post-only orders for maker fees
+  retry_attempts: 10          # Many retry attempts
+  retry_delay_ms: 50          # Fast retries for Strategist tier
+  slippage_tolerance_pct: 0.05 # Tight slippage control
+  use_iceberg: true           # Always use iceberg for large orders
+  iceberg_chunk_pct: 10       # Split into 10% chunks
+  adaptive_sizing: true       # Adapt order size to market conditions
+  smart_routing: true         # Use smart order routing
+  
+# VWAP Execution Algorithm
+vwap_execution:
+  algorithm: "enhanced"       # enhanced, standard, or adaptive
+  lookback_window: 60         # Minutes of historical data
+  participation_rate: 0.03    # Target 3% of volume
+  min_fill_rate: 0.8          # Minimum 80% fill rate required
+  urgency_level: "medium"     # low, medium, high
+  start_time_offset: 0        # Seconds to wait before starting
+  end_time_limit: 3600        # Maximum execution time in seconds
+  price_improvement: true     # Seek price improvement
+  dark_pool_enabled: false    # Use dark pools if available
+  
+monitoring:
+  log_level: "INFO"           # Standard logging level
+  metrics_interval_seconds: 10 # Frequent metrics for active trading
+  alert_on_loss: true         # Alert when position goes negative
+  performance_tracking: true   # Track strategy performance metrics
+  position_monitoring: true    # Monitor all open positions
+  execution_analysis: true    # Analyze execution quality
+  slippage_tracking: true     # Track and report slippage
+  
+# Position Management
+position_management:
+  scaling_enabled: true       # Enable position scaling
+  scale_in_threshold: 1.0     # Scale in at 1% drawdown
+  scale_out_threshold: 1.5    # Scale out at 1.5% profit
+  max_scales: 5               # Maximum scaling operations
+  trailing_stop_enabled: true  # Enable trailing stops
+  trailing_stop_distance: 1.5  # Trailing stop distance
+  dynamic_sizing: true        # Adjust position size dynamically
+  kelly_criterion: true       # Use Kelly criterion for sizing
+  max_kelly_fraction: 0.25    # Maximum 25% Kelly
+  
+# Signal Generation
+signals:
+  primary_timeframe: "1m"     # 1-minute bars for precision
+  secondary_timeframe: "5m"   # 5-minute for context
+  tertiary_timeframe: "15m"   # 15-minute for trend
+  min_volume_24h: 10000000    # Minimum $10M daily volume
+  required_confirmations: 3    # Multiple confirmations needed
+  signal_strength_min: 0.7    # High signal strength required
+  use_ml_signals: true        # Enable ML-based signals
+  ensemble_voting: true       # Use ensemble of signals
+  
+# Market Making Features
+market_making:
+  enabled: true               # Enable market making mode
+  spread_basis_points: 10     # Target spread in bps
+  inventory_target: 0.5       # Target 50% inventory
+  skew_enabled: true          # Enable bid/ask skewing
+  quote_levels: 3             # Number of quote levels
+  refresh_interval_ms: 1000   # Quote refresh interval
+  
+# Statistical Arbitrage
+stat_arb:
+  enabled: true               # Enable stat arb features
+  pair_threshold: 0.8         # Correlation threshold for pairs
+  zscore_entry: 2.0           # Z-score for entry
+  zscore_exit: 0.5            # Z-score for exit
+  lookback_periods: 100       # Periods for correlation calc
+  half_life: 20               # Mean reversion half-life
+  
+# A/B Testing Variants
+variants:
+  - name: "conservative"
+    parameters:
+      max_position_pct: 0.05   # Smaller positions
+      slice_count: 20          # More slices for safety
+    vwap_execution:
+      participation_rate: 0.02 # Lower participation
+      urgency_level: "low"     # Less urgent execution
+  - name: "aggressive"
+    parameters:
+      max_position_pct: 0.15   # Larger positions
+      slice_count: 5           # Fewer slices for speed
+    vwap_execution:
+      participation_rate: 0.05 # Higher participation
+      urgency_level: "high"    # More urgent execution
+
+# Environment-specific overrides
+overrides:
+  dev:
+    parameters:
+      min_order_size: 10.0     # Small orders in dev
+      max_order_size: 500.0    # Limited size in dev
+    risk_limits:
+      max_positions: 5         # Fewer positions in dev
+    monitoring:
+      log_level: "DEBUG"       # Verbose logging
+    vwap_execution:
+      algorithm: "standard"    # Simple algorithm in dev
+  staging:
+    parameters:
+      max_order_size: 2000.0   # Moderate size in staging
+    risk_limits:
+      max_positions: 10        # Moderate positions
+    vwap_execution:
+      participation_rate: 0.02 # Conservative in staging
+  prod:
+    monitoring:
+      log_level: "INFO"        # Standard logging
+      metrics_interval_seconds: 5 # Very frequent metrics
+      execution_analysis: true  # Always analyze execution
+      
+# Advanced Settings
+advanced:
+  price_precision: 8           # Decimal places for price
+  quantity_precision: 8        # Decimal places for quantity
+  min_spread_bps: 2            # Minimum spread in basis points
+  max_latency_ms: 50           # Ultra-low latency required
+  cooldown_seconds: 10         # Short cooldown for high frequency
+  max_open_time_seconds: 7200  # Maximum 2 hours per position
+  correlation_window: 200      # Correlation calculation window
+  volatility_adjustment: true  # Adjust for volatility
+  market_regime_detection: true # Detect market regimes
+  microstructure_analysis: true # Analyze market microstructure
+  order_book_imbalance: true   # Use order book imbalance signals
+  toxic_flow_detection: true   # Detect and avoid toxic flow
+  quote_stuffing_protection: true # Protect against quote stuffing
+  
+# Performance Optimization
+optimization:
+  auto_optimize: true          # Enable automatic optimization
+  optimization_interval: 86400 # Optimize daily (seconds)
+  backtest_periods: 30         # Days of backtest data
+  walk_forward_periods: 7      # Walk-forward validation days
+  parameter_search: "bayesian"  # grid, random, or bayesian
+  objective_function: "sharpe"  # sharpe, sortino, or custom
+  min_sample_size: 1000        # Minimum trades for optimization

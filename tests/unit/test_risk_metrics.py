@@ -184,15 +184,25 @@ class TestRiskMetricsCalculator:
 
     def test_extremely_negative_risk_free_rate_warning(self, caplog):
         """Test warning for extremely negative risk-free rate."""
-        import logging
-
-        caplog.set_level(logging.WARNING)
+        import structlog
+        from structlog.testing import LogCapture
+        
+        # Configure structlog to use LogCapture for testing
+        log_output = LogCapture()
+        structlog.configure(
+            processors=[log_output]
+        )
 
         # This should trigger a warning
         calculator = RiskMetricsCalculator(risk_free_rate=Decimal("-0.15"))
 
-        assert "Extremely negative risk-free rate" in caplog.text
+        # Check that the warning was logged
+        assert len(log_output.entries) == 1
+        assert "Extremely negative risk-free rate" in str(log_output.entries[0]["event"])
         assert calculator.risk_free_rate == Decimal("-0.15")
+        
+        # Reset structlog configuration
+        structlog.configure()
 
     def test_calculate_max_drawdown(self, calculator):
         """Test maximum drawdown calculation."""

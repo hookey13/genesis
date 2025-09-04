@@ -1,0 +1,109 @@
+# Hunter Tier - Mean Reversion Strategy Configuration
+# This strategy trades multiple pairs simultaneously looking for mean reversion
+# Tier Limits: Max 5 positions, $500 max order, 10% daily loss limit
+
+strategy:
+  name: "HunterMeanReversion"
+  version: "1.0.0"
+  tier: "hunter"
+  enabled: true
+  description: "Mean reversion strategy for Hunter tier traders"
+
+parameters:
+  min_profit_pct: 0.5         # Minimum profit percentage to trigger trade
+  max_position_pct: 0.05      # Max 5% of account per position
+  stop_loss_pct: 2.0          # 2% stop loss
+  take_profit_pct: 1.0        # 1% take profit
+  min_order_size: 50.0        # Minimum order size in USDT
+  max_order_size: 500.0       # Maximum order size in USDT (tier limit)
+  
+  # Mean Reversion Specific
+  lookback_periods: 20        # Number of periods for mean calculation
+  std_dev_threshold: 2.0      # Standard deviations from mean to trigger
+  reversion_confidence: 0.7   # Confidence threshold for reversion signal
+  
+risk_limits:
+  max_positions: 5            # Hunter tier: up to 5 concurrent positions
+  max_daily_loss_pct: 10.0    # Maximum 10% daily loss
+  max_correlation: 0.5        # Lower correlation limit for diversification
+  max_per_symbol: 2           # Maximum positions per trading symbol
+  
+execution:
+  order_type: "limit"         # Limit orders for better entry
+  time_in_force: "GTC"        # Good till cancelled
+  retry_attempts: 5           # More retry attempts for Hunter tier
+  retry_delay_ms: 200         # 200ms delay between retries
+  slippage_tolerance_pct: 0.15 # Slightly higher slippage tolerance
+  use_iceberg: true           # Enable iceberg orders for larger sizes
+  iceberg_chunk_pct: 20       # Split orders into 20% chunks
+  
+monitoring:
+  log_level: "INFO"           # Standard logging level
+  metrics_interval_seconds: 30 # Report metrics every 30 seconds
+  alert_on_loss: true         # Alert when position goes negative
+  performance_tracking: true   # Track strategy performance metrics
+  position_monitoring: true    # Monitor all open positions
+  
+# Position Management
+position_management:
+  scaling_enabled: true       # Enable position scaling
+  scale_in_threshold: 0.5     # Scale in at 0.5% drawdown
+  scale_out_threshold: 0.8    # Scale out at 0.8% profit
+  max_scales: 3               # Maximum number of scale operations
+  trailing_stop_enabled: true  # Enable trailing stops
+  trailing_stop_distance: 1.0  # Trailing stop distance in percent
+
+# Signal Generation
+signals:
+  primary_timeframe: "5m"     # Primary timeframe for signals
+  secondary_timeframe: "15m"  # Secondary timeframe for confirmation
+  min_volume_24h: 1000000     # Minimum 24h volume in USDT
+  required_confirmations: 2    # Number of confirmations needed
+  signal_strength_min: 0.6    # Minimum signal strength
+
+# A/B Testing Variants (optional)
+variants:
+  - name: "conservative"
+    parameters:
+      std_dev_threshold: 2.5   # More conservative entry
+      max_position_pct: 0.03   # Smaller positions
+    risk_limits:
+      max_positions: 3         # Fewer concurrent positions
+  - name: "aggressive"
+    parameters:
+      std_dev_threshold: 1.5   # More aggressive entry
+      max_position_pct: 0.07   # Larger positions
+    risk_limits:
+      max_positions: 5         # Maximum positions
+
+# Environment-specific overrides
+overrides:
+  dev:
+    parameters:
+      min_order_size: 10.0     # Smaller orders in dev
+      max_order_size: 100.0    # Limited size in dev
+    risk_limits:
+      max_positions: 2         # Fewer positions in dev
+    monitoring:
+      log_level: "DEBUG"       # Verbose logging in development
+  staging:
+    parameters:
+      max_order_size: 250.0    # Half size in staging
+    risk_limits:
+      max_positions: 3         # Moderate positions in staging
+  prod:
+    monitoring:
+      alert_on_loss: true      # Always alert in production
+      metrics_interval_seconds: 10 # More frequent metrics in prod
+      
+# Advanced Settings
+advanced:
+  price_precision: 8           # Decimal places for price
+  quantity_precision: 8        # Decimal places for quantity
+  min_spread_bps: 5            # Minimum spread in basis points
+  max_latency_ms: 200          # Maximum acceptable latency
+  cooldown_seconds: 60         # Cooldown between trades
+  max_open_time_seconds: 1800  # Maximum 30 minutes per position
+  correlation_window: 100      # Correlation calculation window
+  volatility_adjustment: true  # Adjust parameters based on volatility
+  market_regime_detection: true # Detect and adapt to market regimes
